@@ -1,0 +1,18 @@
+site_name: open.hoikuict.net
+site_url: https://open.hoikuict.net/
+theme:
+  name: material
+  language: ja
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+
+nav:
+  - はじめに: index.md
+  - 導入ロードマップ: roadmap.md
+  - セキュリティ最低ライン: security.md
+  - 園内運用テンプレ: templates.md
+  - FAQ: faq.md
