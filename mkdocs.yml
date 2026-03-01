@@ -1,3 +1,6 @@
+repo_name: hoikuict/open-hoikuict
+repo_url: https://github.com/hoikuict/open-hoikuict
+edit_uri: edit/main/docs/
 site_name: open.hoikuict.net
 site_url: https://open.hoikuict.net/
 theme:
