@@ -1,2 +1,7 @@
 mkdocs<2
 mkdocs-material==9.7.3
+fastapi
+uvicorn[standard]
+sqlmodel
+jinja2
+python-multipart
