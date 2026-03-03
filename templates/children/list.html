@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}園児名簿 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-xl font-bold text-gray-700">園児名簿</h1>
+  <div class="flex gap-2">
+    <a href="/children/new" class="no-print px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
+      ＋ 新規追加
+    </a>
+    <button onclick="window.print()"
+    class="no-print bg-white border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded hover:bg-gray-100">
+    🖨 印刷
+  </button>
+  </div>
+</div>
+
+<!-- フィルター・表示設定パネル -->
+<div class="no-print bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
+
+  <form id="filter-form"
+    hx-get="/children/table"
+    hx-target="#table-area"
+    hx-trigger="change"
+    hx-include="#filter-form">
+
+    <!-- 在籍ステータスフィルター -->
+    <div class="flex items-center gap-4 mb-3">
+      <span class="text-sm font-medium text-gray-600 w-20">在籍状況</span>
+      <label class="flex items-center gap-1 text-sm">
+        <input type="radio" name="status" value="enrolled"
+          {% if current_status == 'enrolled' %}checked{% endif %}> 在園
+      </label>
+      <label class="flex items-center gap-1 text-sm">
+        <input type="radio" name="status" value="all"
+          {% if current_status == 'all' %}checked{% endif %}> すべて
+      </label>
+      <label class="flex items-center gap-1 text-sm">
+        <input type="radio" name="status" value="graduated"
+          {% if current_status == 'graduated' %}checked{% endif %}> 卒園
+      </label>
+      <label class="flex items-center gap-1 text-sm">
+        <input type="radio" name="status" value="withdrawn"
+          {% if current_status == 'withdrawn' %}checked{% endif %}> 退園
+      </label>
+    </div>
+
+    <!-- 表示カラム選択 -->
+    <div class="flex items-start gap-4">
+      <span class="text-sm font-medium text-gray-600 w-20 mt-0.5">表示項目</span>
+      <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+        {% for field in all_fields %}
+        <label class="flex items-center gap-1 text-sm">
+          <input type="checkbox" name="fields" value="{{ field.key }}"
+            {% if field.key in selected_fields %}checked{% endif %}>
+          {{ field.label }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<!-- テーブルエリア（HTMXで差し替え） -->
+<div id="table-area">
+  {% include "children/_table.html" %}
+</div>
+
+{% endblock %}

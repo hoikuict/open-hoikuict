@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}open-hoikuict{% endblock %}</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { font-size: 11px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 4px 8px; }
+      thead { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- ナビゲーション -->
+  <nav class="no-print bg-indigo-700 text-white px-6 py-3 flex items-center gap-6 shadow">
+    <span class="font-bold text-lg">🏫 open-hoikuict</span>
+    <a href="/children" class="hover:underline text-sm">園児名簿</a>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>
