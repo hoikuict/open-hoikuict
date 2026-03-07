@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from models import Child, ChildStatus, Guardian, CHILD_FIELDS
 from database import engine
+from auth import get_mock_current_user, require_can_edit
 
 router = APIRouter(prefix="/children", tags=["children"])
 templates = Jinja2Templates(directory="templates")
@@ -24,6 +25,7 @@ def list_children(
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
+    current_user=Depends(get_mock_current_user),
 ):
     """名簿一覧ページ"""
     stmt = select(Child).options(selectinload(Child.guardians), selectinload(Child.older_sibling))
@@ -43,6 +45,7 @@ def list_children(
         "selected_fields": fields,
         "current_status": status,
         "total": len(children),
+        "current_user": current_user,
     })
 
 
@@ -52,6 +55,7 @@ def children_table(
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
+    current_user=Depends(get_mock_current_user),
 ):
     """HTMX用: テーブル部分だけ返す"""
     stmt = select(Child).options(selectinload(Child.guardians), selectinload(Child.older_sibling))
@@ -71,6 +75,7 @@ def children_table(
         "selected_fields": fields,
         "field_labels": field_labels,
         "total": len(children),
+        "current_user": current_user,
     })
 
 
@@ -89,8 +94,10 @@ def new_child_form(
     request: Request,
     sibling_id: Optional[int] = Query(None, description="兄姉のID（情報を引き継ぐ）"),
     session: Session = Depends(get_session),
+    current_user=Depends(get_mock_current_user),
 ):
     """新規園児登録フォーム（兄姉から引き継ぐ場合はsibling_idを指定）"""
+    require_can_edit(current_user)
     inherit_from = None
     if sibling_id:
         stmt = select(Child).options(selectinload(Child.guardians), selectinload(Child.older_sibling)).where(Child.id == sibling_id)
@@ -114,6 +121,7 @@ def new_child_form(
             "inherit_from": inherit_from,
             "older_sibling_id": sibling_id,
             "all_children": all_children,
+            "current_user": current_user,
         })
     return templates.TemplateResponse("children/form.html", {
         "request": request,
@@ -126,6 +134,7 @@ def new_child_form(
         "inherit_from": None,
         "older_sibling_id": None,
         "all_children": all_children,
+        "current_user": current_user,
     })
 
 
@@ -182,6 +191,7 @@ def _form_data_for_create(
 @router.post("/")
 def create_child(
     request: Request,
+    current_user=Depends(get_mock_current_user),
     last_name: str = Form(...),
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
@@ -218,6 +228,7 @@ def create_child(
     session: Session = Depends(get_session),
 ):
     """園児を新規登録"""
+    require_can_edit(current_user)
     bd = _parse_date(birth_date)
     ed = _parse_date(enrollment_date)
     wd = _parse_date(withdrawal_date)
@@ -252,6 +263,7 @@ def create_child(
             "all_children": all_children,
             "form_error": "生年月日と入園日は必須です。正しい日付を入力してください。",
             "form_data": form_data,
+            "current_user": current_user,
         }, status_code=400)
     try:
         st = ChildStatus(status)
@@ -300,8 +312,10 @@ def edit_child_form(
     request: Request,
     child_id: int,
     session: Session = Depends(get_session),
+    current_user=Depends(get_mock_current_user),
 ):
     """園児編集フォーム"""
+    require_can_edit(current_user)
     stmt = select(Child).options(selectinload(Child.guardians), selectinload(Child.older_sibling)).where(Child.id == child_id)
     child = session.exec(stmt).first()
     if not child:
@@ -317,6 +331,7 @@ def edit_child_form(
         "action_url": f"/children/{child_id}/edit",
         "submit_label": "更新する",
         "page_title": f"{child.full_name} を編集",
+        "current_user": current_user,
     })
 
 
@@ -324,6 +339,7 @@ def edit_child_form(
 def update_child(
     request: Request,
     child_id: int,
+    current_user=Depends(get_mock_current_user),
     last_name: str = Form(...),
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
@@ -357,6 +373,7 @@ def update_child(
     session: Session = Depends(get_session),
 ):
     """園児を更新"""
+    require_can_edit(current_user)
     stmt = select(Child).options(selectinload(Child.guardians), selectinload(Child.older_sibling)).where(Child.id == child_id)
     child = session.exec(stmt).first()
     if not child:
@@ -404,6 +421,7 @@ def update_child(
             "all_children": [],
             "form_error": "生年月日と入園日は必須です。正しい日付を入力してください。",
             "form_data": form_data,
+            "current_user": current_user,
         }, status_code=400)
 
     try:

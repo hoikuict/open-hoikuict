@@ -5,9 +5,11 @@
 <div class="mb-4 flex items-center justify-between">
   <h1 class="text-xl font-bold text-gray-700">園児名簿</h1>
   <div class="flex gap-2">
+    {% if current_user and current_user.can_edit %}
     <a href="/children/new" class="no-print px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
       ＋ 新規追加
     </a>
+    {% endif %}
     <button onclick="window.print()"
     class="no-print bg-white border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded hover:bg-gray-100">
     🖨 印刷
