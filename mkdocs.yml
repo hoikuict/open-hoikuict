@@ -21,3 +21,5 @@ nav:
   - セキュリティ最低ライン: security.md
   - 園内運用テンプレ: templates.md
   - FAQ: faq.md
+extra_css:
+  - stylesheets/extra.css
