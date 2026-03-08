@@ -26,7 +26,9 @@
             {{ field_labels.get(key, key) }}
           </th>
           {% endfor %}
+          {% if current_user and current_user.can_edit %}
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap no-print">操作</th>
+          {% endif %}
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
@@ -61,14 +63,16 @@
             {% endif %}
           </td>
           {% endfor %}
+          {% if current_user and current_user.can_edit %}
           <td class="px-4 py-2 whitespace-nowrap no-print">
             <a href="/children/{{ child.id }}/edit" class="text-indigo-600 hover:underline text-sm">編集</a>
             <a href="/children/new?sibling_id={{ child.id }}" class="text-indigo-600 hover:underline text-sm ml-2">兄弟</a>
           </td>
+          {% endif %}
         </tr>
         {% else %}
         <tr>
-          <td colspan="{{ selected_fields|length + 1 }}" class="px-4 py-8 text-center text-gray-400">
+          <td colspan="{{ (selected_fields|length + 1) if (current_user and current_user.can_edit) else selected_fields|length }}" class="px-4 py-8 text-center text-gray-400">
             該当する園児がいません
           </td>
         </tr>

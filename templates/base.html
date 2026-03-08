@@ -27,6 +27,17 @@
   <nav class="no-print bg-indigo-700 text-white px-6 py-3 flex items-center gap-6 shadow">
     <span class="font-bold text-lg">🏫 open-hoikuict</span>
     <a href="/children" class="hover:underline text-sm">園児名簿</a>
+    <a href="/attendance" class="hover:underline text-sm">登降園管理</a>
+    <a href="/guardian" class="hover:underline text-sm">保護者打刻</a>
+    <!-- モック用：権限切り替え（認証実装後に削除） -->
+    {% if current_user is defined and current_user %}
+    <div class="ml-auto flex items-center gap-2 text-sm">
+      <span class="text-indigo-200">表示中:</span>
+      <a href="/switch-role?role=view_only&redirect={{ request.url.path }}" class="px-2 py-0.5 rounded {% if current_user.role.value == 'view_only' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">閲覧のみ</a>
+      <a href="/switch-role?role=can_edit&redirect={{ request.url.path }}" class="px-2 py-0.5 rounded {% if current_user.role.value == 'can_edit' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">編集可</a>
+      <a href="/switch-role?role=admin&redirect={{ request.url.path }}" class="px-2 py-0.5 rounded {% if current_user.role.value == 'admin' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">管理者</a>
+    </div>
+    {% endif %}
   </nav>
 
   <main class="max-w-7xl mx-auto px-4 py-6">

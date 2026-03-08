@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}登降園管理 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-center justify-between gap-3 flex-wrap">
+  <h1 class="text-xl font-bold text-gray-700">登降園管理</h1>
+  <form method="get" action="/attendance" class="no-print flex items-center gap-2">
+    <label for="target-date" class="text-sm text-gray-600">対象日</label>
+    <input
+      id="target-date"
+      type="date"
+      name="date"
+      value="{{ target_date_value }}"
+      class="px-3 py-1.5 border border-gray-300 rounded text-sm"
+    >
+    <button type="submit" class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">表示</button>
+  </form>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">在園児</p>
+    <p class="text-2xl font-semibold text-gray-800">{{ total_children }} 名</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">登園済み</p>
+    <p class="text-2xl font-semibold text-green-700">{{ checked_in_count }} 名</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">降園済み</p>
+    <p class="text-2xl font-semibold text-blue-700">{{ checked_out_count }} 名</p>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="px-4 py-2 border-b border-gray-100 text-sm text-gray-500">
+    未登園 {{ not_checked_in_count }} 名
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-indigo-50 text-indigo-800">
+        <tr>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">園児名</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">登園</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">降園</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">状態</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">お迎え予定時刻</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">お迎え予定者</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap no-print">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for child in children %}
+        {% set record = records_by_child.get(child.id) %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2 whitespace-nowrap">{{ child.full_name }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ record.check_in_at.strftime("%H:%M") if record and record.check_in_at else "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ record.check_out_at.strftime("%H:%M") if record and record.check_out_at else "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            {% if not record or not record.check_in_at %}
+              <span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">未登園</span>
+            {% elif not record.check_out_at %}
+              <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">在園中</span>
+            {% else %}
+              <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">降園済み</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ record.planned_pickup_time if record and record.planned_pickup_time else "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ record.pickup_person if record and record.pickup_person else "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap no-print">
+            {% if current_user and current_user.can_edit %}
+              {% if not record or not record.check_in_at %}
+              <form method="post" action="/attendance/{{ child.id }}/check-in" class="inline">
+                <input type="hidden" name="date" value="{{ target_date_value }}">
+                <button type="submit" class="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">登園打刻</button>
+              </form>
+              {% elif not record.check_out_at %}
+              <form method="post" action="/attendance/{{ child.id }}/check-out" class="inline">
+                <input type="hidden" name="date" value="{{ target_date_value }}">
+                <button type="submit" class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">降園打刻</button>
+              </form>
+              {% else %}
+              <span class="text-xs text-gray-400">完了</span>
+              {% endif %}
+            {% else %}
+            <span class="text-xs text-gray-400">閲覧のみ</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="px-4 py-8 text-center text-gray-400">在園児がいません</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
