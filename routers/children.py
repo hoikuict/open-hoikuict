@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
 from models import Child, ChildStatus, Guardian, CHILD_FIELDS
-from database import engine
+from database import engine, seed_classroom_data
 from auth import get_mock_current_user, require_can_edit
 
 router = APIRouter(prefix="/children", tags=["children"])
@@ -304,6 +304,7 @@ def create_child(
         session.add(g2)
 
     session.commit()
+    seed_classroom_data()
     return RedirectResponse(url="/children/", status_code=303)
 
 
@@ -465,4 +466,7 @@ def update_child(
         session.add(g2)
 
     session.commit()
+    seed_classroom_data()
     return RedirectResponse(url="/children/", status_code=303)
+
+

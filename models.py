@@ -1,8 +1,9 @@
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, Optional
-from sqlmodel import Field, SQLModel, Column, Relationship
-from sqlalchemy import JSON
+
+from sqlalchemy import JSON, UniqueConstraint
+from sqlmodel import Column, Field, Relationship, SQLModel
 
 
 class ChildStatus(str, Enum):
@@ -35,6 +36,18 @@ CHILD_FIELDS = [
 ]
 
 
+class Classroom(SQLModel, table=True):
+    __tablename__ = "classrooms"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    display_order: int = Field(default=1, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    children: list["Child"] = Relationship(back_populates="classroom")
+
+
 class Child(SQLModel, table=True):
     __tablename__ = "children"
 
@@ -49,6 +62,7 @@ class Child(SQLModel, table=True):
     enrollment_date: date
     withdrawal_date: Optional[date] = None
     status: ChildStatus = Field(default=ChildStatus.enrolled)
+    classroom_id: Optional[int] = Field(default=None, foreign_key="classrooms.id")
 
     # 自宅連絡先
     home_address: Optional[str] = None
@@ -73,6 +87,8 @@ class Child(SQLModel, table=True):
 
     # 保護者（1人または2人）
     guardians: list["Guardian"] = Relationship(back_populates="child")
+    attendance_records: list["AttendanceRecord"] = Relationship(back_populates="child")
+    classroom: Optional[Classroom] = Relationship(back_populates="children")
 
     @property
     def full_name(self):
@@ -140,3 +156,24 @@ class Guardian(SQLModel, table=True):
     @property
     def full_name(self) -> str:
         return f"{self.last_name} {self.first_name}"
+
+
+class AttendanceRecord(SQLModel, table=True):
+    """登降園の打刻記録（1園児1日1レコード）"""
+    __tablename__ = "attendance_records"
+    __table_args__ = (
+        UniqueConstraint("child_id", "attendance_date", name="uq_attendance_child_date"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    attendance_date: date = Field(index=True)
+    check_in_at: Optional[datetime] = None
+    check_out_at: Optional[datetime] = None
+    planned_pickup_time: Optional[str] = None
+    pickup_person: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    child: Optional["Child"] = Relationship(back_populates="attendance_records")

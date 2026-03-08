@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}保存完了 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <section class="bg-white border border-green-200 rounded-lg p-6 shadow-sm text-center">
+    <h1 class="text-2xl font-bold text-green-700 mb-2">{{ message }}</h1>
+    <p class="text-sm text-gray-600 mb-4">1秒後に初期画面へ戻ります。</p>
+    <a href="{{ redirect_url }}" class="text-sm text-indigo-600 hover:underline">すぐに戻る</a>
+  </section>
+</div>
+
+<script>
+  setTimeout(function () {
+    window.location.href = "{{ redirect_url }}";
+  }, {{ redirect_ms }});
+</script>
+{% endblock %}
