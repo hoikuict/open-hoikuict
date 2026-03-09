@@ -17,9 +17,6 @@ plugins:
   - search
 nav:
   - はじめに: index.md
-  - プロダクト仕様:
-    - AI向け仕様書: spec-ai.md
-    - 人間向け仕様書: spec-human.md
   - 導入ロードマップ: roadmap.md
   - セキュリティ最低ライン: security.md
   - 園内運用テンプレ: templates.md
