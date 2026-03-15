@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: .
+    container_name: open-hoikuict
+    restart: unless-stopped
+    environment:
+      PORT: ${PORT:-8000}
+      PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-1}
+      DEMO_SESSION_TTL_MINUTES: ${DEMO_SESSION_TTL_MINUTES:-120}
+      DEMO_SESSION_INPUT_LIMIT_BYTES: ${DEMO_SESSION_INPUT_LIMIT_BYTES:-65536}
+      DEMO_MAX_REQUEST_BODY_BYTES: ${DEMO_MAX_REQUEST_BODY_BYTES:-16384}
+      DEMO_SECURE_COOKIES: ${DEMO_SECURE_COOKIES:-1}
+    ports:
+      - "${PORT:-8000}:8000"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: open-hoikuict-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from pathlib import Path
+from typing import Optional
 
+from fastapi import Request
 from sqlalchemy import text
+from sqlalchemy.engine import Engine
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
@@ -18,29 +22,45 @@ DEFAULT_CLASSROOMS = [
 ]
 
 
-def get_session():
-    with Session(engine) as session:
+def _resolve_engine(db_engine: Optional[Engine] = None) -> Engine:
+    return db_engine or engine
+
+
+def get_session(request: Request):
+    resolved_engine = engine
+    if request is not None:
+        from demo_runtime import DEMO_SESSION_COOKIE_NAME, get_demo_session_manager, is_public_demo_enabled
+
+        if is_public_demo_enabled():
+            session_id = getattr(request.state, "demo_session_id", None) or request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+            if session_id:
+                resolved_engine = get_demo_session_manager().get_engine(session_id)
+
+    with Session(resolved_engine) as session:
         yield session
 
 
-def create_db_and_tables() -> None:
-    SQLModel.metadata.create_all(engine)
-    _migrate_add_child_columns()
-    _migrate_add_attendance_columns()
-    _migrate_add_parent_account_columns()
-    _migrate_add_family_columns()
+def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    SQLModel.metadata.create_all(resolved_engine)
+    _migrate_add_child_columns(resolved_engine)
+    _migrate_add_attendance_columns(resolved_engine)
+    _migrate_add_parent_account_columns(resolved_engine)
+    _migrate_add_family_columns(resolved_engine)
 
 
-def _table_columns(table_name: str) -> list[str]:
-    with engine.connect() as conn:
+def _table_columns(table_name: str, db_engine: Optional[Engine] = None) -> list[str]:
+    resolved_engine = _resolve_engine(db_engine)
+    with resolved_engine.connect() as conn:
         result = conn.execute(text(f"PRAGMA table_info({table_name})"))
         return [row[1] for row in result]
 
 
-def _migrate_add_child_columns() -> None:
+def _migrate_add_child_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
     try:
-        with engine.connect() as conn:
-            cols = _table_columns("children")
+        with resolved_engine.connect() as conn:
+            cols = _table_columns("children", resolved_engine)
             if not cols:
                 return
             if "home_address" not in cols:
@@ -56,10 +76,11 @@ def _migrate_add_child_columns() -> None:
         pass
 
 
-def _migrate_add_attendance_columns() -> None:
+def _migrate_add_attendance_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
     try:
-        with engine.connect() as conn:
-            cols = _table_columns("attendance_records")
+        with resolved_engine.connect() as conn:
+            cols = _table_columns("attendance_records", resolved_engine)
             if not cols:
                 return
             if "planned_pickup_time" not in cols:
@@ -71,10 +92,11 @@ def _migrate_add_attendance_columns() -> None:
         pass
 
 
-def _migrate_add_parent_account_columns() -> None:
+def _migrate_add_parent_account_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
     try:
-        with engine.connect() as conn:
-            cols = _table_columns("parent_accounts")
+        with resolved_engine.connect() as conn:
+            cols = _table_columns("parent_accounts", resolved_engine)
             if not cols:
                 return
             if "home_address" not in cols:
@@ -90,14 +112,15 @@ def _migrate_add_parent_account_columns() -> None:
         pass
 
 
-def _migrate_add_family_columns() -> None:
+def _migrate_add_family_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
     try:
-        with engine.connect() as conn:
-            child_cols = _table_columns("children")
+        with resolved_engine.connect() as conn:
+            child_cols = _table_columns("children", resolved_engine)
             if child_cols and "family_id" not in child_cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN family_id INTEGER REFERENCES families(id)"))
 
-            parent_cols = _table_columns("parent_accounts")
+            parent_cols = _table_columns("parent_accounts", resolved_engine)
             if parent_cols and "family_id" not in parent_cols:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN family_id INTEGER REFERENCES families(id)"))
             conn.commit()
@@ -105,10 +128,10 @@ def _migrate_add_family_columns() -> None:
         pass
 
 
-def seed_classroom_data() -> None:
+def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
     from models import Classroom
 
-    with Session(engine) as session:
+    with Session(_resolve_engine(db_engine)) as session:
         classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
         if classrooms:
             return
@@ -119,10 +142,10 @@ def seed_classroom_data() -> None:
         session.commit()
 
 
-def seed_sample_data() -> None:
+def seed_sample_data(db_engine: Optional[Engine] = None) -> None:
     from models import Child, ChildStatus, Classroom, Family, Guardian
 
-    with Session(engine) as session:
+    with Session(_resolve_engine(db_engine)) as session:
         if session.exec(select(Child)).first():
             return
 
@@ -302,7 +325,7 @@ def seed_sample_data() -> None:
         session.commit()
 
 
-def seed_parent_portal_data() -> None:
+def seed_parent_portal_data(db_engine: Optional[Engine] = None) -> None:
     from models import (
         Child,
         ChildStatus,
@@ -318,7 +341,7 @@ def seed_parent_portal_data() -> None:
         ParentAccountStatus,
     )
 
-    with Session(engine) as session:
+    with Session(_resolve_engine(db_engine)) as session:
         if session.exec(select(ParentAccount)).first():
             return
 
@@ -482,7 +505,23 @@ def seed_parent_portal_data() -> None:
         session.commit()
 
 
-def bootstrap_family_records() -> None:
-    with Session(engine) as session:
+def bootstrap_family_records(db_engine: Optional[Engine] = None) -> None:
+    with Session(_resolve_engine(db_engine)) as session:
         bootstrap_family_data(session)
         session.commit()
+
+
+def initialize_demo_template_database(db_path: Path) -> None:
+    demo_engine = create_engine(
+        f"sqlite:///{db_path.resolve().as_posix()}",
+        echo=False,
+        connect_args={"check_same_thread": False},
+    )
+    try:
+        create_db_and_tables(demo_engine)
+        seed_classroom_data(demo_engine)
+        seed_sample_data(demo_engine)
+        bootstrap_family_records(demo_engine)
+        seed_parent_portal_data(demo_engine)
+    finally:
+        demo_engine.dispose()

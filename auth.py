@@ -21,6 +21,20 @@ MOCK_ROLE_COOKIE = "mock_role"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 
 
+def _mock_cookie_options() -> dict[str, object]:
+    from demo_runtime import load_demo_settings
+
+    settings = load_demo_settings()
+    options: dict[str, object] = {
+        "httponly": True,
+        "samesite": "lax",
+        "secure": settings.secure_cookies,
+    }
+    if not settings.enabled:
+        options["max_age"] = 60 * 60 * 24
+    return options
+
+
 @dataclass(slots=True)
 class StaffUser:
     role: Role
@@ -80,7 +94,7 @@ class MockParentPortalAuthBackend:
             return None
 
     def set_parent_session(self, response: Response, parent_account_id: int) -> None:
-        response.set_cookie(MOCK_PARENT_ACCOUNT_COOKIE, str(parent_account_id), max_age=60 * 60 * 24)
+        response.set_cookie(MOCK_PARENT_ACCOUNT_COOKIE, str(parent_account_id), **_mock_cookie_options())
 
     def clear_parent_session(self, response: Response) -> None:
         response.delete_cookie(MOCK_PARENT_ACCOUNT_COOKIE)

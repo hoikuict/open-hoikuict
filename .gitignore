@@ -28,6 +28,9 @@ env/
 # Database
 *.db
 *.sqlite3
+runtime/
+tmp*/
+_demo_runtime_test_*/
 
 # Environment / secrets
 .env
