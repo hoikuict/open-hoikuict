@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}保護者アカウント | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800">保護者アカウント</h1>
+    <p class="text-sm text-slate-500">保護者は家族に所属し、その家族の園児へ自動で紐づきます。</p>
+  </div>
+  {% if current_user and current_user.can_edit %}
+  <a href="/parent-accounts/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">新規登録</a>
+  {% endif %}
+</div>
+
+{% if notifications %}
+<div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-5">
+  <div class="mb-3 flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-semibold text-amber-900">未確認のプロフィール変更通知</h2>
+      <p class="text-sm text-amber-700">保護者がメールアドレスや勤務先などを変更するとここに表示されます。</p>
+    </div>
+    <span class="rounded-full bg-white px-3 py-1 text-sm font-medium text-amber-800">{{ notifications|length }} 件</span>
+  </div>
+  <div class="space-y-3">
+    {% for notification in notifications %}
+    <div class="rounded-lg border border-amber-200 bg-white p-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div class="space-y-2">
+          <div class="font-medium text-slate-800">{{ notification.change_summary }}</div>
+          <div class="text-xs text-slate-500">{{ notification.created_at.strftime("%Y-%m-%d %H:%M") }}</div>
+          {% if notification.change_details %}
+          <div class="grid gap-2 md:grid-cols-2">
+            {% for detail in notification.change_details.values() %}
+            <div class="rounded border border-slate-200 px-3 py-2 text-sm text-slate-700">
+              <div class="mb-1 text-xs font-semibold text-slate-500">{{ detail.label }}</div>
+              <div>変更前: {{ detail.old }}</div>
+              <div>変更後: {{ detail.new }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a href="/parent-accounts/{{ notification.parent_account_id }}/edit" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">アカウントを見る</a>
+          <form method="post" action="/parent-accounts/notifications/{{ notification.id }}/read">
+            <button type="submit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">確認済みにする</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead class="bg-slate-50 text-left text-slate-600">
+      <tr>
+        <th class="px-4 py-3 font-semibold">保護者</th>
+        <th class="px-4 py-3 font-semibold">メール</th>
+        <th class="px-4 py-3 font-semibold">状態</th>
+        <th class="px-4 py-3 font-semibold">所属家族</th>
+        <th class="px-4 py-3 font-semibold">紐づく園児</th>
+        <th class="px-4 py-3 font-semibold">最終ログイン</th>
+        <th class="px-4 py-3 font-semibold">操作</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for account in accounts %}
+      <tr>
+        <td class="px-4 py-3">
+          <div class="font-medium text-slate-800">{{ account.display_name }}</div>
+          <div class="text-xs text-slate-500">{{ account.phone or "-" }}</div>
+          <div class="mt-1 text-xs text-slate-500">{{ account.home_address or "住所未登録" }}</div>
+          {% if account.workplace %}
+          <div class="text-xs text-slate-500">勤務先: {{ account.workplace }}</div>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-slate-700">{{ account.email }}</td>
+        <td class="px-4 py-3">
+          <span class="rounded-full px-2 py-1 text-xs {% if account.status.value == 'active' %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+            {{ account.status.label }}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-slate-700">
+          {% if account.family %}
+          {{ account.family.family_name }}
+          {% else %}
+          -
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-slate-700">
+          {% if account.family and account.family.children %}
+            {% for child in account.family.children %}
+            {{ child.full_name }}{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          {% else %}
+          -
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-slate-700">{{ account.last_login_at.strftime("%Y-%m-%d %H:%M") if account.last_login_at else "-" }}</td>
+        <td class="px-4 py-3">
+          <div class="flex flex-wrap gap-2">
+            {% if current_user and current_user.can_edit %}
+            <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
+            {% endif %}
+            <a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="px-4 py-10 text-center text-slate-400">保護者アカウントがありません。</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

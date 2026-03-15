@@ -1,19 +1,14 @@
-"""
-職員の管理レベル（モック）
-※ 認証は未実装。実装後は本モジュールを差し替える。
-"""
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import Depends, Request, HTTPException
+from fastapi import Depends, HTTPException, Request
 from starlette.responses import RedirectResponse
 
 
 class Role(str, Enum):
-    """職員の権限レベル"""
-    VIEW_ONLY = "view_only"   # 閲覧のみ
-    CAN_EDIT = "can_edit"     # 編集可
-    ADMIN = "admin"           # 管理者（将来用）
+    VIEW_ONLY = "view_only"
+    CAN_EDIT = "can_edit"
+    ADMIN = "admin"
 
 
 ROLE_LABELS = {
@@ -24,7 +19,6 @@ ROLE_LABELS = {
 
 
 class MockUser:
-    """モックユーザー（認証実装後に差し替え）"""
     def __init__(self, role: Role, name: str = "職員"):
         self.role = role
         self.name = name
@@ -46,36 +40,48 @@ class MockUser:
         return ROLE_LABELS.get(self.role, self.role.value)
 
 
-# Cookie名（モック用）
 MOCK_ROLE_COOKIE = "mock_role"
+MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 
 
 def get_mock_current_user(request: Request) -> MockUser:
-    """
-    現在のユーザーを取得（モック）
-    クエリ ?as=view_only / ?as=can_edit / ?as=admin または cookie で制御。
-    デフォルトは編集可。
-    """
-    role = Role.CAN_EDIT  # デフォルト
-
-    # クエリパラメータ優先（テスト用）
+    role = Role.CAN_EDIT
     as_param = request.query_params.get("as")
-    if as_param and as_param in [r.value for r in Role]:
+    if as_param and as_param in [item.value for item in Role]:
         role = Role(as_param)
     else:
-        # Cookieから取得
         cookie_role = request.cookies.get(MOCK_ROLE_COOKIE)
-        if cookie_role and cookie_role in [r.value for r in Role]:
+        if cookie_role and cookie_role in [item.value for item in Role]:
             role = Role(cookie_role)
-
     return MockUser(role=role)
 
 
-# 型エイリアス（Dependsで使用）
+def get_mock_parent_account_id(request: Request) -> Optional[int]:
+    raw_id = request.cookies.get(MOCK_PARENT_ACCOUNT_COOKIE)
+    if not raw_id:
+        return None
+    try:
+        return int(raw_id)
+    except (TypeError, ValueError):
+        return None
+
+
+def set_mock_parent_cookie(response: RedirectResponse, parent_account_id: int) -> None:
+    response.set_cookie(MOCK_PARENT_ACCOUNT_COOKIE, str(parent_account_id), max_age=60 * 60 * 24)
+
+
+def clear_mock_parent_cookie(response: RedirectResponse) -> None:
+    response.delete_cookie(MOCK_PARENT_ACCOUNT_COOKIE)
+
+
 CurrentUser = Annotated[MockUser, Depends(get_mock_current_user)]
 
 
 def require_can_edit(user: CurrentUser) -> None:
-    """編集権限がない場合に403を送出"""
     if not user.can_edit:
         raise HTTPException(status_code=403, detail="編集の権限がありません")
+
+
+def require_admin(user: CurrentUser) -> None:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="管理者権限が必要です")

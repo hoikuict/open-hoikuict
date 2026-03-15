@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}連絡履歴 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">連絡履歴</h1>
+    <p class="text-sm text-gray-500">提出済みの日次連絡を新しい順に表示します。</p>
+  </div>
+  <a href="/parent-portal/" class="text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
+</div>
+
+<div class="space-y-4">
+  {% for entry in entries %}
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-800">{{ entry.child.full_name if entry.child else "-" }}</h2>
+        <p class="text-sm text-gray-500">{{ entry.target_date.isoformat() }}</p>
+      </div>
+      <a href="/parent-portal/children/{{ entry.child_id }}/contact?date={{ entry.target_date.isoformat() }}" class="text-sm text-indigo-600 hover:underline">内容を見る</a>
+    </div>
+    <div class="mt-4 grid gap-3 text-sm text-gray-700 md:grid-cols-4">
+      <div class="rounded border border-gray-200 px-3 py-2">体温: {{ entry.temperature or "-" }}</div>
+      <div class="rounded border border-gray-200 px-3 py-2">朝食: {{ entry.breakfast_status or "-" }}</div>
+      <div class="rounded border border-gray-200 px-3 py-2">機嫌: {{ entry.mood or "-" }}</div>
+      <div class="rounded border border-gray-200 px-3 py-2">排便: {{ entry.bowel_movement_status or "-" }}</div>
+    </div>
+    <div class="mt-3 grid gap-3 text-sm text-gray-700 md:grid-cols-2">
+      <div class="rounded border border-gray-200 px-3 py-3">
+        <div class="mb-1 text-xs font-semibold text-gray-500">体調メモ</div>
+        <div class="whitespace-pre-wrap">{{ entry.condition_note or "-" }}</div>
+      </div>
+      <div class="rounded border border-gray-200 px-3 py-3">
+        <div class="mb-1 text-xs font-semibold text-gray-500">園への連絡事項</div>
+        <div class="whitespace-pre-wrap">{{ entry.contact_note or "-" }}</div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">まだ提出済みの連絡はありません。</div>
+  {% endfor %}
+</div>
+{% endblock %}

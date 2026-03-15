@@ -2,261 +2,227 @@
 {% block title %}{{ page_title }} | open-hoikuict{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl">
+<div class="max-w-5xl">
   <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-xl font-bold text-gray-700">{{ page_title }}</h1>
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">{{ page_title }}</h1>
+      <p class="text-sm text-slate-500">園児の個人情報と、同じ家族の保護者情報をこの画面でまとめて編集できます。</p>
+    </div>
     <div class="flex gap-3">
       {% if child %}
-      <a href="/children/new?sibling_id={{ child.id }}" class="text-sm text-indigo-600 hover:underline">＋ 兄弟として追加</a>
+      <a href="/children/new?sibling_id={{ child.id }}" class="text-sm text-indigo-600 hover:underline">兄弟として追加</a>
       {% endif %}
-      <a href="/children/" class="text-sm text-indigo-600 hover:underline">← 一覧に戻る</a>
+      <a href="/children/" class="text-sm text-indigo-600 hover:underline">一覧に戻る</a>
     </div>
   </div>
 
   {% if not child and not inherit_from %}
-  <!-- 兄姉から引き継ぐ選択（新規登録時のみ） -->
-  <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
-    <p class="text-sm font-medium text-indigo-800 mb-2">兄弟で登録する場合：兄姉の情報（自宅・保護者）を引き継げます</p>
-    <form action="/children/new" method="get" class="flex gap-2 items-end">
+  <div class="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+    <p class="mb-2 text-sm font-medium text-indigo-800">兄弟の情報を引き継いで追加できます。</p>
+    <form action="/children/new" method="get" class="flex items-end gap-2">
       <div class="flex-1">
-        <label for="sibling_id" class="block text-xs text-indigo-700 mb-1">兄姉を選択</label>
-        <select id="sibling_id" name="sibling_id" class="w-full px-3 py-2 border border-indigo-300 rounded text-sm">
-          <option value="">— 選択して引き継ぐ —</option>
-          {% for c in all_children %}
-          <option value="{{ c.id }}">{{ c.full_name }}（{{ c.full_name_kana }}）</option>
+        <label for="sibling_id" class="mb-1 block text-xs text-indigo-700">兄弟姉妹を選択</label>
+        <select id="sibling_id" name="sibling_id" class="w-full rounded border border-indigo-300 px-3 py-2 text-sm">
+          <option value="">選択してください</option>
+          {% for sibling in all_children %}
+          <option value="{{ sibling.id }}">{{ sibling.full_name }}（{{ sibling.family_display_name or '家族未設定' }}）</option>
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">引き継いで入力へ</button>
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">引き継いで追加</button>
     </form>
   </div>
   {% endif %}
+
   {% if inherit_from %}
-  <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-800">
-    「{{ inherit_from.full_name }}」の自宅住所・電話・保護者情報を引き継いでいます（個人情報のみ入力してください）
+  <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+    {{ inherit_from.full_name }} の家族情報を初期値として読み込んでいます。
   </div>
   {% endif %}
+
   {% if form_error %}
-  <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-800">
-    ⚠ {{ form_error }}
-  </div>
+  <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ form_error }}</div>
   {% endif %}
 
-  <form method="post" action="{{ action_url }}" class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm space-y-6">
-    {% if older_sibling_id %}<input type="hidden" name="older_sibling_id" value="{{ older_sibling_id }}">{% endif %}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <div>
-        <label for="last_name" class="block text-sm font-medium text-gray-600 mb-1">姓 <span class="text-red-500">*</span></label>
-        <input type="text" id="last_name" name="last_name" required
-          value="{{ form_data.last_name if form_data else (child.last_name if child else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-      <div>
-        <label for="first_name" class="block text-sm font-medium text-gray-600 mb-1">名 <span class="text-red-500">*</span></label>
-        <input type="text" id="first_name" name="first_name" required
-          value="{{ form_data.first_name if form_data else (child.first_name if child else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-      <div>
-        <label for="last_name_kana" class="block text-sm font-medium text-gray-600 mb-1">姓（カナ） <span class="text-red-500">*</span></label>
-        <input type="text" id="last_name_kana" name="last_name_kana" required
-          value="{{ form_data.last_name_kana if form_data else (child.last_name_kana if child else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-      <div>
-        <label for="first_name_kana" class="block text-sm font-medium text-gray-600 mb-1">名（カナ） <span class="text-red-500">*</span></label>
-        <input type="text" id="first_name_kana" name="first_name_kana" required
-          value="{{ form_data.first_name_kana if form_data else (child.first_name_kana if child else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-    </div>
+  <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    {% if older_sibling_id %}
+    <input type="hidden" name="older_sibling_id" value="{{ older_sibling_id }}">
+    {% endif %}
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      <div>
-        <label for="birth_date" class="block text-sm font-medium text-gray-600 mb-1">生年月日 <span class="text-red-500">*</span></label>
-        <input type="date" id="birth_date" name="birth_date" required
-          value="{{ form_data.birth_date if form_data else (child.birth_date.isoformat() if child and child.birth_date else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+    {% if show_family_selection %}
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div class="mb-2">
+        <h2 class="text-sm font-semibold text-slate-700">家族への紐づけ</h2>
+        <p class="text-xs text-slate-500">新しい家族を作るか、既存の家族へ子どもを追加できます。</p>
       </div>
       <div>
-        <label for="enrollment_date" class="block text-sm font-medium text-gray-600 mb-1">入園日 <span class="text-red-500">*</span></label>
-        <input type="date" id="enrollment_date" name="enrollment_date" required
-          value="{{ form_data.enrollment_date if form_data else (child.enrollment_date.isoformat() if child and child.enrollment_date else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-      <div>
-        <label for="withdrawal_date" class="block text-sm font-medium text-gray-600 mb-1">退園日</label>
-        <input type="date" id="withdrawal_date" name="withdrawal_date"
-          value="{{ form_data.withdrawal_date if form_data else (child.withdrawal_date.isoformat() if child and child.withdrawal_date else '') }}"
-          class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-      <div>
-        <label for="status" class="block text-sm font-medium text-gray-600 mb-1">在籍状況</label>
-        <select id="status" name="status" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-          <option value="enrolled" {{ 'selected' if (form_data and form_data.status == 'enrolled') or (not form_data and (not child or child.status.value == 'enrolled')) else '' }}>在園</option>
-          <option value="graduated" {{ 'selected' if (form_data and form_data.status == 'graduated') or (child and child.status.value == 'graduated') else '' }}>卒園</option>
-          <option value="withdrawn" {{ 'selected' if (form_data and form_data.status == 'withdrawn') or (child and child.status.value == 'withdrawn') else '' }}>退園</option>
+        <label for="family_selection" class="mb-1 block text-sm font-medium text-slate-600">所属する家族</label>
+        <select id="family_selection" name="family_selection" class="w-full rounded border border-slate-300 px-3 py-2">
+          <option value="new" {% if selected_family_value == 'new' %}selected{% endif %}>新しい家族を作る</option>
+          {% for family in families %}
+          <option value="{{ family.id }}" {% if selected_family_value == family.id %}selected{% endif %}>
+            {{ family.family_name }}{% if family.children %} / {{ family.children|length }}人{% endif %}
+          </option>
+          {% endfor %}
         </select>
       </div>
     </div>
+    {% else %}
+    <input type="hidden" name="family_selection" value="{{ selected_family_value }}">
+    {% endif %}
 
-    <!-- 自宅連絡先 -->
-    <div class="border-t border-gray-200 pt-5">
-      <h3 class="text-sm font-semibold text-gray-700 mb-3">自宅連絡先</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="md:col-span-2">
-          <label for="home_address" class="block text-sm font-medium text-gray-600 mb-1">自宅住所</label>
-          <input type="text" id="home_address" name="home_address"
-            value="{{ form_data.home_address if form_data else ((inherit_from or child).home_address if (inherit_from or child) and ((inherit_from or child).home_address) else '') }}"
-            placeholder="例: 東京都渋谷区〇〇1-2-3"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-        </div>
-        <div>
-          <label for="home_phone" class="block text-sm font-medium text-gray-600 mb-1">自宅電話番号</label>
-          <input type="tel" id="home_phone" name="home_phone"
-            value="{{ form_data.home_phone if form_data else ((inherit_from or child).home_phone if (inherit_from or child) and ((inherit_from or child).home_phone) else '') }}"
-            placeholder="例: 03-1234-5678"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-        </div>
+    <section class="space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-800">子どもの個人情報</h2>
+        <p class="text-sm text-slate-500">本人だけに関する情報です。</p>
       </div>
-    </div>
-
-    <!-- 保護者1 -->
-    <div class="border-t border-gray-200 pt-5">
-      <h3 class="text-sm font-semibold text-gray-700 mb-3">保護者1（保育所預け要件：就労時は勤務先を記入）</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">姓</label>
-          <input type="text" name="g1_last_name" value="{{ guardian1.last_name if guardian1 else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="last_name" class="mb-1 block text-sm font-medium text-slate-600">姓 <span class="text-rose-500">*</span></label>
+          <input type="text" id="last_name" name="last_name" required value="{{ form_data.last_name if form_data else (child.last_name if child else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">名</label>
-          <input type="text" name="g1_first_name" value="{{ guardian1.first_name if guardian1 else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="first_name" class="mb-1 block text-sm font-medium text-slate-600">名 <span class="text-rose-500">*</span></label>
+          <input type="text" id="first_name" name="first_name" required value="{{ form_data.first_name if form_data else (child.first_name if child else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">姓（カナ）</label>
-          <input type="text" name="g1_last_name_kana" value="{{ guardian1.last_name_kana if guardian1 and guardian1.last_name_kana else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="last_name_kana" class="mb-1 block text-sm font-medium text-slate-600">姓（カナ） <span class="text-rose-500">*</span></label>
+          <input type="text" id="last_name_kana" name="last_name_kana" required value="{{ form_data.last_name_kana if form_data else (child.last_name_kana if child else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">名（カナ）</label>
-          <input type="text" name="g1_first_name_kana" value="{{ guardian1.first_name_kana if guardian1 and guardian1.first_name_kana else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="first_name_kana" class="mb-1 block text-sm font-medium text-slate-600">名（カナ） <span class="text-rose-500">*</span></label>
+          <input type="text" id="first_name_kana" name="first_name_kana" required value="{{ form_data.first_name_kana if form_data else (child.first_name_kana if child else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">続柄</label>
-          <select name="g1_relationship" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-            <option value="父" {{ 'selected' if not guardian1 or guardian1.relationship == '父' else '' }}>父</option>
-            <option value="母" {{ 'selected' if guardian1 and guardian1.relationship == '母' else '' }}>母</option>
-            <option value="祖父" {{ 'selected' if guardian1 and guardian1.relationship == '祖父' else '' }}>祖父</option>
-            <option value="祖母" {{ 'selected' if guardian1 and guardian1.relationship == '祖母' else '' }}>祖母</option>
-            <option value="その他" {{ 'selected' if guardian1 and guardian1.relationship == 'その他' else '' }}>その他</option>
+          <label for="birth_date" class="mb-1 block text-sm font-medium text-slate-600">生年月日 <span class="text-rose-500">*</span></label>
+          <input type="date" id="birth_date" name="birth_date" required value="{{ form_data.birth_date if form_data else (child.birth_date.isoformat() if child and child.birth_date else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        </div>
+        <div>
+          <label for="enrollment_date" class="mb-1 block text-sm font-medium text-slate-600">入園日 <span class="text-rose-500">*</span></label>
+          <input type="date" id="enrollment_date" name="enrollment_date" required value="{{ form_data.enrollment_date if form_data else (child.enrollment_date.isoformat() if child and child.enrollment_date else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        </div>
+        <div>
+          <label for="withdrawal_date" class="mb-1 block text-sm font-medium text-slate-600">退園日</label>
+          <input type="date" id="withdrawal_date" name="withdrawal_date" value="{{ form_data.withdrawal_date if form_data else (child.withdrawal_date.isoformat() if child and child.withdrawal_date else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        </div>
+        <div>
+          <label for="status" class="mb-1 block text-sm font-medium text-slate-600">在籍状況</label>
+          <select id="status" name="status" class="w-full rounded border border-slate-300 px-3 py-2">
+            <option value="enrolled" {% if (form_data and form_data.status == 'enrolled') or (not form_data and (not child or child.status.value == 'enrolled')) %}selected{% endif %}>在園</option>
+            <option value="graduated" {% if (form_data and form_data.status == 'graduated') or (child and child.status.value == 'graduated') %}selected{% endif %}>卒園</option>
+            <option value="withdrawn" {% if (form_data and form_data.status == 'withdrawn') or (child and child.status.value == 'withdrawn') %}selected{% endif %}>退園</option>
           </select>
         </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5">
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">連絡先電話番号</label>
-          <input type="tel" name="g1_phone" value="{{ guardian1.phone if guardian1 and guardian1.phone else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-600 mb-1">勤務先（就労の場合）</label>
-          <input type="text" name="g1_workplace" value="{{ guardian1.workplace if guardian1 and guardian1.workplace else '' }}"
-            placeholder="例: 株式会社〇〇"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="allergy" class="mb-1 block text-sm font-medium text-slate-600">アレルギー</label>
+          <input type="text" id="allergy" name="allergy" value="{{ form_data.allergy if form_data else ((child.extra_data.get('allergy', [])|join(',')) if child and child.extra_data else '') }}" placeholder="例: 卵,乳,小麦" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">勤務先住所</label>
-          <input type="text" name="g1_workplace_address" value="{{ guardian1.workplace_address if guardian1 and guardian1.workplace_address else '' }}"
-            placeholder="例: 東京都中央区〇〇"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">勤務先電話番号</label>
-          <input type="tel" name="g1_workplace_phone" value="{{ guardian1.workplace_phone if guardian1 and guardian1.workplace_phone else '' }}"
-            placeholder="例: 03-1234-5678"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="medical_notes" class="mb-1 block text-sm font-medium text-slate-600">医療メモ</label>
+          <textarea id="medical_notes" name="medical_notes" rows="3" class="w-full rounded border border-slate-300 px-3 py-2">{{ form_data.medical_notes if form_data else ((child.extra_data.get('medical_notes', '') or '') if child and child.extra_data else '') }}</textarea>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 保護者2 -->
-    <div class="border-t border-gray-200 pt-5">
-      <h3 class="text-sm font-semibold text-gray-700 mb-3">保護者2（任意・1人の場合は空欄）</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">姓</label>
-          <input type="text" name="g2_last_name" value="{{ guardian2.last_name if guardian2 else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">名</label>
-          <input type="text" name="g2_first_name" value="{{ guardian2.first_name if guardian2 else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">姓（カナ）</label>
-          <input type="text" name="g2_last_name_kana" value="{{ guardian2.last_name_kana if guardian2 and guardian2.last_name_kana else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">名（カナ）</label>
-          <input type="text" name="g2_first_name_kana" value="{{ guardian2.first_name_kana if guardian2 and guardian2.first_name_kana else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">続柄</label>
-          <select name="g2_relationship" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-            <option value="父" {{ 'selected' if guardian2 and guardian2.relationship == '父' else '' }}>父</option>
-            <option value="母" {{ 'selected' if not guardian2 or guardian2.relationship == '母' else '' }}>母</option>
-            <option value="祖父" {{ 'selected' if guardian2 and guardian2.relationship == '祖父' else '' }}>祖父</option>
-            <option value="祖母" {{ 'selected' if guardian2 and guardian2.relationship == '祖母' else '' }}>祖母</option>
-            <option value="その他" {{ 'selected' if guardian2 and guardian2.relationship == 'その他' else '' }}>その他</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">連絡先電話番号</label>
-          <input type="tel" name="g2_phone" value="{{ guardian2.phone if guardian2 and guardian2.phone else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+    <section class="border-t border-slate-200 pt-6 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-800">保護者・家族情報</h2>
+        <p class="text-sm text-slate-500">住所や保護者情報は同じ家族の兄弟姉妹にも反映されます。</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div class="md:col-span-2">
+          <label for="family_name" class="mb-1 block text-sm font-medium text-slate-600">家族名</label>
+          <input type="text" id="family_name" name="family_name" value="{{ family_form_data.family_name }}" placeholder="例: 田中家" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-600 mb-1">勤務先（就労の場合）</label>
-          <input type="text" name="g2_workplace" value="{{ guardian2.workplace if guardian2 and guardian2.workplace else '' }}"
-            placeholder="例: 株式会社〇〇"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="home_address" class="mb-1 block text-sm font-medium text-slate-600">自宅住所</label>
+          <input type="text" id="home_address" name="home_address" value="{{ family_form_data.home_address }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">勤務先住所</label>
-          <input type="text" name="g2_workplace_address" value="{{ guardian2.workplace_address if guardian2 and guardian2.workplace_address else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-600 mb-1">勤務先電話番号</label>
-          <input type="tel" name="g2_workplace_phone" value="{{ guardian2.workplace_phone if guardian2 and guardian2.workplace_phone else '' }}"
-            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500">
+          <label for="home_phone" class="mb-1 block text-sm font-medium text-slate-600">自宅電話番号</label>
+          <input type="text" id="home_phone" name="home_phone" value="{{ family_form_data.home_phone }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
       </div>
-    </div>
 
-    <div class="border-t border-gray-200 pt-5">
-      <label for="allergy" class="block text-sm font-medium text-gray-600 mb-1">アレルギー（カンマまたは頓号で区切り）</label>
-      <input type="text" id="allergy" name="allergy"
-        value="{{ form_data.allergy if form_data else ((child.extra_data.get('allergy', [])|join('、')) if child and child.extra_data else '') }}"
-        placeholder="例: 卵、小麦、乳"
-        class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-    </div>
-    <div>
-      <label for="medical_notes" class="block text-sm font-medium text-gray-600 mb-1">医療的配慮</label>
-      <textarea id="medical_notes" name="medical_notes" rows="3"
-        class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">{{ form_data.medical_notes if form_data else ((child.extra_data.get('medical_notes', '') or '') if child and child.extra_data else '') }}</textarea>
-    </div>
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 p-4">
+          <h3 class="mb-3 text-sm font-semibold text-slate-700">保護者1</h3>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div><label class="mb-1 block text-sm text-slate-600">姓</label><input type="text" name="g1_last_name" value="{{ family_form_data.g1_last_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">名</label><input type="text" name="g1_first_name" value="{{ family_form_data.g1_first_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">姓（カナ）</label><input type="text" name="g1_last_name_kana" value="{{ family_form_data.g1_last_name_kana }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">名（カナ）</label><input type="text" name="g1_first_name_kana" value="{{ family_form_data.g1_first_name_kana }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">続柄</label>
+              <select name="g1_relationship" class="w-full rounded border border-slate-300 px-3 py-2">
+                {% for relationship in relationship_options %}
+                <option value="{{ relationship }}" {% if family_form_data.g1_relationship == relationship %}selected{% endif %}>{{ relationship }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label class="mb-1 block text-sm text-slate-600">電話番号</label><input type="text" name="g1_phone" value="{{ family_form_data.g1_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div class="md:col-span-2"><label class="mb-1 block text-sm text-slate-600">勤務先</label><input type="text" name="g1_workplace" value="{{ family_form_data.g1_workplace }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">勤務先住所</label><input type="text" name="g1_workplace_address" value="{{ family_form_data.g1_workplace_address }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">勤務先電話番号</label><input type="text" name="g1_workplace_phone" value="{{ family_form_data.g1_workplace_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+          <h3 class="mb-3 text-sm font-semibold text-slate-700">保護者2</h3>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div><label class="mb-1 block text-sm text-slate-600">姓</label><input type="text" name="g2_last_name" value="{{ family_form_data.g2_last_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">名</label><input type="text" name="g2_first_name" value="{{ family_form_data.g2_first_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">姓（カナ）</label><input type="text" name="g2_last_name_kana" value="{{ family_form_data.g2_last_name_kana }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">名（カナ）</label><input type="text" name="g2_first_name_kana" value="{{ family_form_data.g2_first_name_kana }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div>
+              <label class="mb-1 block text-sm text-slate-600">続柄</label>
+              <select name="g2_relationship" class="w-full rounded border border-slate-300 px-3 py-2">
+                {% for relationship in relationship_options %}
+                <option value="{{ relationship }}" {% if family_form_data.g2_relationship == relationship %}selected{% endif %}>{{ relationship }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div><label class="mb-1 block text-sm text-slate-600">電話番号</label><input type="text" name="g2_phone" value="{{ family_form_data.g2_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div class="md:col-span-2"><label class="mb-1 block text-sm text-slate-600">勤務先</label><input type="text" name="g2_workplace" value="{{ family_form_data.g2_workplace }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">勤務先住所</label><input type="text" name="g2_workplace_address" value="{{ family_form_data.g2_workplace_address }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+            <div><label class="mb-1 block text-sm text-slate-600">勤務先電話番号</label><input type="text" name="g2_workplace_phone" value="{{ family_form_data.g2_workplace_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% if siblings %}
+    <section class="border-t border-slate-200 pt-6 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-800">兄弟姉妹の情報</h2>
+        <p class="text-sm text-slate-500">同じ家族に紐づく子どもを一覧表示しています。</p>
+      </div>
+      <div class="grid gap-3">
+        {% for sibling in siblings %}
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div class="space-y-1">
+              <div class="text-base font-semibold text-slate-800">{{ sibling.full_name }}</div>
+              <div class="text-sm text-slate-600">生年月日: {{ sibling.birth_date.strftime("%Y-%m-%d") if sibling.birth_date else "-" }}</div>
+              <div class="text-sm text-slate-600">入園日: {{ sibling.enrollment_date.strftime("%Y-%m-%d") if sibling.enrollment_date else "-" }}</div>
+              <div class="text-sm text-slate-600">在籍状況: {{ sibling.status.label }}</div>
+              <div class="text-sm text-slate-600">クラス: {{ sibling.classroom.name if sibling.classroom else "未設定" }}</div>
+            </div>
+            <a href="/children/{{ sibling.id }}/edit" class="text-sm text-indigo-600 hover:underline">この兄弟を編集</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
 
     <div class="flex gap-3 pt-2">
-      <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-        {{ submit_label }}
-      </button>
-      <a href="/children/" class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">キャンセル</a>
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
+      <a href="/children/" class="rounded border border-slate-300 px-4 py-2 hover:bg-slate-50">キャンセル</a>
     </div>
   </form>
 </div>

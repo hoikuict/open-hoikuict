@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}保護者ホーム | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-500 p-6 text-white shadow-sm md:flex-row md:items-end md:justify-between">
+  <div>
+    <p class="text-sm text-indigo-100">ようこそ</p>
+    <h1 class="text-2xl font-bold">{{ current_parent_user.display_name }} さん</h1>
+    <p class="mt-2 text-sm text-indigo-100">{{ target_date_value }} の連絡事項を確認できます。</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <form method="get" action="/parent-portal/" class="flex items-center gap-2">
+      <input type="date" name="date" value="{{ target_date_value }}" class="rounded border border-white/40 bg-white/10 px-3 py-2 text-sm text-white">
+      <button type="submit" class="rounded bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">日付を変更</button>
+    </form>
+    {% if children %}
+    <a href="/parent-portal/children/profile" class="rounded border border-white/50 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">子ども情報を変更申請</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">連携中の園児</p>
+    <p class="mt-2 text-2xl font-bold text-gray-800">{{ children|length }}</p>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">本日の連絡提出</p>
+    <p class="mt-2 text-2xl font-bold text-emerald-700">{{ entry_by_child_id|length }}</p>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">未読のお知らせ</p>
+    <p class="mt-2 text-2xl font-bold text-amber-600">{{ unread_notice_count }}</p>
+  </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-[2fr,1fr]">
+  <section id="child-information" class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-800">子どもの連絡・情報</h2>
+      <a href="/parent-portal/history" class="text-sm text-indigo-600 hover:underline">履歴を見る</a>
+    </div>
+
+    {% for child in children %}
+    {% set entry = entry_by_child_id.get(child.id) %}
+    {% set pending_request = pending_request_by_child_id.get(child.id) %}
+    <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="text-lg font-semibold text-gray-800">{{ child.full_name }}</h3>
+            {% if pending_request %}
+            <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">情報変更を申請中</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-gray-500">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</p>
+          {% if pending_request %}
+          <p class="mt-2 text-xs text-amber-700">最終申請: {{ pending_request.submitted_at.strftime("%Y-%m-%d %H:%M") }}</p>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          {% if entry %}
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">日次連絡提出済み</span>
+          {% else %}
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">日次連絡未提出</span>
+          {% endif %}
+          <a href="/parent-portal/children/{{ child.id }}/contact?date={{ target_date_value }}" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+            {{ "日次連絡を編集" if entry else "日次連絡を入力" }}
+          </a>
+        </div>
+      </div>
+      {% if entry %}
+      <div class="mt-4 grid gap-3 text-sm text-gray-700 md:grid-cols-3">
+        <div class="rounded border border-gray-200 px-3 py-2">体温: {{ entry.temperature or "-" }}</div>
+        <div class="rounded border border-gray-200 px-3 py-2">機嫌: {{ entry.mood or "-" }}</div>
+        <div class="rounded border border-gray-200 px-3 py-2">朝食: {{ entry.breakfast_status or "-" }}</div>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">ひもづく園児がまだありません。</div>
+    {% endfor %}
+  </section>
+
+  <section>
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-800">新着のお知らせ</h2>
+      <a href="/parent-portal/notices" class="text-sm text-indigo-600 hover:underline">一覧へ</a>
+    </div>
+    <div class="space-y-3">
+      {% for notice in latest_notices %}
+      <a href="/parent-portal/notices/{{ notice.id }}" class="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-300">
+        <div class="mb-2 flex items-center gap-2">
+          {% if notice.priority.value == "high" %}
+          <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">重要</span>
+          {% endif %}
+          {% if notice.id not in read_notice_ids %}
+          <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未読</span>
+          {% endif %}
+        </div>
+        <h3 class="font-semibold text-gray-800">{{ notice.title }}</h3>
+        <p class="mt-1 text-sm text-gray-500">{{ notice.publish_start_at.strftime("%Y-%m-%d %H:%M") if notice.publish_start_at else notice.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+      </a>
+      {% else %}
+      <div class="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-400">表示できるお知らせはありません。</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}お知らせ編集 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">{{ submit_label }}</h1>
+      <p class="text-sm text-gray-500">全体・クラス・園児単位で配信対象を指定できます。</p>
+    </div>
+    <a href="/notices/" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
+  </div>
+
+  <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div>
+      <label class="mb-1 block text-sm font-medium text-gray-600">タイトル</label>
+      <input type="text" name="title" required value="{{ notice.title if notice else '' }}" class="w-full rounded border border-gray-300 px-3 py-2">
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium text-gray-600">本文</label>
+      <textarea name="body" rows="8" class="w-full rounded border border-gray-300 px-3 py-2" required>{{ notice.body if notice else '' }}</textarea>
+    </div>
+
+    <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">状態</label>
+        <select name="status" class="w-full rounded border border-gray-300 px-3 py-2">
+          {% for option in status_options %}
+          <option value="{{ option.value }}" {% if (notice and notice.status.value == option.value) or (not notice and option.value == 'draft') %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">優先度</label>
+        <select name="priority" class="w-full rounded border border-gray-300 px-3 py-2">
+          {% for option in priority_options %}
+          <option value="{{ option.value }}" {% if (notice and notice.priority.value == option.value) or (not notice and option.value == 'normal') %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">公開開始</label>
+        <input type="datetime-local" name="publish_start_at"
+               value="{{ notice.publish_start_at.strftime('%Y-%m-%dT%H:%M') if notice and notice.publish_start_at else '' }}"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">公開終了</label>
+        <input type="datetime-local" name="publish_end_at"
+               value="{{ notice.publish_end_at.strftime('%Y-%m-%dT%H:%M') if notice and notice.publish_end_at else '' }}"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+    </div>
+
+    <div class="border-t border-gray-200 pt-5">
+      <h2 class="mb-3 text-sm font-semibold text-gray-700">配信対象</h2>
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">対象種別</label>
+          <select name="target_type" class="w-full rounded border border-gray-300 px-3 py-2">
+            <option value="all" {% if selected_target_type == 'all' %}selected{% endif %}>全保護者</option>
+            <option value="classroom" {% if selected_target_type == 'classroom' %}selected{% endif %}>クラス</option>
+            <option value="child" {% if selected_target_type == 'child' %}selected{% endif %}>園児</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">クラス指定</label>
+          <select name="target_classroom_id" class="w-full rounded border border-gray-300 px-3 py-2">
+            <option value="">選択しない</option>
+            {% for classroom in classrooms %}
+            <option value="{{ classroom.id }}" {% if selected_target_classroom_id == classroom.id|string %}selected{% endif %}>{{ classroom.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">園児指定</label>
+          <select name="target_child_id" class="w-full rounded border border-gray-300 px-3 py-2">
+            <option value="">選択しない</option>
+            {% for child in children %}
+            <option value="{{ child.id }}" {% if selected_target_child_id == child.id|string %}selected{% endif %}>{{ child.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
+      <a href="/notices/" class="rounded border border-gray-300 px-4 py-2 hover:bg-gray-50">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

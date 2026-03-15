@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}日次連絡入力 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">{{ child.full_name }} の日次連絡</h1>
+      <p class="text-sm text-gray-500">{{ target_date_value }} の体調や家庭からの連絡を入力します。</p>
+    </div>
+    <a href="/parent-portal/?date={{ target_date_value }}" class="text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
+  </div>
+
+  {% if notice %}
+  <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ notice }}</div>
+  {% endif %}
+
+  <form method="post" action="/parent-portal/children/{{ child.id }}/contact" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <input type="hidden" name="date" value="{{ target_date_value }}">
+
+    <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">体温</label>
+        <input type="text" name="temperature" value="{{ entry.temperature if entry and entry.temperature else '' }}" placeholder="36.7"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">昨夜の睡眠</label>
+        <input type="text" name="sleep_notes" value="{{ entry.sleep_notes if entry and entry.sleep_notes else '' }}" placeholder="21:00-6:30"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">朝食</label>
+        <input type="text" name="breakfast_status" value="{{ entry.breakfast_status if entry and entry.breakfast_status else '' }}" placeholder="完食 / 少なめ"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">排便</label>
+        <input type="text" name="bowel_movement_status" value="{{ entry.bowel_movement_status if entry and entry.bowel_movement_status else '' }}" placeholder="あり / なし"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">機嫌</label>
+        <input type="text" name="mood" value="{{ entry.mood if entry and entry.mood else '' }}" placeholder="元気 / 少し眠そう"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">咳</label>
+        <input type="text" name="cough" value="{{ entry.cough if entry and entry.cough else '' }}" placeholder="なし / 少し"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">鼻水</label>
+        <input type="text" name="runny_nose" value="{{ entry.runny_nose if entry and entry.runny_nose else '' }}" placeholder="なし / 少し"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">服薬</label>
+        <input type="text" name="medication" value="{{ entry.medication if entry and entry.medication else '' }}" placeholder="なし / 朝に服用"
+               class="w-full rounded border border-gray-300 px-3 py-2">
+      </div>
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium text-gray-600">体調メモ</label>
+      <textarea name="condition_note" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ entry.condition_note if entry and entry.condition_note else '' }}</textarea>
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium text-gray-600">園への連絡事項</label>
+      <textarea name="contact_note" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ entry.contact_note if entry and entry.contact_note else '' }}</textarea>
+    </div>
+
+    {% if entry %}
+    <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+      最終更新: {{ entry.updated_at.strftime("%Y-%m-%d %H:%M") if entry.updated_at else "-" }}
+    </div>
+    {% endif %}
+
+    <div class="flex gap-3">
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">保存する</button>
+      <a href="/parent-portal/?date={{ target_date_value }}" class="rounded border border-gray-300 px-4 py-2 hover:bg-gray-50">戻る</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

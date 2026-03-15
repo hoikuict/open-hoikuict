@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}家族一覧 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-800">家族一覧</h1>
+    <p class="text-sm text-slate-500">園児と保護者を家族単位で一元管理します。</p>
+  </div>
+  {% if current_user and current_user.can_edit %}
+  <a href="/families/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">家族を追加</a>
+  {% endif %}
+</div>
+
+<div class="grid gap-4">
+  {% for family in families %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div class="space-y-2">
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-semibold text-slate-800">{{ family.family_name }}</h2>
+          <span class="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">{{ family.children|length }}人の園児</span>
+          <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ family.parent_accounts|length }}人の保護者</span>
+        </div>
+        <div class="text-sm text-slate-600">住所: {{ family.home_address or "未登録" }}</div>
+        <div class="text-sm text-slate-600">電話: {{ family.home_phone or "未登録" }}</div>
+        <div class="text-sm text-slate-600">
+          園児:
+          {% if family.children %}
+            {{ family.children|map(attribute='full_name')|join('、') }}
+          {% else %}
+            未登録
+          {% endif %}
+        </div>
+        <div class="text-sm text-slate-600">
+          保護者:
+          {% if family.parent_accounts %}
+            {{ family.parent_accounts|map(attribute='display_name')|join('、') }}
+          {% else %}
+            未登録
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% if current_user and current_user.can_edit %}
+        <a href="/families/{{ family.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">編集</a>
+        <a href="/children/new?family_id={{ family.id }}" class="rounded border border-indigo-300 px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50">この家族に園児追加</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400 shadow-sm">家族データがありません。</div>
+  {% endfor %}
+</div>
+{% endblock %}

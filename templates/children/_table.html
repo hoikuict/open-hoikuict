@@ -1,79 +1,83 @@
 {% set field_labels = field_labels if field_labels is defined else {} %}
 {% if not field_labels %}
   {% set field_labels = {
-    "last_name": "姓", "first_name": "名",
-    "last_name_kana": "姓（カナ）", "first_name_kana": "名（カナ）",
-    "birth_date": "生年月日", "age": "年齢",
-    "enrollment_date": "入園日", "withdrawal_date": "退園日",
-    "status": "在籍", "home_address": "自宅住所", "home_phone": "自宅電話",
-    "guardians": "保護者", "siblings": "兄弟", "allergy": "アレルギー", "medical_notes": "医療的配慮"
+    "family_name": "家族",
+    "last_name": "姓",
+    "first_name": "名",
+    "last_name_kana": "姓（カナ）",
+    "first_name_kana": "名（カナ）",
+    "birth_date": "生年月日",
+    "age": "年齢",
+    "enrollment_date": "入園日",
+    "withdrawal_date": "退園日",
+    "status": "在籍状況",
+    "home_address": "自宅住所",
+    "home_phone": "自宅電話番号",
+    "guardians": "保護者",
+    "siblings": "兄弟姉妹",
+    "allergy": "アレルギー",
+    "medical_notes": "医療メモ"
   } %}
 {% endif %}
 
-<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-
-  <!-- 件数表示 -->
-  <div class="px-4 py-2 border-b border-gray-100 text-sm text-gray-500">
-    {{ total }} 件
-  </div>
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-2 text-sm text-slate-500">{{ total }} 名</div>
 
   <div class="overflow-x-auto">
     <table class="min-w-full text-sm">
       <thead class="bg-indigo-50 text-indigo-800">
         <tr>
           {% for key in selected_fields %}
-          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">
-            {{ field_labels.get(key, key) }}
-          </th>
+          <th class="whitespace-nowrap px-4 py-2 text-left font-medium">{{ field_labels.get(key, key) }}</th>
           {% endfor %}
           {% if current_user and current_user.can_edit %}
-          <th class="px-4 py-2 text-left font-medium whitespace-nowrap no-print">操作</th>
+          <th class="no-print whitespace-nowrap px-4 py-2 text-left font-medium">操作</th>
           {% endif %}
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
+      <tbody class="divide-y divide-slate-100">
         {% for child in children %}
-        <tr class="hover:bg-gray-50">
+        <tr class="hover:bg-slate-50">
           {% for key in selected_fields %}
-          <td class="px-4 py-2 whitespace-nowrap">
+          <td class="whitespace-nowrap px-4 py-2">
             {% if key == "status" %}
               {% if child.status.value == "enrolled" %}
-                <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">在園</span>
+              <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">在園</span>
               {% elif child.status.value == "graduated" %}
-                <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">卒園</span>
+              <span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">卒園</span>
               {% else %}
-                <span class="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full">退園</span>
+              <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">退園</span>
               {% endif %}
             {% elif key == "allergy" %}
               {% set allergies = child.extra_data.allergy if child.extra_data and child.extra_data.allergy else [] %}
               {% if allergies %}
-                {% for a in allergies %}
-                <span class="bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded mr-0.5">{{ a }}</span>
+                {% for allergy in allergies %}
+                <span class="mr-1 rounded bg-rose-100 px-1.5 py-0.5 text-xs text-rose-700">{{ allergy }}</span>
                 {% endfor %}
               {% else %}
-                <span class="text-gray-300">—</span>
+              <span class="text-slate-300">-</span>
               {% endif %}
             {% elif key == "medical_notes" %}
               {% set notes = child.extra_data.medical_notes if child.extra_data else "" %}
-              {{ notes if notes else "—" }}
+              {{ notes if notes else "-" }}
             {% elif key == "age" %}
               {{ child.age }}歳
             {% else %}
-              {{ child.get_field(key) or "—" }}
+              {{ child.get_field(key) or "-" }}
             {% endif %}
           </td>
           {% endfor %}
           {% if current_user and current_user.can_edit %}
-          <td class="px-4 py-2 whitespace-nowrap no-print">
-            <a href="/children/{{ child.id }}/edit" class="text-indigo-600 hover:underline text-sm">編集</a>
-            <a href="/children/new?sibling_id={{ child.id }}" class="text-indigo-600 hover:underline text-sm ml-2">兄弟</a>
+          <td class="no-print whitespace-nowrap px-4 py-2">
+            <a href="/children/{{ child.id }}/edit" class="text-sm text-indigo-600 hover:underline">編集</a>
+            <a href="/children/new?sibling_id={{ child.id }}" class="ml-3 text-sm text-indigo-600 hover:underline">兄弟を追加</a>
           </td>
           {% endif %}
         </tr>
         {% else %}
         <tr>
-          <td colspan="{{ (selected_fields|length + 1) if (current_user and current_user.can_edit) else selected_fields|length }}" class="px-4 py-8 text-center text-gray-400">
-            該当する園児がいません
+          <td colspan="{{ (selected_fields|length + 1) if (current_user and current_user.can_edit) else selected_fields|length }}" class="px-4 py-10 text-center text-slate-400">
+            表示する園児がありません。
           </td>
         </tr>
         {% endfor %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}保護者ログイン | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-xl">
+  <div class="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+    <h1 class="mb-2 text-2xl font-bold text-gray-800">保護者ログイン</h1>
+    <p class="mb-6 text-sm text-gray-500">モック認証のため、ログインしたい保護者アカウントを選ぶだけで入れます。</p>
+
+    <form method="post" action="/parent-portal/login" class="space-y-5">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">保護者アカウント</label>
+        <select name="parent_account_id" class="w-full rounded border border-gray-300 px-3 py-2">
+          {% for account in accounts %}
+          <option value="{{ account.id }}" {% if selected_parent_account_id == account.id %}selected{% endif %}>{{ account.display_name }} / {{ account.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="w-full rounded bg-indigo-600 px-4 py-2.5 font-medium text-white hover:bg-indigo-700">このアカウントでログイン</button>
+    </form>
+
+    {% if current_parent_user %}
+    <div class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      現在は {{ current_parent_user.display_name }} としてログイン中です。
+      <a href="/parent-portal/" class="font-medium underline">保護者ホームへ</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

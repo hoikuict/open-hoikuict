@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}変更申請詳細 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">変更申請詳細</h1>
+      <p class="text-sm text-gray-500">{{ change_request.child.full_name if change_request.child else "園児不明" }} に対する保護者申請です。</p>
+    </div>
+    <a href="/child-change-requests" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
+  </div>
+
+  {% if notice %}
+  <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ notice }}</div>
+  {% endif %}
+
+  <div class="mb-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="grid gap-4 md:grid-cols-2">
+      <div>
+        <div class="text-sm text-gray-500">園児</div>
+        <div class="font-medium text-gray-800">{{ change_request.child.full_name if change_request.child else "園児不明" }}</div>
+      </div>
+      <div>
+        <div class="text-sm text-gray-500">申請者</div>
+        <div class="font-medium text-gray-800">{{ change_request.parent_account.display_name if change_request.parent_account else "不明" }}</div>
+      </div>
+      <div>
+        <div class="text-sm text-gray-500">状態</div>
+        <div class="font-medium {% if change_request.status.value == 'pending' %}text-amber-700{% elif change_request.status.value == 'approved' %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ change_request.status.label }}</div>
+      </div>
+      <div>
+        <div class="text-sm text-gray-500">申請日時</div>
+        <div class="font-medium text-gray-800">{{ change_request.submitted_at.strftime("%Y-%m-%d %H:%M") }}</div>
+      </div>
+      {% if change_request.reviewed_at %}
+      <div>
+        <div class="text-sm text-gray-500">対応日時</div>
+        <div class="font-medium text-gray-800">{{ change_request.reviewed_at.strftime("%Y-%m-%d %H:%M") }}</div>
+      </div>
+      {% endif %}
+      {% if change_request.review_note %}
+      <div>
+        <div class="text-sm text-gray-500">管理者メモ</div>
+        <div class="font-medium text-gray-800">{{ change_request.review_note }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mb-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <h2 class="mb-4 text-lg font-semibold text-gray-800">変更内容</h2>
+    <div class="grid gap-3 md:grid-cols-2">
+      {% for detail in change_request.change_details.values() %}
+      <div class="rounded-lg border border-gray-200 p-4">
+        <div class="mb-1 text-sm font-semibold text-gray-700">{{ detail.label }}</div>
+        <div class="text-sm text-gray-500">変更前: {{ detail.old }}</div>
+        <div class="text-sm text-gray-800">変更後: {{ detail.new }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if change_request.status.value == "pending" %}
+  <div class="grid gap-4 md:grid-cols-2">
+    <form method="post" action="/child-change-requests/{{ change_request.id }}/approve" class="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+      <h2 class="mb-3 text-lg font-semibold text-emerald-900">承認して反映</h2>
+      <textarea name="review_note" rows="3" class="mb-3 w-full rounded border border-emerald-200 px-3 py-2" placeholder="任意メモ"></textarea>
+      <button type="submit" class="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700">承認する</button>
+    </form>
+
+    <form method="post" action="/child-change-requests/{{ change_request.id }}/reject" class="rounded-xl border border-rose-200 bg-rose-50 p-5">
+      <h2 class="mb-3 text-lg font-semibold text-rose-900">差し戻し</h2>
+      <textarea name="review_note" rows="3" class="mb-3 w-full rounded border border-rose-200 px-3 py-2" placeholder="差し戻し理由など"></textarea>
+      <button type="submit" class="rounded bg-rose-600 px-4 py-2 text-white hover:bg-rose-700">差し戻す</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

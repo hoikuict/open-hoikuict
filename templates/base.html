@@ -4,45 +4,64 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}open-hoikuict{% endblock %}</title>
-
-  <!-- Tailwind CSS (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-
   <style>
     @media print {
       .no-print { display: none !important; }
       body { font-size: 11px; }
       table { border-collapse: collapse; width: 100%; }
       th, td { border: 1px solid #ccc; padding: 4px 8px; }
-      thead { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; }
+      thead { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
     }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-slate-50 text-slate-800">
+  <nav class="no-print bg-indigo-700 px-6 py-3 text-white shadow">
+    <div class="mx-auto flex max-w-7xl items-center gap-4">
+      <a href="/" class="text-lg font-bold">open-hoikuict</a>
 
-  <!-- ナビゲーション -->
-  <nav class="no-print bg-indigo-700 text-white px-6 py-3 flex items-center gap-6 shadow">
-    <span class="font-bold text-lg">🏫 open-hoikuict</span>
-    <a href="/children" class="hover:underline text-sm">園児名簿</a>
-    <a href="/attendance" class="hover:underline text-sm">登降園管理</a>
-    <a href="/guardian" class="hover:underline text-sm">保護者打刻</a>
-    <!-- モック用：権限切り替え（認証実装後に削除） -->
-    {% if current_user is defined and current_user %}
-    <div class="ml-auto flex items-center gap-2 text-sm">
-      <span class="text-indigo-200">表示中:</span>
-      <a href="/switch-role?role=view_only&redirect={{ request.url.path }}" class="px-2 py-0.5 rounded {% if current_user.role.value == 'view_only' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">閲覧のみ</a>
-      <a href="/switch-role?role=can_edit&redirect={{ request.url.path }}" class="px-2 py-0.5 rounded {% if current_user.role.value == 'can_edit' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">編集可</a>
-      <a href="/switch-role?role=admin&redirect={{ request.url.path }}" class="px-2 py-0.5 rounded {% if current_user.role.value == 'admin' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">管理者</a>
+      {% if (parent_portal_mode is defined and parent_portal_mode) or (current_parent_user is defined and current_parent_user) %}
+      <a href="/parent-portal/" class="text-sm hover:underline">保護者ホーム</a>
+      {% if current_parent_user is defined and current_parent_user and ((current_parent_user.family and current_parent_user.family.children) or current_parent_user.child_links) %}
+      <a href="/parent-portal/children/profile" class="text-sm hover:underline">子ども情報変更申請</a>
+      {% endif %}
+      <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
+      <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        {% if current_parent_user is defined and current_parent_user %}
+        <span class="text-indigo-100">{{ current_parent_user.display_name }}</span>
+        <form method="post" action="/parent-portal/logout">
+          <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログアウト</button>
+        </form>
+        {% else %}
+        <a href="/parent-portal/login" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログイン</a>
+        {% endif %}
+      </div>
+      {% else %}
+      <a href="/children" class="text-sm hover:underline">園児一覧</a>
+      <a href="/attendance" class="text-sm hover:underline">出席一覧</a>
+      <a href="/guardian" class="text-sm hover:underline">送迎キオスク</a>
+      <a href="/parent-accounts" class="text-sm hover:underline">保護者アカウント</a>
+      <a href="/child-change-requests" class="text-sm hover:underline">子ども情報変更申請</a>
+      <a href="/daily-contacts" class="text-sm hover:underline">日次連絡</a>
+      <a href="/notices" class="text-sm hover:underline">お知らせ管理</a>
+      <a href="/parent-portal/login" class="text-sm hover:underline">保護者ログイン</a>
+
+      {% if current_user is defined and current_user %}
+      <div class="ml-auto flex items-center gap-2 text-sm">
+        <span class="text-indigo-100">表示モード</span>
+        <a href="/switch-role?role=view_only&redirect={{ request.url.path }}" class="rounded px-2 py-1 {% if current_user.role.value == 'view_only' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">閲覧のみ</a>
+        <a href="/switch-role?role=can_edit&redirect={{ request.url.path }}" class="rounded px-2 py-1 {% if current_user.role.value == 'can_edit' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">編集可</a>
+        <a href="/switch-role?role=admin&redirect={{ request.url.path }}" class="rounded px-2 py-1 {% if current_user.role.value == 'admin' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">管理者</a>
+      </div>
+      {% endif %}
+      {% endif %}
     </div>
-    {% endif %}
   </nav>
 
-  <main class="max-w-7xl mx-auto px-4 py-6">
+  <main class="mx-auto max-w-7xl px-4 py-6">
     {% block content %}{% endblock %}
   </main>
-
 </body>
 </html>

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}お知らせ管理 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">お知らせ管理</h1>
+    <p class="text-sm text-gray-500">保護者向けのお知らせを作成・編集します。</p>
+  </div>
+  {% if current_user and current_user.can_edit %}
+  <a href="/notices/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">新規作成</a>
+  {% endif %}
+</div>
+
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50 text-left text-gray-600">
+      <tr>
+        <th class="px-4 py-3 font-semibold">タイトル</th>
+        <th class="px-4 py-3 font-semibold">状態</th>
+        <th class="px-4 py-3 font-semibold">優先度</th>
+        <th class="px-4 py-3 font-semibold">対象</th>
+        <th class="px-4 py-3 font-semibold">既読数</th>
+        <th class="px-4 py-3 font-semibold">操作</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for notice in notices %}
+      <tr>
+        <td class="px-4 py-3">
+          <div class="font-medium text-gray-800">{{ notice.title }}</div>
+          <div class="text-xs text-gray-500">{{ notice.updated_at.strftime("%Y-%m-%d %H:%M") }}</div>
+        </td>
+        <td class="px-4 py-3">{{ notice.status.label }}</td>
+        <td class="px-4 py-3">{{ notice.priority.label }}</td>
+        <td class="px-4 py-3">{{ target_labels.get(notice.id, '-') }}</td>
+        <td class="px-4 py-3">{{ notice.reads|length }}</td>
+        <td class="px-4 py-3">
+          {% if current_user and current_user.can_edit %}
+          <a href="/notices/{{ notice.id }}/edit" class="text-indigo-600 hover:underline">編集</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="px-4 py-10 text-center text-gray-400">お知らせはまだありません。</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

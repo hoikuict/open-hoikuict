@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}日次連絡一覧 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">日次連絡一覧</h1>
+    <p class="text-sm text-gray-500">保護者から提出されたその日の連絡内容を確認します。</p>
+  </div>
+  <form method="get" action="/daily-contacts/" class="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div>
+      <label class="mb-1 block text-xs font-medium text-gray-500">日付</label>
+      <input type="date" name="date" value="{{ target_date_value }}" class="rounded border border-gray-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="mb-1 block text-xs font-medium text-gray-500">クラス</label>
+      <select name="classroom_id" class="rounded border border-gray-300 px-3 py-2 text-sm">
+        <option value="">すべて</option>
+        {% for classroom in classrooms %}
+        <option value="{{ classroom.id }}" {% if selected_classroom_id == classroom.id %}selected{% endif %}>{{ classroom.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">表示</button>
+  </form>
+</div>
+
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+  <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <thead class="bg-gray-50 text-left text-gray-600">
+      <tr>
+        <th class="px-4 py-3 font-semibold">園児</th>
+        <th class="px-4 py-3 font-semibold">クラス</th>
+        <th class="px-4 py-3 font-semibold">提出状況</th>
+        <th class="px-4 py-3 font-semibold">提出者</th>
+        <th class="px-4 py-3 font-semibold">更新日時</th>
+        <th class="px-4 py-3 font-semibold">操作</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for child in children %}
+      {% set entry = entry_by_child_id.get(child.id) %}
+      <tr>
+        <td class="px-4 py-3 font-medium text-gray-800">{{ child.full_name }}</td>
+        <td class="px-4 py-3 text-gray-700">{{ child.classroom.name if child.classroom else '-' }}</td>
+        <td class="px-4 py-3">
+          {% if entry %}
+          <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">提出済み</span>
+          {% else %}
+          <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未提出</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-gray-700">{{ entry.parent_account.display_name if entry and entry.parent_account else '-' }}</td>
+        <td class="px-4 py-3 text-gray-700">{{ entry.updated_at.strftime("%Y-%m-%d %H:%M") if entry else '-' }}</td>
+        <td class="px-4 py-3">
+          <a href="/daily-contacts/{{ child.id }}?date={{ target_date_value }}" class="text-indigo-600 hover:underline">詳細</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="px-4 py-10 text-center text-gray-400">対象の園児が見つかりません。</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

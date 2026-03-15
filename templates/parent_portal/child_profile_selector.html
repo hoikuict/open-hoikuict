@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}子ども情報変更申請 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">子ども情報変更申請</h1>
+      <p class="text-sm text-slate-500">申請したい子どもを選んでください。家族共通の住所や保護者情報も同じ画面から申請できます。</p>
+    </div>
+    <a href="/parent-portal/" class="text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
+  </div>
+
+  <div class="space-y-4">
+    {% for child in children %}
+    {% set pending_request = pending_request_by_child_id.get(child.id) %}
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-lg font-semibold text-slate-800">{{ child.full_name }}</h2>
+            {% if pending_request %}
+            <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">申請中</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</p>
+          {% if pending_request %}
+          <p class="mt-2 text-xs text-amber-700">最新申請: {{ pending_request.submitted_at.strftime("%Y-%m-%d %H:%M") }}</p>
+          {% endif %}
+        </div>
+        <a href="/parent-portal/children/{{ child.id }}/profile" class="rounded border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">この子の情報を申請</a>
+      </div>
+    </div>
+    {% else %}
+    <div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400">申請できる園児が見つかりません。</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
