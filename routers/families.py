@@ -8,7 +8,14 @@ from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit
 from database import get_session
-from family_support import apply_family_shared_data, create_family_for_child, sync_parent_child_links
+from family_support import (
+    apply_family_shared_data,
+    build_family_payload,
+    create_family_for_child,
+    family_form_data_from_family,
+    guardians_data_from_payload,
+    sync_parent_child_links,
+)
 from models import Child, Family, ParentAccount
 from time_utils import utc_now
 
@@ -69,16 +76,11 @@ def _render_form(
     action_url: str,
     submit_label: str,
     form_error: str = "",
-    form_data: dict[str, str] | None = None,
+    form_data: dict[str, object] | None = None,
     selected_child_ids: set[int] | None = None,
     selected_parent_account_ids: set[int] | None = None,
     session: Session,
 ):
-    profile = family.shared_profile if family and isinstance(family.shared_profile, dict) else {}
-    guardians = profile.get("guardians", []) if isinstance(profile.get("guardians", []), list) else []
-    g1 = guardians[0] if len(guardians) > 0 else {}
-    g2 = guardians[1] if len(guardians) > 1 else {}
-
     return templates.TemplateResponse(
         "families/form.html",
         {
@@ -88,30 +90,7 @@ def _render_form(
             "action_url": action_url,
             "submit_label": submit_label,
             "form_error": form_error,
-            "form_data": form_data
-            or {
-                "family_name": family.family_name if family else "",
-                "home_address": family.home_address if family and family.home_address else "",
-                "home_phone": family.home_phone if family and family.home_phone else "",
-                "g1_last_name": g1.get("last_name", ""),
-                "g1_first_name": g1.get("first_name", ""),
-                "g1_last_name_kana": g1.get("last_name_kana", ""),
-                "g1_first_name_kana": g1.get("first_name_kana", ""),
-                "g1_relationship": g1.get("relationship", "母"),
-                "g1_phone": g1.get("phone", ""),
-                "g1_workplace": g1.get("workplace", ""),
-                "g1_workplace_address": g1.get("workplace_address", ""),
-                "g1_workplace_phone": g1.get("workplace_phone", ""),
-                "g2_last_name": g2.get("last_name", ""),
-                "g2_first_name": g2.get("first_name", ""),
-                "g2_last_name_kana": g2.get("last_name_kana", ""),
-                "g2_first_name_kana": g2.get("first_name_kana", ""),
-                "g2_relationship": g2.get("relationship", "父"),
-                "g2_phone": g2.get("phone", ""),
-                "g2_workplace": g2.get("workplace", ""),
-                "g2_workplace_address": g2.get("workplace_address", ""),
-                "g2_workplace_phone": g2.get("workplace_phone", ""),
-            },
+            "form_data": form_data or family_form_data_from_family(family),
             "children": _all_children(session),
             "parent_accounts": _all_parent_accounts(session),
             "selected_child_ids": (
@@ -125,6 +104,51 @@ def _render_form(
                 else ({account.id for account in family.parent_accounts} if family else set())
             ),
         },
+    )
+
+
+def _guardians_data_from_form(
+    *,
+    g1_last_name: str,
+    g1_first_name: str,
+    g1_last_name_kana: str,
+    g1_first_name_kana: str,
+    g1_relationship: str,
+    g1_phone: str,
+    g1_workplace: str,
+    g1_workplace_address: str,
+    g1_workplace_phone: str,
+    g2_last_name: str,
+    g2_first_name: str,
+    g2_last_name_kana: str,
+    g2_first_name_kana: str,
+    g2_relationship: str,
+    g2_phone: str,
+    g2_workplace: str,
+    g2_workplace_address: str,
+    g2_workplace_phone: str,
+) -> list[dict[str, object]]:
+    return guardians_data_from_payload(
+        {
+            "g1_last_name": g1_last_name,
+            "g1_first_name": g1_first_name,
+            "g1_last_name_kana": g1_last_name_kana,
+            "g1_first_name_kana": g1_first_name_kana,
+            "g1_relationship": g1_relationship,
+            "g1_phone": g1_phone,
+            "g1_workplace": g1_workplace,
+            "g1_workplace_address": g1_workplace_address,
+            "g1_workplace_phone": g1_workplace_phone,
+            "g2_last_name": g2_last_name,
+            "g2_first_name": g2_first_name,
+            "g2_last_name_kana": g2_last_name_kana,
+            "g2_first_name_kana": g2_first_name_kana,
+            "g2_relationship": g2_relationship,
+            "g2_phone": g2_phone,
+            "g2_workplace": g2_workplace,
+            "g2_workplace_address": g2_workplace_address,
+            "g2_workplace_phone": g2_workplace_phone,
+        }
     )
 
 
@@ -224,29 +248,31 @@ def create_family(
     apply_family_shared_data(
         session,
         family,
-        {
-            "family_name": family_name,
-            "home_address": home_address,
-            "home_phone": home_phone,
-            "g1_last_name": g1_last_name,
-            "g1_first_name": g1_first_name,
-            "g1_last_name_kana": g1_last_name_kana,
-            "g1_first_name_kana": g1_first_name_kana,
-            "g1_relationship": g1_relationship,
-            "g1_phone": g1_phone,
-            "g1_workplace": g1_workplace,
-            "g1_workplace_address": g1_workplace_address,
-            "g1_workplace_phone": g1_workplace_phone,
-            "g2_last_name": g2_last_name,
-            "g2_first_name": g2_first_name,
-            "g2_last_name_kana": g2_last_name_kana,
-            "g2_first_name_kana": g2_first_name_kana,
-            "g2_relationship": g2_relationship,
-            "g2_phone": g2_phone,
-            "g2_workplace": g2_workplace,
-            "g2_workplace_address": g2_workplace_address,
-            "g2_workplace_phone": g2_workplace_phone,
-        },
+        build_family_payload(
+            family_name=family_name,
+            home_address=home_address,
+            home_phone=home_phone,
+            guardians_data=_guardians_data_from_form(
+                g1_last_name=g1_last_name,
+                g1_first_name=g1_first_name,
+                g1_last_name_kana=g1_last_name_kana,
+                g1_first_name_kana=g1_first_name_kana,
+                g1_relationship=g1_relationship,
+                g1_phone=g1_phone,
+                g1_workplace=g1_workplace,
+                g1_workplace_address=g1_workplace_address,
+                g1_workplace_phone=g1_workplace_phone,
+                g2_last_name=g2_last_name,
+                g2_first_name=g2_first_name,
+                g2_last_name_kana=g2_last_name_kana,
+                g2_first_name_kana=g2_first_name_kana,
+                g2_relationship=g2_relationship,
+                g2_phone=g2_phone,
+                g2_workplace=g2_workplace,
+                g2_workplace_address=g2_workplace_address,
+                g2_workplace_phone=g2_workplace_phone,
+            ),
+        ),
     )
 
     for touched_family_id in touched_family_ids:
@@ -351,29 +377,31 @@ def update_family(
     apply_family_shared_data(
         session,
         family,
-        {
-            "family_name": family_name,
-            "home_address": home_address,
-            "home_phone": home_phone,
-            "g1_last_name": g1_last_name,
-            "g1_first_name": g1_first_name,
-            "g1_last_name_kana": g1_last_name_kana,
-            "g1_first_name_kana": g1_first_name_kana,
-            "g1_relationship": g1_relationship,
-            "g1_phone": g1_phone,
-            "g1_workplace": g1_workplace,
-            "g1_workplace_address": g1_workplace_address,
-            "g1_workplace_phone": g1_workplace_phone,
-            "g2_last_name": g2_last_name,
-            "g2_first_name": g2_first_name,
-            "g2_last_name_kana": g2_last_name_kana,
-            "g2_first_name_kana": g2_first_name_kana,
-            "g2_relationship": g2_relationship,
-            "g2_phone": g2_phone,
-            "g2_workplace": g2_workplace,
-            "g2_workplace_address": g2_workplace_address,
-            "g2_workplace_phone": g2_workplace_phone,
-        },
+        build_family_payload(
+            family_name=family_name,
+            home_address=home_address,
+            home_phone=home_phone,
+            guardians_data=_guardians_data_from_form(
+                g1_last_name=g1_last_name,
+                g1_first_name=g1_first_name,
+                g1_last_name_kana=g1_last_name_kana,
+                g1_first_name_kana=g1_first_name_kana,
+                g1_relationship=g1_relationship,
+                g1_phone=g1_phone,
+                g1_workplace=g1_workplace,
+                g1_workplace_address=g1_workplace_address,
+                g1_workplace_phone=g1_workplace_phone,
+                g2_last_name=g2_last_name,
+                g2_first_name=g2_first_name,
+                g2_last_name_kana=g2_last_name_kana,
+                g2_first_name_kana=g2_first_name_kana,
+                g2_relationship=g2_relationship,
+                g2_phone=g2_phone,
+                g2_workplace=g2_workplace,
+                g2_workplace_address=g2_workplace_address,
+                g2_workplace_phone=g2_workplace_phone,
+            ),
+        ),
     )
 
     for touched_family_id in touched_family_ids:

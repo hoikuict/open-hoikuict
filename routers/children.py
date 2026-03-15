@@ -11,20 +11,31 @@ from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit
 from child_profile_changes import RELATIONSHIP_OPTIONS
-from database import get_session, seed_classroom_data
+from database import get_session
 from family_support import (
     apply_family_shared_data,
+    build_family_form_data,
+    build_family_payload,
     create_family_for_child,
     family_form_data_from_child,
     family_form_data_from_family,
+    guardians_data_from_payload,
     move_child_to_family,
     sync_parent_child_links,
 )
-from models import CHILD_FIELDS, Child, ChildStatus, Family, ParentChildLink
+from models import CHILD_FIELDS, Child, ChildStatus, Classroom, Family, ParentChildLink
 from time_utils import utc_now
 
 router = APIRouter(prefix="/children", tags=["children"])
 templates = Jinja2Templates(directory="templates")
+SORT_OPTIONS = {
+    "name": "名前",
+    "birth_date": "生年月日",
+}
+SORT_ORDER_OPTIONS = {
+    "asc": "昇順",
+    "desc": "降順",
+}
 
 
 def _parse_date(raw: Optional[str]) -> Optional[date]:
@@ -36,10 +47,37 @@ def _parse_date(raw: Optional[str]) -> Optional[date]:
         return None
 
 
+def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
+    if raw is None:
+        return None
+    try:
+        return int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def _all_children(session: Session) -> list[Child]:
     return session.exec(
         select(Child).order_by(Child.last_name_kana, Child.first_name_kana)
     ).all()
+
+
+def _all_classrooms(session: Session) -> list[Classroom]:
+    return session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+
+
+def _apply_child_sort(statement, sort_by: str, sort_order: str):
+    sort_direction = sort_order if sort_order in SORT_ORDER_OPTIONS else "asc"
+    if sort_by == "birth_date":
+        first = Child.birth_date.asc() if sort_direction == "asc" else Child.birth_date.desc()
+        second = Child.last_name_kana.asc() if sort_direction == "asc" else Child.last_name_kana.desc()
+        third = Child.first_name_kana.asc() if sort_direction == "asc" else Child.first_name_kana.desc()
+        return statement.order_by(first, second, third)
+
+    first = Child.last_name_kana.asc() if sort_direction == "asc" else Child.last_name_kana.desc()
+    second = Child.first_name_kana.asc() if sort_direction == "asc" else Child.first_name_kana.desc()
+    third = Child.birth_date.asc() if sort_direction == "asc" else Child.birth_date.desc()
+    return statement.order_by(first, second, third)
 
 
 def _all_families(session: Session) -> list[Family]:
@@ -56,7 +94,8 @@ def _load_child(session: Session, child_id: int) -> Child:
         .options(
             selectinload(Child.classroom),
             selectinload(Child.guardians),
-            selectinload(Child.older_sibling),
+            selectinload(Child.older_sibling).selectinload(Child.classroom),
+            selectinload(Child.younger_siblings).selectinload(Child.classroom),
             selectinload(Child.family).selectinload(Family.children).selectinload(Child.classroom),
             selectinload(Child.family).selectinload(Family.parent_accounts),
         )
@@ -79,6 +118,29 @@ def _sorted_family_children(child: Child) -> list[Child]:
             item.id or 0,
         ),
     )
+
+
+def _sibling_relationships(child: Optional[Child]) -> list[dict[str, object]]:
+    if not child:
+        return []
+
+    relationships: list[dict[str, object]] = []
+    if child.older_sibling:
+        relationships.append({"label": "兄姉", "child": child.older_sibling})
+
+    younger_siblings = sorted(
+        child.younger_siblings,
+        key=lambda item: (
+            item.birth_date or date.max,
+            item.last_name_kana or "",
+            item.first_name_kana or "",
+            item.id or 0,
+        ),
+    )
+    relationships.extend(
+        {"label": "弟妹", "child": sibling} for sibling in younger_siblings
+    )
+    return relationships
 
 
 def _load_family(session: Session, raw_selection: Optional[str]) -> Optional[Family]:
@@ -104,9 +166,10 @@ def _base_form_context(
     *,
     child: Optional[Child],
     all_children: list[Child],
+    classrooms: list[Classroom],
     families: list[Family],
     selected_family_value: str,
-    family_form_data: dict[str, str],
+    family_form_data: dict[str, object],
     current_user,
     action_url: str,
     submit_label: str,
@@ -116,7 +179,14 @@ def _base_form_context(
     older_sibling_id: Optional[int] = None,
     inherit_from: Optional[Child] = None,
 ):
-    base_family = child.family if child and child.family else inherit_from.family if inherit_from and inherit_from.family else None
+    relationship_child = child or inherit_from
+    base_family = (
+        child.family
+        if child and child.family
+        else inherit_from.family
+        if inherit_from and inherit_from.family
+        else None
+    )
     sibling_children = []
     if base_family and base_family.children:
         excluded_id = child.id if child else None
@@ -134,6 +204,7 @@ def _base_form_context(
             "request": request,
             "child": child,
             "all_children": all_children,
+            "classrooms": classrooms,
             "families": families,
             "selected_family_value": selected_family_value,
             "family_form_data": family_form_data,
@@ -145,6 +216,7 @@ def _base_form_context(
             "older_sibling_id": older_sibling_id,
             "inherit_from": inherit_from,
             "show_family_selection": child is None and inherit_from is None,
+            "sibling_relationships": _sibling_relationships(relationship_child),
             "siblings": sibling_children,
             "family_context_child": child or inherit_from,
             "current_user": current_user,
@@ -158,10 +230,13 @@ def list_children(
     request: Request,
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
+    sort_by: str = Query(default="name"),
+    sort_order: str = Query(default="asc"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     stmt = select(Child).options(
+        selectinload(Child.classroom),
         selectinload(Child.guardians),
         selectinload(Child.family).selectinload(Family.parent_accounts),
         selectinload(Child.older_sibling),
@@ -169,7 +244,7 @@ def list_children(
     )
     if status and status != "all":
         stmt = stmt.where(Child.status == status)
-    stmt = stmt.order_by(Child.last_name_kana, Child.first_name_kana)
+    stmt = _apply_child_sort(stmt, sort_by, sort_order)
     children = session.exec(stmt).all()
 
     if not fields:
@@ -183,6 +258,10 @@ def list_children(
             "all_fields": CHILD_FIELDS,
             "selected_fields": fields,
             "current_status": status,
+            "current_sort_by": sort_by if sort_by in SORT_OPTIONS else "name",
+            "current_sort_order": sort_order if sort_order in SORT_ORDER_OPTIONS else "asc",
+            "sort_options": SORT_OPTIONS,
+            "sort_order_options": SORT_ORDER_OPTIONS,
             "total": len(children),
             "current_user": current_user,
         },
@@ -194,10 +273,13 @@ def children_table(
     request: Request,
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
+    sort_by: str = Query(default="name"),
+    sort_order: str = Query(default="asc"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     stmt = select(Child).options(
+        selectinload(Child.classroom),
         selectinload(Child.guardians),
         selectinload(Child.family).selectinload(Family.parent_accounts),
         selectinload(Child.older_sibling),
@@ -205,7 +287,7 @@ def children_table(
     )
     if status and status != "all":
         stmt = stmt.where(Child.status == status)
-    stmt = stmt.order_by(Child.last_name_kana, Child.first_name_kana)
+    stmt = _apply_child_sort(stmt, sort_by, sort_order)
     children = session.exec(stmt).all()
 
     if not fields:
@@ -248,6 +330,7 @@ def new_child_form(
         request,
         child=None,
         all_children=_all_children(session),
+        classrooms=_all_classrooms(session),
         families=_all_families(session),
         selected_family_value=_selected_family_value(None, selected_family),
         family_form_data=family_form_data,
@@ -270,6 +353,7 @@ def _build_form_input(
     enrollment_date: Optional[str],
     withdrawal_date: Optional[str],
     status: str,
+    classroom_id: Optional[str],
     allergy: str,
     medical_notes: str,
 ) -> dict[str, str]:
@@ -282,9 +366,172 @@ def _build_form_input(
         "enrollment_date": enrollment_date or "",
         "withdrawal_date": withdrawal_date or "",
         "status": status,
+        "classroom_id": classroom_id or "",
         "allergy": allergy,
         "medical_notes": medical_notes,
     }
+
+
+def _guardians_data_from_form(
+    *,
+    g1_last_name: str,
+    g1_first_name: str,
+    g1_last_name_kana: str,
+    g1_first_name_kana: str,
+    g1_relationship: str,
+    g1_phone: str,
+    g1_workplace: str,
+    g1_workplace_address: str,
+    g1_workplace_phone: str,
+    g2_last_name: str,
+    g2_first_name: str,
+    g2_last_name_kana: str,
+    g2_first_name_kana: str,
+    g2_relationship: str,
+    g2_phone: str,
+    g2_workplace: str,
+    g2_workplace_address: str,
+    g2_workplace_phone: str,
+) -> list[dict[str, object]]:
+    return guardians_data_from_payload(
+        {
+            "g1_last_name": g1_last_name,
+            "g1_first_name": g1_first_name,
+            "g1_last_name_kana": g1_last_name_kana,
+            "g1_first_name_kana": g1_first_name_kana,
+            "g1_relationship": g1_relationship,
+            "g1_phone": g1_phone,
+            "g1_workplace": g1_workplace,
+            "g1_workplace_address": g1_workplace_address,
+            "g1_workplace_phone": g1_workplace_phone,
+            "g2_last_name": g2_last_name,
+            "g2_first_name": g2_first_name,
+            "g2_last_name_kana": g2_last_name_kana,
+            "g2_first_name_kana": g2_first_name_kana,
+            "g2_relationship": g2_relationship,
+            "g2_phone": g2_phone,
+            "g2_workplace": g2_workplace,
+            "g2_workplace_address": g2_workplace_address,
+            "g2_workplace_phone": g2_workplace_phone,
+        }
+    )
+
+
+def _family_form_data_from_input(
+    *,
+    family_name: str,
+    home_address: str,
+    home_phone: str,
+    g1_last_name: str,
+    g1_first_name: str,
+    g1_last_name_kana: str,
+    g1_first_name_kana: str,
+    g1_relationship: str,
+    g1_phone: str,
+    g1_workplace: str,
+    g1_workplace_address: str,
+    g1_workplace_phone: str,
+    g2_last_name: str,
+    g2_first_name: str,
+    g2_last_name_kana: str,
+    g2_first_name_kana: str,
+    g2_relationship: str,
+    g2_phone: str,
+    g2_workplace: str,
+    g2_workplace_address: str,
+    g2_workplace_phone: str,
+) -> dict[str, object]:
+    return build_family_form_data(
+        family_name=family_name,
+        home_address=home_address,
+        home_phone=home_phone,
+        guardians_data=_guardians_data_from_form(
+            g1_last_name=g1_last_name,
+            g1_first_name=g1_first_name,
+            g1_last_name_kana=g1_last_name_kana,
+            g1_first_name_kana=g1_first_name_kana,
+            g1_relationship=g1_relationship,
+            g1_phone=g1_phone,
+            g1_workplace=g1_workplace,
+            g1_workplace_address=g1_workplace_address,
+            g1_workplace_phone=g1_workplace_phone,
+            g2_last_name=g2_last_name,
+            g2_first_name=g2_first_name,
+            g2_last_name_kana=g2_last_name_kana,
+            g2_first_name_kana=g2_first_name_kana,
+            g2_relationship=g2_relationship,
+            g2_phone=g2_phone,
+            g2_workplace=g2_workplace,
+            g2_workplace_address=g2_workplace_address,
+            g2_workplace_phone=g2_workplace_phone,
+        ),
+    )
+
+
+def _family_payload_from_input(
+    *,
+    family_name: str,
+    home_address: str,
+    home_phone: str,
+    g1_last_name: str,
+    g1_first_name: str,
+    g1_last_name_kana: str,
+    g1_first_name_kana: str,
+    g1_relationship: str,
+    g1_phone: str,
+    g1_workplace: str,
+    g1_workplace_address: str,
+    g1_workplace_phone: str,
+    g2_last_name: str,
+    g2_first_name: str,
+    g2_last_name_kana: str,
+    g2_first_name_kana: str,
+    g2_relationship: str,
+    g2_phone: str,
+    g2_workplace: str,
+    g2_workplace_address: str,
+    g2_workplace_phone: str,
+) -> dict[str, object]:
+    return build_family_payload(
+        family_name=family_name,
+        home_address=home_address,
+        home_phone=home_phone,
+        guardians_data=_guardians_data_from_form(
+            g1_last_name=g1_last_name,
+            g1_first_name=g1_first_name,
+            g1_last_name_kana=g1_last_name_kana,
+            g1_first_name_kana=g1_first_name_kana,
+            g1_relationship=g1_relationship,
+            g1_phone=g1_phone,
+            g1_workplace=g1_workplace,
+            g1_workplace_address=g1_workplace_address,
+            g1_workplace_phone=g1_workplace_phone,
+            g2_last_name=g2_last_name,
+            g2_first_name=g2_first_name,
+            g2_last_name_kana=g2_last_name_kana,
+            g2_first_name_kana=g2_first_name_kana,
+            g2_relationship=g2_relationship,
+            g2_phone=g2_phone,
+            g2_workplace=g2_workplace,
+            g2_workplace_address=g2_workplace_address,
+            g2_workplace_phone=g2_workplace_phone,
+        ),
+    )
+
+
+def _selected_classroom_id_value(classroom_id: Optional[int]) -> str:
+    return str(classroom_id) if classroom_id is not None else ""
+
+
+def _resolve_classroom(session: Session, raw_classroom_id: Optional[str]) -> tuple[Optional[Classroom], Optional[str]]:
+    classroom_id = _parse_optional_int(raw_classroom_id)
+    if classroom_id is None:
+        return None, None
+
+    classroom = session.get(Classroom, classroom_id)
+    if not classroom:
+        return None, "選択されたクラスが見つかりません。"
+    return classroom, None
 
 
 @router.post("/")
@@ -299,6 +546,7 @@ def create_child(
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
     status: str = Form("enrolled"),
+    classroom_id: str = Form(""),
     allergy: str = Form(""),
     medical_notes: str = Form(""),
     older_sibling_id: Optional[str] = Form(None),
@@ -331,42 +579,44 @@ def create_child(
     parsed_enrollment_date = _parse_date(enrollment_date)
     parsed_withdrawal_date = _parse_date(withdrawal_date)
     selected_family = _load_family(session, family_selection)
+    selected_classroom, classroom_error = _resolve_classroom(session, classroom_id)
 
-    if not parsed_birth_date or not parsed_enrollment_date:
+    if not parsed_birth_date or not parsed_enrollment_date or classroom_error:
         return _base_form_context(
             request,
             child=None,
             all_children=_all_children(session),
+            classrooms=_all_classrooms(session),
             families=_all_families(session),
             selected_family_value=_selected_family_value(None, selected_family),
-            family_form_data={
-                "family_name": family_name,
-                "home_address": home_address,
-                "home_phone": home_phone,
-                "g1_last_name": g1_last_name,
-                "g1_first_name": g1_first_name,
-                "g1_last_name_kana": g1_last_name_kana,
-                "g1_first_name_kana": g1_first_name_kana,
-                "g1_relationship": g1_relationship,
-                "g1_phone": g1_phone,
-                "g1_workplace": g1_workplace,
-                "g1_workplace_address": g1_workplace_address,
-                "g1_workplace_phone": g1_workplace_phone,
-                "g2_last_name": g2_last_name,
-                "g2_first_name": g2_first_name,
-                "g2_last_name_kana": g2_last_name_kana,
-                "g2_first_name_kana": g2_first_name_kana,
-                "g2_relationship": g2_relationship,
-                "g2_phone": g2_phone,
-                "g2_workplace": g2_workplace,
-                "g2_workplace_address": g2_workplace_address,
-                "g2_workplace_phone": g2_workplace_phone,
-            },
+            family_form_data=_family_form_data_from_input(
+                family_name=family_name,
+                home_address=home_address,
+                home_phone=home_phone,
+                g1_last_name=g1_last_name,
+                g1_first_name=g1_first_name,
+                g1_last_name_kana=g1_last_name_kana,
+                g1_first_name_kana=g1_first_name_kana,
+                g1_relationship=g1_relationship,
+                g1_phone=g1_phone,
+                g1_workplace=g1_workplace,
+                g1_workplace_address=g1_workplace_address,
+                g1_workplace_phone=g1_workplace_phone,
+                g2_last_name=g2_last_name,
+                g2_first_name=g2_first_name,
+                g2_last_name_kana=g2_last_name_kana,
+                g2_first_name_kana=g2_first_name_kana,
+                g2_relationship=g2_relationship,
+                g2_phone=g2_phone,
+                g2_workplace=g2_workplace,
+                g2_workplace_address=g2_workplace_address,
+                g2_workplace_phone=g2_workplace_phone,
+            ),
             current_user=current_user,
             action_url="/children/",
             submit_label="登録する",
             page_title="園児を追加",
-            form_error="生年月日と入園日は必須です。",
+            form_error=classroom_error or "生年月日と入園日は必須です。",
             form_data=_build_form_input(
                 last_name=last_name,
                 first_name=first_name,
@@ -376,6 +626,7 @@ def create_child(
                 enrollment_date=enrollment_date,
                 withdrawal_date=withdrawal_date,
                 status=status,
+                classroom_id=classroom_id,
                 allergy=allergy,
                 medical_notes=medical_notes,
             ),
@@ -397,6 +648,7 @@ def create_child(
         enrollment_date=parsed_enrollment_date,
         withdrawal_date=parsed_withdrawal_date,
         status=normalized_status,
+        classroom_id=selected_classroom.id if selected_classroom else None,
         older_sibling_id=int(older_sibling_id) if older_sibling_id and older_sibling_id.isdigit() else None,
         extra_data={"allergy": allergies, "medical_notes": medical_notes or ""},
     )
@@ -412,33 +664,32 @@ def create_child(
     apply_family_shared_data(
         session,
         family,
-        {
-            "family_name": (family_name or "").strip() or family.family_name,
-            "home_address": home_address,
-            "home_phone": home_phone,
-            "g1_last_name": g1_last_name,
-            "g1_first_name": g1_first_name,
-            "g1_last_name_kana": g1_last_name_kana,
-            "g1_first_name_kana": g1_first_name_kana,
-            "g1_relationship": g1_relationship,
-            "g1_phone": g1_phone,
-            "g1_workplace": g1_workplace,
-            "g1_workplace_address": g1_workplace_address,
-            "g1_workplace_phone": g1_workplace_phone,
-            "g2_last_name": g2_last_name,
-            "g2_first_name": g2_first_name,
-            "g2_last_name_kana": g2_last_name_kana,
-            "g2_first_name_kana": g2_first_name_kana,
-            "g2_relationship": g2_relationship,
-            "g2_phone": g2_phone,
-            "g2_workplace": g2_workplace,
-            "g2_workplace_address": g2_workplace_address,
-            "g2_workplace_phone": g2_workplace_phone,
-        },
+        _family_payload_from_input(
+            family_name=(family_name or "").strip() or family.family_name,
+            home_address=home_address,
+            home_phone=home_phone,
+            g1_last_name=g1_last_name,
+            g1_first_name=g1_first_name,
+            g1_last_name_kana=g1_last_name_kana,
+            g1_first_name_kana=g1_first_name_kana,
+            g1_relationship=g1_relationship,
+            g1_phone=g1_phone,
+            g1_workplace=g1_workplace,
+            g1_workplace_address=g1_workplace_address,
+            g1_workplace_phone=g1_workplace_phone,
+            g2_last_name=g2_last_name,
+            g2_first_name=g2_first_name,
+            g2_last_name_kana=g2_last_name_kana,
+            g2_first_name_kana=g2_first_name_kana,
+            g2_relationship=g2_relationship,
+            g2_phone=g2_phone,
+            g2_workplace=g2_workplace,
+            g2_workplace_address=g2_workplace_address,
+            g2_workplace_phone=g2_workplace_phone,
+        ),
     )
 
     session.commit()
-    seed_classroom_data()
     return RedirectResponse(url="/children/", status_code=303)
 
 
@@ -488,6 +739,7 @@ def edit_child_form(
         request,
         child=child,
         all_children=_all_children(session),
+        classrooms=_all_classrooms(session),
         families=_all_families(session),
         selected_family_value=_selected_family_value(child, child.family),
         family_form_data=family_form_data_from_child(child),
@@ -511,6 +763,7 @@ def update_child(
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
     status: str = Form("enrolled"),
+    classroom_id: str = Form(""),
     allergy: str = Form(""),
     medical_notes: str = Form(""),
     family_selection: str = Form("new"),
@@ -544,42 +797,44 @@ def update_child(
     parsed_enrollment_date = _parse_date(enrollment_date)
     parsed_withdrawal_date = _parse_date(withdrawal_date)
     selected_family = _load_family(session, family_selection)
+    selected_classroom, classroom_error = _resolve_classroom(session, classroom_id)
 
-    if not parsed_birth_date or not parsed_enrollment_date:
+    if not parsed_birth_date or not parsed_enrollment_date or classroom_error:
         return _base_form_context(
             request,
             child=child,
             all_children=_all_children(session),
+            classrooms=_all_classrooms(session),
             families=_all_families(session),
             selected_family_value=_selected_family_value(child, selected_family),
-            family_form_data={
-                "family_name": family_name,
-                "home_address": home_address,
-                "home_phone": home_phone,
-                "g1_last_name": g1_last_name,
-                "g1_first_name": g1_first_name,
-                "g1_last_name_kana": g1_last_name_kana,
-                "g1_first_name_kana": g1_first_name_kana,
-                "g1_relationship": g1_relationship,
-                "g1_phone": g1_phone,
-                "g1_workplace": g1_workplace,
-                "g1_workplace_address": g1_workplace_address,
-                "g1_workplace_phone": g1_workplace_phone,
-                "g2_last_name": g2_last_name,
-                "g2_first_name": g2_first_name,
-                "g2_last_name_kana": g2_last_name_kana,
-                "g2_first_name_kana": g2_first_name_kana,
-                "g2_relationship": g2_relationship,
-                "g2_phone": g2_phone,
-                "g2_workplace": g2_workplace,
-                "g2_workplace_address": g2_workplace_address,
-                "g2_workplace_phone": g2_workplace_phone,
-            },
+            family_form_data=_family_form_data_from_input(
+                family_name=family_name,
+                home_address=home_address,
+                home_phone=home_phone,
+                g1_last_name=g1_last_name,
+                g1_first_name=g1_first_name,
+                g1_last_name_kana=g1_last_name_kana,
+                g1_first_name_kana=g1_first_name_kana,
+                g1_relationship=g1_relationship,
+                g1_phone=g1_phone,
+                g1_workplace=g1_workplace,
+                g1_workplace_address=g1_workplace_address,
+                g1_workplace_phone=g1_workplace_phone,
+                g2_last_name=g2_last_name,
+                g2_first_name=g2_first_name,
+                g2_last_name_kana=g2_last_name_kana,
+                g2_first_name_kana=g2_first_name_kana,
+                g2_relationship=g2_relationship,
+                g2_phone=g2_phone,
+                g2_workplace=g2_workplace,
+                g2_workplace_address=g2_workplace_address,
+                g2_workplace_phone=g2_workplace_phone,
+            ),
             current_user=current_user,
             action_url=f"/children/{child_id}/edit",
             submit_label="更新する",
             page_title=f"{child.full_name} を編集",
-            form_error="生年月日と入園日は必須です。",
+            form_error=classroom_error or "生年月日と入園日は必須です。",
             form_data=_build_form_input(
                 last_name=last_name,
                 first_name=first_name,
@@ -589,6 +844,7 @@ def update_child(
                 enrollment_date=enrollment_date,
                 withdrawal_date=withdrawal_date,
                 status=status,
+                classroom_id=classroom_id,
                 allergy=allergy,
                 medical_notes=medical_notes,
             ),
@@ -608,6 +864,7 @@ def update_child(
     child.enrollment_date = parsed_enrollment_date
     child.withdrawal_date = parsed_withdrawal_date
     child.status = normalized_status
+    child.classroom_id = selected_classroom.id if selected_classroom else None
     child.extra_data = {"allergy": allergies, "medical_notes": medical_notes or ""}
     child.updated_at = utc_now()
     session.add(child)
@@ -626,29 +883,29 @@ def update_child(
     apply_family_shared_data(
         session,
         family,
-        {
-            "family_name": (family_name or "").strip() or family.family_name,
-            "home_address": home_address,
-            "home_phone": home_phone,
-            "g1_last_name": g1_last_name,
-            "g1_first_name": g1_first_name,
-            "g1_last_name_kana": g1_last_name_kana,
-            "g1_first_name_kana": g1_first_name_kana,
-            "g1_relationship": g1_relationship,
-            "g1_phone": g1_phone,
-            "g1_workplace": g1_workplace,
-            "g1_workplace_address": g1_workplace_address,
-            "g1_workplace_phone": g1_workplace_phone,
-            "g2_last_name": g2_last_name,
-            "g2_first_name": g2_first_name,
-            "g2_last_name_kana": g2_last_name_kana,
-            "g2_first_name_kana": g2_first_name_kana,
-            "g2_relationship": g2_relationship,
-            "g2_phone": g2_phone,
-            "g2_workplace": g2_workplace,
-            "g2_workplace_address": g2_workplace_address,
-            "g2_workplace_phone": g2_workplace_phone,
-        },
+        _family_payload_from_input(
+            family_name=(family_name or "").strip() or family.family_name,
+            home_address=home_address,
+            home_phone=home_phone,
+            g1_last_name=g1_last_name,
+            g1_first_name=g1_first_name,
+            g1_last_name_kana=g1_last_name_kana,
+            g1_first_name_kana=g1_first_name_kana,
+            g1_relationship=g1_relationship,
+            g1_phone=g1_phone,
+            g1_workplace=g1_workplace,
+            g1_workplace_address=g1_workplace_address,
+            g1_workplace_phone=g1_workplace_phone,
+            g2_last_name=g2_last_name,
+            g2_first_name=g2_first_name,
+            g2_last_name_kana=g2_last_name_kana,
+            g2_first_name_kana=g2_first_name_kana,
+            g2_relationship=g2_relationship,
+            g2_phone=g2_phone,
+            g2_workplace=g2_workplace,
+            g2_workplace_address=g2_workplace_address,
+            g2_workplace_phone=g2_workplace_phone,
+        ),
     )
 
     if old_family_id and old_family_id != family.id:
@@ -661,5 +918,4 @@ def update_child(
             sync_parent_child_links(session, previous_family)
 
     session.commit()
-    seed_classroom_data()
     return RedirectResponse(url="/children/", status_code=303)

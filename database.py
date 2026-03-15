@@ -105,63 +105,34 @@ def _migrate_add_family_columns() -> None:
         pass
 
 
-def _age_on_today(birth_date: date) -> int:
-    today = date.today()
-    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-
-
-def _class_index_for_age(age: int, class_count: int) -> int:
-    if class_count <= 1:
-        return 0
-    if age <= 2:
-        idx = 0
-    elif age <= 4:
-        idx = 1
-    else:
-        idx = 2
-    return min(idx, class_count - 1)
-
-
 def seed_classroom_data() -> None:
-    from models import Child, ChildStatus, Classroom
+    from models import Classroom
 
     with Session(engine) as session:
         classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
-        by_name = {classroom.name: classroom for classroom in classrooms}
-
-        created = False
-        for name, order in DEFAULT_CLASSROOMS:
-            if name not in by_name:
-                session.add(Classroom(name=name, display_order=order))
-                created = True
-
-        if created:
-            session.flush()
-            classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
-
-        if not classrooms:
-            session.commit()
+        if classrooms:
             return
 
-        unassigned_children = session.exec(
-            select(Child).where(Child.status == ChildStatus.enrolled, Child.classroom_id == None)  # noqa: E711
-        ).all()
-
-        for child in unassigned_children:
-            idx = _class_index_for_age(_age_on_today(child.birth_date), len(classrooms))
-            child.classroom_id = classrooms[idx].id
-            child.updated_at = utc_now()
-            session.add(child)
+        for name, order in DEFAULT_CLASSROOMS:
+            session.add(Classroom(name=name, display_order=order))
 
         session.commit()
 
 
 def seed_sample_data() -> None:
-    from models import Child, ChildStatus, Family, Guardian
+    from models import Child, ChildStatus, Classroom, Family, Guardian
 
     with Session(engine) as session:
         if session.exec(select(Child)).first():
             return
+
+        classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+        classroom_ids = [classroom.id for classroom in classrooms if classroom.id is not None]
+
+        def classroom_id_at(index: int) -> int | None:
+            if not classroom_ids:
+                return None
+            return classroom_ids[min(index, len(classroom_ids) - 1)]
 
         tanaka_family = Family(
             family_name="田中家",
@@ -252,6 +223,7 @@ def seed_sample_data() -> None:
                 birth_date=date(2020, 4, 5),
                 enrollment_date=date(2023, 4, 1),
                 status=ChildStatus.enrolled,
+                classroom_id=classroom_id_at(1),
                 family_id=tanaka_family.id,
                 extra_data={"allergy": ["卵"], "medical_notes": "特記事項なし"},
             ),
@@ -263,6 +235,7 @@ def seed_sample_data() -> None:
                 birth_date=date(2021, 8, 12),
                 enrollment_date=date(2024, 4, 1),
                 status=ChildStatus.enrolled,
+                classroom_id=classroom_id_at(0),
                 family_id=tanaka_family.id,
                 extra_data={"allergy": [], "medical_notes": ""},
             ),
@@ -274,6 +247,7 @@ def seed_sample_data() -> None:
                 birth_date=date(2019, 6, 15),
                 enrollment_date=date(2022, 4, 1),
                 status=ChildStatus.enrolled,
+                classroom_id=classroom_id_at(2),
                 family_id=sato_family.id,
                 extra_data={"allergy": ["乳"], "medical_notes": "エピペン持参"},
             ),
@@ -285,6 +259,7 @@ def seed_sample_data() -> None:
                 birth_date=date(2021, 4, 12),
                 enrollment_date=date(2024, 4, 1),
                 status=ChildStatus.enrolled,
+                classroom_id=classroom_id_at(0),
                 family_id=ito_family.id,
                 extra_data={"allergy": [], "medical_notes": ""},
             ),

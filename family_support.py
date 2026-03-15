@@ -13,6 +13,21 @@ from time_utils import utc_now
 
 DEFAULT_RELATIONSHIP_1 = "母"
 DEFAULT_RELATIONSHIP_2 = "父"
+GUARDIAN_FIELD_NAMES = (
+    "last_name",
+    "first_name",
+    "last_name_kana",
+    "first_name_kana",
+    "relationship",
+    "phone",
+    "workplace",
+    "workplace_address",
+    "workplace_phone",
+)
+LEGACY_GUARDIAN_SLOTS = (
+    ("g1", DEFAULT_RELATIONSHIP_1),
+    ("g2", DEFAULT_RELATIONSHIP_2),
+)
 
 
 def normalized_text(value: Optional[str]) -> str:
@@ -24,34 +39,110 @@ def normalized_optional_text(value: Optional[str]) -> Optional[str]:
     return cleaned or None
 
 
+def _default_relationship_for_index(index: int) -> str:
+    if index == 0:
+        return DEFAULT_RELATIONSHIP_1
+    if index == 1:
+        return DEFAULT_RELATIONSHIP_2
+    return ""
+
+
+def _normalized_guardian_order(value: Any, fallback: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if parsed > 0 else fallback
+
+
+def normalize_guardian_profile(
+    profile: Optional[dict[str, Any]],
+    *,
+    default_relationship: str,
+    fallback_order: int,
+) -> dict[str, Any]:
+    source = profile if isinstance(profile, dict) else {}
+    return {
+        "order": _normalized_guardian_order(source.get("order"), fallback_order),
+        "last_name": normalized_text(str(source.get("last_name", ""))),
+        "first_name": normalized_text(str(source.get("first_name", ""))),
+        "last_name_kana": normalized_text(str(source.get("last_name_kana", ""))),
+        "first_name_kana": normalized_text(str(source.get("first_name_kana", ""))),
+        "relationship": normalized_text(str(source.get("relationship", ""))) or default_relationship,
+        "phone": normalized_text(str(source.get("phone", ""))),
+        "workplace": normalized_text(str(source.get("workplace", ""))),
+        "workplace_address": normalized_text(str(source.get("workplace_address", ""))),
+        "workplace_phone": normalized_text(str(source.get("workplace_phone", ""))),
+    }
+
+
+def normalize_guardians_data(guardians_data: Any) -> list[dict[str, Any]]:
+    if not isinstance(guardians_data, list):
+        return []
+
+    normalized_guardians: list[dict[str, Any]] = []
+    for index, item in enumerate(guardians_data):
+        if not isinstance(item, dict):
+            continue
+        normalized = normalize_guardian_profile(
+            item,
+            default_relationship=_default_relationship_for_index(index),
+            fallback_order=index + 1,
+        )
+        if not normalized["last_name"] or not normalized["first_name"]:
+            continue
+        normalized_guardians.append(normalized)
+
+    return sorted(normalized_guardians, key=lambda item: int(item.get("order", 99)))
+
+
+def flatten_guardians_data(guardians_data: list[dict[str, Any]]) -> dict[str, str]:
+    flattened: dict[str, str] = {}
+    for index, (prefix, default_relationship) in enumerate(LEGACY_GUARDIAN_SLOTS):
+        guardian = normalize_guardian_profile(
+            guardians_data[index] if index < len(guardians_data) else None,
+            default_relationship=default_relationship,
+            fallback_order=index + 1,
+        )
+        for field_name in GUARDIAN_FIELD_NAMES:
+            flattened[f"{prefix}_{field_name}"] = str(guardian.get(field_name, ""))
+    return flattened
+
+
+def guardians_data_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if "guardians_data" in payload or "guardians" in payload:
+        return normalize_guardians_data(payload.get("guardians_data", payload.get("guardians")))
+
+    profiles: list[dict[str, Any]] = []
+    for index, (prefix, default_relationship) in enumerate(LEGACY_GUARDIAN_SLOTS):
+        normalized = normalize_guardian_profile(
+            {
+                field_name: payload.get(f"{prefix}_{field_name}", "")
+                for field_name in GUARDIAN_FIELD_NAMES
+            },
+            default_relationship=default_relationship,
+            fallback_order=index + 1,
+        )
+        if not normalized["last_name"] or not normalized["first_name"]:
+            continue
+        profiles.append(normalized)
+    return profiles
+
+
 def empty_guardian_form(default_relationship: str) -> dict[str, str]:
     return {
-        "last_name": "",
-        "first_name": "",
-        "last_name_kana": "",
-        "first_name_kana": "",
-        "relationship": default_relationship,
-        "phone": "",
-        "workplace": "",
-        "workplace_address": "",
-        "workplace_phone": "",
+        field_name: (default_relationship if field_name == "relationship" else "")
+        for field_name in GUARDIAN_FIELD_NAMES
     }
 
 
 def guardian_form_from_profile(profile: Optional[dict[str, Any]], default_relationship: str) -> dict[str, str]:
-    if not profile:
-        return empty_guardian_form(default_relationship)
-    return {
-        "last_name": normalized_text(str(profile.get("last_name", ""))),
-        "first_name": normalized_text(str(profile.get("first_name", ""))),
-        "last_name_kana": normalized_text(str(profile.get("last_name_kana", ""))),
-        "first_name_kana": normalized_text(str(profile.get("first_name_kana", ""))),
-        "relationship": normalized_text(str(profile.get("relationship", ""))) or default_relationship,
-        "phone": normalized_text(str(profile.get("phone", ""))),
-        "workplace": normalized_text(str(profile.get("workplace", ""))),
-        "workplace_address": normalized_text(str(profile.get("workplace_address", ""))),
-        "workplace_phone": normalized_text(str(profile.get("workplace_phone", ""))),
-    }
+    normalized = normalize_guardian_profile(
+        profile,
+        default_relationship=default_relationship,
+        fallback_order=1,
+    )
+    return {field_name: str(normalized.get(field_name, "")) for field_name in GUARDIAN_FIELD_NAMES}
 
 
 def guardian_profiles_from_child(child: Child) -> list[dict[str, Any]]:
@@ -75,132 +166,82 @@ def guardian_profiles_from_child(child: Child) -> list[dict[str, Any]]:
     return profiles
 
 
-def family_form_data_from_family(family: Optional[Family]) -> dict[str, str]:
-    guardian_profiles = family.guardian_profiles() if family else []
-    guardian1 = guardian_form_from_profile(
-        guardian_profiles[0] if len(guardian_profiles) > 0 else None,
-        DEFAULT_RELATIONSHIP_1,
-    )
-    guardian2 = guardian_form_from_profile(
-        guardian_profiles[1] if len(guardian_profiles) > 1 else None,
-        DEFAULT_RELATIONSHIP_2,
+def build_family_form_data(
+    *,
+    family_name: Optional[str],
+    home_address: Optional[str],
+    home_phone: Optional[str],
+    guardians_data: Any = None,
+) -> dict[str, Any]:
+    normalized_guardians = normalize_guardians_data(guardians_data)
+    form_data: dict[str, Any] = {
+        "family_name": normalized_text(family_name),
+        "home_address": normalized_text(home_address),
+        "home_phone": normalized_text(home_phone),
+        "guardians_data": normalized_guardians,
+    }
+    form_data.update(flatten_guardians_data(normalized_guardians))
+    return form_data
+
+
+def build_family_payload(
+    *,
+    family_name: Optional[str],
+    home_address: Optional[str],
+    home_phone: Optional[str],
+    guardians_data: Any = None,
+) -> dict[str, Any]:
+    normalized = normalize_family_payload(
+        {
+            "family_name": family_name,
+            "home_address": home_address,
+            "home_phone": home_phone,
+            "guardians_data": guardians_data,
+        }
     )
     return {
-        "family_name": family.family_name if family else "",
-        "home_address": family.home_address if family and family.home_address else "",
-        "home_phone": family.home_phone if family and family.home_phone else "",
-        "g1_last_name": guardian1["last_name"],
-        "g1_first_name": guardian1["first_name"],
-        "g1_last_name_kana": guardian1["last_name_kana"],
-        "g1_first_name_kana": guardian1["first_name_kana"],
-        "g1_relationship": guardian1["relationship"],
-        "g1_phone": guardian1["phone"],
-        "g1_workplace": guardian1["workplace"],
-        "g1_workplace_address": guardian1["workplace_address"],
-        "g1_workplace_phone": guardian1["workplace_phone"],
-        "g2_last_name": guardian2["last_name"],
-        "g2_first_name": guardian2["first_name"],
-        "g2_last_name_kana": guardian2["last_name_kana"],
-        "g2_first_name_kana": guardian2["first_name_kana"],
-        "g2_relationship": guardian2["relationship"],
-        "g2_phone": guardian2["phone"],
-        "g2_workplace": guardian2["workplace"],
-        "g2_workplace_address": guardian2["workplace_address"],
-        "g2_workplace_phone": guardian2["workplace_phone"],
+        "family_name": normalized["family_name"],
+        "home_address": normalized["home_address"],
+        "home_phone": normalized["home_phone"],
+        "guardians_data": normalized["guardians_data"],
     }
 
 
-def family_form_data_from_child(child: Child) -> dict[str, str]:
+def family_form_data_from_family(family: Optional[Family]) -> dict[str, Any]:
+    return build_family_form_data(
+        family_name=family.family_name if family else "",
+        home_address=family.home_address if family else "",
+        home_phone=family.home_phone if family else "",
+        guardians_data=family.guardian_profiles() if family else [],
+    )
+
+
+def family_form_data_from_child(child: Child) -> dict[str, Any]:
     if child.family:
         return family_form_data_from_family(child.family)
 
-    guardian_profiles = guardian_profiles_from_child(child)
-    guardian1 = guardian_form_from_profile(
-        guardian_profiles[0] if len(guardian_profiles) > 0 else None,
-        DEFAULT_RELATIONSHIP_1,
+    return build_family_form_data(
+        family_name=infer_family_name([child], []),
+        home_address=child.home_address or "",
+        home_phone=child.home_phone or "",
+        guardians_data=guardian_profiles_from_child(child),
     )
-    guardian2 = guardian_form_from_profile(
-        guardian_profiles[1] if len(guardian_profiles) > 1 else None,
-        DEFAULT_RELATIONSHIP_2,
-    )
-    return {
-        "family_name": infer_family_name([child], []),
-        "home_address": child.home_address or "",
-        "home_phone": child.home_phone or "",
-        "g1_last_name": guardian1["last_name"],
-        "g1_first_name": guardian1["first_name"],
-        "g1_last_name_kana": guardian1["last_name_kana"],
-        "g1_first_name_kana": guardian1["first_name_kana"],
-        "g1_relationship": guardian1["relationship"],
-        "g1_phone": guardian1["phone"],
-        "g1_workplace": guardian1["workplace"],
-        "g1_workplace_address": guardian1["workplace_address"],
-        "g1_workplace_phone": guardian1["workplace_phone"],
-        "g2_last_name": guardian2["last_name"],
-        "g2_first_name": guardian2["first_name"],
-        "g2_last_name_kana": guardian2["last_name_kana"],
-        "g2_first_name_kana": guardian2["first_name_kana"],
-        "g2_relationship": guardian2["relationship"],
-        "g2_phone": guardian2["phone"],
-        "g2_workplace": guardian2["workplace"],
-        "g2_workplace_address": guardian2["workplace_address"],
-        "g2_workplace_phone": guardian2["workplace_phone"],
-    }
 
 
-def normalize_family_payload(payload: dict[str, Any]) -> dict[str, str]:
-    normalized = {
+def normalize_family_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    guardians_data = guardians_data_from_payload(payload)
+    normalized: dict[str, Any] = {
         "family_name": normalized_text(payload.get("family_name")),
         "home_address": normalized_text(payload.get("home_address")),
         "home_phone": normalized_text(payload.get("home_phone")),
-        "g1_last_name": normalized_text(payload.get("g1_last_name")),
-        "g1_first_name": normalized_text(payload.get("g1_first_name")),
-        "g1_last_name_kana": normalized_text(payload.get("g1_last_name_kana")),
-        "g1_first_name_kana": normalized_text(payload.get("g1_first_name_kana")),
-        "g1_relationship": normalized_text(payload.get("g1_relationship")) or DEFAULT_RELATIONSHIP_1,
-        "g1_phone": normalized_text(payload.get("g1_phone")),
-        "g1_workplace": normalized_text(payload.get("g1_workplace")),
-        "g1_workplace_address": normalized_text(payload.get("g1_workplace_address")),
-        "g1_workplace_phone": normalized_text(payload.get("g1_workplace_phone")),
-        "g2_last_name": normalized_text(payload.get("g2_last_name")),
-        "g2_first_name": normalized_text(payload.get("g2_first_name")),
-        "g2_last_name_kana": normalized_text(payload.get("g2_last_name_kana")),
-        "g2_first_name_kana": normalized_text(payload.get("g2_first_name_kana")),
-        "g2_relationship": normalized_text(payload.get("g2_relationship")) or DEFAULT_RELATIONSHIP_2,
-        "g2_phone": normalized_text(payload.get("g2_phone")),
-        "g2_workplace": normalized_text(payload.get("g2_workplace")),
-        "g2_workplace_address": normalized_text(payload.get("g2_workplace_address")),
-        "g2_workplace_phone": normalized_text(payload.get("g2_workplace_phone")),
+        "guardians_data": guardians_data,
     }
+    normalized.update(flatten_guardians_data(guardians_data))
     return normalized
 
 
 def guardian_profiles_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    normalized = normalize_family_payload(payload)
-    profiles: list[dict[str, Any]] = []
-    for prefix, order, default_relationship in (
-        ("g1", 1, DEFAULT_RELATIONSHIP_1),
-        ("g2", 2, DEFAULT_RELATIONSHIP_2),
-    ):
-        last_name = normalized[f"{prefix}_last_name"]
-        first_name = normalized[f"{prefix}_first_name"]
-        if not last_name or not first_name:
-            continue
-        profiles.append(
-            {
-                "order": order,
-                "last_name": last_name,
-                "first_name": first_name,
-                "last_name_kana": normalized[f"{prefix}_last_name_kana"],
-                "first_name_kana": normalized[f"{prefix}_first_name_kana"],
-                "relationship": normalized[f"{prefix}_relationship"] or default_relationship,
-                "phone": normalized[f"{prefix}_phone"],
-                "workplace": normalized[f"{prefix}_workplace"],
-                "workplace_address": normalized[f"{prefix}_workplace_address"],
-                "workplace_phone": normalized[f"{prefix}_workplace_phone"],
-            }
-        )
-    return profiles
+    return normalize_family_payload(payload)["guardians_data"]
 
 
 def infer_family_name(children: list[Child], parent_accounts: list[ParentAccount]) -> str:
@@ -316,12 +357,12 @@ def apply_family_shared_data(
     payload: dict[str, Any],
     *,
     updated_at: Optional[datetime] = None,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     normalized = normalize_family_payload(payload)
     family.family_name = normalized["family_name"] or family.family_name
     family.home_address = normalized_optional_text(normalized["home_address"])
     family.home_phone = normalized_optional_text(normalized["home_phone"])
-    family.shared_profile = {"guardians": guardian_profiles_from_payload(normalized)}
+    family.shared_profile = {"guardians": normalized["guardians_data"]}
     family.updated_at = updated_at or utc_now()
     session.add(family)
     session.flush()

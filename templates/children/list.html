@@ -25,6 +25,25 @@
       <label class="flex items-center gap-1 text-sm"><input type="radio" name="status" value="withdrawn" {% if current_status == 'withdrawn' %}checked{% endif %}>退園</label>
     </div>
 
+    <div class="mb-3 flex flex-wrap items-end gap-4">
+      <div>
+        <label for="sort_by" class="mb-1 block text-sm font-medium text-slate-600">並び替え</label>
+        <select id="sort_by" name="sort_by" class="rounded border border-slate-300 px-3 py-2 text-sm">
+          {% for key, label in sort_options.items() %}
+          <option value="{{ key }}" {% if current_sort_by == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="sort_order" class="mb-1 block text-sm font-medium text-slate-600">順序</label>
+        <select id="sort_order" name="sort_order" class="rounded border border-slate-300 px-3 py-2 text-sm">
+          {% for key, label in sort_order_options.items() %}
+          <option value="{{ key }}" {% if current_sort_order == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
     <div class="flex items-start gap-4">
       <span class="mt-0.5 w-20 text-sm font-medium text-slate-600">表示項目</span>
       <div class="flex flex-wrap gap-x-4 gap-y-1.5">

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}クラス管理 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl">
+  <div class="mb-4 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">クラス管理</h1>
+      <p class="text-sm text-slate-500">クラス名と表示順を管理します。同年齢で複数クラスがある場合も、園児ごとに明示的に割り当てます。</p>
+    </div>
+    {% if current_user and current_user.can_edit %}
+    <a href="/classrooms/new" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">クラスを追加</a>
+    {% endif %}
+  </div>
+
+  <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+    表示順は一覧や選択肢に出す順番です。年齢との自動対応は行わず、園児編集画面でクラスを選択します。
+  </div>
+
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-slate-200">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">表示順</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">クラス名</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">所属園児</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for classroom in classrooms %}
+        <tr>
+          <td class="px-4 py-3 text-sm text-slate-700">{{ classroom.display_order }}</td>
+          <td class="px-4 py-3 text-sm font-medium text-slate-800">{{ classroom.name }}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">{{ classroom.children|length }}人</td>
+          <td class="px-4 py-3 text-sm">
+            {% if current_user and current_user.can_edit %}
+            <a href="/classrooms/{{ classroom.id }}/edit" class="text-indigo-600 hover:underline">編集</a>
+            {% else %}
+            <span class="text-slate-400">閲覧のみ</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not classrooms %}
+        <tr>
+          <td colspan="4" class="px-4 py-10 text-center text-sm text-slate-400">クラスがまだ登録されていません。</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -6,9 +6,8 @@ from typing import Any, Optional
 from sqlmodel import Session
 
 from family_support import (
-    DEFAULT_RELATIONSHIP_1,
-    DEFAULT_RELATIONSHIP_2,
     apply_family_shared_data,
+    build_family_payload,
     create_family_for_child,
     family_form_data_from_child,
     normalize_family_payload,
@@ -55,6 +54,18 @@ CHILD_PROFILE_FIELD_LABELS = {
 }
 
 FIELD_ORDER = list(CHILD_PROFILE_FIELD_LABELS.keys())
+CHILD_DATA_FIELD_NAMES = (
+    "last_name",
+    "first_name",
+    "last_name_kana",
+    "first_name_kana",
+    "birth_date",
+    "enrollment_date",
+    "withdrawal_date",
+    "status",
+    "allergy",
+    "medical_notes",
+)
 
 
 def _normalized_date_text(value: Optional[str]) -> str:
@@ -93,11 +104,10 @@ def _display_value(field_name: str, value: Optional[str]) -> str:
     return normalized or EMPTY_VALUE_LABEL
 
 
-def child_profile_form_data_from_child(child: Child) -> dict[str, str]:
+def child_data_from_child(child: Child) -> dict[str, str]:
     extra_data = child.extra_data or {}
     allergies = extra_data.get("allergy", []) if isinstance(extra_data, dict) else []
     medical_notes = extra_data.get("medical_notes", "") if isinstance(extra_data, dict) else ""
-    family_data = family_form_data_from_child(child)
 
     return {
         "last_name": child.last_name,
@@ -108,48 +118,53 @@ def child_profile_form_data_from_child(child: Child) -> dict[str, str]:
         "enrollment_date": child.enrollment_date.isoformat() if child.enrollment_date else "",
         "withdrawal_date": child.withdrawal_date.isoformat() if child.withdrawal_date else "",
         "status": child.status.value,
-        "home_address": family_data["home_address"],
-        "home_phone": family_data["home_phone"],
         "allergy": ",".join(allergies) if allergies else "",
         "medical_notes": str(medical_notes or ""),
-        "g1_last_name": family_data["g1_last_name"],
-        "g1_first_name": family_data["g1_first_name"],
-        "g1_last_name_kana": family_data["g1_last_name_kana"],
-        "g1_first_name_kana": family_data["g1_first_name_kana"],
-        "g1_relationship": family_data["g1_relationship"],
-        "g1_phone": family_data["g1_phone"],
-        "g1_workplace": family_data["g1_workplace"],
-        "g1_workplace_address": family_data["g1_workplace_address"],
-        "g1_workplace_phone": family_data["g1_workplace_phone"],
-        "g2_last_name": family_data["g2_last_name"],
-        "g2_first_name": family_data["g2_first_name"],
-        "g2_last_name_kana": family_data["g2_last_name_kana"],
-        "g2_first_name_kana": family_data["g2_first_name_kana"],
-        "g2_relationship": family_data["g2_relationship"],
-        "g2_phone": family_data["g2_phone"],
-        "g2_workplace": family_data["g2_workplace"],
-        "g2_workplace_address": family_data["g2_workplace_address"],
-        "g2_workplace_phone": family_data["g2_workplace_phone"],
     }
 
 
-def normalize_child_profile_payload(payload: dict[str, Any]) -> dict[str, str]:
-    normalized = {field_name: normalized_text(payload.get(field_name)) for field_name in FIELD_ORDER}
-    normalized["birth_date"] = _normalized_date_text(payload.get("birth_date"))
-    normalized["enrollment_date"] = _normalized_date_text(payload.get("enrollment_date"))
-    normalized["withdrawal_date"] = _normalized_date_text(payload.get("withdrawal_date"))
-    normalized["status"] = _normalized_status(payload.get("status"))
-    normalized["allergy"] = _normalized_allergy_text(payload.get("allergy"))
+def child_profile_form_data_from_child(child: Child) -> dict[str, Any]:
+    child_data = child_data_from_child(child)
+    family_data = family_form_data_from_child(child)
+    form_data: dict[str, Any] = {
+        **child_data,
+        "child_data": child_data,
+        "home_address": family_data["home_address"],
+        "home_phone": family_data["home_phone"],
+        "guardians_data": family_data["guardians_data"],
+    }
+    form_data.update({key: value for key, value in family_data.items() if key.startswith("g")})
+    return form_data
 
-    normalized.update(
-        {
-            "home_address": normalize_family_payload(payload)["home_address"],
-            "home_phone": normalize_family_payload(payload)["home_phone"],
-            "g1_relationship": normalize_family_payload(payload)["g1_relationship"],
-            "g2_relationship": normalize_family_payload(payload)["g2_relationship"],
-        }
-    )
+
+def normalize_child_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    child_source = payload.get("child_data") if isinstance(payload.get("child_data"), dict) else payload
+    child_data = {field_name: normalized_text(child_source.get(field_name)) for field_name in CHILD_DATA_FIELD_NAMES}
+    child_data["birth_date"] = _normalized_date_text(child_source.get("birth_date"))
+    child_data["enrollment_date"] = _normalized_date_text(child_source.get("enrollment_date"))
+    child_data["withdrawal_date"] = _normalized_date_text(child_source.get("withdrawal_date"))
+    child_data["status"] = _normalized_status(child_source.get("status"))
+    child_data["allergy"] = _normalized_allergy_text(child_source.get("allergy"))
+    family_data = normalize_family_payload(payload)
+
+    normalized: dict[str, Any] = {
+        **child_data,
+        "child_data": child_data,
+        "home_address": family_data["home_address"],
+        "home_phone": family_data["home_phone"],
+        "guardians_data": family_data["guardians_data"],
+    }
+    normalized.update({key: value for key, value in family_data.items() if key.startswith("g")})
     return normalized
+
+
+def _structured_child_profile_payload(normalized: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "child_data": normalized["child_data"],
+        "home_address": normalized["home_address"],
+        "home_phone": normalized["home_phone"],
+        "guardians_data": normalized["guardians_data"],
+    }
 
 
 def build_child_profile_payload(
@@ -184,9 +199,12 @@ def build_child_profile_payload(
     g2_workplace: str,
     g2_workplace_address: str,
     g2_workplace_phone: str,
-) -> dict[str, str]:
-    return normalize_child_profile_payload(
-        {
+    child_data: Optional[dict[str, Any]] = None,
+    guardians_data: Any = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "child_data": child_data
+        or {
             "last_name": last_name,
             "first_name": first_name,
             "last_name_kana": last_name_kana,
@@ -195,33 +213,44 @@ def build_child_profile_payload(
             "enrollment_date": enrollment_date,
             "withdrawal_date": withdrawal_date,
             "status": status,
-            "home_address": home_address,
-            "home_phone": home_phone,
             "allergy": allergy,
             "medical_notes": medical_notes,
-            "g1_last_name": g1_last_name,
-            "g1_first_name": g1_first_name,
-            "g1_last_name_kana": g1_last_name_kana,
-            "g1_first_name_kana": g1_first_name_kana,
-            "g1_relationship": g1_relationship,
-            "g1_phone": g1_phone,
-            "g1_workplace": g1_workplace,
-            "g1_workplace_address": g1_workplace_address,
-            "g1_workplace_phone": g1_workplace_phone,
-            "g2_last_name": g2_last_name,
-            "g2_first_name": g2_first_name,
-            "g2_last_name_kana": g2_last_name_kana,
-            "g2_first_name_kana": g2_first_name_kana,
-            "g2_relationship": g2_relationship,
-            "g2_phone": g2_phone,
-            "g2_workplace": g2_workplace,
-            "g2_workplace_address": g2_workplace_address,
-            "g2_workplace_phone": g2_workplace_phone,
-        }
-    )
+        },
+        "home_address": home_address,
+        "home_phone": home_phone,
+    }
+
+    if guardians_data is not None:
+        payload["guardians_data"] = guardians_data
+    else:
+        payload.update(
+            {
+                "g1_last_name": g1_last_name,
+                "g1_first_name": g1_first_name,
+                "g1_last_name_kana": g1_last_name_kana,
+                "g1_first_name_kana": g1_first_name_kana,
+                "g1_relationship": g1_relationship,
+                "g1_phone": g1_phone,
+                "g1_workplace": g1_workplace,
+                "g1_workplace_address": g1_workplace_address,
+                "g1_workplace_phone": g1_workplace_phone,
+                "g2_last_name": g2_last_name,
+                "g2_first_name": g2_first_name,
+                "g2_last_name_kana": g2_last_name_kana,
+                "g2_first_name_kana": g2_first_name_kana,
+                "g2_relationship": g2_relationship,
+                "g2_phone": g2_phone,
+                "g2_workplace": g2_workplace,
+                "g2_workplace_address": g2_workplace_address,
+                "g2_workplace_phone": g2_workplace_phone,
+            }
+        )
+
+    normalized = normalize_child_profile_payload(payload)
+    return _structured_child_profile_payload(normalized)
 
 
-def merge_child_profile_form_data(child: Child, request_data: Optional[dict[str, Any]] = None) -> dict[str, str]:
+def merge_child_profile_form_data(child: Child, request_data: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     form_data = child_profile_form_data_from_child(child)
     if request_data:
         form_data.update(normalize_child_profile_payload(request_data))
@@ -272,7 +301,7 @@ def apply_child_profile_payload(
     payload: dict[str, Any],
     *,
     applied_at: Optional[datetime] = None,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     normalized = normalize_child_profile_payload(payload)
     validation_error = validate_child_profile_payload(normalized)
     if validation_error:
@@ -299,29 +328,12 @@ def apply_child_profile_payload(
     apply_family_shared_data(
         session,
         family,
-        {
-            "family_name": family.family_name,
-            "home_address": normalized["home_address"],
-            "home_phone": normalized["home_phone"],
-            "g1_last_name": normalized["g1_last_name"],
-            "g1_first_name": normalized["g1_first_name"],
-            "g1_last_name_kana": normalized["g1_last_name_kana"],
-            "g1_first_name_kana": normalized["g1_first_name_kana"],
-            "g1_relationship": normalized["g1_relationship"] or DEFAULT_RELATIONSHIP_1,
-            "g1_phone": normalized["g1_phone"],
-            "g1_workplace": normalized["g1_workplace"],
-            "g1_workplace_address": normalized["g1_workplace_address"],
-            "g1_workplace_phone": normalized["g1_workplace_phone"],
-            "g2_last_name": normalized["g2_last_name"],
-            "g2_first_name": normalized["g2_first_name"],
-            "g2_last_name_kana": normalized["g2_last_name_kana"],
-            "g2_first_name_kana": normalized["g2_first_name_kana"],
-            "g2_relationship": normalized["g2_relationship"] or DEFAULT_RELATIONSHIP_2,
-            "g2_phone": normalized["g2_phone"],
-            "g2_workplace": normalized["g2_workplace"],
-            "g2_workplace_address": normalized["g2_workplace_address"],
-            "g2_workplace_phone": normalized["g2_workplace_phone"],
-        },
+        build_family_payload(
+            family_name=family.family_name,
+            home_address=normalized["home_address"],
+            home_phone=normalized["home_phone"],
+            guardians_data=normalized["guardians_data"],
+        ),
         updated_at=now,
     )
 

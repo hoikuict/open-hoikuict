@@ -113,6 +113,27 @@
             <option value="withdrawn" {% if (form_data and form_data.status == 'withdrawn') or (child and child.status.value == 'withdrawn') %}selected{% endif %}>退園</option>
           </select>
         </div>
+        <div>
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <label for="classroom_id" class="block text-sm font-medium text-slate-600">クラス</label>
+            {% if current_user and current_user.can_edit %}
+            <a href="/classrooms/" class="text-xs text-indigo-600 hover:underline">クラス管理</a>
+            {% endif %}
+          </div>
+          <select id="classroom_id" name="classroom_id" class="w-full rounded border border-slate-300 px-3 py-2">
+            <option value="">未設定</option>
+            {% set selected_classroom_id = form_data.classroom_id if form_data else (child.classroom_id|string if child and child.classroom_id else '') %}
+            {% for classroom in classrooms %}
+            <option value="{{ classroom.id }}" {% if selected_classroom_id == classroom.id|string %}selected{% endif %}>{{ classroom.name }}</option>
+            {% endfor %}
+          </select>
+          <p class="mt-1 text-xs text-slate-500">
+            同年齢で複数クラスがある場合も、ここで対象クラスを選択します。
+            {% if not classrooms and current_user and current_user.can_edit %}
+            <a href="/classrooms/new" class="text-indigo-600 hover:underline">先にクラスを登録</a>
+            {% endif %}
+          </p>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 gap-5">
@@ -194,6 +215,30 @@
         </div>
       </div>
     </section>
+
+    {% if sibling_relationships %}
+    <section class="border-t border-slate-200 pt-6 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-800">兄弟関係</h2>
+        <p class="text-sm text-slate-500">兄姉・弟妹として登録されている関係を表示しています。</p>
+      </div>
+      <div class="grid gap-3">
+        {% for relation in sibling_relationships %}
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div class="space-y-1">
+              <div class="text-xs font-semibold uppercase tracking-wide text-amber-700">{{ relation.label }}</div>
+              <div class="text-base font-semibold text-slate-800">{{ relation.child.full_name }}</div>
+              <div class="text-sm text-slate-600">生年月日: {{ relation.child.birth_date.strftime("%Y-%m-%d") if relation.child.birth_date else "-" }}</div>
+              <div class="text-sm text-slate-600">クラス: {{ relation.child.classroom.name if relation.child.classroom else "未設定" }}</div>
+            </div>
+            <a href="/children/{{ relation.child.id }}/edit" class="text-sm text-indigo-600 hover:underline">この兄弟を編集</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
 
     {% if siblings %}
     <section class="border-t border-slate-200 pt-6 space-y-4">

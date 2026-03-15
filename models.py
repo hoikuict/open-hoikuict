@@ -96,6 +96,7 @@ class NoticeTargetType(str, Enum):
 
 CHILD_FIELDS = [
     {"key": "family_name", "label": "家族", "default": True},
+    {"key": "classroom", "label": "クラス", "default": True},
     {"key": "last_name", "label": "姓", "default": True},
     {"key": "first_name", "label": "名", "default": True},
     {"key": "last_name_kana", "label": "姓（カナ）", "default": True},
@@ -267,6 +268,8 @@ class Child(SQLModel, table=True):
     def get_field(self, key: str) -> str:
         if key == "family_name":
             return self.family_display_name
+        if key == "classroom":
+            return self.classroom.name if self.classroom else ""
         if key == "age":
             return f"{self.age}歳"
         if key == "status":
