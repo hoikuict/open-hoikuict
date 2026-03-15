@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import text
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
+from time_utils import utc_now
 
 DATABASE_URL = "sqlite:///./hoikuict.db"
 engine = create_engine(DATABASE_URL, echo=False)
@@ -15,6 +16,11 @@ DEFAULT_CLASSROOMS = [
     ("うさぎ組", 2),
     ("きりん組", 3),
 ]
+
+
+def get_session():
+    with Session(engine) as session:
+        yield session
 
 
 def create_db_and_tables() -> None:
@@ -144,7 +150,7 @@ def seed_classroom_data() -> None:
         for child in unassigned_children:
             idx = _class_index_for_age(_age_on_today(child.birth_date), len(classrooms))
             child.classroom_id = classrooms[idx].id
-            child.updated_at = datetime.utcnow()
+            child.updated_at = utc_now()
             session.add(child)
 
         session.commit()
@@ -302,7 +308,7 @@ def seed_sample_data() -> None:
         session.add(children[1])
 
         for family in (tanaka_family, sato_family, ito_family):
-            sync_family_to_children(session, family, updated_at=datetime.utcnow())
+            sync_family_to_children(session, family, updated_at=utc_now())
 
         session.add(
             Guardian(
@@ -365,7 +371,7 @@ def seed_parent_portal_data() -> None:
                 workplace_phone="03-1111-1111",
                 family_id=tanaka_family.id,
                 status=ParentAccountStatus.active,
-                invited_at=datetime.utcnow(),
+                invited_at=utc_now(),
             ),
             ParentAccount(
                 display_name="佐藤 真由美",
@@ -377,7 +383,7 @@ def seed_parent_portal_data() -> None:
                 workplace_phone="03-2222-2222",
                 family_id=sato_family.id,
                 status=ParentAccountStatus.active,
-                invited_at=datetime.utcnow(),
+                invited_at=utc_now(),
             ),
         ]
         for account in accounts:
@@ -417,7 +423,7 @@ def seed_parent_portal_data() -> None:
                     medication="なし",
                     condition_note="朝から元気です。",
                     contact_note="本日は16:30ごろお迎え予定です。",
-                    submitted_at=datetime.utcnow(),
+                    submitted_at=utc_now(),
                 )
             )
         if sato_child:
@@ -436,7 +442,7 @@ def seed_parent_portal_data() -> None:
                     medication="なし",
                     condition_note="少し鼻水があります。",
                     contact_note="様子を見てください。",
-                    submitted_at=datetime.utcnow(),
+                    submitted_at=utc_now(),
                 )
             )
 
@@ -445,7 +451,7 @@ def seed_parent_portal_data() -> None:
             body="来週は避難訓練があります。カラー帽子と上履きを忘れずにお持ちください。",
             priority=NoticePriority.normal,
             status=NoticeStatus.published,
-            publish_start_at=datetime.utcnow() - timedelta(hours=2),
+            publish_start_at=utc_now() - timedelta(hours=2),
             created_by="管理者サンプル",
         )
         session.add(all_notice)
@@ -458,7 +464,7 @@ def seed_parent_portal_data() -> None:
                 body="今週金曜日の16:00よりクラス懇談会を行います。ご都合をお知らせください。",
                 priority=NoticePriority.high,
                 status=NoticeStatus.published,
-                publish_start_at=datetime.utcnow() - timedelta(hours=2),
+                publish_start_at=utc_now() - timedelta(hours=2),
                 created_by="管理者サンプル",
             )
             session.add(classroom_notice)
@@ -477,7 +483,7 @@ def seed_parent_portal_data() -> None:
                 body=f"{sato_child.full_name} さんの体調確認をお願いします。",
                 priority=NoticePriority.high,
                 status=NoticeStatus.published,
-                publish_start_at=datetime.utcnow() - timedelta(hours=2),
+                publish_start_at=utc_now() - timedelta(hours=2),
                 created_by="管理者サンプル",
             )
             session.add(child_notice)
@@ -495,7 +501,7 @@ def seed_parent_portal_data() -> None:
             NoticeRead(
                 notice_id=all_notice.id,
                 parent_account_id=accounts[0].id,
-                read_at=datetime.utcnow(),
+                read_at=utc_now(),
             )
         )
         session.commit()

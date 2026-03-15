@@ -8,20 +8,14 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user, require_can_edit
-from database import engine
+from auth import get_current_staff_user, require_can_edit
+from database import get_session
 from family_support import sync_parent_child_links
 from models import Family, ParentAccount, ParentAccountStatus, ProfileChangeNotification
+from time_utils import utc_now
 
 router = APIRouter(prefix="/parent-accounts", tags=["parent_accounts"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _all_families(session: Session) -> list[Family]:
     return session.exec(
         select(Family)
@@ -59,7 +53,7 @@ def _sync_related_families(session: Session, family_ids: set[int]) -> None:
 def parent_account_list(
     request: Request,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     accounts = session.exec(
         select(ParentAccount)
@@ -87,7 +81,7 @@ def parent_account_list(
 def new_parent_account_form(
     request: Request,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     return templates.TemplateResponse(
@@ -117,7 +111,7 @@ def create_parent_account(
     status: str = Form("active"),
     family_id: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     try:
@@ -136,7 +130,7 @@ def create_parent_account(
         workplace_phone=(workplace_phone or "").strip() or None,
         family_id=selected_family_id,
         status=normalized_status,
-        invited_at=datetime.utcnow(),
+        invited_at=utc_now(),
     )
     session.add(account)
     session.flush()
@@ -153,7 +147,7 @@ def edit_parent_account_form(
     request: Request,
     account_id: int,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     account = _load_account(session, account_id)
@@ -185,7 +179,7 @@ def update_parent_account(
     status: str = Form("active"),
     family_id: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     account = _load_account(session, account_id)
@@ -205,7 +199,7 @@ def update_parent_account(
     account.workplace_phone = (workplace_phone or "").strip() or None
     account.family_id = int(family_id) if family_id and family_id.isdigit() else None
     account.status = normalized_status
-    account.updated_at = datetime.utcnow()
+    account.updated_at = utc_now()
     session.add(account)
     session.flush()
 
@@ -220,7 +214,7 @@ def update_parent_account(
 def mark_profile_notification_read(
     notification_id: int,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     notification = session.get(ProfileChangeNotification, notification_id)
@@ -228,7 +222,7 @@ def mark_profile_notification_read(
         raise HTTPException(status_code=404, detail="通知が見つかりません")
 
     notification.is_read = True
-    notification.read_at = datetime.utcnow()
+    notification.read_at = utc_now()
     session.add(notification)
     session.commit()
     return RedirectResponse(url="/parent-accounts/", status_code=303)

@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
@@ -7,9 +6,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user, require_admin
+from auth import get_current_staff_user, require_admin
 from child_profile_changes import apply_child_profile_payload, merge_child_profile_form_data
-from database import engine, seed_classroom_data
+from database import get_session, seed_classroom_data
 from models import (
     Child,
     ChildProfileChangeRequest,
@@ -17,16 +16,10 @@ from models import (
     Family,
     ParentAccount,
 )
+from time_utils import utc_now
 
 router = APIRouter(prefix="/child-change-requests", tags=["child_change_requests"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_status_filter(raw_status: Optional[str]) -> Optional[ChildProfileChangeRequestStatus]:
     if not raw_status or raw_status == "all":
         return None
@@ -57,7 +50,7 @@ def child_change_request_list(
     request: Request,
     status: str = Query(default="pending"),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_admin(current_user)
     status_filter = _parse_status_filter(status)
@@ -106,7 +99,7 @@ def child_change_request_detail(
     request_id: int,
     notice: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_admin(current_user)
     change_request = _load_change_request(session, request_id)
@@ -135,7 +128,7 @@ def approve_child_change_request(
     request_id: int,
     review_note: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_admin(current_user)
     change_request = _load_change_request(session, request_id)
@@ -155,16 +148,16 @@ def approve_child_change_request(
             session,
             child,
             change_request.request_data or {},
-            applied_at=datetime.utcnow(),
+            applied_at=utc_now(),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     change_request.status = ChildProfileChangeRequestStatus.approved
     change_request.review_note = (review_note or "").strip() or None
-    change_request.reviewed_at = datetime.utcnow()
+    change_request.reviewed_at = utc_now()
     change_request.reviewed_by = current_user.name
-    change_request.updated_at = datetime.utcnow()
+    change_request.updated_at = utc_now()
     session.add(change_request)
     session.commit()
     seed_classroom_data()
@@ -177,7 +170,7 @@ def reject_child_change_request(
     request_id: int,
     review_note: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_admin(current_user)
     change_request = _load_change_request(session, request_id)
@@ -186,9 +179,9 @@ def reject_child_change_request(
 
     change_request.status = ChildProfileChangeRequestStatus.rejected
     change_request.review_note = (review_note or "").strip() or None
-    change_request.reviewed_at = datetime.utcnow()
+    change_request.reviewed_at = utc_now()
     change_request.reviewed_by = current_user.name
-    change_request.updated_at = datetime.utcnow()
+    change_request.updated_at = utc_now()
     session.add(change_request)
     session.commit()
 

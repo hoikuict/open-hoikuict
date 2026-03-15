@@ -7,8 +7,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user, require_can_edit
-from database import engine
+from auth import get_current_staff_user, require_can_edit
+from database import get_session
 from models import (
     Child,
     Classroom,
@@ -18,22 +18,16 @@ from models import (
     NoticeTarget,
     NoticeTargetType,
 )
+from time_utils import ensure_utc, utc_now
 
 router = APIRouter(prefix="/notices", tags=["notices"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_optional_datetime(raw: str) -> Optional[datetime]:
     value = (raw or "").strip()
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value)
+        return ensure_utc(datetime.fromisoformat(value))
     except ValueError:
         return None
 
@@ -128,7 +122,7 @@ def _load_reference_data(session: Session) -> tuple[list[Classroom], list[Child]
 def notice_list(
     request: Request,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     classrooms, children = _load_reference_data(session)
     classrooms_by_id = {classroom.id: classroom for classroom in classrooms}
@@ -156,7 +150,7 @@ def notice_list(
 def new_notice_form(
     request: Request,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     classrooms, children = _load_reference_data(session)
@@ -192,7 +186,7 @@ def create_notice(
     target_classroom_id: str = Form(""),
     target_child_id: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
 
@@ -230,7 +224,7 @@ def edit_notice_form(
     request: Request,
     notice_id: int,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     notice = _load_notice(session, notice_id)
@@ -280,7 +274,7 @@ def update_notice(
     target_classroom_id: str = Form(""),
     target_child_id: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     notice = _load_notice(session, notice_id)
@@ -304,7 +298,7 @@ def update_notice(
     notice.status = normalized_status
     notice.publish_start_at = _parse_optional_datetime(publish_start_at)
     notice.publish_end_at = _parse_optional_datetime(publish_end_at)
-    notice.updated_at = datetime.utcnow()
+    notice.updated_at = utc_now()
     session.add(notice)
     _upsert_targets(session, notice, normalized_target_type, target_classroom_id, target_child_id)
     session.commit()

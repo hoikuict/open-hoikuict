@@ -5,6 +5,8 @@ from typing import Any, List, Optional
 from sqlalchemy import JSON, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
+from time_utils import utc_now
+
 
 class ChildStatus(str, Enum):
     enrolled = "enrolled"
@@ -120,8 +122,8 @@ class Family(SQLModel, table=True):
     home_address: Optional[str] = None
     home_phone: Optional[str] = None
     shared_profile: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     children: List["Child"] = Relationship(back_populates="family")
     parent_accounts: List["ParentAccount"] = Relationship(back_populates="family")
@@ -143,8 +145,8 @@ class Classroom(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True, unique=True)
     display_order: int = Field(default=1, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     children: List["Child"] = Relationship(back_populates="classroom")
 
@@ -167,8 +169,8 @@ class Child(SQLModel, table=True):
     home_phone: Optional[str] = None
     older_sibling_id: Optional[int] = Field(default=None, foreign_key="children.id")
     extra_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     older_sibling: Optional["Child"] = Relationship(
         back_populates="younger_siblings",
@@ -327,8 +329,8 @@ class AttendanceRecord(SQLModel, table=True):
     planned_pickup_time: Optional[str] = None
     pickup_person: Optional[str] = None
     note: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     child: Optional[Child] = Relationship(back_populates="attendance_records")
 
@@ -349,8 +351,8 @@ class ParentAccount(SQLModel, table=True):
     password_hash: Optional[str] = None
     invited_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     family: Optional[Family] = Relationship(back_populates="parent_accounts")
     child_links: List["ParentChildLink"] = Relationship(back_populates="parent_account")
@@ -373,7 +375,7 @@ class ParentChildLink(SQLModel, table=True):
     child_id: int = Field(foreign_key="children.id", index=True)
     relationship_label: str = Field(default="保護者")
     is_primary_contact: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     parent_account: Optional[ParentAccount] = Relationship(back_populates="child_links")
     child: Optional[Child] = Relationship(back_populates="parent_links")
@@ -400,8 +402,8 @@ class DailyContactEntry(SQLModel, table=True):
     status: DailyContactEntryStatus = Field(default=DailyContactEntryStatus.submitted)
     extra_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     submitted_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     child: Optional[Child] = Relationship(back_populates="daily_contact_entries")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="daily_contact_entries")
@@ -418,8 +420,8 @@ class Notice(SQLModel, table=True):
     publish_start_at: Optional[datetime] = None
     publish_end_at: Optional[datetime] = None
     created_by: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     targets: List["NoticeTarget"] = Relationship(back_populates="notice")
     reads: List["NoticeRead"] = Relationship(back_populates="notice")
@@ -432,7 +434,7 @@ class NoticeTarget(SQLModel, table=True):
     notice_id: int = Field(foreign_key="notices.id", index=True)
     target_type: NoticeTargetType = Field(default=NoticeTargetType.all)
     target_value: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     notice: Optional[Notice] = Relationship(back_populates="targets")
 
@@ -444,7 +446,7 @@ class NoticeRead(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     notice_id: int = Field(foreign_key="notices.id", index=True)
     parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
-    read_at: datetime = Field(default_factory=datetime.utcnow)
+    read_at: datetime = Field(default_factory=utc_now)
 
     notice: Optional[Notice] = Relationship(back_populates="reads")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="notice_reads")
@@ -458,7 +460,7 @@ class ProfileChangeNotification(SQLModel, table=True):
     change_summary: str
     change_details: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     is_read: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     read_at: Optional[datetime] = None
 
     parent_account: Optional[ParentAccount] = Relationship(back_populates="profile_change_notifications")
@@ -477,11 +479,11 @@ class ChildProfileChangeRequest(SQLModel, table=True):
     change_summary: str
     request_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     change_details: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: datetime = Field(default_factory=utc_now)
     reviewed_at: Optional[datetime] = None
     reviewed_by: Optional[str] = None
     review_note: Optional[str] = None
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     child: Optional[Child] = Relationship(back_populates="profile_change_requests")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="child_profile_change_requests")

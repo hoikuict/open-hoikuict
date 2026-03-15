@@ -1,7 +1,7 @@
 {% set field_labels = field_labels if field_labels is defined else {} %}
 {% if not field_labels %}
   {% set field_labels = {
-    "family_name": "家族",
+    "family_name": "家族名",
     "last_name": "姓",
     "first_name": "名",
     "last_name_kana": "姓（カナ）",
@@ -30,7 +30,7 @@
           {% for key in selected_fields %}
           <th class="whitespace-nowrap px-4 py-2 text-left font-medium">{{ field_labels.get(key, key) }}</th>
           {% endfor %}
-          {% if current_user and current_user.can_edit %}
+          {% if current_user %}
           <th class="no-print whitespace-nowrap px-4 py-2 text-left font-medium">操作</th>
           {% endif %}
         </tr>
@@ -67,16 +67,20 @@
             {% endif %}
           </td>
           {% endfor %}
-          {% if current_user and current_user.can_edit %}
+          {% if current_user %}
           <td class="no-print whitespace-nowrap px-4 py-2">
+            {% if current_user.can_edit %}
             <a href="/children/{{ child.id }}/edit" class="text-sm text-indigo-600 hover:underline">編集</a>
-            <a href="/children/new?sibling_id={{ child.id }}" class="ml-3 text-sm text-indigo-600 hover:underline">兄弟を追加</a>
+            <a href="/children/new?sibling_id={{ child.id }}" class="ml-3 text-sm text-indigo-600 hover:underline">兄弟として追加</a>
+            {% else %}
+            <a href="/children/{{ child.id }}" class="text-sm text-indigo-600 hover:underline">詳細</a>
+            {% endif %}
           </td>
           {% endif %}
         </tr>
         {% else %}
         <tr>
-          <td colspan="{{ (selected_fields|length + 1) if (current_user and current_user.can_edit) else selected_fields|length }}" class="px-4 py-10 text-center text-slate-400">
+          <td colspan="{{ (selected_fields|length + 1) if current_user else selected_fields|length }}" class="px-4 py-10 text-center text-slate-400">
             表示する園児がありません。
           </td>
         </tr>

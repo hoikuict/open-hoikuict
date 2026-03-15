@@ -8,9 +8,9 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import (
-    clear_mock_parent_cookie,
-    get_mock_parent_account_id,
-    set_mock_parent_cookie,
+    clear_parent_account_cookie,
+    get_current_parent_account_id,
+    set_parent_account_cookie,
 )
 from child_profile_changes import (
     RELATIONSHIP_OPTIONS,
@@ -20,7 +20,7 @@ from child_profile_changes import (
     merge_child_profile_form_data,
     validate_child_profile_payload,
 )
-from database import engine
+from database import get_session
 from models import (
     Child,
     ChildProfileChangeRequest,
@@ -35,6 +35,7 @@ from models import (
     ParentChildLink,
     ProfileChangeNotification,
 )
+from time_utils import ensure_utc, utc_now
 
 router = APIRouter(prefix="/parent-portal", tags=["parent_portal"])
 templates = Jinja2Templates(directory="templates")
@@ -53,13 +54,6 @@ CHILD_PROFILE_NOTICE_MESSAGES = {
     "updated": "子ども情報の変更申請を更新しました。",
     "cancelled": "申請中の変更を取り下げました。",
 }
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return date.today()
@@ -79,7 +73,7 @@ def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
 
 
 def _get_parent_account(request: Request, session: Session) -> Optional[ParentAccount]:
-    parent_account_id = get_mock_parent_account_id(request)
+    parent_account_id = get_current_parent_account_id(request)
     if not parent_account_id:
         return None
 
@@ -188,11 +182,13 @@ def _load_pending_child_profile_requests_by_child_id(
 
 
 def _notice_is_active(notice: Notice, now: datetime) -> bool:
+    publish_start_at = ensure_utc(notice.publish_start_at)
+    publish_end_at = ensure_utc(notice.publish_end_at)
     if notice.status != NoticeStatus.published:
         return False
-    if notice.publish_start_at and notice.publish_start_at > now:
+    if publish_start_at and publish_start_at > now:
         return False
-    if notice.publish_end_at and notice.publish_end_at < now:
+    if publish_end_at and publish_end_at < now:
         return False
     return True
 
@@ -219,7 +215,7 @@ def _notice_matches_account(notice: Notice, parent_account: ParentAccount) -> bo
 
 
 def _load_visible_notices(session: Session, parent_account: ParentAccount) -> list[Notice]:
-    now = datetime.utcnow()
+    now = utc_now()
     notices = session.exec(
         select(Notice)
         .options(selectinload(Notice.targets), selectinload(Notice.reads))
@@ -290,13 +286,13 @@ def parent_login(
     if not account or account.status != ParentAccountStatus.active:
         raise HTTPException(status_code=404, detail="保護者アカウントが見つかりません")
 
-    account.last_login_at = datetime.utcnow()
-    account.updated_at = datetime.utcnow()
+    account.last_login_at = utc_now()
+    account.updated_at = utc_now()
     session.add(account)
     session.commit()
 
     response = RedirectResponse(url="/parent-portal/", status_code=303)
-    set_mock_parent_cookie(response, parent_account_id)
+    set_parent_account_cookie(response, parent_account_id)
     return response
 
 
@@ -309,20 +305,20 @@ def parent_mock_login(
     if not account or account.status != ParentAccountStatus.active:
         raise HTTPException(status_code=404, detail="保護者アカウントが見つかりません")
 
-    account.last_login_at = datetime.utcnow()
-    account.updated_at = datetime.utcnow()
+    account.last_login_at = utc_now()
+    account.updated_at = utc_now()
     session.add(account)
     session.commit()
 
     response = RedirectResponse(url="/parent-portal/", status_code=303)
-    set_mock_parent_cookie(response, parent_account_id)
+    set_parent_account_cookie(response, parent_account_id)
     return response
 
 
 @router.post("/logout")
 def parent_logout():
     response = RedirectResponse(url="/parent-portal/login", status_code=303)
-    clear_mock_parent_cookie(response)
+    clear_parent_account_cookie(response)
     return response
 
 
@@ -494,7 +490,7 @@ def save_parent_profile(
     current_parent_user.workplace = _normalized_text(workplace)
     current_parent_user.workplace_address = _normalized_text(workplace_address)
     current_parent_user.workplace_phone = _normalized_text(workplace_phone)
-    current_parent_user.updated_at = datetime.utcnow()
+    current_parent_user.updated_at = utc_now()
     session.add(current_parent_user)
 
     if change_details:
@@ -671,7 +667,7 @@ def save_parent_child_profile_request(
             status_code=400,
         )
 
-    now = datetime.utcnow()
+    now = utc_now()
     change_summary = build_child_profile_change_summary(
         current_parent_user.display_name,
         child.full_name,
@@ -773,7 +769,7 @@ def save_parent_contact(
             DailyContactEntry.target_date == day,
         )
     ).first()
-    now = datetime.utcnow()
+    now = utc_now()
     if not entry:
         entry = DailyContactEntry(
             child_id=child_id,
@@ -879,7 +875,7 @@ def parent_notice_detail(
         .options(selectinload(Notice.targets), selectinload(Notice.reads))
         .where(Notice.id == notice_id)
     ).first()
-    if not notice or not _notice_is_active(notice, datetime.utcnow()) or not _notice_matches_account(notice, current_parent_user):
+    if not notice or not _notice_is_active(notice, utc_now()) or not _notice_matches_account(notice, current_parent_user):
         raise HTTPException(status_code=404, detail="お知らせが見つかりません")
 
     existing_read = session.exec(
@@ -893,7 +889,7 @@ def parent_notice_detail(
             NoticeRead(
                 notice_id=notice_id,
                 parent_account_id=current_parent_user.id,
-                read_at=datetime.utcnow(),
+                read_at=utc_now(),
             )
         )
         session.commit()

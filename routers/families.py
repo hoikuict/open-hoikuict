@@ -1,27 +1,19 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user, require_can_edit
-from database import engine
+from auth import get_current_staff_user, require_can_edit
+from database import get_session
 from family_support import apply_family_shared_data, create_family_for_child, sync_parent_child_links
 from models import Child, Family, ParentAccount
+from time_utils import utc_now
 
 router = APIRouter(prefix="/families", tags=["families"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_ids(raw_values: list[str]) -> list[int]:
     values: list[int] = []
     for raw in raw_values:
@@ -140,7 +132,7 @@ def _render_form(
 def family_list(
     request: Request,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     families = session.exec(
         select(Family)
@@ -161,7 +153,7 @@ def family_list(
 def new_family_form(
     request: Request,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     return _render_form(
@@ -201,7 +193,7 @@ def create_family(
     g2_workplace_address: str = Form(""),
     g2_workplace_phone: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
 
@@ -217,7 +209,7 @@ def create_family(
         if child.family_id and child.family_id != family.id:
             touched_family_ids.add(child.family_id)
         child.family_id = family.id
-        child.updated_at = datetime.utcnow()
+        child.updated_at = utc_now()
         session.add(child)
 
     for account in session.exec(
@@ -226,7 +218,7 @@ def create_family(
         if account.family_id and account.family_id != family.id:
             touched_family_ids.add(account.family_id)
         account.family_id = family.id
-        account.updated_at = datetime.utcnow()
+        account.updated_at = utc_now()
         session.add(account)
 
     apply_family_shared_data(
@@ -269,7 +261,7 @@ def edit_family_form(
     request: Request,
     family_id: int,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     family = _load_family(session, family_id)
@@ -311,7 +303,7 @@ def update_family(
     g2_workplace_address: str = Form(""),
     g2_workplace_phone: str = Form(""),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     family = _load_family(session, family_id)
@@ -326,7 +318,7 @@ def update_family(
     for child in list(family.children):
         if child.id not in selected_child_ids:
             child.family_id = None
-            child.updated_at = datetime.utcnow()
+            child.updated_at = utc_now()
             session.add(child)
             session.flush()
             new_family = create_family_for_child(session, child, family_name=f"{child.last_name}家")
@@ -335,7 +327,7 @@ def update_family(
     for account in list(family.parent_accounts):
         if account.id not in selected_parent_account_ids:
             account.family_id = None
-            account.updated_at = datetime.utcnow()
+            account.updated_at = utc_now()
             session.add(account)
 
     newly_selected_children = selected_child_ids - current_child_ids
@@ -344,7 +336,7 @@ def update_family(
             if child.family_id and child.family_id != family.id:
                 touched_family_ids.add(child.family_id)
             child.family_id = family.id
-            child.updated_at = datetime.utcnow()
+            child.updated_at = utc_now()
             session.add(child)
 
     newly_selected_accounts = selected_parent_account_ids - current_parent_account_ids
@@ -353,7 +345,7 @@ def update_family(
             if account.family_id and account.family_id != family.id:
                 touched_family_ids.add(account.family_id)
             account.family_id = family.id
-            account.updated_at = datetime.utcnow()
+            account.updated_at = utc_now()
             session.add(account)
 
     apply_family_shared_data(

@@ -4,6 +4,8 @@ from typing import Any, Optional
 from sqlmodel import Field, SQLModel, Column, Relationship
 from sqlalchemy import JSON
 
+from time_utils import utc_now
+
 
 class ChildStatus(str, Enum):
     enrolled = "enrolled"
@@ -68,8 +70,8 @@ class Child(SQLModel, table=True):
     # JSON拡張
     extra_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # 保護者（1人または2人）
     guardians: list["Guardian"] = Relationship(back_populates="child")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
@@ -9,9 +9,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user, require_can_edit
+from auth import get_current_staff_user, require_can_edit
 from child_profile_changes import RELATIONSHIP_OPTIONS
-from database import engine, seed_classroom_data
+from database import get_session, seed_classroom_data
 from family_support import (
     apply_family_shared_data,
     create_family_for_child,
@@ -21,14 +21,10 @@ from family_support import (
     sync_parent_child_links,
 )
 from models import CHILD_FIELDS, Child, ChildStatus, Family, ParentChildLink
+from time_utils import utc_now
 
 router = APIRouter(prefix="/children", tags=["children"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
 
 
 def _parse_date(raw: Optional[str]) -> Optional[date]:
@@ -58,9 +54,10 @@ def _load_child(session: Session, child_id: int) -> Child:
     child = session.exec(
         select(Child)
         .options(
+            selectinload(Child.classroom),
             selectinload(Child.guardians),
             selectinload(Child.older_sibling),
-            selectinload(Child.family).selectinload(Family.children),
+            selectinload(Child.family).selectinload(Family.children).selectinload(Child.classroom),
             selectinload(Child.family).selectinload(Family.parent_accounts),
         )
         .where(Child.id == child_id)
@@ -68,6 +65,20 @@ def _load_child(session: Session, child_id: int) -> Child:
     if not child:
         raise HTTPException(status_code=404, detail="園児が見つかりません")
     return child
+
+
+def _sorted_family_children(child: Child) -> list[Child]:
+    if not child.family or not child.family.children:
+        return []
+    return sorted(
+        child.family.children,
+        key=lambda item: (
+            item.birth_date,
+            item.last_name_kana,
+            item.first_name_kana,
+            item.id or 0,
+        ),
+    )
 
 
 def _load_family(session: Session, raw_selection: Optional[str]) -> Optional[Family]:
@@ -148,7 +159,7 @@ def list_children(
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     stmt = select(Child).options(
         selectinload(Child.guardians),
@@ -184,7 +195,7 @@ def children_table(
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     stmt = select(Child).options(
         selectinload(Child.guardians),
@@ -220,7 +231,7 @@ def new_child_form(
     sibling_id: Optional[int] = Query(default=None),
     family_id: Optional[int] = Query(default=None),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     inherit_from = _load_child(session, sibling_id) if sibling_id else None
@@ -279,7 +290,7 @@ def _build_form_input(
 @router.post("/")
 def create_child(
     request: Request,
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
     last_name: str = Form(...),
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
@@ -431,12 +442,45 @@ def create_child(
     return RedirectResponse(url="/children/", status_code=303)
 
 
+@router.get("/{child_id}", response_class=HTMLResponse)
+def child_detail(
+    request: Request,
+    child_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    child = _load_child(session, child_id)
+    family_children = _sorted_family_children(child)
+    family_parent_accounts = (
+        sorted(
+            child.family.parent_accounts,
+            key=lambda account: (account.display_name or "", account.id or 0),
+        )
+        if child.family and child.family.parent_accounts
+        else []
+    )
+    guardian_profiles = child.family.guardian_profiles() if child.family else []
+
+    return templates.TemplateResponse(
+        request,
+        "children/detail.html",
+        {
+            "request": request,
+            "child": child,
+            "current_user": current_user,
+            "guardian_profiles": guardian_profiles,
+            "family_children": family_children,
+            "family_parent_accounts": family_parent_accounts,
+        },
+    )
+
+
 @router.get("/{child_id}/edit", response_class=HTMLResponse)
 def edit_child_form(
     request: Request,
     child_id: int,
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     child = _load_child(session, child_id)
@@ -458,7 +502,7 @@ def edit_child_form(
 def update_child(
     request: Request,
     child_id: int,
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
     last_name: str = Form(...),
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
@@ -565,7 +609,7 @@ def update_child(
     child.withdrawal_date = parsed_withdrawal_date
     child.status = normalized_status
     child.extra_data = {"allergy": allergies, "medical_notes": medical_notes or ""}
-    child.updated_at = datetime.utcnow()
+    child.updated_at = utc_now()
     session.add(child)
     session.flush()
 

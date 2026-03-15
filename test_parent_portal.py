@@ -1,5 +1,5 @@
 import unittest
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -21,6 +21,7 @@ from models import (
     ParentAccountStatus,
     ProfileChangeNotification,
 )
+from time_utils import utc_now
 import routers.daily_contacts as daily_contacts_module
 import routers.notices as notices_module
 import routers.parent_accounts as parent_accounts_module
@@ -117,7 +118,7 @@ class ParentPortalTests(unittest.TestCase):
                 workplace_address="東京都港区3-3-3",
                 status=ParentAccountStatus.active,
                 family_id=family_main.id,
-                invited_at=datetime.utcnow(),
+                invited_at=utc_now(),
             )
             parent_single = ParentAccount(
                 display_name="佐藤 真由美",
@@ -128,7 +129,7 @@ class ParentPortalTests(unittest.TestCase):
                 workplace_address="東京都新宿区4-4-4",
                 status=ParentAccountStatus.active,
                 family_id=family_single.id,
-                invited_at=datetime.utcnow(),
+                invited_at=utc_now(),
             )
             session.add(parent_main)
             session.add(parent_single)
@@ -141,14 +142,14 @@ class ParentPortalTests(unittest.TestCase):
                 body="全体向けのお知らせです。",
                 priority=NoticePriority.normal,
                 status=NoticeStatus.published,
-                publish_start_at=datetime.utcnow() - timedelta(hours=1),
+                publish_start_at=utc_now() - timedelta(hours=1),
             )
             hidden_notice = Notice(
                 title="個別連絡",
                 body="別の園児向けです。",
                 priority=NoticePriority.high,
                 status=NoticeStatus.published,
-                publish_start_at=datetime.utcnow() - timedelta(hours=1),
+                publish_start_at=utc_now() - timedelta(hours=1),
             )
             session.add(public_notice)
             session.add(hidden_notice)

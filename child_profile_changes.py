@@ -16,6 +16,7 @@ from family_support import (
     normalized_text,
 )
 from models import Child, ChildStatus
+from time_utils import utc_now
 
 EMPTY_VALUE_LABEL = "未登録"
 RELATIONSHIP_OPTIONS = ["母", "父", "祖母", "祖父", "その他"]
@@ -277,7 +278,7 @@ def apply_child_profile_payload(
     if validation_error:
         raise ValueError(validation_error)
 
-    now = applied_at or datetime.utcnow()
+    now = applied_at or utc_now()
     child.birth_date = date.fromisoformat(normalized["birth_date"])
     child.enrollment_date = date.fromisoformat(normalized["enrollment_date"])
     child.withdrawal_date = date.fromisoformat(normalized["withdrawal_date"]) if normalized["withdrawal_date"] else None

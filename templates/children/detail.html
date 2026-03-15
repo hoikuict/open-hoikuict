@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }} 詳細 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">{{ child.full_name }}</h1>
+      <p class="text-sm text-slate-500">園児情報と家族構成を閲覧できます。</p>
+    </div>
+    <div class="flex gap-3">
+      {% if current_user and current_user.can_edit %}
+      <a href="/children/{{ child.id }}/edit" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">編集</a>
+      {% endif %}
+      <a href="/children/" class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">一覧に戻る</a>
+    </div>
+  </div>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold text-slate-800">子どもの個人情報</h2>
+      <p class="text-sm text-slate-500">本人に関する基本情報です。</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div><div class="text-xs font-medium text-slate-500">氏名</div><div class="mt-1 text-sm text-slate-800">{{ child.full_name }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">氏名（カナ）</div><div class="mt-1 text-sm text-slate-800">{{ child.full_name_kana }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">クラス</div><div class="mt-1 text-sm text-slate-800">{{ child.classroom.name if child.classroom else "-" }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">生年月日</div><div class="mt-1 text-sm text-slate-800">{{ child.birth_date.strftime("%Y-%m-%d") if child.birth_date else "-" }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">年齢</div><div class="mt-1 text-sm text-slate-800">{{ child.age }}歳</div></div>
+      <div><div class="text-xs font-medium text-slate-500">在籍状況</div><div class="mt-1 text-sm text-slate-800">{{ child.status.label }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">入園日</div><div class="mt-1 text-sm text-slate-800">{{ child.enrollment_date.strftime("%Y-%m-%d") if child.enrollment_date else "-" }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">退園日</div><div class="mt-1 text-sm text-slate-800">{{ child.withdrawal_date.strftime("%Y-%m-%d") if child.withdrawal_date else "-" }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">アレルギー</div><div class="mt-1 text-sm text-slate-800">{{ child.get_field("allergy") or "-" }}</div></div>
+      <div class="md:col-span-2 lg:col-span-3">
+        <div class="text-xs font-medium text-slate-500">医療メモ</div>
+        <div class="mt-1 text-sm text-slate-800">{{ child.get_field("medical_notes") or "-" }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold text-slate-800">家族プロフィール</h2>
+      <p class="text-sm text-slate-500">家族で共有している連絡先と保護者情報です。</p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div><div class="text-xs font-medium text-slate-500">家族名</div><div class="mt-1 text-sm text-slate-800">{{ child.family.family_name if child.family else "-" }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">自宅住所</div><div class="mt-1 text-sm text-slate-800">{{ child.shared_home_address or "-" }}</div></div>
+      <div><div class="text-xs font-medium text-slate-500">自宅電話番号</div><div class="mt-1 text-sm text-slate-800">{{ child.shared_home_phone or "-" }}</div></div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {% for guardian in guardian_profiles %}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="mb-2 text-sm font-semibold text-slate-700">保護者{{ loop.index }}</div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div><div class="text-xs font-medium text-slate-500">氏名</div><div class="mt-1 text-sm text-slate-800">{{ guardian.last_name }} {{ guardian.first_name }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">氏名（カナ）</div><div class="mt-1 text-sm text-slate-800">{{ guardian.last_name_kana or "-" }} {{ guardian.first_name_kana or "" }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">続柄</div><div class="mt-1 text-sm text-slate-800">{{ guardian.relationship or "-" }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">電話番号</div><div class="mt-1 text-sm text-slate-800">{{ guardian.phone or "-" }}</div></div>
+          <div class="md:col-span-2"><div class="text-xs font-medium text-slate-500">勤務先</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace or "-" }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">勤務先住所</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_address or "-" }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">勤務先電話番号</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_phone or "-" }}</div></div>
+        </div>
+      </div>
+      {% else %}
+      <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 lg:col-span-2">
+        家族プロフィールに保護者情報はまだ登録されていません。
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="mb-4">
+      <h2 class="text-lg font-semibold text-slate-800">家族一覧</h2>
+      <p class="text-sm text-slate-500">同じ家族に紐づく園児と保護者アカウントを確認できます。</p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div>
+        <h3 class="mb-3 text-sm font-semibold text-slate-700">園児</h3>
+        <div class="space-y-3">
+          {% for family_child in family_children %}
+          <div class="rounded-xl border border-slate-200 p-4 {% if family_child.id == child.id %}border-indigo-200 bg-indigo-50{% else %}bg-slate-50{% endif %}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-sm font-semibold text-slate-800">
+                  {{ family_child.full_name }}
+                  {% if family_child.id == child.id %}
+                  <span class="ml-2 rounded bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">表示中</span>
+                  {% endif %}
+                </div>
+                <div class="mt-1 text-xs text-slate-500">生年月日: {{ family_child.birth_date.strftime("%Y-%m-%d") if family_child.birth_date else "-" }}</div>
+                <div class="mt-1 text-xs text-slate-500">クラス: {{ family_child.classroom.name if family_child.classroom else "-" }}</div>
+                <div class="mt-1 text-xs text-slate-500">在籍状況: {{ family_child.status.label }}</div>
+              </div>
+              {% if family_child.id != child.id %}
+              <a href="/children/{{ family_child.id }}" class="text-sm text-indigo-600 hover:underline">詳細</a>
+              {% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+            家族に紐づく園児はまだいません。
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div>
+        <h3 class="mb-3 text-sm font-semibold text-slate-700">保護者アカウント</h3>
+        <div class="space-y-3">
+          {% for account in family_parent_accounts %}
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-sm font-semibold text-slate-800">{{ account.display_name }}</div>
+            <div class="mt-1 text-xs text-slate-500">メール: {{ account.email }}</div>
+            <div class="mt-1 text-xs text-slate-500">電話番号: {{ account.phone or "-" }}</div>
+            <div class="mt-1 text-xs text-slate-500">状態: {{ account.status.label }}</div>
+          </div>
+          {% else %}
+          <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+            家族に紐づく保護者アカウントはまだありません。
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </section>
+</div>
+{% endblock %}

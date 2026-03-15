@@ -7,18 +7,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from database import engine
+from database import get_session
 from models import AttendanceRecord, Child, ChildStatus, Classroom
 
 router = APIRouter(prefix="/guardian", tags=["guardian"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return date.today()

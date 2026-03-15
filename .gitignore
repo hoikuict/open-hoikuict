@@ -44,14 +44,12 @@ env/
 .DS_Store
 Thumbs.db
 
-<<<<<<< HEAD
 # Folders
 docs/specification
-=======
+
 # Files
 spec-ai.md
 spec-human.md
 
 # Folders
 site
->>>>>>> 2c279e3c0283cfc3f18f02d631715738d0e4bbca

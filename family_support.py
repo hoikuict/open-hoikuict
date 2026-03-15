@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from models import Child, Family, Guardian, ParentAccount, ParentChildLink
+from time_utils import utc_now
 
 DEFAULT_RELATIONSHIP_1 = "母"
 DEFAULT_RELATIONSHIP_2 = "父"
@@ -272,7 +273,7 @@ def sync_parent_child_links(session: Session, family: Family) -> None:
 
 
 def sync_family_to_children(session: Session, family: Family, *, updated_at: Optional[datetime] = None) -> None:
-    now = updated_at or datetime.utcnow()
+    now = updated_at or utc_now()
     children = session.exec(
         select(Child)
         .options(selectinload(Child.guardians))
@@ -321,7 +322,7 @@ def apply_family_shared_data(
     family.home_address = normalized_optional_text(normalized["home_address"])
     family.home_phone = normalized_optional_text(normalized["home_phone"])
     family.shared_profile = {"guardians": guardian_profiles_from_payload(normalized)}
-    family.updated_at = updated_at or datetime.utcnow()
+    family.updated_at = updated_at or utc_now()
     session.add(family)
     session.flush()
     sync_family_to_children(session, family, updated_at=family.updated_at)
@@ -351,12 +352,12 @@ def create_family_for_child(
     session.flush()
 
     child.family_id = family.id
-    child.updated_at = datetime.utcnow()
+    child.updated_at = utc_now()
     session.add(child)
 
     for account in accounts:
         account.family_id = family.id
-        account.updated_at = datetime.utcnow()
+        account.updated_at = utc_now()
         session.add(account)
 
     session.flush()
@@ -369,7 +370,7 @@ def move_child_to_family(session: Session, child: Child, family: Family) -> None
     if child.family_id == family.id:
         return
     child.family_id = family.id
-    child.updated_at = datetime.utcnow()
+    child.updated_at = utc_now()
     session.add(child)
     session.flush()
     sync_family_to_children(session, family, updated_at=child.updated_at)
@@ -473,19 +474,19 @@ def bootstrap_family_data(session: Session) -> None:
             base_child = component_children[0] if component_children else None
             family.shared_profile = {"guardians": guardian_profiles_from_child(base_child)} if base_child else {"guardians": []}
 
-        family.updated_at = datetime.utcnow()
+        family.updated_at = utc_now()
         session.add(family)
         session.flush()
 
         for component_child in component_children:
             if component_child.family_id != family.id:
                 component_child.family_id = family.id
-                component_child.updated_at = datetime.utcnow()
+                component_child.updated_at = utc_now()
                 session.add(component_child)
         for component_account in component_accounts:
             if component_account.family_id != family.id:
                 component_account.family_id = family.id
-                component_account.updated_at = datetime.utcnow()
+                component_account.updated_at = utc_now()
                 session.add(component_account)
 
         touched_family_ids.add(family.id)
@@ -509,12 +510,12 @@ def bootstrap_family_data(session: Session) -> None:
         for component_account in component_accounts:
             if component_account.family_id != family.id:
                 component_account.family_id = family.id
-                component_account.updated_at = datetime.utcnow()
+                component_account.updated_at = utc_now()
                 session.add(component_account)
         for component_child in component_children:
             if component_child.family_id != family.id:
                 component_child.family_id = family.id
-                component_child.updated_at = datetime.utcnow()
+                component_child.updated_at = utc_now()
                 session.add(component_child)
         touched_family_ids.add(family.id)
 
@@ -526,5 +527,5 @@ def bootstrap_family_data(session: Session) -> None:
         ).first()
         if not family:
             continue
-        sync_family_to_children(session, family, updated_at=datetime.utcnow())
+        sync_family_to_children(session, family, updated_at=utc_now())
         sync_parent_child_links(session, family)

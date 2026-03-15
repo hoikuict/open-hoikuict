@@ -13,8 +13,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user, require_can_edit
-from database import engine
+from auth import get_current_staff_user, require_can_edit
+from database import get_session
 from models import AttendanceRecord, Child, ChildStatus, Classroom
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -108,13 +108,6 @@ class AttendanceReportRow:
     pickup_person: str
     note: str
     status: str
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return date.today()
@@ -563,7 +556,7 @@ def attendance_list(
     sort_by: Optional[str] = Query(default="attendance_date"),
     sort_order: Optional[str] = Query(default="asc"),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     filters = _build_filters(
         target_date=target_date,
@@ -696,7 +689,7 @@ def check_in(
     target_date: str = Form(..., alias="date"),
     return_query: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
 
@@ -733,7 +726,7 @@ def check_out(
     target_date: str = Form(..., alias="date"),
     return_query: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
 

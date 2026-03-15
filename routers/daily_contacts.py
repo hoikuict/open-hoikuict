@@ -7,19 +7,12 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_mock_current_user
-from database import engine
+from auth import get_current_staff_user
+from database import get_session
 from models import Child, ChildStatus, Classroom, DailyContactEntry, ParentAccount
 
 router = APIRouter(prefix="/daily-contacts", tags=["daily_contacts"])
 templates = Jinja2Templates(directory="templates")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return date.today()
@@ -35,7 +28,7 @@ def daily_contact_list(
     target_date: Optional[str] = Query(default=None, alias="date"),
     classroom_id: Optional[int] = Query(default=None),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     day = _parse_target_date(target_date)
     classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
@@ -81,7 +74,7 @@ def daily_contact_detail(
     child_id: int,
     target_date: Optional[str] = Query(default=None, alias="date"),
     session: Session = Depends(get_session),
-    current_user=Depends(get_mock_current_user),
+    current_user=Depends(get_current_staff_user),
 ):
     day = _parse_target_date(target_date)
     child = session.exec(
