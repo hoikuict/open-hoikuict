@@ -3,3 +3,5 @@ uvicorn[standard]
 sqlmodel
 jinja2
 python-multipart
+mkdocs
+mkdocs-material

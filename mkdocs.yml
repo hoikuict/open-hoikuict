@@ -1,8 +1,9 @@
 repo_name: hoikuict/open-hoikuict
 repo_url: https://github.com/hoikuict/open-hoikuict
 edit_uri: edit/main/docs/
-site_name: open.hoikuict.net
+site_name: open.hoikuict.net | 保育園のためのICT・GAS運用オープンガイド
 site_url: https://open.hoikuict.net/
+site_description: 保育園職員による、保育現場のためのICT化ノウハウ共有サイト。
 theme:
   name: material
   language: ja
@@ -12,10 +13,13 @@ theme:
     - toc.integrate
     - search.suggest
     - search.highlight
-
+plugins:
+  - search
 nav:
   - はじめに: index.md
   - 導入ロードマップ: roadmap.md
   - セキュリティ最低ライン: security.md
   - 園内運用テンプレ: templates.md
   - FAQ: faq.md
+extra_css:
+  - stylesheets/extra.css
