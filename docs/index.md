@@ -11,4 +11,4 @@
 オープンにしているのは、現場の意見や協力を得ながら進めていければありがたいからです。
 
 ## デモ版を公開中
-[https://demo.hoikuict.net/children/]
+[https://demo.hoikuict.net/children/](https://demo.hoikuict.net/children/)
