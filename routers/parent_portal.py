@@ -279,6 +279,7 @@ def parent_login_page(
 
 @router.post("/login")
 def parent_login(
+    request: Request,
     parent_account_id: int = Form(...),
     session: Session = Depends(get_session),
 ):
@@ -292,12 +293,13 @@ def parent_login(
     session.commit()
 
     response = RedirectResponse(url="/parent-portal/", status_code=303)
-    set_parent_account_cookie(response, parent_account_id)
+    set_parent_account_cookie(response, parent_account_id, request=request)
     return response
 
 
 @router.get("/mock-login/{parent_account_id}")
 def parent_mock_login(
+    request: Request,
     parent_account_id: int,
     session: Session = Depends(get_session),
 ):
@@ -311,7 +313,7 @@ def parent_mock_login(
     session.commit()
 
     response = RedirectResponse(url="/parent-portal/", status_code=303)
-    set_parent_account_cookie(response, parent_account_id)
+    set_parent_account_cookie(response, parent_account_id, request=request)
     return response
 
 

@@ -21,14 +21,14 @@ MOCK_ROLE_COOKIE = "mock_role"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 
 
-def _mock_cookie_options() -> dict[str, object]:
-    from demo_runtime import load_demo_settings
+def _mock_cookie_options(request: Request | None = None) -> dict[str, object]:
+    from demo_runtime import load_demo_settings, should_use_secure_cookies
 
     settings = load_demo_settings()
     options: dict[str, object] = {
         "httponly": True,
         "samesite": "lax",
-        "secure": settings.secure_cookies,
+        "secure": should_use_secure_cookies(request, settings),
     }
     if not settings.enabled:
         options["max_age"] = 60 * 60 * 24
@@ -64,7 +64,12 @@ class StaffAuthBackend(Protocol):
 class ParentPortalAuthBackend(Protocol):
     def get_parent_account_id(self, request: Request) -> Optional[int]: ...
 
-    def set_parent_session(self, response: Response, parent_account_id: int) -> None: ...
+    def set_parent_session(
+        self,
+        response: Response,
+        parent_account_id: int,
+        request: Request | None = None,
+    ) -> None: ...
 
     def clear_parent_session(self, response: Response) -> None: ...
 
@@ -93,8 +98,13 @@ class MockParentPortalAuthBackend:
         except (TypeError, ValueError):
             return None
 
-    def set_parent_session(self, response: Response, parent_account_id: int) -> None:
-        response.set_cookie(MOCK_PARENT_ACCOUNT_COOKIE, str(parent_account_id), **_mock_cookie_options())
+    def set_parent_session(
+        self,
+        response: Response,
+        parent_account_id: int,
+        request: Request | None = None,
+    ) -> None:
+        response.set_cookie(MOCK_PARENT_ACCOUNT_COOKIE, str(parent_account_id), **_mock_cookie_options(request))
 
     def clear_parent_session(self, response: Response) -> None:
         response.delete_cookie(MOCK_PARENT_ACCOUNT_COOKIE)
@@ -127,8 +137,8 @@ def get_current_parent_account_id(request: Request) -> Optional[int]:
     return _parent_portal_auth_backend.get_parent_account_id(request)
 
 
-def set_parent_account_cookie(response: Response, parent_account_id: int) -> None:
-    _parent_portal_auth_backend.set_parent_session(response, parent_account_id)
+def set_parent_account_cookie(response: Response, parent_account_id: int, request: Request | None = None) -> None:
+    _parent_portal_auth_backend.set_parent_session(response, parent_account_id, request)
 
 
 def clear_parent_account_cookie(response: Response) -> None:

@@ -16,6 +16,7 @@ from demo_runtime import (
     get_demo_session_manager,
     is_public_demo_enabled,
     load_demo_settings,
+    should_use_secure_cookies,
 )
 from routers.attendance import router as attendance_router
 from routers.child_change_requests import router as child_change_requests_router
@@ -131,7 +132,7 @@ async def public_demo_middleware(request: Request, call_next):
             session_id,
             httponly=True,
             samesite="lax",
-            secure=settings.secure_cookies,
+            secure=should_use_secure_cookies(request, settings),
             path="/",
         )
     return response
@@ -164,7 +165,11 @@ def switch_role(request: Request, role: str = "can_edit", redirect: str = "/chil
     if role in [r.value for r in Role]:
         response = RedirectResponse(url=redirect, status_code=303)
         settings = load_demo_settings()
-        cookie_options = {"httponly": True, "samesite": "lax", "secure": settings.secure_cookies}
+        cookie_options = {
+            "httponly": True,
+            "samesite": "lax",
+            "secure": should_use_secure_cookies(request, settings),
+        }
         if not settings.enabled:
             cookie_options["max_age"] = 60 * 60 * 24
         response.set_cookie(MOCK_ROLE_COOKIE, role, **cookie_options)

@@ -60,6 +60,40 @@ def is_public_demo_enabled() -> bool:
     return load_demo_settings().enabled
 
 
+def request_uses_https(request: object | None) -> bool:
+    if request is None:
+        return False
+
+    headers = getattr(request, "headers", None)
+    if headers is not None:
+        forwarded_proto = headers.get("x-forwarded-proto")
+        if forwarded_proto:
+            scheme = forwarded_proto.split(",", 1)[0].strip().lower()
+            if scheme:
+                return scheme == "https"
+
+        forwarded_ssl = headers.get("x-forwarded-ssl")
+        if forwarded_ssl and forwarded_ssl.strip().lower() == "on":
+            return True
+
+        cf_visitor = headers.get("cf-visitor")
+        if cf_visitor:
+            try:
+                payload = json.loads(cf_visitor)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                payload = None
+            if isinstance(payload, dict) and str(payload.get("scheme", "")).lower() == "https":
+                return True
+
+    url = getattr(request, "url", None)
+    return str(getattr(url, "scheme", "")).lower() == "https"
+
+
+def should_use_secure_cookies(request: object | None, settings: DemoSettings | None = None) -> bool:
+    resolved_settings = settings or load_demo_settings()
+    return resolved_settings.secure_cookies and request_uses_https(request)
+
+
 @lru_cache(maxsize=1)
 def get_demo_session_manager() -> "DemoSessionManager":
     return DemoSessionManager(load_demo_settings())
