@@ -111,6 +111,21 @@ class MeetingNoteRouterTests(unittest.TestCase):
                 ws_one.send_bytes(payload)
                 self.assertEqual(ws_two.receive_bytes(), payload)
 
+    def test_room_id_uses_demo_session_id_when_present(self):
+        class DummyWebSocket:
+            def __init__(self, query_params=None, cookies=None):
+                self.query_params = query_params or {}
+                self.cookies = cookies or {}
+
+        demo_socket = DummyWebSocket(query_params={"demo_session_id": "a" * 32})
+        shared_socket = DummyWebSocket()
+
+        self.assertEqual(
+            meeting_notes_module._meeting_note_room_id(demo_socket, 1),
+            f'{"a" * 32}:1',
+        )
+        self.assertEqual(meeting_notes_module._meeting_note_room_id(shared_socket, 1), "shared:1")
+
 
 if __name__ == "__main__":
     unittest.main()

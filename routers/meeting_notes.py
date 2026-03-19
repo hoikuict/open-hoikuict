@@ -26,24 +26,24 @@ class SaveMeetingNotePayload(BaseModel):
 
 class MeetingNoteConnectionManager:
     def __init__(self) -> None:
-        self._connections: DefaultDict[int, list[WebSocket]] = defaultdict(list)
+        self._connections: DefaultDict[str, list[WebSocket]] = defaultdict(list)
 
-    async def connect(self, note_id: int, websocket: WebSocket) -> None:
+    async def connect(self, room_id: str, websocket: WebSocket) -> None:
         await websocket.accept()
-        self._connections[note_id].append(websocket)
+        self._connections[room_id].append(websocket)
 
-    def disconnect(self, note_id: int, websocket: WebSocket) -> None:
-        connections = self._connections.get(note_id)
+    def disconnect(self, room_id: str, websocket: WebSocket) -> None:
+        connections = self._connections.get(room_id)
         if not connections:
             return
         if websocket in connections:
             connections.remove(websocket)
-        if not connections and note_id in self._connections:
-            del self._connections[note_id]
+        if not connections and room_id in self._connections:
+            del self._connections[room_id]
 
-    async def broadcast(self, note_id: int, message: bytes, exclude: WebSocket | None = None) -> None:
+    async def broadcast(self, room_id: str, message: bytes, exclude: WebSocket | None = None) -> None:
         stale_connections: list[WebSocket] = []
-        for connection in list(self._connections.get(note_id, [])):
+        for connection in list(self._connections.get(room_id, [])):
             if connection is exclude:
                 continue
             try:
@@ -51,7 +51,7 @@ class MeetingNoteConnectionManager:
             except Exception:
                 stale_connections.append(connection)
         for connection in stale_connections:
-            self.disconnect(note_id, connection)
+            self.disconnect(room_id, connection)
 
 
 manager = MeetingNoteConnectionManager()
@@ -68,6 +68,13 @@ def _staff_user_from_websocket(websocket: WebSocket) -> StaffUser:
         if cookie_role and cookie_role in valid_roles:
             role = Role(cookie_role)
     return StaffUser(role=role)
+
+
+def _meeting_note_room_id(websocket: WebSocket, note_id: int) -> str:
+    demo_session_id = websocket.query_params.get(DEMO_SESSION_COOKIE_NAME) or websocket.cookies.get(DEMO_SESSION_COOKIE_NAME)
+    if demo_session_id:
+        return f"{demo_session_id}:{note_id}"
+    return f"shared:{note_id}"
 
 
 def _display_name(current_user) -> str:
@@ -195,12 +202,13 @@ async def meeting_note_websocket(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await manager.connect(note_id, websocket)
+    room_id = _meeting_note_room_id(websocket, note_id)
+    await manager.connect(room_id, websocket)
     try:
         while True:
             data = await websocket.receive_bytes()
-            await manager.broadcast(note_id, data, exclude=websocket)
+            await manager.broadcast(room_id, data, exclude=websocket)
     except WebSocketDisconnect:
-        manager.disconnect(note_id, websocket)
+        manager.disconnect(room_id, websocket)
     except Exception:
-        manager.disconnect(note_id, websocket)
+        manager.disconnect(room_id, websocket)
