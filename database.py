@@ -4,9 +4,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from starlette.requests import HTTPConnection
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
@@ -26,13 +26,13 @@ def _resolve_engine(db_engine: Optional[Engine] = None) -> Engine:
     return db_engine or engine
 
 
-def get_session(request: Request):
+def get_session(connection: HTTPConnection):
     resolved_engine = engine
-    if request is not None:
+    if connection is not None:
         from demo_runtime import DEMO_SESSION_COOKIE_NAME, get_demo_session_manager, is_public_demo_enabled
 
         if is_public_demo_enabled():
-            session_id = getattr(request.state, "demo_session_id", None) or request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+            session_id = getattr(connection.state, "demo_session_id", None) or connection.cookies.get(DEMO_SESSION_COOKIE_NAME)
             if session_id:
                 resolved_engine = get_demo_session_manager().get_engine(session_id)
 

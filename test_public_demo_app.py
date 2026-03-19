@@ -108,6 +108,21 @@ class PublicDemoAppTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("Secure", response.headers.get("set-cookie", ""))
 
+    def test_meeting_note_websocket_uses_same_demo_session_database(self):
+        with TestClient(main.app) as client:
+            list_response = client.get("/meeting-notes/")
+            self.assertEqual(list_response.status_code, 200)
+            self.assertIsNotNone(client.cookies.get("demo_session_id"))
+
+            create_response = client.post("/meeting-notes/", data={"title": "Demo Note"}, follow_redirects=False)
+            self.assertEqual(create_response.status_code, 303)
+
+            note_path = create_response.headers["location"]
+            note_id = int(note_path.rsplit("/", 1)[-1])
+
+            with client.websocket_connect(f"/meeting-notes/ws/{note_id}") as websocket:
+                websocket.send_bytes(b"\x00demo")
+
 
 if __name__ == "__main__":
     unittest.main()
