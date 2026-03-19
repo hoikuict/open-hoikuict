@@ -123,6 +123,20 @@ class PublicDemoAppTests(unittest.TestCase):
             with client.websocket_connect(f"/meeting-notes/ws/{note_id}") as websocket:
                 websocket.send_bytes(b"\x00demo")
 
+    def test_meeting_note_websocket_accepts_demo_session_id_query_param(self):
+        with TestClient(main.app) as client:
+            client.get("/meeting-notes/")
+            session_id = client.cookies.get("demo_session_id")
+            self.assertIsNotNone(session_id)
+
+            create_response = client.post("/meeting-notes/", data={"title": "Demo Note"}, follow_redirects=False)
+            self.assertEqual(create_response.status_code, 303)
+            note_id = int(create_response.headers["location"].rsplit("/", 1)[-1])
+
+            client.cookies.clear()
+            with client.websocket_connect(f"/meeting-notes/ws/{note_id}?demo_session_id={session_id}") as websocket:
+                websocket.send_bytes(b"\x00demo")
+
 
 if __name__ == "__main__":
     unittest.main()

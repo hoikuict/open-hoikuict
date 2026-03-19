@@ -32,7 +32,11 @@ def get_session(connection: HTTPConnection):
         from demo_runtime import DEMO_SESSION_COOKIE_NAME, get_demo_session_manager, is_public_demo_enabled
 
         if is_public_demo_enabled():
-            session_id = getattr(connection.state, "demo_session_id", None) or connection.cookies.get(DEMO_SESSION_COOKIE_NAME)
+            session_id = (
+                getattr(connection.state, "demo_session_id", None)
+                or connection.cookies.get(DEMO_SESSION_COOKIE_NAME)
+                or connection.query_params.get(DEMO_SESSION_COOKIE_NAME)
+            )
             if session_id:
                 resolved_engine = get_demo_session_manager().get_engine(session_id)
 

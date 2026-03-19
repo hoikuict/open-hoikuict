@@ -206,7 +206,12 @@
 
   if (canEdit) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    const websocketUrl = new URL(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    const demoSessionId = {{ demo_session_id|tojson }};
+    if (demoSessionId) {
+      websocketUrl.searchParams.set('demo_session_id', demoSessionId);
+    }
+    const socket = new WebSocket(websocketUrl);
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = () => {

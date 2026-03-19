@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from auth import MOCK_ROLE_COOKIE, Role, StaffUser, get_current_staff_user, require_can_edit
 from database import get_session
+from demo_runtime import DEMO_SESSION_COOKIE_NAME
 from models import MeetingNote
 from time_utils import utc_now
 
@@ -137,6 +138,7 @@ def meeting_note_detail(
             "note": note,
             "current_user": current_user,
             "editor_user_name": _display_name(current_user),
+            "demo_session_id": getattr(request.state, "demo_session_id", None) or request.cookies.get(DEMO_SESSION_COOKIE_NAME),
         },
     )
 
