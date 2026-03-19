@@ -324,17 +324,18 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
     guardian_profiles = family.guardian_profiles()
 
     for child in children:
+        for guardian in list(child.guardians):
+            session.delete(guardian)
+        child.guardians.clear()
+
         child.home_address = family.home_address
         child.home_phone = family.home_phone
         child.updated_at = now
         session.add(child)
-
-        for guardian in list(child.guardians):
-            session.delete(guardian)
         session.flush()
 
         for profile in guardian_profiles:
-            session.add(
+            child.guardians.append(
                 Guardian(
                     child_id=child.id,
                     last_name=normalized_text(str(profile.get("last_name", ""))),
@@ -349,6 +350,8 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
                     order=int(profile.get("order", 1)),
                 )
             )
+        session.add(child)
+        session.flush()
 
 
 def apply_family_shared_data(
