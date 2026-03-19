@@ -15,6 +15,7 @@
       thead { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
     }
   </style>
+  {% block head %}{% endblock %}
 </head>
 <body class="bg-slate-50 text-slate-800">
   <nav class="no-print bg-indigo-700 px-6 py-3 text-white shadow">
@@ -46,6 +47,7 @@
       <a href="/parent-accounts" class="text-sm hover:underline">保護者アカウント</a>
       <a href="/child-change-requests" class="text-sm hover:underline">子ども情報変更申請</a>
       <a href="/daily-contacts" class="text-sm hover:underline">日次連絡</a>
+      <a href="/meeting-notes/" class="text-sm hover:underline">議事録</a>
       <a href="/notices" class="text-sm hover:underline">お知らせ管理</a>
       <a href="/parent-portal/login" class="text-sm hover:underline">保護者ログイン</a>
 
@@ -64,5 +66,6 @@
   <main class="mx-auto max-w-7xl px-4 py-6">
     {% block content %}{% endblock %}
   </main>
+  {% block body_end %}{% endblock %}
 </body>
 </html>
