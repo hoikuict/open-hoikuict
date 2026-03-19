@@ -430,6 +430,18 @@ class Notice(SQLModel, table=True):
     reads: List["NoticeRead"] = Relationship(back_populates="notice")
 
 
+class MeetingNote(SQLModel, table=True):
+    __tablename__ = "meeting_notes"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(default="無題の議事録")
+    content: Optional[bytes] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class NoticeTarget(SQLModel, table=True):
     __tablename__ = "notice_targets"
 

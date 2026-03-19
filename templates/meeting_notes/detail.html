@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}{{ note.title }} | 議事録 | open-hoikuict{% endblock %}
+
+{% block head %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill-cursors@4.0.2/dist/quill-cursors.css" rel="stylesheet">
+<style>
+  .meeting-editor .ql-toolbar.ql-snow {
+    border: none;
+    border-bottom: 1px solid rgb(226 232 240);
+    padding: 0.9rem;
+  }
+
+  .meeting-editor .ql-container.ql-snow {
+    border: none;
+    min-height: 28rem;
+    font-size: 0.975rem;
+  }
+
+  .meeting-editor .ql-editor {
+    min-height: 28rem;
+  }
+
+  .meeting-editor .yjs-cursor {
+    position: absolute;
+    margin-left: -1px;
+    border-left: 2px solid black;
+  }
+
+  .meeting-editor .yjs-cursor > div {
+    position: absolute;
+    top: -1.1rem;
+    left: 0;
+    border-radius: 9999px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.75rem;
+    color: white;
+    white-space: nowrap;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "yjs": "https://esm.sh/yjs@13.6.11",
+    "y-protocols/awareness": "https://esm.sh/y-protocols@1.0.6/awareness?external=yjs",
+    "quill": "https://esm.sh/quill@1.3.7",
+    "y-quill": "https://esm.sh/y-quill@1.0.0?external=yjs,quill,y-protocols",
+    "quill-cursors": "https://esm.sh/quill-cursors@4.0.2?external=quill"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+  <div class="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <a
+        href="/meeting-notes/"
+        class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+      >
+        一覧へ戻る
+      </a>
+      <input
+        id="note-title"
+        type="text"
+        value="{{ note.title }}"
+        {% if not current_user.can_edit %}readonly{% endif %}
+        class="w-full rounded-lg border border-slate-200 px-4 py-2 text-lg font-semibold text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:min-w-[22rem]"
+      >
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+      <span class="rounded-full bg-slate-100 px-3 py-1">ID: {{ note.id }}</span>
+      {% if note.updated_by %}
+      <span>更新者: {{ note.updated_by }}</span>
+      {% endif %}
+      <span>更新: {{ note.updated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      <span id="sync-status" class="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
+        {% if current_user.can_edit %}接続中...{% else %}閲覧専用{% endif %}
+      </span>
+      {% if current_user.can_edit %}
+      <button
+        id="save-btn"
+        type="button"
+        class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        保存
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not current_user.can_edit %}
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    この画面は閲覧専用です。リアルタイム同期と保存は編集可能ロールで利用できます。
+  </div>
+  {% endif %}
+
+  <section class="meeting-editor overflow-hidden rounded-2xl bg-white shadow">
+    <div id="editor"></div>
+  </section>
+</div>
+{% endblock %}
+
+{% block body_end %}
+<script type="module">
+  import * as Y from 'yjs';
+  import Quill from 'quill';
+  import QuillCursors from 'quill-cursors';
+  import { QuillBinding } from 'y-quill';
+  import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
+
+  const canEdit = {{ current_user.can_edit|tojson }};
+  const noteId = {{ note.id|tojson }};
+  const editorUserName = {{ editor_user_name|tojson }};
+  const statusEl = document.getElementById('sync-status');
+  const titleInput = document.getElementById('note-title');
+  const saveBtn = document.getElementById('save-btn');
+
+  Quill.register('modules/cursors', QuillCursors);
+
+  const editor = new Quill('#editor', {
+    theme: 'snow',
+    readOnly: !canEdit,
+    modules: {
+      cursors: canEdit,
+      toolbar: canEdit
+        ? [
+            [{ header: [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            [{ color: [] }, { background: [] }],
+            ['link', 'image'],
+            ['clean'],
+          ]
+        : false,
+    },
+    placeholder: canEdit ? '議事録を入力...' : '閲覧専用',
+  });
+
+  const ydoc = new Y.Doc();
+  const ytext = ydoc.getText('quill');
+  const ymeta = ydoc.getMap('metadata');
+  const awareness = new Awareness(ydoc);
+  awareness.setLocalStateField('user', {
+    name: editorUserName,
+    color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+  });
+
+  new QuillBinding(ytext, editor, awareness);
+
+  titleInput.addEventListener('input', () => {
+    if (canEdit) {
+      ymeta.set('title', titleInput.value);
+    }
+  });
+
+  ymeta.observe(() => {
+    const remoteTitle = ymeta.get('title');
+    if (typeof remoteTitle === 'string' && titleInput.value !== remoteTitle) {
+      titleInput.value = remoteTitle;
+    }
+  });
+
+  function updateStatus(label, className) {
+    statusEl.textContent = label;
+    statusEl.className = className;
+  }
+
+  function decodeBase64ToUint8Array(value) {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+
+  function encodeUint8ArrayToBase64(bytes) {
+    let binary = '';
+    for (let index = 0; index < bytes.byteLength; index += 1) {
+      binary += String.fromCharCode(bytes[index]);
+    }
+    return btoa(binary);
+  }
+
+  fetch(`/meeting-notes/api/${noteId}/content`)
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.content_base64) {
+        Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64));
+      }
+      const existingTitle = ymeta.get('title');
+      if (typeof existingTitle === 'string' && existingTitle.length > 0) {
+        titleInput.value = existingTitle;
+      } else {
+        ymeta.set('title', titleInput.value);
+      }
+    })
+    .catch((error) => {
+      console.error('Failed to load meeting note content', error);
+      updateStatus('読込失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+    });
+
+  if (canEdit) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    socket.binaryType = 'arraybuffer';
+
+    socket.onopen = () => {
+      updateStatus('同期中', 'rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700');
+
+      socket.send(new Uint8Array([1]));
+      socket.send(new Uint8Array([4]));
+
+      const localAwareness = encodeAwarenessUpdate(awareness, [ydoc.clientID]);
+      const message = new Uint8Array(localAwareness.length + 1);
+      message[0] = 3;
+      message.set(localAwareness, 1);
+      socket.send(message);
+    };
+
+    socket.onclose = () => {
+      updateStatus('切断', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+    };
+
+    ydoc.on('update', (update, origin) => {
+      if (origin !== 'websocket' && socket.readyState === WebSocket.OPEN) {
+        const message = new Uint8Array(update.length + 1);
+        message[0] = 0;
+        message.set(update, 1);
+        socket.send(message);
+      }
+    });
+
+    awareness.on('update', ({ added, updated, removed }, origin) => {
+      if (origin === 'websocket') {
+        return;
+      }
+      const changedClients = added.concat(updated).concat(removed);
+      if (changedClients.length === 0 || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      const awarenessUpdate = encodeAwarenessUpdate(awareness, changedClients);
+      const message = new Uint8Array(awarenessUpdate.length + 1);
+      message[0] = 3;
+      message.set(awarenessUpdate, 1);
+      socket.send(message);
+    });
+
+    socket.onmessage = (event) => {
+      const data = new Uint8Array(event.data);
+      if (data.length === 0) {
+        return;
+      }
+      const type = data[0];
+      const payload = data.slice(1);
+
+      if (type === 0 || type === 2) {
+        Y.applyUpdate(ydoc, payload, 'websocket');
+        return;
+      }
+
+      if (type === 1) {
+        const state = Y.encodeStateAsUpdate(ydoc);
+        const message = new Uint8Array(state.length + 1);
+        message[0] = 2;
+        message.set(state, 1);
+        socket.send(message);
+        return;
+      }
+
+      if (type === 3 || type === 5) {
+        applyAwarenessUpdate(awareness, payload, 'websocket');
+        return;
+      }
+
+      if (type === 4) {
+        const states = Array.from(awareness.getStates().keys());
+        const awarenessUpdate = encodeAwarenessUpdate(awareness, states);
+        const message = new Uint8Array(awarenessUpdate.length + 1);
+        message[0] = 5;
+        message.set(awarenessUpdate, 1);
+        socket.send(message);
+      }
+    };
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const update = Y.encodeStateAsUpdate(ydoc);
+        const contentBase64 = encodeUint8ArrayToBase64(update);
+
+        try {
+          const response = await fetch(`/meeting-notes/api/${noteId}/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: titleInput.value,
+              content_base64: contentBase64,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Save failed: ${response.status}`);
+          }
+
+          const result = await response.json();
+          if (result.status === 'ok') {
+            updateStatus('保存しました', 'rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700');
+            window.setTimeout(() => {
+              updateStatus('同期中', 'rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700');
+            }, 1800);
+          }
+        } catch (error) {
+          console.error('Failed to save meeting note', error);
+          updateStatus('保存失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+        }
+      });
+    }
+  }
+</script>
+{% endblock %}

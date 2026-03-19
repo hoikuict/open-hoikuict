@@ -16,6 +16,7 @@ from routers.classrooms import router as classrooms_router
 from routers.daily_contacts import router as daily_contacts_router
 from routers.families import router as families_router
 from routers.guardian import router as guardian_router
+from routers.meeting_notes import router as meeting_notes_router
 from routers.notices import router as notices_router
 from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import router as parent_portal_router
@@ -29,6 +30,7 @@ app.include_router(attendance_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
+app.include_router(meeting_notes_router)
 app.include_router(notices_router)
 app.include_router(daily_contacts_router)
 
