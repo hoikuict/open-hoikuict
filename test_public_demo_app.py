@@ -137,6 +137,13 @@ class PublicDemoAppTests(unittest.TestCase):
             with client.websocket_connect(f"/meeting-notes/ws/{note_id}?demo_session_id={session_id}") as websocket:
                 websocket.send_bytes(b"\x00demo")
 
+    def test_demo_session_starts_with_default_meeting_note(self):
+        with TestClient(main.app) as client:
+            response = client.get("/meeting-notes/1")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("議事録", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

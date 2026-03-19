@@ -509,6 +509,26 @@ def seed_parent_portal_data(db_engine: Optional[Engine] = None) -> None:
         session.commit()
 
 
+def seed_meeting_note_data(db_engine: Optional[Engine] = None) -> None:
+    from models import MeetingNote
+
+    with Session(_resolve_engine(db_engine)) as session:
+        if session.exec(select(MeetingNote)).first():
+            return
+
+        now = utc_now()
+        session.add(
+            MeetingNote(
+                title="議事録",
+                created_by="管理者",
+                updated_by="管理者",
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        session.commit()
+
+
 def bootstrap_family_records(db_engine: Optional[Engine] = None) -> None:
     with Session(_resolve_engine(db_engine)) as session:
         bootstrap_family_data(session)
@@ -527,5 +547,6 @@ def initialize_demo_template_database(db_path: Path) -> None:
         seed_sample_data(demo_engine)
         bootstrap_family_records(demo_engine)
         seed_parent_portal_data(demo_engine)
+        seed_meeting_note_data(demo_engine)
     finally:
         demo_engine.dispose()
