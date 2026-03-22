@@ -27,6 +27,8 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_add_child_columns()
     _migrate_add_attendance_columns()
+    _migrate_add_staff_columns()
+    _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
     _migrate_add_family_columns()
 
@@ -66,6 +68,40 @@ def _migrate_add_attendance_columns() -> None:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN planned_pickup_time VARCHAR"))
             if "pickup_person" not in cols:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN pickup_person VARCHAR"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_staff_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            cols = _table_columns("staff")
+            if not cols:
+                return
+            if "employment_type" not in cols:
+                conn.execute(text("ALTER TABLE staff ADD COLUMN employment_type VARCHAR DEFAULT 'regular'"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_daily_contact_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            cols = _table_columns("daily_contact_entries")
+            if not cols:
+                return
+            if "contact_type" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN contact_type VARCHAR DEFAULT 'present'"))
+            if "absence_temperature" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_temperature VARCHAR"))
+            if "absence_symptoms" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_symptoms VARCHAR"))
+            if "absence_diagnosis" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_diagnosis VARCHAR"))
+            if "absence_note" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_note VARCHAR"))
             conn.commit()
     except Exception:
         pass
@@ -115,6 +151,63 @@ def seed_classroom_data() -> None:
 
         for name, order in DEFAULT_CLASSROOMS:
             session.add(Classroom(name=name, display_order=order))
+
+        session.commit()
+
+
+def seed_staff_data() -> None:
+    from auth import Role
+    from models import Classroom, Staff, StaffEmploymentType, StaffStatus
+
+    with Session(engine) as session:
+        if session.exec(select(Staff)).first():
+            return
+
+        classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+        classroom_ids = [classroom.id for classroom in classrooms if classroom.id is not None]
+
+        def classroom_id_at(index: int) -> int | None:
+            if not classroom_ids:
+                return None
+            return classroom_ids[min(index, len(classroom_ids) - 1)]
+
+        staff_members = [
+            Staff(
+                full_name="山田 園長",
+                display_name="山田園長",
+                role=Role.ADMIN,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=None,
+            ),
+            Staff(
+                full_name="佐藤 花",
+                display_name="佐藤先生",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(0),
+            ),
+            Staff(
+                full_name="鈴木 空",
+                display_name="鈴木先生",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(1),
+            ),
+            Staff(
+                full_name="中村 見学",
+                display_name="中村さん",
+                role=Role.VIEW_ONLY,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.part_time,
+                primary_classroom_id=classroom_id_at(2),
+            ),
+        ]
+
+        for staff in staff_members:
+            session.add(staff)
 
         session.commit()
 

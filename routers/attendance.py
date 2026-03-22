@@ -13,9 +13,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from attendance_checks_service import parent_contact_label, sync_attendance_alarm
 from auth import get_current_staff_user, require_can_edit
 from database import get_session
-from models import AttendanceRecord, Child, ChildStatus, Classroom
+from models import AttendanceRecord, Child, ChildStatus, Classroom, DailyContactEntry
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 templates = Jinja2Templates(directory="templates")
@@ -108,6 +109,7 @@ class AttendanceReportRow:
     pickup_person: str
     note: str
     status: str
+    parent_contact_status: str
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return date.today()
@@ -212,7 +214,12 @@ def _normalize_text(value: str) -> str:
     return "".join(value.lower().split())
 
 
-def _build_row(target_day: date, child: Child, record: Optional[AttendanceRecord]) -> AttendanceReportRow:
+def _build_row(
+    target_day: date,
+    child: Child,
+    record: Optional[AttendanceRecord],
+    entry: Optional[DailyContactEntry],
+) -> AttendanceReportRow:
     return AttendanceReportRow(
         attendance_date=target_day,
         child_id=child.id or 0,
@@ -229,6 +236,7 @@ def _build_row(target_day: date, child: Child, record: Optional[AttendanceRecord
         pickup_person=record.pickup_person if record and record.pickup_person else "",
         note=record.note if record and record.note else "",
         status=_attendance_status(record),
+        parent_contact_status=parent_contact_label(entry),
     )
 
 
@@ -356,6 +364,16 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
             AttendanceRecord.attendance_date <= filters.end_date,
         )
     ).all()
+    entries = session.exec(
+        select(DailyContactEntry).where(
+            DailyContactEntry.target_date >= filters.start_date,
+            DailyContactEntry.target_date <= filters.end_date,
+        )
+    ).all()
+    entry_by_child_and_date = {
+        (entry.child_id, entry.target_date): entry
+        for entry in entries
+    }
 
     if filters.is_single_day:
         enrolled_ids = {
@@ -371,14 +389,28 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
         for child in children:
             if child.id not in candidate_ids:
                 continue
-            rows.append(_build_row(filters.start_date, child, records_by_child.get(child.id)))
+            rows.append(
+                _build_row(
+                    filters.start_date,
+                    child,
+                    records_by_child.get(child.id),
+                    entry_by_child_and_date.get((child.id or 0, filters.start_date)),
+                )
+            )
     else:
         rows = []
         for record in records:
             child = children_by_id.get(record.child_id)
             if child is None:
                 continue
-            rows.append(_build_row(record.attendance_date, child, record))
+            rows.append(
+                _build_row(
+                    record.attendance_date,
+                    child,
+                    record,
+                    entry_by_child_and_date.get((record.child_id, record.attendance_date)),
+                )
+            )
 
     filtered_rows = [
         row
@@ -433,6 +465,43 @@ def _export_rows(rows: list[AttendanceReportRow]) -> list[list[str]]:
             row.status,
             row.planned_pickup_time,
             row.pickup_person,
+            row.note,
+        ]
+        for row in rows
+    ]
+
+
+def _export_headers() -> list[str]:
+    return [
+        "日付",
+        "園児名",
+        "園児名（カナ）",
+        "クラス",
+        "年齢",
+        "登園時刻",
+        "降園時刻",
+        "状態",
+        "お迎え予定時刻",
+        "お迎え予定者",
+        "保護者連絡",
+        "備考",
+    ]
+
+
+def _export_rows(rows: list[AttendanceReportRow]) -> list[list[str]]:
+    return [
+        [
+            row.attendance_date.isoformat(),
+            row.child_name,
+            row.child_name_kana,
+            row.classroom_name,
+            f"{row.age}歳",
+            _format_time(row.check_in_at),
+            _format_time(row.check_out_at),
+            row.status,
+            row.planned_pickup_time,
+            row.pickup_person,
+            row.parent_contact_status,
             row.note,
         ]
         for row in rows
@@ -715,6 +784,7 @@ def check_in(
 
     record.updated_at = now
     session.add(record)
+    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=now)
     session.commit()
 
     return RedirectResponse(url=_build_redirect_url(day, return_query), status_code=303)

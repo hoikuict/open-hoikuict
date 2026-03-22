@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from attendance_checks_service import sync_attendance_alarm
 from auth import (
     clear_parent_account_cookie,
     get_current_parent_account_id,
@@ -31,6 +32,7 @@ from models import (
     NoticeRead,
     NoticeStatus,
     ParentAccount,
+    ParentContactType,
     ParentAccountStatus,
     ParentChildLink,
     ProfileChangeNotification,
@@ -70,6 +72,57 @@ def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
         return int(str(raw).strip())
     except (TypeError, ValueError):
         return None
+
+
+def _contact_form_data(entry: Optional[DailyContactEntry], form_data: Optional[dict[str, str]] = None) -> dict[str, str]:
+    if form_data is not None:
+        return form_data
+    return {
+        "contact_type": entry.contact_type.value if entry else ParentContactType.present.value,
+        "temperature": entry.temperature or "" if entry else "",
+        "sleep_notes": entry.sleep_notes or "" if entry else "",
+        "breakfast_status": entry.breakfast_status or "" if entry else "",
+        "bowel_movement_status": entry.bowel_movement_status or "" if entry else "",
+        "mood": entry.mood or "" if entry else "",
+        "cough": entry.cough or "" if entry else "",
+        "runny_nose": entry.runny_nose or "" if entry else "",
+        "medication": entry.medication or "" if entry else "",
+        "condition_note": entry.condition_note or "" if entry else "",
+        "contact_note": entry.contact_note or "" if entry else "",
+        "absence_temperature": entry.absence_temperature or "" if entry else "",
+        "absence_symptoms": entry.absence_symptoms or "" if entry else "",
+        "absence_diagnosis": entry.absence_diagnosis or "" if entry else "",
+        "absence_note": entry.absence_note or "" if entry else "",
+    }
+
+
+def _render_contact_form(
+    request: Request,
+    *,
+    current_parent_user: ParentAccount,
+    child: Child,
+    entry: Optional[DailyContactEntry],
+    target_date_value: str,
+    notice: str = "",
+    form_error: str = "",
+    form_data: Optional[dict[str, str]] = None,
+):
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/contact_form.html",
+        {
+            "request": request,
+            "current_parent_user": current_parent_user,
+            "parent_portal_mode": True,
+            "child": child,
+            "entry": entry,
+            "target_date_value": target_date_value,
+            "notice": notice,
+            "form_error": form_error,
+            "form_data": _contact_form_data(entry, form_data),
+            "parent_contact_types": list(ParentContactType),
+        },
+    )
 
 
 def _get_parent_account(request: Request, session: Session) -> Optional[ParentAccount]:
@@ -724,6 +777,15 @@ def parent_contact_form(
         )
     ).first()
 
+    return _render_contact_form(
+        request,
+        current_parent_user=current_parent_user,
+        child=child,
+        entry=entry,
+        target_date_value=day.isoformat(),
+        notice="日次連絡を保存しました。" if notice == "saved" else "",
+    )
+
     return templates.TemplateResponse(
         request,
         "parent_portal/contact_form.html",
@@ -744,6 +806,7 @@ def save_parent_contact(
     request: Request,
     child_id: int,
     target_date: str = Form(..., alias="date"),
+    contact_type: str = Form(ParentContactType.present.value),
     temperature: str = Form(""),
     sleep_notes: str = Form(""),
     breakfast_status: str = Form(""),
@@ -754,14 +817,136 @@ def save_parent_contact(
     medication: str = Form(""),
     condition_note: str = Form(""),
     contact_note: str = Form(""),
+    absence_temperature: str = Form(""),
+    absence_symptoms: str = Form(""),
+    absence_diagnosis: str = Form(""),
+    absence_note: str = Form(""),
     session: Session = Depends(get_session),
 ):
     current_parent_user = _get_parent_account(request, session)
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
-    _load_accessible_child(current_parent_user, child_id)
+    child = _load_accessible_child(current_parent_user, child_id)
     day = _parse_target_date(target_date)
+
+    form_data = {
+        "contact_type": contact_type,
+        "temperature": temperature,
+        "sleep_notes": sleep_notes,
+        "breakfast_status": breakfast_status,
+        "bowel_movement_status": bowel_movement_status,
+        "mood": mood,
+        "cough": cough,
+        "runny_nose": runny_nose,
+        "medication": medication,
+        "condition_note": condition_note,
+        "contact_note": contact_note,
+        "absence_temperature": absence_temperature,
+        "absence_symptoms": absence_symptoms,
+        "absence_diagnosis": absence_diagnosis,
+        "absence_note": absence_note,
+    }
+
+    try:
+        selected_contact_type = ParentContactType(contact_type)
+    except ValueError:
+        return _render_contact_form(
+            request,
+            current_parent_user=current_parent_user,
+            child=child,
+            entry=None,
+            target_date_value=day.isoformat(),
+            form_error="出席または欠席を選択してください。",
+            form_data=form_data,
+        )
+
+    entry = session.exec(
+        select(DailyContactEntry).where(
+            DailyContactEntry.child_id == child_id,
+            DailyContactEntry.target_date == day,
+        )
+    ).first()
+    now = utc_now()
+    if not entry:
+        entry = DailyContactEntry(
+            child_id=child_id,
+            parent_account_id=current_parent_user.id,
+            target_date=day,
+            submitted_at=now,
+        )
+    else:
+        entry.parent_account_id = current_parent_user.id
+        if not entry.submitted_at:
+            entry.submitted_at = now
+
+    entry.contact_type = selected_contact_type
+    normalized_absence_temperature = (absence_temperature or "").strip()
+    normalized_absence_symptoms = (absence_symptoms or "").strip()
+    normalized_absence_diagnosis = (absence_diagnosis or "").strip()
+    normalized_absence_note = (absence_note or "").strip()
+
+    if selected_contact_type == ParentContactType.present:
+        entry.temperature = (temperature or "").strip() or None
+        entry.sleep_notes = (sleep_notes or "").strip() or None
+        entry.breakfast_status = (breakfast_status or "").strip() or None
+        entry.bowel_movement_status = (bowel_movement_status or "").strip() or None
+        entry.mood = (mood or "").strip() or None
+        entry.cough = (cough or "").strip() or None
+        entry.runny_nose = (runny_nose or "").strip() or None
+        entry.medication = (medication or "").strip() or None
+        entry.condition_note = (condition_note or "").strip() or None
+        entry.contact_note = (contact_note or "").strip() or None
+        entry.absence_temperature = None
+        entry.absence_symptoms = None
+        entry.absence_diagnosis = None
+        entry.absence_note = None
+    else:
+        if selected_contact_type == ParentContactType.absent_sick and not normalized_absence_temperature:
+            return _render_contact_form(
+                request,
+                current_parent_user=current_parent_user,
+                child=child,
+                entry=entry,
+                target_date_value=day.isoformat(),
+                form_error="病欠の場合は現在の体温を入力してください。",
+                form_data=form_data,
+            )
+        if selected_contact_type == ParentContactType.absent_sick and not normalized_absence_symptoms:
+            return _render_contact_form(
+                request,
+                current_parent_user=current_parent_user,
+                child=child,
+                entry=entry,
+                target_date_value=day.isoformat(),
+                form_error="病欠の場合は症状を入力してください。",
+                form_data=form_data,
+            )
+
+        entry.temperature = None
+        entry.sleep_notes = None
+        entry.breakfast_status = None
+        entry.bowel_movement_status = None
+        entry.mood = None
+        entry.cough = None
+        entry.runny_nose = None
+        entry.medication = None
+        entry.condition_note = None
+        entry.contact_note = None
+        entry.absence_temperature = normalized_absence_temperature or None
+        entry.absence_symptoms = normalized_absence_symptoms or None
+        entry.absence_diagnosis = normalized_absence_diagnosis or None
+        entry.absence_note = normalized_absence_note or None
+
+    entry.updated_at = now
+    session.add(entry)
+    sync_attendance_alarm(session, child_id=child_id, target_date=day, entry=entry, now=now)
+    session.commit()
+
+    return RedirectResponse(
+        url=f"/parent-portal/children/{child_id}/contact?date={day.isoformat()}&notice=saved",
+        status_code=303,
+    )
 
     entry = session.exec(
         select(DailyContactEntry).where(

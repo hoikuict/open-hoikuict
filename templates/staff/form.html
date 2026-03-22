@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl">
+  <div class="mb-4 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">{{ page_title }}</h1>
+      <p class="text-sm text-slate-500">職員の基本情報、権限、雇用区分、主担当クラスを設定します。</p>
+    </div>
+    <a href="/staff/" class="text-sm text-indigo-600 hover:underline">一覧に戻る</a>
+  </div>
+
+  {% if form_error %}
+  <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ form_error }}</div>
+  {% endif %}
+
+  <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div class="md:col-span-2">
+        <label for="full_name" class="mb-1 block text-sm font-medium text-slate-600">氏名<span class="text-rose-500">*</span></label>
+        <input type="text" id="full_name" name="full_name" required value="{{ form_data.full_name }}" class="w-full rounded border border-slate-300 px-3 py-2">
+      </div>
+      <div class="md:col-span-2">
+        <label for="display_name" class="mb-1 block text-sm font-medium text-slate-600">表示名<span class="text-rose-500">*</span></label>
+        <input type="text" id="display_name" name="display_name" required value="{{ form_data.display_name }}" placeholder="例: 田中先生" class="w-full rounded border border-slate-300 px-3 py-2">
+      </div>
+      <div>
+        <label for="role" class="mb-1 block text-sm font-medium text-slate-600">権限<span class="text-rose-500">*</span></label>
+        <select id="role" name="role" class="w-full rounded border border-slate-300 px-3 py-2">
+          {% for option in role_options %}
+          <option value="{{ option.value }}" {% if form_data.role == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="status" class="mb-1 block text-sm font-medium text-slate-600">在籍状態<span class="text-rose-500">*</span></label>
+        <select id="status" name="status" class="w-full rounded border border-slate-300 px-3 py-2">
+          {% for option in status_options %}
+          <option value="{{ option.value }}" {% if form_data.status == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="employment_type" class="mb-1 block text-sm font-medium text-slate-600">雇用区分<span class="text-rose-500">*</span></label>
+        <select id="employment_type" name="employment_type" class="w-full rounded border border-slate-300 px-3 py-2">
+          {% for option in employment_type_options %}
+          <option value="{{ option.value }}" {% if form_data.employment_type == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="primary_classroom_id" class="mb-1 block text-sm font-medium text-slate-600">主担当クラス</label>
+        <select id="primary_classroom_id" name="primary_classroom_id" class="w-full rounded border border-slate-300 px-3 py-2">
+          <option value="">未設定</option>
+          {% for classroom in classrooms %}
+          <option value="{{ classroom.id }}" {% if form_data.primary_classroom_id == (classroom.id|string) %}selected{% endif %}>{{ classroom.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+      パート職員は新しい出席確認ツールを更新できません。常勤職員はクラスに関係なく全園児の出席確認を操作できます。
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
+      <a href="/staff/" class="rounded border border-slate-300 px-4 py-2 hover:bg-slate-50">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

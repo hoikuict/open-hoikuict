@@ -25,9 +25,9 @@
       {% if (parent_portal_mode is defined and parent_portal_mode) or (current_parent_user is defined and current_parent_user) %}
       <a href="/parent-portal/" class="text-sm hover:underline">保護者ホーム</a>
       {% if current_parent_user is defined and current_parent_user and ((current_parent_user.family and current_parent_user.family.children) or current_parent_user.child_links) %}
-      <a href="/parent-portal/children/profile" class="text-sm hover:underline">子ども情報変更申請</a>
+      <a href="/parent-portal/children/profile" class="text-sm hover:underline">園児プロフィール</a>
       {% endif %}
-      <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
+      <a href="/parent-portal/history" class="text-sm hover:underline">連絡履歴</a>
       <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
       <div class="ml-auto flex items-center gap-3 text-sm">
         {% if current_parent_user is defined and current_parent_user %}
@@ -42,21 +42,31 @@
       {% else %}
       <a href="/children" class="text-sm hover:underline">園児一覧</a>
       <a href="/classrooms" class="text-sm hover:underline">クラス管理</a>
-      <a href="/attendance" class="text-sm hover:underline">出席一覧</a>
-      <a href="/guardian" class="text-sm hover:underline">送迎キオスク</a>
+      <a href="/staff" class="text-sm hover:underline">職員管理</a>
+      <a href="/attendance" class="text-sm hover:underline">打刻一覧</a>
+      <a href="/attendance-checks" class="text-sm hover:underline">出席確認</a>
+      <a href="/guardian" class="text-sm hover:underline">打刻キオスク</a>
       <a href="/parent-accounts" class="text-sm hover:underline">保護者アカウント</a>
-      <a href="/child-change-requests" class="text-sm hover:underline">子ども情報変更申請</a>
-      <a href="/daily-contacts" class="text-sm hover:underline">日次連絡</a>
+      <a href="/child-change-requests" class="text-sm hover:underline">プロフィール変更申請</a>
+      <a href="/daily-contacts" class="text-sm hover:underline">保護者連絡</a>
       <a href="/meeting-notes/" class="text-sm hover:underline">議事録</a>
       <a href="/notices" class="text-sm hover:underline">お知らせ管理</a>
       <a href="/parent-portal/login" class="text-sm hover:underline">保護者ログイン</a>
 
       {% if current_user is defined and current_user %}
-      <div class="ml-auto flex items-center gap-2 text-sm">
-        <span class="text-indigo-100">表示モード</span>
-        <a href="/switch-role?role=view_only&redirect={{ request.url.path }}" class="rounded px-2 py-1 {% if current_user.role.value == 'view_only' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">閲覧のみ</a>
-        <a href="/switch-role?role=can_edit&redirect={{ request.url.path }}" class="rounded px-2 py-1 {% if current_user.role.value == 'can_edit' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">編集可</a>
-        <a href="/switch-role?role=admin&redirect={{ request.url.path }}" class="rounded px-2 py-1 {% if current_user.role.value == 'admin' %}bg-indigo-500{% else %}hover:bg-indigo-600{% endif %}">管理者</a>
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        <a href="/staff/mock-login?redirect={{ request.url.path }}" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">
+          {% if current_user.staff_id %}職員切替{% else %}モックログイン{% endif %}
+        </a>
+        {% if current_user.staff_id %}
+        <span class="text-indigo-100">{{ current_user.name }} / {{ current_user.role_label }} / {{ current_user.employment_type_label }}</span>
+        <form method="post" action="/staff/mock-logout">
+          <input type="hidden" name="redirect_to" value="{{ request.url.path }}">
+          <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">モック解除</button>
+        </form>
+        {% else %}
+        <span class="text-indigo-100">未選択 / {{ current_user.role_label }}</span>
+        {% endif %}
       </div>
       {% endif %}
       {% endif %}

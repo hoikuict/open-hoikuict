@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
-from models import AttendanceRecord, Child, ChildStatus, Classroom
+from models import AttendanceRecord, Child, ChildStatus, Classroom, DailyContactEntry, ParentAccount, ParentContactType
 import routers.attendance as attendance_module
 
 
@@ -71,9 +71,11 @@ class AttendanceReportTests(unittest.TestCase):
                 withdrawal_date=date(2026, 3, 31),
                 status=ChildStatus.graduated,
             )
+            parent = ParentAccount(display_name="田中 花", email="tanaka-parent@example.com")
             session.add(taro)
             session.add(hanako)
             session.add(retired)
+            session.add(parent)
             session.flush()
 
             session.add(
@@ -109,6 +111,24 @@ class AttendanceReportTests(unittest.TestCase):
                     attendance_date=date(2026, 2, 10),
                     check_in_at=datetime(2026, 2, 10, 9, 15),
                     check_out_at=datetime(2026, 2, 10, 14, 45),
+                )
+            )
+            session.add(
+                DailyContactEntry(
+                    child_id=taro.id,
+                    parent_account_id=parent.id,
+                    target_date=date(2026, 2, 15),
+                    contact_type=ParentContactType.present,
+                    contact_note="16時迎え",
+                )
+            )
+            session.add(
+                DailyContactEntry(
+                    child_id=taro.id,
+                    parent_account_id=parent.id,
+                    target_date=date(2026, 3, 2),
+                    contact_type=ParentContactType.present,
+                    contact_note="17時迎え",
                 )
             )
             session.commit()
@@ -165,7 +185,7 @@ class AttendanceReportTests(unittest.TestCase):
         self.assertNotIn("佐藤 花子", html)
         self.assertLess(html.index("2026-03-02"), html.index("2026-02-15"))
 
-    def test_csv_export_respects_filters(self):
+    def test_csv_export_includes_parent_contact_column(self):
         response = self.client.get(
             "/attendance/export.csv?start_date=2026-02-01&end_date=2026-03-31&child_name=太郎"
             "&classroom_id={}&time_field=check_in&time_from=10:00&time_to=12:00"
@@ -177,9 +197,9 @@ class AttendanceReportTests(unittest.TestCase):
         lines = [line for line in csv_text.splitlines() if line]
         self.assertEqual(len(lines), 3)
         expected_age = self._age_on_today(date(2020, 1, 1))
-        self.assertIn("日付,園児名,園児名（カナ）,クラス,年齢", lines[0])
-        self.assertIn(f"2026-03-02,田中 太郎,タナカ タロウ,うさぎ組,{expected_age},11:30,17:05,降園済み,17:00,父,", lines[1])
-        self.assertIn(f"2026-02-15,田中 太郎,タナカ タロウ,うさぎ組,{expected_age},10:30,16:00,降園済み,16:00,母,", lines[2])
+        self.assertIn("日付,園児名,園児名（カナ）,クラス,年齢,登園時刻,降園時刻,状態,お迎え予定時刻,お迎え予定者,保護者連絡,備考", lines[0])
+        self.assertIn(f"2026-03-02,田中 太郎,タナカ タロウ,うさぎ組,{expected_age},11:30,17:05,降園済み,17:00,父,出席,", lines[1])
+        self.assertIn(f"2026-02-15,田中 太郎,タナカ タロウ,うさぎ組,{expected_age},10:30,16:00,降園済み,16:00,母,出席,", lines[2])
 
     def test_excel_export_returns_valid_xlsx(self):
         response = self.client.get(
@@ -201,6 +221,7 @@ class AttendanceReportTests(unittest.TestCase):
         self.assertIn("うさぎ組", sheet_xml)
         self.assertIn("2026-03-02", sheet_xml)
         self.assertIn("2026-02-15", sheet_xml)
+        self.assertIn("出席", sheet_xml)
 
 
 if __name__ == "__main__":

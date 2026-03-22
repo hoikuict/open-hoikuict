@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from attendance_checks_service import sync_attendance_alarm
 from database import get_session
 from models import AttendanceRecord, Child, ChildStatus, Classroom
 
@@ -166,6 +167,7 @@ def guardian_check_in(
     record.updated_at = now
 
     session.add(record)
+    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=now)
     session.commit()
 
     return RedirectResponse(

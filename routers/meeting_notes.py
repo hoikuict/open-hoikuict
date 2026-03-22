@@ -2,6 +2,7 @@ import base64
 import binascii
 from collections import defaultdict
 from typing import DefaultDict
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,7 +10,16 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from auth import MOCK_ROLE_COOKIE, Role, StaffUser, get_current_staff_user, require_can_edit
+from auth import (
+    MOCK_ROLE_COOKIE,
+    MOCK_STAFF_CLASSROOM_COOKIE,
+    MOCK_STAFF_ID_COOKIE,
+    MOCK_STAFF_NAME_COOKIE,
+    Role,
+    StaffUser,
+    get_current_staff_user,
+    require_can_edit,
+)
 from database import get_session
 from models import MeetingNote
 from time_utils import utc_now
@@ -60,13 +70,21 @@ def _staff_user_from_websocket(websocket: WebSocket) -> StaffUser:
     role = Role.CAN_EDIT
     as_param = websocket.query_params.get("as")
     valid_roles = {item.value for item in Role}
+    staff_id = _parse_optional_int(websocket.cookies.get(MOCK_STAFF_ID_COOKIE))
+    primary_classroom_id = _parse_optional_int(websocket.cookies.get(MOCK_STAFF_CLASSROOM_COOKIE))
+    name = unquote((websocket.cookies.get(MOCK_STAFF_NAME_COOKIE) or "").strip()) or "モック職員"
     if as_param and as_param in valid_roles:
         role = Role(as_param)
     else:
         cookie_role = websocket.cookies.get(MOCK_ROLE_COOKIE)
         if cookie_role and cookie_role in valid_roles:
             role = Role(cookie_role)
-    return StaffUser(role=role)
+    return StaffUser(
+        role=role,
+        name=name,
+        staff_id=staff_id,
+        primary_classroom_id=primary_classroom_id,
+    )
 
 
 def _display_name(current_user) -> str:
@@ -77,6 +95,15 @@ def _display_name(current_user) -> str:
     if role_label.strip():
         return role_label.strip()
     return "スタッフ"
+
+
+def _parse_optional_int(raw_value: str | None) -> int | None:
+    if raw_value in (None, ""):
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _load_meeting_note(session: Session, note_id: int) -> MeetingNote:
