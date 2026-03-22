@@ -49,6 +49,8 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     SQLModel.metadata.create_all(resolved_engine)
     _migrate_add_child_columns(resolved_engine)
     _migrate_add_attendance_columns(resolved_engine)
+    _migrate_add_staff_columns(resolved_engine)
+    _migrate_add_daily_contact_columns(resolved_engine)
     _migrate_add_parent_account_columns(resolved_engine)
     _migrate_add_family_columns(resolved_engine)
 
@@ -95,6 +97,43 @@ def _migrate_add_attendance_columns(db_engine: Optional[Engine] = None) -> None:
     except Exception:
         pass
 
+
+def _migrate_add_parent_account_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+def _migrate_add_staff_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            cols = _table_columns("staff", resolved_engine)
+            if not cols:
+                return
+            if "employment_type" not in cols:
+                conn.execute(text("ALTER TABLE staff ADD COLUMN employment_type VARCHAR DEFAULT 'regular'"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_daily_contact_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            cols = _table_columns("daily_contact_entries", resolved_engine)
+            if not cols:
+                return
+            if "contact_type" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN contact_type VARCHAR DEFAULT 'present'"))
+            if "absence_temperature" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_temperature VARCHAR"))
+            if "absence_symptoms" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_symptoms VARCHAR"))
+            if "absence_diagnosis" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_diagnosis VARCHAR"))
+            if "absence_note" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_note VARCHAR"))
+            conn.commit()
+    except Exception:
+        pass
 
 def _migrate_add_parent_account_columns(db_engine: Optional[Engine] = None) -> None:
     resolved_engine = _resolve_engine(db_engine)
@@ -145,6 +184,61 @@ def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
 
         session.commit()
 
+def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
+    from auth import Role
+    from models import Classroom, Staff, StaffEmploymentType, StaffStatus
+
+    with Session(_resolve_engine(db_engine)) as session:
+        if session.exec(select(Staff)).first():
+            return
+
+        classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+        classroom_ids = [classroom.id for classroom in classrooms if classroom.id is not None]
+
+        def classroom_id_at(index: int) -> int | None:
+            if not classroom_ids:
+                return None
+            return classroom_ids[min(index, len(classroom_ids) - 1)]
+
+        staff_members = [
+            Staff(
+                full_name="山田 園長",
+                display_name="山田園長",
+                role=Role.ADMIN,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=None,
+            ),
+            Staff(
+                full_name="佐藤 花",
+                display_name="佐藤先生",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(0),
+            ),
+            Staff(
+                full_name="鈴木 空",
+                display_name="鈴木先生",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(1),
+            ),
+            Staff(
+                full_name="中村 見学",
+                display_name="中村さん",
+                role=Role.VIEW_ONLY,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.part_time,
+                primary_classroom_id=classroom_id_at(2),
+            ),
+        ]
+
+        for staff in staff_members:
+            session.add(staff)
+
+        session.commit()
 
 def seed_sample_data(db_engine: Optional[Engine] = None) -> None:
     from models import Child, ChildStatus, Classroom, Family, Guardian
@@ -544,6 +638,7 @@ def initialize_demo_template_database(db_path: Path) -> None:
     try:
         create_db_and_tables(demo_engine)
         seed_classroom_data(demo_engine)
+        seed_staff_data(demo_engine)
         seed_sample_data(demo_engine)
         bootstrap_family_records(demo_engine)
         seed_parent_portal_data(demo_engine)

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Optional, Protocol
+from urllib.parse import quote, unquote
 
 from fastapi import Depends, HTTPException, Request, Response
 
@@ -13,11 +14,20 @@ class Role(str, Enum):
 
 ROLE_LABELS = {
     Role.VIEW_ONLY: "閲覧のみ",
-    Role.CAN_EDIT: "編集可能",
+    Role.CAN_EDIT: "編集可",
     Role.ADMIN: "管理者",
 }
 
+EMPLOYMENT_TYPE_LABELS = {
+    "regular": "常勤",
+    "part_time": "パート",
+}
+
 MOCK_ROLE_COOKIE = "mock_role"
+MOCK_STAFF_ID_COOKIE = "mock_staff_id"
+MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
+MOCK_STAFF_CLASSROOM_COOKIE = "mock_staff_primary_classroom_id"
+MOCK_STAFF_EMPLOYMENT_COOKIE = "mock_staff_employment_type"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 
 
@@ -38,7 +48,10 @@ def _mock_cookie_options(request: Request | None = None) -> dict[str, object]:
 @dataclass(slots=True)
 class StaffUser:
     role: Role
-    name: str = "管理者"
+    name: str = "モック職員"
+    staff_id: Optional[int] = None
+    primary_classroom_id: Optional[int] = None
+    employment_type: Optional[str] = None
 
     @property
     def can_view(self) -> bool:
@@ -55,6 +68,14 @@ class StaffUser:
     @property
     def role_label(self) -> str:
         return ROLE_LABELS.get(self.role, self.role.value)
+
+    @property
+    def employment_type_label(self) -> str:
+        return EMPLOYMENT_TYPE_LABELS.get(self.employment_type or "", "-")
+
+    @property
+    def can_manage_attendance_checks(self) -> bool:
+        return self.staff_id is not None and self.employment_type != "part_time"
 
 
 class StaffAuthBackend(Protocol):
@@ -79,13 +100,23 @@ class MockStaffAuthBackend:
         role = Role.CAN_EDIT
         as_param = request.query_params.get("as")
         valid_roles = {item.value for item in Role}
+        staff_id = _parse_optional_int(request.cookies.get(MOCK_STAFF_ID_COOKIE))
+        primary_classroom_id = _parse_optional_int(request.cookies.get(MOCK_STAFF_CLASSROOM_COOKIE))
+        employment_type = (request.cookies.get(MOCK_STAFF_EMPLOYMENT_COOKIE) or "").strip() or None
+        name = _decode_cookie_text(request.cookies.get(MOCK_STAFF_NAME_COOKIE)) or "モック職員"
         if as_param and as_param in valid_roles:
             role = Role(as_param)
         else:
             cookie_role = request.cookies.get(MOCK_ROLE_COOKIE)
             if cookie_role and cookie_role in valid_roles:
                 role = Role(cookie_role)
-        return StaffUser(role=role)
+        return StaffUser(
+            role=role,
+            name=name,
+            staff_id=staff_id,
+            primary_classroom_id=primary_classroom_id,
+            employment_type=employment_type,
+        )
 
 
 class MockParentPortalAuthBackend:
@@ -145,7 +176,37 @@ def clear_parent_account_cookie(response: Response) -> None:
     _parent_portal_auth_backend.clear_parent_session(response)
 
 
-# Compatibility aliases for the current mock-based code path.
+def set_mock_staff_session(
+    response: Response,
+    *,
+    staff_id: int,
+    name: str,
+    role: Role,
+    primary_classroom_id: Optional[int] = None,
+    employment_type: Optional[str] = None,
+) -> None:
+    max_age = 60 * 60 * 24
+    response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=max_age)
+    response.set_cookie(MOCK_STAFF_ID_COOKIE, str(staff_id), max_age=max_age)
+    response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name, safe=""), max_age=max_age)
+    if primary_classroom_id is None:
+        response.delete_cookie(MOCK_STAFF_CLASSROOM_COOKIE)
+    else:
+        response.set_cookie(MOCK_STAFF_CLASSROOM_COOKIE, str(primary_classroom_id), max_age=max_age)
+    if employment_type:
+        response.set_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE, employment_type, max_age=max_age)
+    else:
+        response.delete_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE)
+
+
+def clear_mock_staff_session(response: Response) -> None:
+    response.delete_cookie(MOCK_ROLE_COOKIE)
+    response.delete_cookie(MOCK_STAFF_ID_COOKIE)
+    response.delete_cookie(MOCK_STAFF_NAME_COOKIE)
+    response.delete_cookie(MOCK_STAFF_CLASSROOM_COOKIE)
+    response.delete_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE)
+
+
 MockUser = StaffUser
 get_mock_current_user = get_current_staff_user
 get_mock_parent_account_id = get_current_parent_account_id
@@ -163,3 +224,23 @@ def require_can_edit(user: CurrentUser) -> None:
 def require_admin(user: CurrentUser) -> None:
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
+
+
+def require_attendance_check_editor(user: CurrentUser) -> None:
+    if not user.can_manage_attendance_checks:
+        raise HTTPException(status_code=403, detail="出席確認を更新できる権限がありません")
+
+
+def _parse_optional_int(raw_value: Optional[str]) -> Optional[int]:
+    if raw_value in (None, ""):
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _decode_cookie_text(raw_value: Optional[str]) -> str:
+    if not raw_value:
+        return ""
+    return unquote(raw_value).strip()

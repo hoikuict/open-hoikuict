@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 from sqlalchemy import JSON, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
+from auth import Role
 from time_utils import utc_now
 
 
@@ -34,12 +35,86 @@ class ParentAccountStatus(str, Enum):
         }[self]
 
 
+class StaffStatus(str, Enum):
+    active = "active"
+    retired = "retired"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.active: "在籍",
+            self.retired: "退職",
+        }[self]
+
+
+class StaffEmploymentType(str, Enum):
+    regular = "regular"
+    part_time = "part_time"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.regular: "常勤",
+            self.part_time: "パート",
+        }[self]
+
+
 class DailyContactEntryStatus(str, Enum):
     submitted = "submitted"
 
     @property
     def label(self) -> str:
         return {self.submitted: "提出済み"}[self]
+
+
+class ParentContactType(str, Enum):
+    present = "present"
+    absent_private = "absent_private"
+    absent_sick = "absent_sick"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.present: "出席",
+            self.absent_private: "欠席(私用)",
+            self.absent_sick: "欠席(病欠)",
+        }[self]
+
+    @property
+    def short_label(self) -> str:
+        return {
+            self.present: "出席",
+            self.absent_private: "私用",
+            self.absent_sick: "病欠",
+        }[self]
+
+
+class AttendanceVerificationStatus(str, Enum):
+    present = "present"
+    private_absent = "private_absent"
+    sick_absent = "sick_absent"
+    unknown = "unknown"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.present: "出席",
+            self.private_absent: "私用休み",
+            self.sick_absent: "病気休み",
+            self.unknown: "不明",
+        }[self]
+
+    @property
+    def is_present(self) -> bool:
+        return self == self.present
+
+    @property
+    def is_absent(self) -> bool:
+        return self in {self.private_absent, self.sick_absent}
+
+    @property
+    def is_unknown(self) -> bool:
+        return self == self.unknown
 
 
 class ChildProfileChangeRequestStatus(str, Enum):
@@ -150,6 +225,27 @@ class Classroom(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
     children: List["Child"] = Relationship(back_populates="classroom")
+    staff_members: List["Staff"] = Relationship(back_populates="primary_classroom")
+
+
+class Staff(SQLModel, table=True):
+    __tablename__ = "staff"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    full_name: str = Field(index=True)
+    display_name: str = Field(index=True)
+    role: Role = Field(default=Role.CAN_EDIT)
+    status: StaffStatus = Field(default=StaffStatus.active)
+    employment_type: StaffEmploymentType = Field(default=StaffEmploymentType.regular)
+    primary_classroom_id: Optional[int] = Field(default=None, foreign_key="classrooms.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    primary_classroom: Optional[Classroom] = Relationship(back_populates="staff_members")
+
+    @property
+    def primary_classroom_name(self) -> str:
+        return self.primary_classroom.name if self.primary_classroom else ""
 
 
 class Child(SQLModel, table=True):
@@ -402,6 +498,11 @@ class DailyContactEntry(SQLModel, table=True):
     medication: Optional[str] = None
     condition_note: Optional[str] = None
     contact_note: Optional[str] = None
+    contact_type: ParentContactType = Field(default=ParentContactType.present)
+    absence_temperature: Optional[str] = None
+    absence_symptoms: Optional[str] = None
+    absence_diagnosis: Optional[str] = None
+    absence_note: Optional[str] = None
     status: DailyContactEntryStatus = Field(default=DailyContactEntryStatus.submitted)
     extra_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     submitted_at: Optional[datetime] = None
@@ -410,6 +511,74 @@ class DailyContactEntry(SQLModel, table=True):
 
     child: Optional[Child] = Relationship(back_populates="daily_contact_entries")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="daily_contact_entries")
+
+    @property
+    def is_present_contact(self) -> bool:
+        return self.contact_type == ParentContactType.present
+
+    @property
+    def is_absent_contact(self) -> bool:
+        return self.contact_type in {ParentContactType.absent_private, ParentContactType.absent_sick}
+
+    @property
+    def absence_reason_label(self) -> str:
+        if self.contact_type == ParentContactType.absent_private:
+            return "私用"
+        if self.contact_type == ParentContactType.absent_sick:
+            return "病欠"
+        return ""
+
+
+class AttendanceVerification(SQLModel, table=True):
+    __tablename__ = "attendance_verifications"
+    __table_args__ = (UniqueConstraint("child_id", "target_date", name="uq_attendance_verification_child_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
+    updated_by_staff_id: Optional[int] = Field(default=None, foreign_key="staff.id", index=True)
+    updated_by_name: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class AttendanceVerificationHistory(SQLModel, table=True):
+    __tablename__ = "attendance_verification_histories"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
+    updated_by_staff_id: Optional[int] = Field(default=None, foreign_key="staff.id", index=True)
+    updated_by_name: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AttendanceAlarmState(SQLModel, table=True):
+    __tablename__ = "attendance_alarm_states"
+    __table_args__ = (UniqueConstraint("child_id", "target_date", name="uq_attendance_alarm_child_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    is_active: bool = Field(default=False, index=True)
+    reasons: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
+    evaluated_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class AttendanceAlarmHistory(SQLModel, table=True):
+    __tablename__ = "attendance_alarm_histories"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    is_active: bool = Field(default=False, index=True)
+    reasons: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
+    evaluated_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class Notice(SQLModel, table=True):

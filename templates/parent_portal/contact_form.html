@@ -6,7 +6,7 @@
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-800">{{ child.full_name }} の日次連絡</h1>
-      <p class="text-sm text-gray-500">{{ target_date_value }} の体調や家庭からの連絡を入力します。</p>
+      <p class="text-sm text-gray-500">{{ target_date_value }} の連絡内容を入力してください。</p>
     </div>
     <a href="/parent-portal/?date={{ target_date_value }}" class="text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
   </div>
@@ -14,62 +14,142 @@
   {% if notice %}
   <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ notice }}</div>
   {% endif %}
+  {% if form_error %}
+  <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form_error }}</div>
+  {% endif %}
+
+  {% set selected_contact_type = form_data.contact_type if form_data and form_data.contact_type else 'present' %}
+  {% set selected_mode = 'absent' if selected_contact_type in ['absent_private', 'absent_sick'] else 'present' %}
 
   <form method="post" action="/parent-portal/children/{{ child.id }}/contact" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <input type="hidden" name="date" value="{{ target_date_value }}">
+    <input type="hidden" name="contact_type" id="contact_type" value="{{ selected_contact_type }}">
 
-    <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+    <section class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">体温</label>
-        <input type="text" name="temperature" value="{{ entry.temperature if entry and entry.temperature else '' }}" placeholder="36.7"
-               class="w-full rounded border border-gray-300 px-3 py-2">
+        <h2 class="text-lg font-semibold text-slate-800">1. 出席か欠席かを選択</h2>
+        <p class="text-sm text-slate-500">出席の場合はこれまでの日次連絡項目をそのまま使えます。</p>
       </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">昨夜の睡眠</label>
-        <input type="text" name="sleep_notes" value="{{ entry.sleep_notes if entry and entry.sleep_notes else '' }}" placeholder="21:00-6:30"
-               class="w-full rounded border border-gray-300 px-3 py-2">
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_mode == 'present' %}border-indigo-500 bg-indigo-50{% else %}border-slate-200 bg-white{% endif %}">
+          <input type="radio" name="attendance_mode" value="present" {% if selected_mode == 'present' %}checked{% endif %} class="h-4 w-4">
+          <div>
+            <div class="font-medium text-slate-800">出席</div>
+            <div class="text-sm text-slate-500">既存の日次連絡を入力</div>
+          </div>
+        </label>
+        <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_mode == 'absent' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
+          <input type="radio" name="attendance_mode" value="absent" {% if selected_mode == 'absent' %}checked{% endif %} class="h-4 w-4">
+          <div>
+            <div class="font-medium text-slate-800">欠席</div>
+            <div class="text-sm text-slate-500">私用または病欠を選択</div>
+          </div>
+        </label>
       </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">朝食</label>
-        <input type="text" name="breakfast_status" value="{{ entry.breakfast_status if entry and entry.breakfast_status else '' }}" placeholder="完食 / 少なめ"
-               class="w-full rounded border border-gray-300 px-3 py-2">
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">排便</label>
-        <input type="text" name="bowel_movement_status" value="{{ entry.bowel_movement_status if entry and entry.bowel_movement_status else '' }}" placeholder="あり / なし"
-               class="w-full rounded border border-gray-300 px-3 py-2">
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">機嫌</label>
-        <input type="text" name="mood" value="{{ entry.mood if entry and entry.mood else '' }}" placeholder="元気 / 少し眠そう"
-               class="w-full rounded border border-gray-300 px-3 py-2">
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">咳</label>
-        <input type="text" name="cough" value="{{ entry.cough if entry and entry.cough else '' }}" placeholder="なし / 少し"
-               class="w-full rounded border border-gray-300 px-3 py-2">
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">鼻水</label>
-        <input type="text" name="runny_nose" value="{{ entry.runny_nose if entry and entry.runny_nose else '' }}" placeholder="なし / 少し"
-               class="w-full rounded border border-gray-300 px-3 py-2">
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">服薬</label>
-        <input type="text" name="medication" value="{{ entry.medication if entry and entry.medication else '' }}" placeholder="なし / 朝に服用"
-               class="w-full rounded border border-gray-300 px-3 py-2">
-      </div>
-    </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-medium text-gray-600">体調メモ</label>
-      <textarea name="condition_note" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ entry.condition_note if entry and entry.condition_note else '' }}</textarea>
-    </div>
+      <div id="absence-reason-panel" class="{% if selected_mode != 'absent' %}hidden{% endif %}">
+        <div class="mb-2 text-sm font-medium text-slate-600">2. 欠席理由</div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_contact_type == 'absent_private' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
+            <input type="radio" name="absence_reason" value="absent_private" {% if selected_contact_type == 'absent_private' %}checked{% endif %} class="h-4 w-4">
+            <div>
+              <div class="font-medium text-slate-800">私用</div>
+              <div class="text-sm text-slate-500">備考のみ入力</div>
+            </div>
+          </label>
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_contact_type == 'absent_sick' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
+            <input type="radio" name="absence_reason" value="absent_sick" {% if selected_contact_type == 'absent_sick' %}checked{% endif %} class="h-4 w-4">
+            <div>
+              <div class="font-medium text-slate-800">病欠</div>
+              <div class="text-sm text-slate-500">体温、症状などを入力</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
-    <div>
-      <label class="mb-1 block text-sm font-medium text-gray-600">園への連絡事項</label>
-      <textarea name="contact_note" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ entry.contact_note if entry and entry.contact_note else '' }}</textarea>
-    </div>
+    <section id="present-fields" class="space-y-6 {% if selected_mode != 'present' %}hidden{% endif %}">
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">体温</label>
+          <input type="text" name="temperature" value="{{ form_data.temperature }}" placeholder="36.7" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">睡眠メモ</label>
+          <input type="text" name="sleep_notes" value="{{ form_data.sleep_notes }}" placeholder="21:00-6:30" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">朝食</label>
+          <input type="text" name="breakfast_status" value="{{ form_data.breakfast_status }}" placeholder="完食 / 少なめ" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">排便</label>
+          <input type="text" name="bowel_movement_status" value="{{ form_data.bowel_movement_status }}" placeholder="あり / なし" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">機嫌</label>
+          <input type="text" name="mood" value="{{ form_data.mood }}" placeholder="良好 / 少し眠そう" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">咳</label>
+          <input type="text" name="cough" value="{{ form_data.cough }}" placeholder="なし / 少し" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">鼻水</label>
+          <input type="text" name="runny_nose" value="{{ form_data.runny_nose }}" placeholder="なし / 少し" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">服薬</label>
+          <input type="text" name="medication" value="{{ form_data.medication }}" placeholder="なし / 朝に服用" class="w-full rounded border border-gray-300 px-3 py-2">
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">体調メモ</label>
+        <textarea name="condition_note" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ form_data.condition_note }}</textarea>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium text-gray-600">園への連絡事項</label>
+        <textarea name="contact_note" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ form_data.contact_note }}</textarea>
+      </div>
+    </section>
+
+    <section id="absence-private-fields" class="space-y-4 {% if selected_contact_type != 'absent_private' %}hidden{% endif %}">
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <h2 class="text-lg font-semibold text-amber-900">私用休み</h2>
+        <p class="mt-1 text-sm text-amber-800">必要に応じて備考を入力してください。</p>
+        <div class="mt-4">
+          <label class="mb-1 block text-sm font-medium text-amber-900">備考</label>
+          <textarea name="absence_note" rows="4" class="w-full rounded border border-amber-300 px-3 py-2">{{ form_data.absence_note }}</textarea>
+        </div>
+      </div>
+    </section>
+
+    <section id="absence-sick-fields" class="space-y-4 {% if selected_contact_type != 'absent_sick' %}hidden{% endif %}">
+      <div class="rounded-xl border border-rose-200 bg-rose-50 p-5">
+        <h2 class="text-lg font-semibold text-rose-900">病欠</h2>
+        <p class="mt-1 text-sm text-rose-800">現在の体温と症状は必須です。</p>
+        <div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-rose-900">現在の体温<span class="text-rose-600">*</span></label>
+            <input type="text" name="absence_temperature" value="{{ form_data.absence_temperature }}" placeholder="37.8" class="w-full rounded border border-rose-300 px-3 py-2">
+          </div>
+          <div>
+            <label class="mb-1 block text-sm font-medium text-rose-900">症状<span class="text-rose-600">*</span></label>
+            <input type="text" name="absence_symptoms" value="{{ form_data.absence_symptoms }}" placeholder="発熱、咳" class="w-full rounded border border-rose-300 px-3 py-2">
+          </div>
+        </div>
+        <div class="mt-4">
+          <label class="mb-1 block text-sm font-medium text-rose-900">医師から伝えられた診断名</label>
+          <input type="text" name="absence_diagnosis" value="{{ form_data.absence_diagnosis }}" class="w-full rounded border border-rose-300 px-3 py-2">
+        </div>
+        <div class="mt-4">
+          <label class="mb-1 block text-sm font-medium text-rose-900">備考</label>
+          <textarea name="absence_note" rows="4" class="w-full rounded border border-rose-300 px-3 py-2">{{ form_data.absence_note }}</textarea>
+        </div>
+      </div>
+    </section>
 
     {% if entry %}
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
@@ -85,3 +165,53 @@
 </div>
 {% endblock %}
 
+{% block body_end %}
+<script>
+  (() => {
+    const contactTypeInput = document.getElementById("contact_type");
+    const modeInputs = Array.from(document.querySelectorAll('input[name="attendance_mode"]'));
+    const reasonInputs = Array.from(document.querySelectorAll('input[name="absence_reason"]'));
+    const presentFields = document.getElementById("present-fields");
+    const absenceReasonPanel = document.getElementById("absence-reason-panel");
+    const absencePrivateFields = document.getElementById("absence-private-fields");
+    const absenceSickFields = document.getElementById("absence-sick-fields");
+
+    function setDisabled(section, disabled) {
+      if (!section) return;
+      section.querySelectorAll("input, textarea, select").forEach((field) => {
+        field.disabled = disabled;
+      });
+    }
+
+    function selectedMode() {
+      const selected = modeInputs.find((input) => input.checked);
+      return selected ? selected.value : "present";
+    }
+
+    function selectedReason() {
+      const selected = reasonInputs.find((input) => input.checked);
+      return selected ? selected.value : "";
+    }
+
+    function syncState() {
+      const mode = selectedMode();
+      const reason = selectedReason();
+      const contactType = mode === "present" ? "present" : reason;
+      contactTypeInput.value = contactType;
+
+      presentFields.classList.toggle("hidden", mode !== "present");
+      absenceReasonPanel.classList.toggle("hidden", mode !== "absent");
+      absencePrivateFields.classList.toggle("hidden", contactType !== "absent_private");
+      absenceSickFields.classList.toggle("hidden", contactType !== "absent_sick");
+
+      setDisabled(presentFields, mode !== "present");
+      setDisabled(absencePrivateFields, contactType !== "absent_private");
+      setDisabled(absenceSickFields, contactType !== "absent_sick");
+    }
+
+    modeInputs.forEach((input) => input.addEventListener("change", syncState));
+    reasonInputs.forEach((input) => input.addEventListener("change", syncState));
+    syncState();
+  })();
+</script>
+{% endblock %}
