@@ -53,6 +53,7 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     _migrate_add_daily_contact_columns(resolved_engine)
     _migrate_add_parent_account_columns(resolved_engine)
     _migrate_add_family_columns(resolved_engine)
+    _migrate_add_message_columns(resolved_engine)
 
 
 def _table_columns(table_name: str, db_engine: Optional[Engine] = None) -> list[str]:
@@ -98,8 +99,6 @@ def _migrate_add_attendance_columns(db_engine: Optional[Engine] = None) -> None:
         pass
 
 
-def _migrate_add_parent_account_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
 def _migrate_add_staff_columns(db_engine: Optional[Engine] = None) -> None:
     resolved_engine = _resolve_engine(db_engine)
     try:
@@ -166,6 +165,25 @@ def _migrate_add_family_columns(db_engine: Optional[Engine] = None) -> None:
             parent_cols = _table_columns("parent_accounts", resolved_engine)
             if parent_cols and "family_id" not in parent_cols:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN family_id INTEGER REFERENCES families(id)"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_message_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            message_cols = _table_columns("messages", resolved_engine)
+            if message_cols:
+                if "parent_message_id" not in message_cols:
+                    conn.execute(
+                        text("ALTER TABLE messages ADD COLUMN parent_message_id INTEGER REFERENCES messages(id)")
+                    )
+                if "deleted_at" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
+                if "deleted_by" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
             conn.commit()
     except Exception:
         pass

@@ -17,65 +17,199 @@
   </style>
   {% block head %}{% endblock %}
 </head>
+{% set is_parent_portal = (parent_portal_mode is defined and parent_portal_mode) or (current_parent_user is defined and current_parent_user) %}
+{% set current_path = request.url.path if request is defined and request else '' %}
+{% set current_staff_name = current_user.name if current_user is defined and current_user else "スタッフ" %}
+{% set staff_login_redirect = current_path or '/children' %}
 <body class="bg-slate-50 text-slate-800">
-  <nav class="no-print bg-indigo-700 px-6 py-3 text-white shadow">
-    <div class="mx-auto flex max-w-7xl items-center gap-4">
-      <a href="/" class="text-lg font-bold">open-hoikuict</a>
-
-      {% if (parent_portal_mode is defined and parent_portal_mode) or (current_parent_user is defined and current_parent_user) %}
-      <a href="/parent-portal/" class="text-sm hover:underline">保護者ホーム</a>
-      {% if current_parent_user is defined and current_parent_user and ((current_parent_user.family and current_parent_user.family.children) or current_parent_user.child_links) %}
-      <a href="/parent-portal/children/profile" class="text-sm hover:underline">園児プロフィール</a>
-      {% endif %}
-      <a href="/parent-portal/history" class="text-sm hover:underline">連絡履歴</a>
-      <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
-      <div class="ml-auto flex items-center gap-3 text-sm">
-        {% if current_parent_user is defined and current_parent_user %}
-        <span class="text-indigo-100">{{ current_parent_user.display_name }}</span>
-        <form method="post" action="/parent-portal/logout">
-          <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログアウト</button>
-        </form>
-        {% else %}
-        <a href="/parent-portal/login" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログイン</a>
+  {% if is_parent_portal %}
+  <div class="min-h-screen">
+    <nav class="no-print bg-indigo-700 px-4 py-3 text-white shadow sm:px-6">
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
+        <a href="/" class="text-lg font-bold">open-hoikuict</a>
+        <a href="/parent-portal/" class="text-sm hover:underline">保護者ホーム</a>
+        {% if current_parent_user is defined and current_parent_user and ((current_parent_user.family and current_parent_user.family.children) or current_parent_user.child_links) %}
+        <a href="/parent-portal/children/profile" class="text-sm hover:underline">子ども情報変更申請</a>
         {% endif %}
+        <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
+        <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          {% if current_parent_user is defined and current_parent_user %}
+          <span class="text-indigo-100">{{ current_parent_user.display_name }}</span>
+          <form method="post" action="/parent-portal/logout">
+            <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログアウト</button>
+          </form>
+          {% else %}
+          <a href="/parent-portal/login" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログイン</a>
+          {% endif %}
+        </div>
       </div>
-      {% else %}
-      <a href="/children" class="text-sm hover:underline">園児一覧</a>
-      <a href="/classrooms" class="text-sm hover:underline">クラス管理</a>
-      <a href="/staff" class="text-sm hover:underline">職員管理</a>
-      <a href="/attendance" class="text-sm hover:underline">打刻一覧</a>
-      <a href="/attendance-checks" class="text-sm hover:underline">出席確認</a>
-      <a href="/guardian" class="text-sm hover:underline">打刻キオスク</a>
-      <a href="/parent-accounts" class="text-sm hover:underline">保護者アカウント</a>
-      <a href="/child-change-requests" class="text-sm hover:underline">プロフィール変更申請</a>
-      <a href="/daily-contacts" class="text-sm hover:underline">保護者連絡</a>
-      <a href="/meeting-notes/" class="text-sm hover:underline">議事録</a>
-      <a href="/notices" class="text-sm hover:underline">お知らせ管理</a>
-      <a href="/parent-portal/login" class="text-sm hover:underline">保護者ログイン</a>
+    </nav>
+
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+  {% else %}
+  <div class="min-h-screen lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
+    <aside
+      id="staff-sidebar"
+      class="no-print fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white shadow-xl transition-transform duration-200 lg:static lg:w-auto lg:translate-x-0 lg:shadow-none"
+    >
+      <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div>
+          <a href="/" class="text-lg font-bold text-slate-900">open-hoikuict</a>
+          <p class="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-indigo-600">Staff Console</p>
+        </div>
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 lg:hidden"
+          data-sidebar-close
+          aria-label="メニューを閉じる"
+        >
+          閉じる
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-4 py-5">
+        <div class="rounded-2xl bg-slate-900 px-4 py-4 text-white">
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">ログイン中</p>
+          <p class="mt-2 text-base font-semibold">{{ current_staff_name }}</p>
+          {% if current_user is defined and current_user %}
+          <p class="mt-1 text-sm text-slate-300">{{ current_user.role_label }}</p>
+          {% endif %}
+        </div>
+
+        <nav class="mt-6 space-y-6">
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">基本業務</p>
+            <div class="mt-3 space-y-1">
+              <a href="/children" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/children') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">園児一覧</a>
+              <a href="/classrooms" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/classrooms') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">クラス管理</a>
+              <a href="/attendance" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠一覧</a>
+              <a href="/attendance-checks/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance-checks') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠確認</a>
+              <a href="/guardian" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/guardian') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者キオスク</a>
+            </div>
+          </div>
+
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">連絡と記録</p>
+            <div class="mt-3 space-y-1">
+              <a href="/daily-contacts" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/daily-contacts') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">日次連絡</a>
+              <a href="/staff-rooms/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/staff-rooms') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">連絡タイムライン</a>
+              <a href="/meeting-notes/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/meeting-notes') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">議事録</a>
+              <a href="/notices" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/notices') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">お知らせ管理</a>
+            </div>
+          </div>
+
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">アカウント</p>
+            <div class="mt-3 space-y-1">
+              <a href="/parent-accounts" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/parent-accounts') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者アカウント</a>
+              <a href="/child-change-requests" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/child-change-requests') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">プロフィール変更申請</a>
+              <a href="/parent-portal/login" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/parent-portal') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者画面確認</a>
+            </div>
+          </div>
+        </nav>
+      </div>
 
       {% if current_user is defined and current_user %}
-      <div class="ml-auto flex items-center gap-3 text-sm">
-        <a href="/staff/mock-login?redirect={{ request.url.path }}" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">
-          {% if current_user.staff_id %}職員切替{% else %}モックログイン{% endif %}
-        </a>
-        {% if current_user.staff_id %}
-        <span class="text-indigo-100">{{ current_user.name }} / {{ current_user.role_label }} / {{ current_user.employment_type_label }}</span>
-        <form method="post" action="/staff/mock-logout">
-          <input type="hidden" name="redirect_to" value="{{ request.url.path }}">
-          <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">モック解除</button>
-        </form>
-        {% else %}
-        <span class="text-indigo-100">未選択 / {{ current_user.role_label }}</span>
-        {% endif %}
+      <div class="border-t border-slate-200 px-4 py-4">
+        <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">表示モード</p>
+        <div class="mt-3 grid grid-cols-3 gap-2">
+          <a href="/switch-role?role=view_only&redirect={{ current_path or '/' }}" class="rounded-xl px-3 py-2 text-center text-xs font-medium {% if current_user.role.value == 'view_only' %}bg-indigo-600 text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">閲覧</a>
+          <a href="/switch-role?role=can_edit&redirect={{ current_path or '/' }}" class="rounded-xl px-3 py-2 text-center text-xs font-medium {% if current_user.role.value == 'can_edit' %}bg-indigo-600 text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">編集</a>
+          <a href="/switch-role?role=admin&redirect={{ current_path or '/' }}" class="rounded-xl px-3 py-2 text-center text-xs font-medium {% if current_user.role.value == 'admin' %}bg-indigo-600 text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">管理</a>
+        </div>
       </div>
       {% endif %}
-      {% endif %}
-    </div>
-  </nav>
 
-  <main class="mx-auto max-w-7xl px-4 py-6">
-    {% block content %}{% endblock %}
-  </main>
+      <div class="border-t border-slate-200 px-4 py-4">
+        <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">認証</p>
+        <div class="mt-3 space-y-2">
+          <a href="/staff/login?redirect={{ staff_login_redirect }}" class="block rounded-xl bg-slate-900 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800">職員ログイン</a>
+          <form method="post" action="/staff/logout">
+            <input type="hidden" name="redirect_to" value="/staff/login">
+            <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+              ログアウト
+            </button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <div id="staff-sidebar-backdrop" class="no-print fixed inset-0 z-30 hidden bg-slate-900/40 lg:hidden"></div>
+
+    <div class="min-w-0">
+      <header class="no-print sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 lg:hidden">
+        <div class="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            data-sidebar-open
+            aria-label="メニューを開く"
+          >
+            メニュー
+          </button>
+          <div class="text-right">
+            <p class="text-sm font-semibold text-slate-900">{{ current_staff_name }}</p>
+            {% if current_user is defined and current_user %}
+            <p class="text-xs text-slate-500">{{ current_user.role_label }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </header>
+
+      <main class="px-4 py-6 sm:px-6 lg:px-8">
+  {% endif %}
+        {% block content %}{% endblock %}
+  {% if is_parent_portal %}
+    </main>
+  </div>
+  {% else %}
+      </main>
+    </div>
+  </div>
+  {% endif %}
+
   {% block body_end %}{% endblock %}
+  {% if not is_parent_portal %}
+  <script>
+    (() => {
+      const sidebar = document.getElementById("staff-sidebar");
+      const backdrop = document.getElementById("staff-sidebar-backdrop");
+      const openButtons = document.querySelectorAll("[data-sidebar-open]");
+      const closeButtons = document.querySelectorAll("[data-sidebar-close]");
+
+      if (!sidebar || !backdrop) {
+        return;
+      }
+
+      const openSidebar = () => {
+        sidebar.classList.remove("-translate-x-full");
+        backdrop.classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+      };
+
+      const closeSidebar = () => {
+        sidebar.classList.add("-translate-x-full");
+        backdrop.classList.add("hidden");
+        document.body.classList.remove("overflow-hidden");
+      };
+
+      openButtons.forEach((button) => button.addEventListener("click", openSidebar));
+      closeButtons.forEach((button) => button.addEventListener("click", closeSidebar));
+      backdrop.addEventListener("click", closeSidebar);
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeSidebar();
+        }
+      });
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 1024) {
+          backdrop.classList.add("hidden");
+          document.body.classList.remove("overflow-hidden");
+        }
+      });
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>

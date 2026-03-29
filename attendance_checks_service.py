@@ -17,28 +17,24 @@ from models import (
 from time_utils import utc_now
 
 ALARM_REASON_LABELS = {
-    "punched_but_not_present": "打刻ありだが目視では来ていない",
-    "absence_contact_but_present": "欠席連絡だが実際には来ている",
-    "no_contact_and_not_present": "連絡がなく実際にも来ていない",
+    "punched_but_not_present": "打刻があるのに欠席になっています",
+    "absence_contact_but_present": "欠席連絡があるのに出席になっています",
+    "no_contact_and_not_present": "欠席打刻なのに保護者連絡がありません",
 }
-
-
-def parent_contact_label(entry: Optional[DailyContactEntry]) -> str:
-    if not entry:
-        return "なし"
-    return entry.contact_type.label
-
-
-def parent_contact_reason_label(entry: Optional[DailyContactEntry]) -> str:
-    if not entry:
-        return ""
-    return entry.absence_reason_label
 
 
 def verification_label(verification: Optional[AttendanceVerification]) -> str:
     if not verification:
-        return "未確認"
+        return "-"
     return verification.status.label
+
+
+def parent_contact_label(entry: Optional[DailyContactEntry]) -> str:
+    if not entry:
+        return "-"
+    if entry.contact_type == ParentContactType.present:
+        return entry.contact_type.label
+    return entry.absence_reason_label or entry.contact_type.short_label
 
 
 def alarm_reason_labels(reasons: Optional[list[str]]) -> list[str]:
@@ -63,11 +59,7 @@ def build_alarm_reasons(
     if record and record.check_in_at is not None and visually_absent:
         reasons.append("punched_but_not_present")
 
-    if (
-        entry
-        and entry.contact_type in {ParentContactType.absent_private, ParentContactType.absent_sick}
-        and visually_present
-    ):
+    if entry and entry.contact_type in {ParentContactType.absent_private, ParentContactType.absent_sick} and visually_present:
         reasons.append("absence_contact_but_present")
 
     if entry is None and visually_absent:
@@ -125,6 +117,7 @@ def sync_attendance_alarm(
             is_active=next_is_active,
             reasons=reasons_payload,
             evaluated_at=timestamp,
+            created_at=timestamp,
             updated_at=timestamp,
         )
         should_log = True

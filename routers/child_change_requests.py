@@ -160,7 +160,7 @@ def approve_child_change_request(
     change_request.updated_at = utc_now()
     session.add(change_request)
     session.commit()
-    seed_classroom_data()
+    seed_classroom_data(session.get_bind())
 
     return RedirectResponse(url=f"/child-change-requests/{request_id}?notice=approved", status_code=303)
 

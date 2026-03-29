@@ -32,8 +32,8 @@ from models import (
     NoticeRead,
     NoticeStatus,
     ParentAccount,
-    ParentContactType,
     ParentAccountStatus,
+    ParentContactType,
     ParentChildLink,
     ProfileChangeNotification,
 )
@@ -78,7 +78,7 @@ def _contact_form_data(entry: Optional[DailyContactEntry], form_data: Optional[d
     if form_data is not None:
         return form_data
     return {
-        "contact_type": entry.contact_type.value if entry else ParentContactType.present.value,
+        "contact_type": entry.contact_type.value if entry and entry.contact_type else ParentContactType.present.value,
         "temperature": entry.temperature or "" if entry else "",
         "sleep_notes": entry.sleep_notes or "" if entry else "",
         "breakfast_status": entry.breakfast_status or "" if entry else "",
@@ -332,7 +332,6 @@ def parent_login_page(
 
 @router.post("/login")
 def parent_login(
-    request: Request,
     parent_account_id: int = Form(...),
     session: Session = Depends(get_session),
 ):
@@ -346,13 +345,12 @@ def parent_login(
     session.commit()
 
     response = RedirectResponse(url="/parent-portal/", status_code=303)
-    set_parent_account_cookie(response, parent_account_id, request=request)
+    set_parent_account_cookie(response, parent_account_id)
     return response
 
 
 @router.get("/mock-login/{parent_account_id}")
 def parent_mock_login(
-    request: Request,
     parent_account_id: int,
     session: Session = Depends(get_session),
 ):
@@ -366,7 +364,7 @@ def parent_mock_login(
     session.commit()
 
     response = RedirectResponse(url="/parent-portal/", status_code=303)
-    set_parent_account_cookie(response, parent_account_id, request=request)
+    set_parent_account_cookie(response, parent_account_id)
     return response
 
 
@@ -788,20 +786,6 @@ def parent_contact_form(
         notice="日次連絡を保存しました。" if notice == "saved" else "",
     )
 
-    return templates.TemplateResponse(
-        request,
-        "parent_portal/contact_form.html",
-        {
-            "request": request,
-            "current_parent_user": current_parent_user,
-            "parent_portal_mode": True,
-            "child": child,
-            "entry": entry,
-            "target_date_value": day.isoformat(),
-            "notice": "日次連絡を保存しました。" if notice == "saved" else "",
-        },
-    )
-
 
 @router.post("/children/{child_id}/contact")
 def save_parent_contact(
@@ -831,7 +815,6 @@ def save_parent_contact(
 
     child = _load_accessible_child(current_parent_user, child_id)
     day = _parse_target_date(target_date)
-
     form_data = {
         "contact_type": contact_type,
         "temperature": temperature,
@@ -943,44 +926,6 @@ def save_parent_contact(
     entry.updated_at = now
     session.add(entry)
     sync_attendance_alarm(session, child_id=child_id, target_date=day, entry=entry, now=now)
-    session.commit()
-
-    return RedirectResponse(
-        url=f"/parent-portal/children/{child_id}/contact?date={day.isoformat()}&notice=saved",
-        status_code=303,
-    )
-
-    entry = session.exec(
-        select(DailyContactEntry).where(
-            DailyContactEntry.child_id == child_id,
-            DailyContactEntry.target_date == day,
-        )
-    ).first()
-    now = utc_now()
-    if not entry:
-        entry = DailyContactEntry(
-            child_id=child_id,
-            parent_account_id=current_parent_user.id,
-            target_date=day,
-            submitted_at=now,
-        )
-    else:
-        entry.parent_account_id = current_parent_user.id
-        if not entry.submitted_at:
-            entry.submitted_at = now
-
-    entry.temperature = (temperature or "").strip() or None
-    entry.sleep_notes = (sleep_notes or "").strip() or None
-    entry.breakfast_status = (breakfast_status or "").strip() or None
-    entry.bowel_movement_status = (bowel_movement_status or "").strip() or None
-    entry.mood = (mood or "").strip() or None
-    entry.cough = (cough or "").strip() or None
-    entry.runny_nose = (runny_nose or "").strip() or None
-    entry.medication = (medication or "").strip() or None
-    entry.condition_note = (condition_note or "").strip() or None
-    entry.contact_note = (contact_note or "").strip() or None
-    entry.updated_at = now
-    session.add(entry)
     session.commit()
 
     return RedirectResponse(

@@ -32,24 +32,24 @@ router = APIRouter(prefix="/attendance-checks", tags=["attendance_checks"])
 templates = Jinja2Templates(directory="templates")
 
 LAYOUT_OPTIONS = [
-    {"value": "flat", "label": "全園児1一覧"},
-    {"value": "classroom", "label": "クラス別表示"},
+    {"value": "flat", "label": "全園児を一覧"},
+    {"value": "classroom", "label": "クラス別に表示"},
 ]
 
 STATUS_FILTER_OPTIONS = [
     {"value": "all", "label": "すべて"},
-    {"value": "present", "label": "出席者一覧"},
-    {"value": "absent", "label": "欠席者一覧"},
-    {"value": "private_absent", "label": "私用休み一覧"},
-    {"value": "sick_absent", "label": "病欠一覧"},
-    {"value": "unknown", "label": "不明一覧"},
-    {"value": "alarm", "label": "アラーム一覧"},
+    {"value": "present", "label": "出席のみ"},
+    {"value": "absent", "label": "欠席のみ"},
+    {"value": "private_absent", "label": "私用休み"},
+    {"value": "sick_absent", "label": "病欠"},
+    {"value": "unknown", "label": "未確認"},
+    {"value": "alarm", "label": "アラームあり"},
 ]
 
 VERIFICATION_OPTIONS = [
     {"value": AttendanceVerificationStatus.present.value, "label": "出席"},
     {"value": AttendanceVerificationStatus.private_absent.value, "label": "私用休み"},
-    {"value": AttendanceVerificationStatus.sick_absent.value, "label": "病気休み"},
+    {"value": AttendanceVerificationStatus.sick_absent.value, "label": "病欠"},
     {"value": AttendanceVerificationStatus.unknown.value, "label": "不明"},
 ]
 
@@ -107,7 +107,7 @@ def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
 
 def _parse_status(raw: str) -> AttendanceVerificationStatus:
     if raw not in VALID_VERIFICATION_KEYS:
-        raise HTTPException(status_code=400, detail="不正な目視確認ステータスです")
+        raise HTTPException(status_code=400, detail="不正な出欠確認ステータスです")
     return AttendanceVerificationStatus(raw)
 
 
@@ -138,18 +138,20 @@ def _load_rows(
     target_day: date,
     selected_classroom_id: Optional[int],
 ) -> list[AttendanceCheckRow]:
-    children = session.exec(select(Child).options(selectinload(Child.classroom))).all()
+    children = session.exec(
+        select(Child)
+        .options(selectinload(Child.classroom))
+        .where(Child.status == ChildStatus.enrolled)
+    ).all()
     enrolled_children = [
         child
         for child in children
-        if child.id is not None
-        and child.status == ChildStatus.enrolled
-        and (selected_classroom_id is None or child.classroom_id == selected_classroom_id)
+        if child.id is not None and (selected_classroom_id is None or child.classroom_id == selected_classroom_id)
     ]
     enrolled_children.sort(
         key=lambda child: (
             child.classroom.display_order if child.classroom else 999,
-            child.classroom.name if child.classroom else "未所属",
+            child.classroom.name if child.classroom else "クラス未設定",
             child.last_name_kana,
             child.first_name_kana,
             child.id or 0,
@@ -167,7 +169,9 @@ def _load_rows(
         )
     ).all()
     entries = session.exec(
-        select(DailyContactEntry).where(
+        select(DailyContactEntry)
+        .options(selectinload(DailyContactEntry.parent_account))
+        .where(
             DailyContactEntry.target_date == target_day,
             DailyContactEntry.child_id.in_(child_ids),
         )
@@ -176,12 +180,6 @@ def _load_rows(
         select(AttendanceVerification).where(
             AttendanceVerification.target_date == target_day,
             AttendanceVerification.child_id.in_(child_ids),
-        )
-    ).all()
-    alarm_states = session.exec(
-        select(AttendanceAlarmState).where(
-            AttendanceAlarmState.target_date == target_day,
-            AttendanceAlarmState.child_id.in_(child_ids),
         )
     ).all()
     histories = session.exec(
@@ -232,7 +230,7 @@ def _load_rows(
         rows.append(
             AttendanceCheckRow(
                 child=child,
-                classroom_name=child.classroom.name if child.classroom else "未所属",
+                classroom_name=child.classroom.name if child.classroom else "クラス未設定",
                 entry=entry_by_child_id.get(child_id),
                 verification=verification,
                 verification_key=status_key,
@@ -387,7 +385,7 @@ def update_attendance_verification(
     if not child:
         raise HTTPException(status_code=404, detail="園児が見つかりません")
     if child.status != ChildStatus.enrolled:
-        raise HTTPException(status_code=400, detail="在園中の園児のみ更新できます")
+        raise HTTPException(status_code=400, detail="在籍中の園児のみ更新できます")
 
     target_day = _parse_target_date(target_date)
     selected_layout = _parse_layout(layout)

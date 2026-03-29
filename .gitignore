@@ -56,3 +56,6 @@ spec-human.md
 
 # Folders
 site
+storage/
+tmp*/
+test_uploads/

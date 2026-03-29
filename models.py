@@ -226,6 +226,7 @@ class Classroom(SQLModel, table=True):
 
     children: List["Child"] = Relationship(back_populates="classroom")
     staff_members: List["Staff"] = Relationship(back_populates="primary_classroom")
+    messages: List["Message"] = Relationship(back_populates="room")
 
 
 class Staff(SQLModel, table=True):
@@ -671,3 +672,45 @@ class ChildProfileChangeRequest(SQLModel, table=True):
 
     child: Optional[Child] = Relationship(back_populates="profile_change_requests")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="child_profile_change_requests")
+
+
+class Message(SQLModel, table=True):
+    __tablename__ = "messages"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    room_id: int = Field(foreign_key="classrooms.id", index=True)
+    parent_message_id: Optional[int] = Field(default=None, foreign_key="messages.id", index=True)
+    author_name: str
+    body: str = Field(default="")
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+    updated_at: datetime = Field(default_factory=utc_now)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by: Optional[str] = None
+
+    room: Optional[Classroom] = Relationship(back_populates="messages")
+    attachments: List["MessageAttachment"] = Relationship(back_populates="message")
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
+
+    @property
+    def display_body(self) -> str:
+        if self.is_deleted:
+            return "\u3053\u306e\u30e1\u30c3\u30bb\u30fc\u30b8\u306f\u524a\u9664\u3055\u308c\u307e\u3057\u305f\u3002"
+        return self.body
+
+
+class MessageAttachment(SQLModel, table=True):
+    __tablename__ = "message_attachments"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    message_id: int = Field(foreign_key="messages.id", index=True)
+    original_filename: str
+    storage_path: str
+    content_type: Optional[str] = None
+    file_size: int = Field(default=0)
+    is_image: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    message: Optional[Message] = Relationship(back_populates="attachments")

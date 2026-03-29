@@ -6,13 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
-from auth import (
-    MOCK_ROLE_COOKIE,
-    MOCK_STAFF_EMPLOYMENT_COOKIE,
-    MOCK_STAFF_ID_COOKIE,
-    MOCK_STAFF_NAME_COOKIE,
-    Role,
-)
+from auth import Role, StaffUser
 from models import (
     AttendanceAlarmHistory,
     AttendanceAlarmState,
@@ -24,9 +18,6 @@ from models import (
     DailyContactEntry,
     ParentAccount,
     ParentContactType,
-    Staff,
-    StaffEmploymentType,
-    StaffStatus,
 )
 import routers.attendance_checks as attendance_checks_module
 
@@ -47,12 +38,24 @@ class AttendanceChecksTests(unittest.TestCase):
             with Session(self.engine) as session:
                 yield session
 
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="Checker",
+            staff_id=1,
+            employment_type="regular",
+        )
+
+        def override_get_current_staff_user():
+            return self.current_user
+
         self.app.dependency_overrides[attendance_checks_module.get_session] = override_get_session
+        self.app.dependency_overrides[attendance_checks_module.get_current_staff_user] = override_get_current_staff_user
+
         self.client = TestClient(self.app)
         self.day = date(2026, 3, 22)
 
         with Session(self.engine) as session:
-            classroom = Classroom(name="Sunflower", display_order=1)
+            classroom = Classroom(name="Blue", display_order=1)
             session.add(classroom)
             session.flush()
 
@@ -66,55 +69,22 @@ class AttendanceChecksTests(unittest.TestCase):
                 status=ChildStatus.enrolled,
                 classroom_id=classroom.id,
             )
-            regular_viewer = Staff(
-                full_name="Regular Viewer",
-                display_name="Regular Viewer",
-                role=Role.VIEW_ONLY,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=classroom.id,
-            )
-            part_timer = Staff(
-                full_name="Part Timer",
-                display_name="Part Timer",
-                role=Role.CAN_EDIT,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.part_time,
-                primary_classroom_id=classroom.id,
-            )
             parent = ParentAccount(
                 display_name="Tanaka Parent",
                 email="tanaka-parent@example.com",
             )
             session.add(child)
-            session.add(regular_viewer)
-            session.add(part_timer)
             session.add(parent)
             session.commit()
 
             self.child_id = child.id
-            self.regular_viewer_id = regular_viewer.id
-            self.part_timer_id = part_timer.id
             self.parent_id = parent.id
 
     def tearDown(self):
         self.client.close()
         self.engine.dispose()
 
-    def _login_staff(self, *, staff_id: int, name: str, role: Role, employment_type: StaffEmploymentType):
-        self.client.cookies.set(MOCK_STAFF_ID_COOKIE, str(staff_id))
-        self.client.cookies.set(MOCK_STAFF_NAME_COOKIE, name)
-        self.client.cookies.set(MOCK_ROLE_COOKIE, role.value)
-        self.client.cookies.set(MOCK_STAFF_EMPLOYMENT_COOKIE, employment_type.value)
-
-    def test_regular_non_part_time_staff_can_update_attendance_check(self):
-        self._login_staff(
-            staff_id=self.regular_viewer_id,
-            name="regular_viewer",
-            role=Role.VIEW_ONLY,
-            employment_type=StaffEmploymentType.regular,
-        )
-
+    def test_editor_can_update_attendance_check(self):
         response = self.client.post(
             f"/attendance-checks/{self.child_id}/verification",
             data={
@@ -134,17 +104,12 @@ class AttendanceChecksTests(unittest.TestCase):
 
         self.assertIsNotNone(verification)
         self.assertEqual(verification.status.value, "present")
-        self.assertEqual(verification.updated_by_name, "regular_viewer")
+        self.assertEqual(verification.updated_by_name, "Checker")
+        self.assertEqual(verification.updated_by_staff_id, 1)
         self.assertEqual(len(history), 1)
+        self.assertEqual(history[0].updated_by_staff_id, 1)
 
     def test_htmx_update_returns_partial_and_keeps_operator_history(self):
-        self._login_staff(
-            staff_id=self.regular_viewer_id,
-            name="regular_viewer",
-            role=Role.VIEW_ONLY,
-            employment_type=StaffEmploymentType.regular,
-        )
-
         first_response = self.client.post(
             f"/attendance-checks/{self.child_id}/verification",
             headers={"HX-Request": "true"},
@@ -171,7 +136,7 @@ class AttendanceChecksTests(unittest.TestCase):
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
         self.assertIn('id="attendance-checks-board"', second_response.text)
-        self.assertIn("regular_viewer", second_response.text)
+        self.assertIn("Checker", second_response.text)
         self.assertIn("data-history-status=", second_response.text)
 
         with Session(self.engine) as session:
@@ -181,16 +146,42 @@ class AttendanceChecksTests(unittest.TestCase):
             ).all()
 
         self.assertIsNotNone(verification)
-        self.assertEqual(verification.updated_by_name, "regular_viewer")
+        self.assertEqual(verification.updated_by_name, "Checker")
         self.assertEqual(len(histories), 2)
-        self.assertTrue(all(history.updated_by_name == "regular_viewer" for history in histories))
+        self.assertTrue(all(history.updated_by_name == "Checker" for history in histories))
+        self.assertTrue(all(history.updated_by_staff_id == 1 for history in histories))
 
-    def test_part_time_staff_cannot_update_attendance_check(self):
-        self._login_staff(
-            staff_id=self.part_timer_id,
-            name="part_timer",
-            role=Role.CAN_EDIT,
-            employment_type=StaffEmploymentType.part_time,
+    def test_list_shows_compact_summary_row_and_detail_toggle(self):
+        with Session(self.engine) as session:
+            session.add(
+                DailyContactEntry(
+                    child_id=self.child_id,
+                    parent_account_id=self.parent_id,
+                    target_date=self.day,
+                    contact_type=ParentContactType.absent_sick,
+                    absence_temperature="38.2",
+                    absence_symptoms="cough",
+                    absence_note="resting at home",
+                )
+            )
+            session.commit()
+
+        response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'aria-controls="attendance-check-detail-{self.child_id}"', response.text)
+        self.assertIn('data-status-key="present"', response.text)
+        self.assertIn('data-status-key="private_absent"', response.text)
+        self.assertIn('data-status-key="sick_absent"', response.text)
+        self.assertIn('data-status-key="unknown"', response.text)
+        self.assertIn("38.2", response.text)
+
+    def test_view_only_staff_cannot_update_attendance_check(self):
+        self.current_user = StaffUser(
+            role=Role.VIEW_ONLY,
+            name="Viewer",
+            staff_id=2,
+            employment_type="part_time",
         )
 
         response = self.client.post(
@@ -207,13 +198,6 @@ class AttendanceChecksTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_alarm_is_created_and_auto_cleared_when_condition_is_resolved(self):
-        self._login_staff(
-            staff_id=self.regular_viewer_id,
-            name="regular_viewer",
-            role=Role.VIEW_ONLY,
-            employment_type=StaffEmploymentType.regular,
-        )
-
         response = self.client.post(
             f"/attendance-checks/{self.child_id}/verification",
             data={
@@ -239,7 +223,7 @@ class AttendanceChecksTests(unittest.TestCase):
                     parent_account_id=self.parent_id,
                     target_date=self.day,
                     contact_type=ParentContactType.absent_private,
-                    absence_note="family errand",
+                    absence_note="family trip",
                 )
             )
             session.commit()

@@ -2,11 +2,14 @@
 {% block title %}日次連絡入力 | open-hoikuict{% endblock %}
 
 {% block content %}
+{% set selected_contact_type = form_data.contact_type if form_data and form_data.contact_type else 'present' %}
+{% set selected_mode = 'absent' if selected_contact_type in ['absent_private', 'absent_sick'] else 'present' %}
+
 <div class="mx-auto max-w-4xl">
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-800">{{ child.full_name }} の日次連絡</h1>
-      <p class="text-sm text-gray-500">{{ target_date_value }} の連絡内容を入力してください。</p>
+      <p class="text-sm text-gray-500">{{ target_date_value }} の出席・体調・欠席連絡を入力します。</p>
     </div>
     <a href="/parent-portal/?date={{ target_date_value }}" class="text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
   </div>
@@ -18,24 +21,21 @@
   <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form_error }}</div>
   {% endif %}
 
-  {% set selected_contact_type = form_data.contact_type if form_data and form_data.contact_type else 'present' %}
-  {% set selected_mode = 'absent' if selected_contact_type in ['absent_private', 'absent_sick'] else 'present' %}
-
   <form method="post" action="/parent-portal/children/{{ child.id }}/contact" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <input type="hidden" name="date" value="{{ target_date_value }}">
-    <input type="hidden" name="contact_type" id="contact_type" value="{{ selected_contact_type }}">
+    <input type="hidden" id="contact_type" name="contact_type" value="{{ selected_contact_type }}">
 
-    <section class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5">
+    <section class="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
       <div>
         <h2 class="text-lg font-semibold text-slate-800">1. 出席か欠席かを選択</h2>
-        <p class="text-sm text-slate-500">出席の場合はこれまでの日次連絡項目をそのまま使えます。</p>
+        <p class="mt-1 text-sm text-slate-500">当日の状況に合わせて選んでください。</p>
       </div>
       <div class="grid gap-3 md:grid-cols-2">
-        <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_mode == 'present' %}border-indigo-500 bg-indigo-50{% else %}border-slate-200 bg-white{% endif %}">
+        <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_mode == 'present' %}border-emerald-500 bg-emerald-50{% else %}border-slate-200 bg-white{% endif %}">
           <input type="radio" name="attendance_mode" value="present" {% if selected_mode == 'present' %}checked{% endif %} class="h-4 w-4">
           <div>
             <div class="font-medium text-slate-800">出席</div>
-            <div class="text-sm text-slate-500">既存の日次連絡を入力</div>
+            <div class="text-sm text-slate-500">体調や園への連絡事項を入力</div>
           </div>
         </label>
         <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_mode == 'absent' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
