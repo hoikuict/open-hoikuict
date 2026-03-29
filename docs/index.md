@@ -4,12 +4,11 @@
   <p class="home-eyebrow">保育園職員向けのオープンな保育ICT</p>
   <h1>現場で使いながら育てる、保育園のためのICT</h1>
   <p class="home-lead">
-    園児名簿、登降園、欠席連絡、出欠確認を中心に、
+    園児名簿、登降園、欠席連絡、出欠確認（補助金要件の電子マネー以外）を中心に、
     導入ロードマップや運用テンプレートも一緒に公開していくプロジェクトです。
   </p>
   <div class="home-actions">
     <a class="home-button home-button-primary" href="https://demo.hoikuict.net/children/">デモを見る</a>
-    <a class="home-button home-button-secondary" href="./roadmap/">導入ロードマップを読む</a>
   </div>
 </div>
 
