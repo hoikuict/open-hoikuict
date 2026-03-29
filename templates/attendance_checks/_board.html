@@ -1,0 +1,60 @@
+<div id="attendance-checks-board" class="space-y-6">
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs text-slate-500">出席</div>
+      <div class="mt-2 text-2xl font-semibold text-slate-800">{{ counts.present }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs text-slate-500">私用休み</div>
+      <div class="mt-2 text-2xl font-semibold text-slate-800">{{ counts.private_absent }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs text-slate-500">病欠</div>
+      <div class="mt-2 text-2xl font-semibold text-slate-800">{{ counts.sick_absent }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs text-slate-500">未確認</div>
+      <div class="mt-2 text-2xl font-semibold text-slate-800">{{ counts.unknown }}</div>
+    </div>
+    <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
+      <div class="text-xs text-rose-600">アラーム</div>
+      <div class="mt-2 text-2xl font-semibold text-rose-700">{{ counts.alarm }}</div>
+    </div>
+  </div>
+
+  <div class="hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-500 md:grid md:grid-cols-[minmax(0,1.5fr)_120px_140px_110px_minmax(360px,2.2fr)] md:items-center md:gap-3">
+    <div>園児</div>
+    <div>打刻</div>
+    <div>欠席連絡</div>
+    <div>詳細</div>
+    <div>確認</div>
+  </div>
+
+  {% if selected_layout == "classroom" %}
+  <div class="space-y-6">
+    {% for group in grouped_rows %}
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-800">{{ group.classroom_name }}</h2>
+        <span class="text-sm text-slate-500">{{ group.rows|length }} 人</span>
+      </div>
+      {% for row in group.rows %}
+      {% include "attendance_checks/_row_card.html" %}
+      {% endfor %}
+    </section>
+    {% endfor %}
+    {% if not grouped_rows %}
+    <div class="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">表示できる園児がいません。</div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="space-y-3">
+    {% for row in rows %}
+    {% include "attendance_checks/_row_card.html" %}
+    {% endfor %}
+    {% if not rows %}
+    <div class="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">表示できる園児がいません。</div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

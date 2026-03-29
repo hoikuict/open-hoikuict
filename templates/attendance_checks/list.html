@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}出欠確認 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-sky-600 p-6 text-white shadow-sm md:flex-row md:items-end md:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">出欠確認</h1>
+      <p class="mt-2 text-sm text-emerald-50">
+        {{ target_date_value }} の出欠確認です。打刻、保護者連絡、アラームを同じ画面で確認できます。
+      </p>
+    </div>
+    <div class="text-sm">
+      {% if current_user %}
+      <div>{{ current_user.name }} / {{ current_user.role_label }}</div>
+      <div class="mt-1 text-emerald-100">
+        {% if current_user.can_manage_attendance_checks %}
+        更新できます
+        {% else %}
+        閲覧のみです
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <form
+    method="get"
+    action="/attendance-checks/"
+    class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    hx-get="/attendance-checks/"
+    hx-target="#attendance-checks-board"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+  >
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-4 xl:grid-cols-5">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">日付</label>
+        <input type="date" name="date" value="{{ target_date_value }}" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">表示形態</label>
+        <select name="layout" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          {% for option in layout_options %}
+          <option value="{{ option.value }}" {% if selected_layout == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">絞り込み</label>
+        <select name="filter" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          {% for option in status_filter_options %}
+          <option value="{{ option.value }}" {% if selected_filter == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">クラス</label>
+        <select name="classroom_id" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          <option value="">すべて</option>
+          {% for classroom in classrooms %}
+          <option value="{{ classroom.id }}" {% if selected_classroom_id == classroom.id %}selected{% endif %}>{{ classroom.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="w-full rounded bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">表示</button>
+      </div>
+    </div>
+  </form>
+
+  {% include "attendance_checks/_board.html" %}
+</div>
+{% endblock %}

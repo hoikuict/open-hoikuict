@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}職員ログイン | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-6">
+  <section class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div class="space-y-3">
+      <p class="text-sm font-medium text-indigo-600">Mock Staff Access</p>
+      <h1 class="text-3xl font-semibold text-slate-900">職員ログイン</h1>
+      <p class="text-sm leading-7 text-slate-600">
+        この画面ではモック用の職員権限を切り替えられます。確認したい権限を選ぶと、そのまま元の画面へ戻ります。
+      </p>
+    </div>
+
+    <div class="mt-6 rounded-2xl bg-slate-50 p-5">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Current Mode</p>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <span class="rounded-full bg-slate-900 px-3 py-1 text-sm font-medium text-white">
+          {{ current_user.role_label }}
+        </span>
+        <span class="text-sm text-slate-600">{{ current_user.name }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid gap-4 md:grid-cols-3">
+    {% for role in available_roles %}
+    <form method="post" action="/staff/login" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <input type="hidden" name="role" value="{{ role.value }}">
+      <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Role</p>
+      <h2 class="mt-3 text-xl font-semibold text-slate-900">
+        {% if role.value == "can_edit" %}
+        編集可
+        {% elif role.value == "admin" %}
+        管理者
+        {% else %}
+        閲覧のみ
+        {% endif %}
+      </h2>
+      <p class="mt-2 text-sm text-slate-600">
+        {% if role.value == "can_edit" %}
+        一般的な職員操作を確認したいときに使います。
+        {% elif role.value == "admin" %}
+        管理者向けの設定や確認フローを試せます。
+        {% else %}
+        閲覧専用の表示確認だけを行いたいときに使います。
+        {% endif %}
+      </p>
+      <button type="submit" class="mt-6 w-full rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white hover:bg-indigo-700">
+        この権限で入る
+      </button>
+    </form>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

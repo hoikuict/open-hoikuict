@@ -13,7 +13,7 @@ class Role(str, Enum):
 
 ROLE_LABELS = {
     Role.VIEW_ONLY: "閲覧のみ",
-    Role.CAN_EDIT: "編集可能",
+    Role.CAN_EDIT: "編集可",
     Role.ADMIN: "管理者",
 }
 
@@ -24,7 +24,7 @@ MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 @dataclass(slots=True)
 class StaffUser:
     role: Role
-    name: str = "管理者"
+    name: str = "モック職員"
 
     @property
     def can_view(self) -> bool:
@@ -41,6 +41,10 @@ class StaffUser:
     @property
     def role_label(self) -> str:
         return ROLE_LABELS.get(self.role, self.role.value)
+
+    @property
+    def can_manage_attendance_checks(self) -> bool:
+        return self.can_edit
 
 
 class StaffAuthBackend(Protocol):
@@ -121,7 +125,6 @@ def clear_parent_account_cookie(response: Response) -> None:
     _parent_portal_auth_backend.clear_parent_session(response)
 
 
-# Compatibility aliases for the current mock-based code path.
 MockUser = StaffUser
 get_mock_current_user = get_current_staff_user
 get_mock_parent_account_id = get_current_parent_account_id
@@ -139,3 +142,8 @@ def require_can_edit(user: CurrentUser) -> None:
 def require_admin(user: CurrentUser) -> None:
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
+
+
+def require_attendance_check_editor(user: CurrentUser) -> None:
+    if not user.can_manage_attendance_checks:
+        raise HTTPException(status_code=403, detail="出欠確認を更新できる権限がありません")

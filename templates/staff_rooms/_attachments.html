@@ -1,0 +1,33 @@
+<div class="mt-4 space-y-3">
+  <div class="flex flex-wrap gap-3">
+    {% for attachment in attachments %}
+      {% if attachment.is_image %}
+      <a
+        href="/staff-rooms/attachments/{{ attachment.id }}"
+        target="_blank"
+        rel="noopener"
+        class="flex h-28 w-28 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2 shadow-sm"
+      >
+        <img
+          src="/staff-rooms/attachments/{{ attachment.id }}"
+          alt="{{ attachment.original_filename }}"
+          class="max-h-full max-w-full rounded-lg object-contain"
+        >
+      </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    {% for attachment in attachments %}
+      {% if not attachment.is_image %}
+      <a
+        href="/staff-rooms/attachments/{{ attachment.id }}"
+        class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+      >
+        {{ attachment.original_filename }} ({{ attachment.file_size }} bytes)
+      </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>

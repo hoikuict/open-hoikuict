@@ -1,0 +1,152 @@
+{% set detail_id = "attendance-check-detail-" ~ row.child.id %}
+{% set punch_label = "あり" if row.has_check_in else "なし" %}
+{% set parent_absence_label = row.entry.absence_reason_label if row.entry and row.entry.is_absent_contact else "なし" %}
+
+<article id="attendance-check-row-{{ row.child.id }}" class="rounded-xl border {% if row.alarm_is_active %}border-rose-300 bg-rose-50/40{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+  <div class="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_120px_140px_110px_minmax(360px,2.2fr)] md:items-center">
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="truncate text-base font-semibold text-slate-800">{{ row.child.full_name }}</h2>
+        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{{ row.classroom_name }}</span>
+        {% if row.alarm_is_active %}
+        <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アラーム</span>
+        {% endif %}
+      </div>
+      <p class="mt-1 text-xs text-slate-500">
+        目視確認: {{ row.verification_label }}
+        {% if row.verification_updated_by_name %}
+        / {{ row.verification_updated_by_name }}
+        {% endif %}
+        {% if row.verification_updated_at %}
+        / {{ row.verification_updated_at.strftime("%H:%M") }}
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="rounded-lg bg-slate-50 px-3 py-2 md:bg-transparent md:px-0 md:py-0">
+      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 md:hidden">打刻</div>
+      <div class="text-sm font-medium text-slate-700">
+        {{ punch_label }}{% if row.check_in_at %} ({{ row.check_in_at.strftime("%H:%M") }}){% endif %}
+      </div>
+    </div>
+
+    <div class="rounded-lg bg-slate-50 px-3 py-2 md:bg-transparent md:px-0 md:py-0">
+      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 md:hidden">欠席連絡</div>
+      {% if row.entry and row.entry.is_absent_contact %}
+      <span class="inline-flex rounded-full {% if row.entry.contact_type.value == 'absent_sick' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %} px-2.5 py-1 text-xs font-medium">
+        {{ parent_absence_label }}
+      </span>
+      {% else %}
+      <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">なし</span>
+      {% endif %}
+    </div>
+
+    <div class="md:justify-self-start">
+      <button
+        type="button"
+        aria-controls="{{ detail_id }}"
+        aria-expanded="false"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 md:w-auto"
+        onclick="const detail=document.getElementById('{{ detail_id }}'); const expanded=this.getAttribute('aria-expanded')==='true'; detail.classList.toggle('hidden', expanded); this.setAttribute('aria-expanded', String(!expanded)); this.textContent=expanded ? '詳細表示' : '詳細を閉じる';"
+      >
+        詳細表示
+      </button>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 md:border-0 md:bg-transparent md:p-0">
+      <div class="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400 md:hidden">確認</div>
+      {% if current_user and current_user.can_manage_attendance_checks %}
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {% for option in verification_options %}
+        <form
+          method="post"
+          action="/attendance-checks/{{ row.child.id }}/verification"
+          hx-post="/attendance-checks/{{ row.child.id }}/verification"
+          hx-target="#attendance-checks-board"
+          hx-swap="outerHTML"
+        >
+          <input type="hidden" name="date" value="{{ target_date_value }}">
+          <input type="hidden" name="status" value="{{ option.value }}">
+          <input type="hidden" name="layout" value="{{ selected_layout }}">
+          <input type="hidden" name="filter" value="{{ selected_filter }}">
+          <input type="hidden" name="classroom_id" value="{{ selected_classroom_id_value }}">
+          <button
+            type="submit"
+            data-status-key="{{ option.value }}"
+            class="w-full rounded-lg px-3 py-2 text-sm font-medium transition {% if row.verification_key == option.value %}bg-indigo-600 text-white{% else %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-100{% endif %}"
+          >
+            {{ option.label }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">閲覧モードでは更新できません。</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="{{ detail_id }}" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div class="grid gap-4 lg:grid-cols-4">
+      <section class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 class="text-sm font-semibold text-slate-700">保護者連絡</h3>
+        <div class="text-sm text-slate-800">{{ row.entry.contact_type.label if row.entry else "なし" }}</div>
+        {% if row.entry and row.entry.is_absent_contact %}
+        <div class="space-y-1 text-xs text-slate-500">
+          <div>理由: {{ row.entry.absence_reason_label }}</div>
+          {% if row.entry.contact_type.value == "absent_sick" %}
+          <div>体温: {{ row.entry.absence_temperature or "-" }}</div>
+          <div>症状: {{ row.entry.absence_symptoms or "-" }}</div>
+          <div>診断名: {{ row.entry.absence_diagnosis or "-" }}</div>
+          {% endif %}
+          <div>備考: {{ row.entry.absence_note or "-" }}</div>
+        </div>
+        {% elif row.entry %}
+        <div class="space-y-1 text-xs text-slate-500">
+          <div>体調メモ: {{ row.entry.condition_note or "-" }}</div>
+          <div>連絡事項: {{ row.entry.contact_note or "-" }}</div>
+        </div>
+        {% endif %}
+      </section>
+
+      <section class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 class="text-sm font-semibold text-slate-700">目視確認</h3>
+        <div class="text-sm text-slate-800">{{ row.verification_label }}</div>
+        <div class="space-y-1 text-xs text-slate-500">
+          <div>更新者: {{ row.verification_updated_by_name or "-" }}</div>
+          <div>更新時刻: {{ row.verification_updated_at.strftime("%H:%M:%S") if row.verification_updated_at else "-" }}</div>
+        </div>
+      </section>
+
+      <section class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+        <h3 class="text-sm font-semibold text-slate-700">アラーム理由</h3>
+        <div class="text-sm text-slate-800">
+          {% if row.alarm_reasons %}
+          {{ row.alarm_reasons | join(" / ") }}
+          {% else %}
+          なし
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="text-sm font-semibold text-slate-700">操作履歴</h3>
+          <span class="text-xs text-slate-500">{{ row.history_items|length }}件表示</span>
+        </div>
+        {% if row.history_items %}
+        <ul class="space-y-2">
+          {% for history in row.history_items %}
+          <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs" data-history-status="{{ history.status.value }}">
+            <span class="font-medium text-slate-700">{{ history.status.label }}</span>
+            <span class="text-slate-500">{{ history.updated_by_name or "-" }} / {{ history.created_at.strftime("%H:%M:%S") }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-slate-500">まだ操作履歴はありません。</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</article>

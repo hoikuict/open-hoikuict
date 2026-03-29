@@ -27,8 +27,10 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_add_child_columns()
     _migrate_add_attendance_columns()
+    _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
     _migrate_add_family_columns()
+    _migrate_add_message_columns()
 
 
 def _table_columns(table_name: str) -> list[str]:
@@ -71,6 +73,27 @@ def _migrate_add_attendance_columns() -> None:
         pass
 
 
+def _migrate_add_daily_contact_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            cols = _table_columns("daily_contact_entries")
+            if not cols:
+                return
+            if "contact_type" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN contact_type VARCHAR DEFAULT 'present'"))
+            if "absence_temperature" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_temperature VARCHAR"))
+            if "absence_symptoms" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_symptoms VARCHAR"))
+            if "absence_diagnosis" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_diagnosis VARCHAR"))
+            if "absence_note" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_note VARCHAR"))
+            conn.commit()
+    except Exception:
+        pass
+
+
 def _migrate_add_parent_account_columns() -> None:
     try:
         with engine.connect() as conn:
@@ -100,6 +123,22 @@ def _migrate_add_family_columns() -> None:
             parent_cols = _table_columns("parent_accounts")
             if parent_cols and "family_id" not in parent_cols:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN family_id INTEGER REFERENCES families(id)"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_message_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            message_cols = _table_columns("messages")
+            if message_cols:
+                if "parent_message_id" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN parent_message_id INTEGER REFERENCES messages(id)"))
+                if "deleted_at" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
+                if "deleted_by" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
             conn.commit()
     except Exception:
         pass
