@@ -53,9 +53,10 @@
 ## まず見る順番
 
 1. [デモ版を見る](https://demo.hoikuict.net/children/)
-2. [導入ロードマップ](./roadmap/)
-3. [セキュリティ最低ライン](./security/)
-4. [園内運用テンプレ](./templates/)
+2. [保育計画作成デモを見る](https://plan-writer.hoikuict.net/documents/)
+3. [導入ロードマップ](./roadmap/)
+4. [セキュリティ最低ライン](./security/)
+5. [園内運用テンプレ](./templates/)
 
 ## このプロジェクトについて
 
