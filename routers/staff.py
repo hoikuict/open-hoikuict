@@ -398,12 +398,8 @@ def mock_login_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    return _render_mock_login(
-        request,
-        current_user=current_user,
-        staff_members=_active_staff(session),
-        redirect_to=redirect,
-    )
+    target = redirect if redirect.startswith("/") and not redirect.startswith("//") else "/children"
+    return RedirectResponse(url=f"/staff/login?redirect={target}", status_code=303)
 
 
 @router.post("/mock-login")

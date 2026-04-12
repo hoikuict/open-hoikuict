@@ -253,6 +253,65 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
             ),
         ]
 
+        staff_members = [
+            Staff(
+                full_name="園長",
+                display_name="園長",
+                role=Role.ADMIN,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=None,
+            ),
+            Staff(
+                full_name="主任",
+                display_name="主任",
+                role=Role.ADMIN,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=None,
+            ),
+            Staff(
+                full_name="ひよこぐみ担任",
+                display_name="ひよこぐみ担任",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(0),
+            ),
+            Staff(
+                full_name="たけのこぐみ担任",
+                display_name="たけのこぐみ担任",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(1),
+            ),
+            Staff(
+                full_name="きのこぐみ担任",
+                display_name="きのこぐみ担任",
+                role=Role.CAN_EDIT,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.regular,
+                primary_classroom_id=classroom_id_at(2),
+            ),
+            Staff(
+                full_name="パート職員",
+                display_name="パート職員",
+                role=Role.VIEW_ONLY,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.part_time,
+                primary_classroom_id=None,
+            ),
+            Staff(
+                full_name="アルバイト職員",
+                display_name="アルバイト職員",
+                role=Role.VIEW_ONLY,
+                status=StaffStatus.active,
+                employment_type=StaffEmploymentType.part_time,
+                primary_classroom_id=None,
+            ),
+        ]
+
         for staff in staff_members:
             session.add(staff)
 

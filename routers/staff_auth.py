@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from auth import clear_mock_staff_session, get_current_staff_user, MOCK_ROLE_COOKIE, Role, set_mock_staff_session
+from auth import ROLE_LABELS, Role, clear_mock_staff_session, get_current_staff_user, set_mock_staff_session
 from database import get_session
 from models import Staff, StaffStatus
 
@@ -13,7 +13,6 @@ templates = Jinja2Templates(directory="templates")
 
 DEFAULT_STAFF_REDIRECT = "/children"
 DEFAULT_LOGOUT_REDIRECT = "/staff/login"
-COOKIE_MAX_AGE = 60 * 60 * 24
 
 
 def _normalize_redirect(redirect_to: str | None, fallback: str) -> str:
@@ -22,52 +21,82 @@ def _normalize_redirect(redirect_to: str | None, fallback: str) -> str:
     return fallback
 
 
+def _parse_optional_int(raw_value: str | None) -> int | None:
+    if raw_value in (None, ""):
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _active_staff_members(session: Session) -> list[Staff]:
+    return session.exec(
+        select(Staff)
+        .where(Staff.status == StaffStatus.active)
+        .order_by(Staff.id)
+    ).all()
+
+
 @router.get("/login", response_class=HTMLResponse)
 def staff_login_page(
     request: Request,
     redirect: str = DEFAULT_STAFF_REDIRECT,
     current_user=Depends(get_current_staff_user),
+    session: Session = Depends(get_session),
 ):
     return templates.TemplateResponse(
         request,
         "staff_auth/login.html",
         {
+            "request": request,
             "current_user": current_user,
             "redirect_to": _normalize_redirect(redirect, DEFAULT_STAFF_REDIRECT),
-            "available_roles": [Role.CAN_EDIT, Role.ADMIN, Role.VIEW_ONLY],
+            "users": _active_staff_members(session),
+            "role_labels": ROLE_LABELS,
         },
     )
 
 
 @router.post("/login")
 def staff_login(
-    role: str = Form(Role.CAN_EDIT.value),
+    staff_id: str = Form(""),
+    role: str = Form(""),
     redirect_to: str = Form(DEFAULT_STAFF_REDIRECT),
     session: Session = Depends(get_session),
 ):
     target = _normalize_redirect(redirect_to, DEFAULT_STAFF_REDIRECT)
-    selected_role = Role(role) if role in {item.value for item in Role} else Role.CAN_EDIT
-    staff = session.exec(
-        select(Staff)
-        .where(
-            Staff.role == selected_role,
-            Staff.status == StaffStatus.active,
-        )
-        .order_by(Staff.id)
-    ).first()
+
+    selected_staff = None
+    parsed_staff_id = _parse_optional_int(staff_id)
+    if parsed_staff_id is not None:
+        selected_staff = session.exec(
+            select(Staff).where(
+                Staff.id == parsed_staff_id,
+                Staff.status == StaffStatus.active,
+            )
+        ).first()
+
+    if selected_staff is None and role in {item.value for item in Role}:
+        selected_staff = session.exec(
+            select(Staff).where(
+                Staff.role == Role(role),
+                Staff.status == StaffStatus.active,
+            ).order_by(Staff.id)
+        ).first()
+
+    if selected_staff is None:
+        return RedirectResponse(url=f"/staff/login?redirect={target}", status_code=303)
 
     response = RedirectResponse(url=target, status_code=303)
-    if staff:
-        set_mock_staff_session(
-            response,
-            staff_id=staff.id,
-            name=staff.display_name,
-            role=staff.role,
-            primary_classroom_id=staff.primary_classroom_id,
-            employment_type=staff.employment_type.value,
-        )
-    else:
-        response.set_cookie(MOCK_ROLE_COOKIE, selected_role.value, max_age=COOKIE_MAX_AGE)
+    set_mock_staff_session(
+        response,
+        staff_id=selected_staff.id,
+        name=selected_staff.display_name,
+        role=selected_staff.role,
+        primary_classroom_id=selected_staff.primary_classroom_id,
+        employment_type=selected_staff.employment_type.value,
+    )
     return response
 
 

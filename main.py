@@ -1,15 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from auth import MOCK_ROLE_COOKIE, Role
 from database import (
     bootstrap_family_records,
     create_db_and_tables,
     initialize_demo_template_database,
     seed_classroom_data,
-    seed_staff_data,
     seed_parent_portal_data,
     seed_sample_data,
+    seed_staff_data,
 )
 from demo_runtime import (
     DEMO_SESSION_COOKIE_NAME,
@@ -31,9 +30,10 @@ from routers.meeting_notes import router as meeting_notes_router
 from routers.notices import router as notices_router
 from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import router as parent_portal_router
-from routers.staff_auth import router as staff_auth_router
 from routers.staff import router as staff_router
+from routers.staff_auth import router as staff_auth_router
 from routers.staff_rooms import router as staff_rooms_router
+
 
 app = FastAPI(title="open-hoikuict", version="0.1.0")
 app.include_router(staff_router)
@@ -167,21 +167,6 @@ def root():
 
 
 @app.get("/switch-role")
-def switch_role(request: Request, role: str = "can_edit", redirect: str = "/children/"):
-    """
-    モック用：権限レベルを切り替える。
-    role: view_only | can_edit | admin
-    """
-    if role in [r.value for r in Role]:
-        response = RedirectResponse(url=redirect, status_code=303)
-        settings = load_demo_settings()
-        cookie_options = {
-            "httponly": True,
-            "samesite": "lax",
-            "secure": should_use_secure_cookies(request, settings),
-        }
-        if not settings.enabled:
-            cookie_options["max_age"] = 60 * 60 * 24
-        response.set_cookie(MOCK_ROLE_COOKIE, role, **cookie_options)
-        return response
-    return RedirectResponse(url=redirect, status_code=303)
+def switch_role(redirect: str = "/children"):
+    target = redirect if redirect.startswith("/") and not redirect.startswith("//") else "/children"
+    return RedirectResponse(url=f"/staff/login?redirect={target}", status_code=303)
