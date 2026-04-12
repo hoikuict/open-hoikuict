@@ -9,6 +9,7 @@
   </p>
   <div class="home-actions">
     <a class="home-button home-button-primary" href="https://demo.hoikuict.net/children/">デモを見る</a>
+    <a class="home-button home-button-primary" href="https://plan-writer.hoikuict.net/documents/">文書作成支援</a>
   </div>
 </div>
 
