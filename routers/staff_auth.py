@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from auth import ROLE_LABELS, Role, clear_mock_staff_session, get_current_staff_user, set_mock_staff_session
 from database import get_session
-from models import Staff, StaffStatus
+from models import Staff, StaffStatus, User
 
 
 router = APIRouter(prefix="/staff", tags=["staff-auth"])
@@ -88,6 +88,13 @@ def staff_login(
     if selected_staff is None:
         return RedirectResponse(url=f"/staff/login?redirect={target}", status_code=303)
 
+    calendar_user = session.exec(
+        select(User).where(
+            User.display_name == selected_staff.display_name,
+            User.is_active.is_(True),
+        )
+    ).first()
+
     response = RedirectResponse(url=target, status_code=303)
     set_mock_staff_session(
         response,
@@ -96,6 +103,7 @@ def staff_login(
         role=selected_staff.role,
         primary_classroom_id=selected_staff.primary_classroom_id,
         employment_type=selected_staff.employment_type.value,
+        calendar_user_id=str(calendar_user.id) if calendar_user else None,
     )
     return response
 

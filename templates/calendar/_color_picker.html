@@ -1,0 +1,25 @@
+<div class="space-y-2">
+  <p class="text-sm font-medium text-slate-700">色</p>
+  <div class="flex flex-wrap gap-2">
+    {% for option in calendar_color_options %}
+    <label class="cursor-pointer">
+      <input
+        type="radio"
+        name="{{ field_name }}"
+        value="{{ option.value }}"
+        class="peer sr-only"
+        {% if ((selected_color or default_calendar_color) | upper) == option.value %}checked{% endif %}
+      >
+      <span
+        class="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white ring-1 ring-slate-300 transition peer-checked:scale-105 peer-checked:ring-2 peer-checked:ring-slate-900"
+        style="background-color: {{ option.value }};"
+        title="{{ option.label }}"
+        aria-label="{{ option.label }}"
+      ></span>
+    </label>
+    {% endfor %}
+  </div>
+  {% if helper_text %}
+  <p class="text-xs leading-6 text-slate-500">{{ helper_text }}</p>
+  {% endif %}
+</div>

@@ -1,0 +1,72 @@
+<div id="calendar-main" data-view-mode="{{ mode }}" data-anchor-date="{{ anchor.isoformat() }}" class="space-y-4">
+  <section class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex flex-wrap items-center gap-2">
+        <form hx-get="/calendar/view" hx-target="#calendar-main" hx-swap="outerHTML">
+          <input type="hidden" name="mode" value="{{ mode }}">
+          <input type="hidden" name="date" value="{{ today.isoformat() }}">
+          <button type="submit" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">今日</button>
+        </form>
+        <form hx-get="/calendar/view" hx-target="#calendar-main" hx-swap="outerHTML">
+          <input type="hidden" name="mode" value="{{ mode }}">
+          <input type="hidden" name="date" value="{{ prev_anchor.isoformat() }}">
+          <button type="submit" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">前へ</button>
+        </form>
+        <form hx-get="/calendar/view" hx-target="#calendar-main" hx-swap="outerHTML">
+          <input type="hidden" name="mode" value="{{ mode }}">
+          <input type="hidden" name="date" value="{{ next_anchor.isoformat() }}">
+          <button type="submit" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">次へ</button>
+        </form>
+        <div class="ml-2">
+          <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
+            {% if mode == "month" %}
+            {{ month_title }}
+            {% elif mode == "week" %}
+            {{ week_title }}
+            {% else %}
+            {{ day_title }}
+            {% endif %}
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex rounded-2xl bg-slate-100 p-1">
+          {% for view_mode in ["month", "week", "day"] %}
+          <form hx-get="/calendar/view" hx-target="#calendar-main" hx-swap="outerHTML">
+            <input type="hidden" name="mode" value="{{ view_mode }}">
+            <input type="hidden" name="date" value="{{ anchor.isoformat() }}">
+            <button type="submit" class="rounded-xl px-3 py-2 text-sm font-medium {% if mode == view_mode %}bg-white text-slate-900 shadow-sm{% else %}text-slate-600{% endif %}">
+              {{ view_mode_labels[view_mode] }}
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+
+        <form hx-get="/search/events" hx-target="#event-modal" hx-swap="innerHTML" class="flex items-center gap-2">
+          <input type="hidden" name="mode" value="{{ mode }}">
+          <input type="hidden" name="date" value="{{ anchor.isoformat() }}">
+          <input type="text" name="q" placeholder="予定名・説明・場所で検索" required class="w-64 rounded-xl border border-slate-300 px-4 py-2 text-sm">
+          <button type="submit" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">検索</button>
+        </form>
+
+        <button
+          hx-get="/events/new?mode={{ mode }}&date={{ anchor.isoformat() }}"
+          hx-target="#event-modal"
+          hx-swap="innerHTML"
+          class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+        >
+          予定を作成
+        </button>
+      </div>
+    </div>
+  </section>
+
+  {% if mode == "month" %}
+    {% include "calendar/_grid_month.html" %}
+  {% elif mode == "week" %}
+    {% include "calendar/_grid_week.html" %}
+  {% else %}
+    {% include "calendar/_grid_day.html" %}
+  {% endif %}
+</div>

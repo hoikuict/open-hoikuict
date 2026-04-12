@@ -29,6 +29,7 @@ MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
 MOCK_STAFF_CLASSROOM_COOKIE = "mock_staff_primary_classroom_id"
 MOCK_STAFF_EMPLOYMENT_COOKIE = "mock_staff_employment_type"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
+MOCK_CALENDAR_USER_COOKIE = "mock_calendar_user_id"
 
 
 def _mock_cookie_options(request: Request | None = None) -> dict[str, object]:
@@ -176,6 +177,18 @@ def clear_parent_account_cookie(response: Response) -> None:
     _parent_portal_auth_backend.clear_parent_session(response)
 
 
+def get_calendar_user_cookie(request: Request) -> Optional[str]:
+    return request.cookies.get(MOCK_CALENDAR_USER_COOKIE)
+
+
+def set_calendar_user_cookie(response: Response, user_id: str) -> None:
+    response.set_cookie(MOCK_CALENDAR_USER_COOKIE, user_id, max_age=60 * 60 * 24)
+
+
+def clear_calendar_user_cookie(response: Response) -> None:
+    response.delete_cookie(MOCK_CALENDAR_USER_COOKIE)
+
+
 def set_mock_staff_session(
     response: Response,
     *,
@@ -184,6 +197,7 @@ def set_mock_staff_session(
     role: Role,
     primary_classroom_id: Optional[int] = None,
     employment_type: Optional[str] = None,
+    calendar_user_id: Optional[str] = None,
 ) -> None:
     max_age = 60 * 60 * 24
     response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=max_age)
@@ -197,6 +211,10 @@ def set_mock_staff_session(
         response.set_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE, employment_type, max_age=max_age)
     else:
         response.delete_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE)
+    if calendar_user_id:
+        set_calendar_user_cookie(response, calendar_user_id)
+    else:
+        clear_calendar_user_cookie(response)
 
 
 def clear_mock_staff_session(response: Response) -> None:
@@ -205,6 +223,17 @@ def clear_mock_staff_session(response: Response) -> None:
     response.delete_cookie(MOCK_STAFF_NAME_COOKIE)
     response.delete_cookie(MOCK_STAFF_CLASSROOM_COOKIE)
     response.delete_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE)
+    clear_calendar_user_cookie(response)
+
+
+def set_staff_cookies(response: Response, *, role: Role, name: str, user_id: str) -> None:
+    response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=60 * 60 * 24)
+    response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name, safe=""), max_age=60 * 60 * 24)
+    set_calendar_user_cookie(response, user_id)
+
+
+def clear_staff_cookies(response: Response) -> None:
+    clear_mock_staff_session(response)
 
 
 MockUser = StaffUser

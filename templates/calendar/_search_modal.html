@@ -1,0 +1,58 @@
+<div class="mx-auto my-4 max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:my-8 sm:max-h-[calc(100vh-4rem)]">
+  <div class="mb-4 flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">検索結果</p>
+      <h2 class="mt-2 text-2xl font-semibold text-slate-900">
+        {% if query %}
+        「{{ query }}」の検索結果
+        {% else %}
+        予定を検索
+        {% endif %}
+      </h2>
+      <p class="mt-2 text-sm text-slate-500">
+        {% if query %}
+        {{ result_count }}件見つかりました。
+        {% else %}
+        予定名・説明・場所から予定を探せます。
+        {% endif %}
+      </p>
+    </div>
+    <button type="button" onclick="document.getElementById('event-modal').innerHTML='';document.getElementById('event-modal').classList.add('hidden');" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">閉じる</button>
+  </div>
+
+  <form hx-get="/search/events" hx-target="#event-modal" hx-swap="innerHTML" class="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
+    <input type="hidden" name="mode" value="{{ view_mode }}">
+    <input type="hidden" name="date" value="{{ anchor_date }}">
+    <input type="text" name="q" value="{{ query }}" placeholder="予定名・説明・場所で検索" required class="flex-1 rounded-xl border border-slate-300 px-4 py-2 text-sm">
+    <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">検索</button>
+  </form>
+
+  {% if query and results %}
+  <div class="space-y-3">
+    {% for occurrence in results %}
+    <button
+      hx-get="/events/{{ occurrence.source_event_id }}?original_start_at={{ occurrence.original_start_at.isoformat() }}&mode={{ view_mode }}&date={{ anchor_date }}"
+      hx-target="#event-modal"
+      hx-swap="innerHTML"
+      class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:bg-slate-50"
+    >
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-slate-900">{{ occurrence.display_title }}</div>
+          <div class="mt-1 text-xs text-slate-500">{{ occurrence.calendar.name }}</div>
+          <div class="mt-2 text-sm text-slate-600">{{ format_datetime_local(occurrence.start_at, user_timezone) }}</div>
+          {% if occurrence.can_view_details and occurrence.location %}
+          <div class="mt-1 text-xs text-slate-500">{{ occurrence.location }}</div>
+          {% endif %}
+        </div>
+        <span class="mt-0.5 inline-flex shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">詳細を見る</span>
+      </div>
+    </button>
+    {% endfor %}
+  </div>
+  {% elif query %}
+  <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">該当する予定はありません。</div>
+  {% else %}
+  <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">検索するとここに結果が表示されます。</div>
+  {% endif %}
+</div>

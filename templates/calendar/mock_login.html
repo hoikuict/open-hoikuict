@@ -1,0 +1,33 @@
+{% extends "calendar_base.html" %}
+
+{% block title %}モックログイン | カレンダー{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-8">
+  <section class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <p class="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">モック認証</p>
+    <h1 class="mt-3 text-4xl font-semibold tracking-tight text-slate-900">確認する職員を選択してください</h1>
+    <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+      初期導入ではログイン処理のみモック化し、カレンダーデータと権限制御は本番に近い形で確認できます。
+      職員ごとの個人カレンダーと施設共用カレンダーの動きを、この画面から切り替えて確認できます。
+    </p>
+  </section>
+
+  <section class="grid gap-4 md:grid-cols-2">
+    {% for user in users %}
+    <form method="post" action="/session/mock-login" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <input type="hidden" name="user_id" value="{{ user.id }}">
+      <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">職員</p>
+      <h2 class="mt-3 text-2xl font-semibold text-slate-900">{{ user.display_name }}</h2>
+      <p class="mt-2 text-sm text-slate-500">{{ user.email }}</p>
+      <p class="mt-1 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ user.calendar_role_label }}</p>
+      <p class="mt-1 text-sm text-slate-500">{{ user.timezone }} / {{ user.locale }}</p>
+      <button type="submit" class="mt-6 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800">
+        {{ user.display_name }}として開始
+      </button>
+    </form>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

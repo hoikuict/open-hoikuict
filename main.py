@@ -5,6 +5,7 @@ from database import (
     bootstrap_family_records,
     create_db_and_tables,
     initialize_demo_template_database,
+    seed_calendar_data,
     seed_classroom_data,
     seed_parent_portal_data,
     seed_sample_data,
@@ -20,6 +21,7 @@ from demo_runtime import (
 )
 from routers.attendance import router as attendance_router
 from routers.attendance_checks import router as attendance_checks_router
+from routers.calendar import router as calendar_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.children import router as children_router
 from routers.classrooms import router as classrooms_router
@@ -47,6 +49,7 @@ app.include_router(attendance_checks_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
+app.include_router(calendar_router)
 app.include_router(meeting_notes_router)
 app.include_router(notices_router)
 app.include_router(daily_contacts_router)
@@ -159,6 +162,7 @@ def on_startup():
     seed_sample_data()
     bootstrap_family_records()
     seed_parent_portal_data()
+    seed_calendar_data()
 
 
 @app.get("/")

@@ -706,6 +706,187 @@ def bootstrap_family_records(db_engine: Optional[Engine] = None) -> None:
         session.commit()
 
 
+def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
+    from models import (
+        Calendar,
+        CalendarMember,
+        CalendarMemberRole,
+        CalendarType,
+        CalendarUserPreference,
+        Staff,
+        StaffStatus,
+        User,
+    )
+
+    with Session(_resolve_engine(db_engine)) as session:
+        active_staff = session.exec(
+            select(Staff)
+            .where(Staff.status == StaffStatus.active)
+            .order_by(Staff.id)
+        ).all()
+        if not active_staff:
+            return
+
+        staff_defaults = {
+            "園長": {"email": "principal@example.com", "sort_order": 10, "color": "#2563EB"},
+            "主任": {"email": "chief@example.com", "sort_order": 20, "color": "#7C3AED"},
+            "ひよこぐみ担任": {"email": "hiyoko@example.com", "sort_order": 30, "color": "#F59E0B"},
+            "たけのこぐみ担任": {"email": "takenoko@example.com", "sort_order": 40, "color": "#10B981"},
+            "きのこぐみ担任": {"email": "kinoko@example.com", "sort_order": 50, "color": "#EC4899"},
+            "パート職員": {"email": "part@example.com", "sort_order": 60, "color": "#64748B"},
+            "アルバイト職員": {"email": "arbeit@example.com", "sort_order": 70, "color": "#0EA5E9"},
+        }
+
+        def staff_profile(staff: Staff, index: int) -> dict[str, object]:
+            fallback_id = staff.id if staff.id is not None else index + 1
+            defaults = staff_defaults.get(staff.display_name, {})
+            return {
+                "email": defaults.get("email", f"demo-staff-{fallback_id}@example.com"),
+                "sort_order": defaults.get("sort_order", (index + 1) * 10),
+                "color": defaults.get("color", "#2563EB"),
+            }
+
+        def ensure_user(staff: Staff, *, email: str, sort_order: int) -> User:
+            user = session.exec(select(User).where(User.email == email)).first()
+            if user is None:
+                user = User(
+                    email=email,
+                    display_name=staff.display_name,
+                    timezone="Asia/Tokyo",
+                    locale="ja-JP",
+                    staff_role=staff.role.value,
+                    staff_sort_order=sort_order,
+                    is_calendar_admin=staff.role.value == "admin",
+                    is_active=True,
+                )
+            else:
+                user.display_name = staff.display_name
+                user.timezone = user.timezone or "Asia/Tokyo"
+                user.locale = user.locale or "ja-JP"
+                user.staff_role = staff.role.value
+                user.staff_sort_order = sort_order
+                user.is_calendar_admin = staff.role.value == "admin"
+                user.is_active = True
+                user.updated_at = utc_now()
+            session.add(user)
+            session.flush()
+            return user
+
+        def ensure_member(calendar: Calendar, user: User, role: CalendarMemberRole) -> None:
+            member = session.exec(
+                select(CalendarMember).where(
+                    CalendarMember.calendar_id == calendar.id,
+                    CalendarMember.user_id == user.id,
+                )
+            ).first()
+            if member is None:
+                member = CalendarMember(calendar_id=calendar.id, user_id=user.id, role=role)
+            else:
+                member.role = role
+                member.updated_at = utc_now()
+            session.add(member)
+            session.flush()
+
+        def ensure_preference(calendar: Calendar, user: User, *, display_order: int) -> None:
+            preference = session.exec(
+                select(CalendarUserPreference).where(
+                    CalendarUserPreference.calendar_id == calendar.id,
+                    CalendarUserPreference.user_id == user.id,
+                )
+            ).first()
+            if preference is None:
+                preference = CalendarUserPreference(
+                    calendar_id=calendar.id,
+                    user_id=user.id,
+                    is_visible=True,
+                    display_order=display_order,
+                )
+            else:
+                preference.is_visible = True
+                preference.display_order = display_order
+                preference.updated_at = utc_now()
+            session.add(preference)
+            session.flush()
+
+        calendar_users: list[tuple[Staff, User, dict[str, object]]] = []
+        for index, staff in enumerate(active_staff):
+            profile = staff_profile(staff, index)
+            user = ensure_user(
+                staff,
+                email=str(profile["email"]),
+                sort_order=int(profile["sort_order"]),
+            )
+            calendar_users.append((staff, user, profile))
+
+        for _, user, profile in calendar_users:
+            personal_calendar = session.exec(
+                select(Calendar).where(
+                    Calendar.owner_user_id == user.id,
+                    Calendar.is_primary.is_(True),
+                )
+            ).first()
+            if personal_calendar is None:
+                personal_calendar = session.exec(
+                    select(Calendar).where(
+                        Calendar.owner_user_id == user.id,
+                        Calendar.calendar_type == CalendarType.staff_personal,
+                    )
+                ).first()
+            if personal_calendar is None:
+                personal_calendar = Calendar(owner_user_id=user.id)
+            personal_calendar.name = f"{user.display_name}の個人カレンダー"
+            personal_calendar.calendar_type = CalendarType.staff_personal
+            personal_calendar.color = str(profile["color"])
+            personal_calendar.description = "職員ごとの個人用カレンダー"
+            personal_calendar.is_primary = True
+            personal_calendar.is_archived = False
+            personal_calendar.updated_at = utc_now()
+            session.add(personal_calendar)
+            session.flush()
+
+            ensure_member(personal_calendar, user, CalendarMemberRole.owner)
+            ensure_preference(personal_calendar, user, display_order=10)
+
+            user.default_calendar_id = personal_calendar.id
+            user.updated_at = utc_now()
+            session.add(user)
+
+        lead_user = calendar_users[0][1]
+        shared_calendar = session.exec(
+            select(Calendar).where(
+                Calendar.calendar_type == CalendarType.facility_shared,
+                Calendar.name == "施設共用カレンダー",
+            )
+        ).first()
+        if shared_calendar is None:
+            shared_calendar = session.exec(
+                select(Calendar).where(Calendar.calendar_type == CalendarType.facility_shared)
+            ).first()
+        if shared_calendar is None:
+            shared_calendar = Calendar(owner_user_id=lead_user.id)
+        shared_calendar.owner_user_id = lead_user.id
+        shared_calendar.name = "施設共用カレンダー"
+        shared_calendar.calendar_type = CalendarType.facility_shared
+        shared_calendar.color = "#059669"
+        shared_calendar.description = "施設全体で共有するカレンダー"
+        shared_calendar.is_primary = False
+        shared_calendar.is_archived = False
+        shared_calendar.updated_at = utc_now()
+        session.add(shared_calendar)
+        session.flush()
+
+        for _, user, profile in calendar_users:
+            role = (
+                CalendarMemberRole.owner
+                if user.id == shared_calendar.owner_user_id
+                else CalendarMemberRole.editor if user.can_edit_calendar else CalendarMemberRole.viewer
+            )
+            ensure_member(shared_calendar, user, role)
+            ensure_preference(shared_calendar, user, display_order=20 + int(profile["sort_order"]))
+
+        session.commit()
+
+
 def initialize_demo_template_database(db_path: Path) -> None:
     demo_engine = create_engine(
         f"sqlite:///{db_path.resolve().as_posix()}",
@@ -719,6 +900,7 @@ def initialize_demo_template_database(db_path: Path) -> None:
         seed_sample_data(demo_engine)
         bootstrap_family_records(demo_engine)
         seed_parent_portal_data(demo_engine)
+        seed_calendar_data(demo_engine)
         seed_meeting_note_data(demo_engine)
     finally:
         demo_engine.dispose()
