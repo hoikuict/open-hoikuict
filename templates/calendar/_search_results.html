@@ -1,0 +1,27 @@
+<div class="space-y-3">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">検索結果</p>
+    {% if query %}
+    <p class="mt-1 text-sm text-slate-500">「{{ query }}」の検索結果</p>
+    {% else %}
+    <p class="mt-1 text-sm text-slate-500">検索するとここに結果が表示されます。</p>
+    {% endif %}
+  </div>
+
+  {% for occurrence in results %}
+  <button
+    hx-get="/events/{{ occurrence.source_event_id }}?original_start_at={{ occurrence.original_start_at.isoformat() }}"
+    hx-target="#event-modal"
+    hx-swap="innerHTML"
+    class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm hover:bg-slate-50"
+  >
+    <div class="text-sm font-semibold text-slate-900">{{ occurrence.display_title }}</div>
+    <div class="mt-1 text-xs text-slate-500">{{ occurrence.calendar.name }}</div>
+    <div class="mt-1 text-xs text-slate-500">{{ format_datetime_local(occurrence.start_at, user_timezone) }}</div>
+  </button>
+  {% endfor %}
+
+  {% if query and not results %}
+  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">選択した期間に該当する予定はありません。</div>
+  {% endif %}
+</div>

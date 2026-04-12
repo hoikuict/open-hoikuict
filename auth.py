@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Optional, Protocol
+from urllib.parse import quote, unquote
 
 from fastapi import Depends, HTTPException, Request, Response
 
@@ -19,6 +20,8 @@ ROLE_LABELS = {
 
 MOCK_ROLE_COOKIE = "mock_role"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
+MOCK_CALENDAR_USER_COOKIE = "mock_calendar_user_id"
+MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
 
 
 @dataclass(slots=True)
@@ -62,6 +65,8 @@ class ParentPortalAuthBackend(Protocol):
 class MockStaffAuthBackend:
     def get_current_user(self, request: Request) -> StaffUser:
         role = Role.CAN_EDIT
+        raw_name = request.cookies.get(MOCK_STAFF_NAME_COOKIE)
+        name = unquote(raw_name) if raw_name else "モック職員"
         as_param = request.query_params.get("as")
         valid_roles = {item.value for item in Role}
         if as_param and as_param in valid_roles:
@@ -70,7 +75,7 @@ class MockStaffAuthBackend:
             cookie_role = request.cookies.get(MOCK_ROLE_COOKIE)
             if cookie_role and cookie_role in valid_roles:
                 role = Role(cookie_role)
-        return StaffUser(role=role)
+        return StaffUser(role=role, name=name)
 
 
 class MockParentPortalAuthBackend:
@@ -123,6 +128,30 @@ def set_parent_account_cookie(response: Response, parent_account_id: int) -> Non
 
 def clear_parent_account_cookie(response: Response) -> None:
     _parent_portal_auth_backend.clear_parent_session(response)
+
+
+def get_calendar_user_cookie(request: Request) -> Optional[str]:
+    return request.cookies.get(MOCK_CALENDAR_USER_COOKIE)
+
+
+def set_calendar_user_cookie(response: Response, user_id: str) -> None:
+    response.set_cookie(MOCK_CALENDAR_USER_COOKIE, user_id, max_age=60 * 60 * 24)
+
+
+def clear_calendar_user_cookie(response: Response) -> None:
+    response.delete_cookie(MOCK_CALENDAR_USER_COOKIE)
+
+
+def set_staff_cookies(response: Response, *, role: Role, name: str, user_id: str) -> None:
+    response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=60 * 60 * 24)
+    response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name, safe=""), max_age=60 * 60 * 24)
+    set_calendar_user_cookie(response, user_id)
+
+
+def clear_staff_cookies(response: Response) -> None:
+    response.delete_cookie(MOCK_ROLE_COOKIE)
+    response.delete_cookie(MOCK_STAFF_NAME_COOKIE)
+    clear_calendar_user_cookie(response)
 
 
 MockUser = StaffUser

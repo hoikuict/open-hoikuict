@@ -1,0 +1,13 @@
+<div id="calendar-main" hx-swap-oob="outerHTML" data-view-mode="{{ main.mode }}" data-anchor-date="{{ main.anchor.isoformat() }}">
+  {% with mode=main.mode, anchor=main.anchor, prev_anchor=main.prev_anchor, next_anchor=main.next_anchor, today=main.today, month_weeks=main.month_weeks, day_map=main.day_map, week_dates=main.week_dates, hours=main.hours, start_date=main.start_date, end_date=main.end_date, weekday_labels=main.weekday_labels, view_mode_labels=main.view_mode_labels, month_title=main.month_title, week_title=main.week_title, day_title=main.day_title %}
+    {% include "calendar/_calendar_main.html" %}
+  {% endwith %}
+</div>
+
+<aside id="calendar-sidebar" hx-swap-oob="outerHTML" class="calendar-scrollbar overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+  {% with personal_contexts=sidebar.personal_contexts, shared_contexts=sidebar.shared_contexts, manageable_active_contexts=sidebar.manageable_active_contexts, manageable_archived_contexts=sidebar.manageable_archived_contexts, shared_logs_by_calendar=sidebar.shared_logs_by_calendar, mode=sidebar.mode, anchor=sidebar.anchor, toast_message=sidebar.toast_message, can_create_calendars=sidebar.can_create_calendars, calendar_role_label=sidebar.calendar_role_label, calendar_color_options=sidebar.calendar_color_options, default_calendar_color=sidebar.default_calendar_color %}
+    {% include "calendar/_sidebar.html" %}
+  {% endwith %}
+</aside>
+
+<div id="event-modal" hx-swap-oob="true" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/45 p-4 backdrop-blur-sm sm:p-6"></div>

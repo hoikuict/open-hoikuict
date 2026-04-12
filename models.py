@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
+import uuid
 from typing import Any, List, Optional
 
 from sqlalchemy import JSON, UniqueConstraint
@@ -667,3 +668,273 @@ class MessageAttachment(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
     message: Optional[Message] = Relationship(back_populates="attachments")
+
+
+class CalendarMemberRole(str, Enum):
+    owner = "owner"
+    editor = "editor"
+    viewer = "viewer"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.owner: "管理者",
+            self.editor: "編集可",
+            self.viewer: "閲覧のみ",
+        }[self]
+
+
+class CalendarType(str, Enum):
+    staff_personal = "staff_personal"
+    facility_shared = "facility_shared"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.staff_personal: "個人カレンダー",
+            self.facility_shared: "施設共用カレンダー",
+        }[self]
+
+
+class RecurrenceFrequency(str, Enum):
+    daily = "daily"
+    weekly = "weekly"
+    monthly = "monthly"
+    yearly = "yearly"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.daily: "毎日",
+            self.weekly: "毎週",
+            self.monthly: "毎月",
+            self.yearly: "毎年",
+        }[self]
+
+
+class EventKind(str, Enum):
+    single = "single"
+    series_master = "series_master"
+
+
+class EventVisibility(str, Enum):
+    normal = "normal"
+    private = "private"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.normal: "通常",
+            self.private: "非公開",
+        }[self]
+
+
+class EventLifecycleStatus(str, Enum):
+    confirmed = "confirmed"
+    cancelled = "cancelled"
+
+
+class ReminderMethod(str, Enum):
+    in_app = "in_app"
+
+
+class NotificationJobStatus(str, Enum):
+    pending = "pending"
+    sent = "sent"
+    failed = "failed"
+    cancelled = "cancelled"
+
+
+class CalendarActivityKind(str, Enum):
+    calendar_created = "calendar_created"
+    calendar_updated = "calendar_updated"
+    share_synced = "share_synced"
+    event_created = "event_created"
+    event_updated = "event_updated"
+    event_deleted = "event_deleted"
+    event_moved = "event_moved"
+    event_resized = "event_resized"
+
+
+class User(SQLModel, table=True):
+    __tablename__ = "users"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    email: str = Field(index=True, unique=True, max_length=255)
+    display_name: str = Field(max_length=100)
+    timezone: str = Field(default="Asia/Tokyo", max_length=64)
+    locale: str = Field(default="ja-JP", max_length=16)
+    default_calendar_id: Optional[uuid.UUID] = Field(default=None, foreign_key="calendars.id")
+    staff_role: str = Field(default="can_edit", max_length=32)
+    staff_sort_order: int = Field(default=100, index=True)
+    is_calendar_admin: bool = Field(default=False)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    @property
+    def calendar_role_label(self) -> str:
+        return {
+            "admin": "管理者",
+            "can_edit": "編集可",
+            "view_only": "閲覧のみ",
+        }.get(self.staff_role, "編集可")
+
+    @property
+    def can_edit_calendar(self) -> bool:
+        return self.staff_role in {"admin", "can_edit"}
+
+    @property
+    def is_view_only_staff(self) -> bool:
+        return self.staff_role == "view_only"
+
+
+class Calendar(SQLModel, table=True):
+    __tablename__ = "calendars"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    name: str = Field(max_length=100)
+    calendar_type: CalendarType = Field(default=CalendarType.staff_personal)
+    color: str = Field(default="#2563EB", max_length=16)
+    description: Optional[str] = Field(default=None)
+    is_primary: bool = Field(default=False)
+    is_archived: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarMember(SQLModel, table=True):
+    __tablename__ = "calendar_members"
+    __table_args__ = (UniqueConstraint("calendar_id", "user_id", name="uq_calendar_member"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    role: CalendarMemberRole = Field(default=CalendarMemberRole.viewer)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarUserPreference(SQLModel, table=True):
+    __tablename__ = "calendar_user_preferences"
+    __table_args__ = (UniqueConstraint("calendar_id", "user_id", name="uq_calendar_user_preference"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    is_visible: bool = Field(default=True)
+    display_order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarActivityLog(SQLModel, table=True):
+    __tablename__ = "calendar_activity_logs"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    actor_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    actor_name: str = Field(max_length=100)
+    action: CalendarActivityKind = Field(index=True)
+    summary: str = Field(max_length=255)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class RecurrenceRule(SQLModel, table=True):
+    __tablename__ = "recurrence_rules"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    freq: RecurrenceFrequency = Field(default=RecurrenceFrequency.weekly)
+    interval: int = Field(default=1)
+    by_weekday: Optional[str] = Field(default=None, max_length=32)
+    by_month_day: Optional[str] = Field(default=None, max_length=32)
+    count: Optional[int] = Field(default=None)
+    until_at: Optional[datetime] = Field(default=None)
+    timezone: str = Field(default="Asia/Tokyo", max_length=64)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class Event(SQLModel, table=True):
+    __tablename__ = "events"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    created_by_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    kind: EventKind = Field(default=EventKind.single)
+    title: str = Field(max_length=200)
+    description: Optional[str] = Field(default=None)
+    location: Optional[str] = Field(default=None, max_length=255)
+    start_at: datetime = Field(index=True)
+    end_at: datetime = Field(index=True)
+    timezone: str = Field(default="Asia/Tokyo", max_length=64)
+    is_all_day: bool = Field(default=False)
+    visibility: EventVisibility = Field(default=EventVisibility.normal)
+    status: EventLifecycleStatus = Field(default=EventLifecycleStatus.confirmed)
+    recurrence_rule_id: Optional[uuid.UUID] = Field(default=None, foreign_key="recurrence_rules.id")
+    split_from_event_id: Optional[uuid.UUID] = Field(default=None, foreign_key="events.id")
+    split_from_original_start_at: Optional[datetime] = Field(default=None)
+    is_deleted: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class EventOverride(SQLModel, table=True):
+    __tablename__ = "event_overrides"
+    __table_args__ = (UniqueConstraint("series_event_id", "original_start_at", name="uq_event_override"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    series_event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
+    original_start_at: datetime = Field(index=True)
+    title: Optional[str] = Field(default=None, max_length=200)
+    description: Optional[str] = Field(default=None)
+    location: Optional[str] = Field(default=None, max_length=255)
+    start_at: Optional[datetime] = Field(default=None)
+    end_at: Optional[datetime] = Field(default=None)
+    timezone: Optional[str] = Field(default=None, max_length=64)
+    is_all_day: Optional[bool] = Field(default=None)
+    visibility: Optional[EventVisibility] = Field(default=None)
+    is_cancelled: bool = Field(default=False)
+    created_by_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class Reminder(SQLModel, table=True):
+    __tablename__ = "reminders"
+    __table_args__ = (
+        UniqueConstraint(
+            "event_id",
+            "user_id",
+            "method",
+            "minutes_before",
+            name="uq_event_user_reminder",
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    method: ReminderMethod = Field(default=ReminderMethod.in_app)
+    minutes_before: int = Field(default=10)
+    is_deleted: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class NotificationJob(SQLModel, table=True):
+    __tablename__ = "notification_jobs"
+    __table_args__ = (UniqueConstraint("reminder_id", "original_start_at", name="uq_notification_job"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    reminder_id: uuid.UUID = Field(foreign_key="reminders.id", index=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    source_event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
+    original_start_at: datetime = Field(index=True)
+    occurrence_start_at: datetime = Field(index=True)
+    scheduled_at: datetime = Field(index=True)
+    sent_at: Optional[datetime] = Field(default=None)
+    status: NotificationJobStatus = Field(default=NotificationJobStatus.pending)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)

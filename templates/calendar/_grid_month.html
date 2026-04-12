@@ -1,0 +1,34 @@
+<section class="rounded-3xl border border-slate-200 bg-white shadow-sm">
+  <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+    {% for weekday in weekday_labels %}
+    <div class="px-3 py-3">{{ weekday }}</div>
+    {% endfor %}
+  </div>
+  {% for week in month_weeks %}
+  <div class="grid grid-cols-7 border-b border-slate-200 last:border-b-0">
+    {% for current_date in week %}
+    <div class="min-h-[11rem] border-r border-slate-200 p-3 last:border-r-0 {% if current_date == today %}bg-sky-50{% endif %}">
+      <div class="mb-3 flex items-center justify-between">
+        <span class="text-sm font-semibold {% if current_date.month == anchor.month %}text-slate-900{% else %}text-slate-400{% endif %}">
+          {{ current_date.day }}
+        </span>
+      </div>
+      <div class="space-y-2">
+        {% for item in day_map[current_date] %}
+        <button
+          hx-get="/events/{{ item.source_event_id }}?original_start_at={{ item.original_start_at }}&mode={{ mode }}&date={{ anchor.isoformat() }}"
+          hx-target="#event-modal"
+          hx-swap="innerHTML"
+          class="w-full rounded-2xl px-3 py-2 text-left text-xs font-medium text-white shadow-sm"
+          style="background-color: {{ item.color }};"
+        >
+          <div class="truncate">{{ item.title }}</div>
+          <div class="truncate opacity-80">{{ item.time_label }}</div>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</section>

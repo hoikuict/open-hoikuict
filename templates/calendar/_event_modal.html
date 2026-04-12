@@ -1,0 +1,166 @@
+<div class="mx-auto my-4 max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:my-8 sm:max-h-[calc(100vh-4rem)]">
+  <div class="mb-4 flex items-start justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {% if event %}予定編集{% else %}予定作成{% endif %}
+      </p>
+      <h2 class="mt-2 text-2xl font-semibold text-slate-900">
+        {% if occurrence %}{{ occurrence.display_title }}{% else %}新しい予定{% endif %}
+      </h2>
+    </div>
+    <button type="button" onclick="document.getElementById('event-modal').innerHTML='';document.getElementById('event-modal').classList.add('hidden');" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">閉じる</button>
+  </div>
+
+  {% if form_error %}
+  <div class="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form_error }}</div>
+  {% endif %}
+
+  <form hx-post="{{ action_url }}" hx-target="#event-modal" hx-swap="innerHTML" class="space-y-4">
+    <input type="hidden" name="mode" value="{{ view_mode }}">
+    <input type="hidden" name="anchor_date" value="{{ anchor_date }}">
+    {% if occurrence %}
+    <input type="hidden" name="original_start_at" value="{{ occurrence.original_start_at.isoformat() }}">
+    {% endif %}
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="md:col-span-2">
+        <label class="mb-1 block text-sm font-medium text-slate-700">予定名</label>
+        <input type="text" name="title" value="{{ form_values.title }}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+      </div>
+      <div class="md:col-span-2">
+        <label class="mb-1 block text-sm font-medium text-slate-700">説明</label>
+        <textarea name="description" rows="3" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">{{ form_values.description }}</textarea>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="event-start-value">開始</label>
+        <input id="event-start-value" data-event-start type="datetime-local" name="start_value" value="{{ form_values.start_value }}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="event-end-value">終了</label>
+        <input id="event-end-value" data-event-end type="datetime-local" name="end_value" value="{{ form_values.end_value }}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">反映先カレンダー</label>
+        <select name="calendar_id" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+          {% if editable_personal_contexts %}
+          <optgroup label="個人カレンダー">
+            {% for item in editable_personal_contexts %}
+            <option value="{{ item.calendar.id }}" {% if form_values.calendar_id == item.calendar.id|string %}selected{% endif %}>
+              {{ item.calendar.name }}（{{ item.membership.role.label }}）
+            </option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+          {% if editable_shared_contexts %}
+          <optgroup label="施設共用カレンダー">
+            {% for item in editable_shared_contexts %}
+            <option value="{{ item.calendar.id }}" {% if form_values.calendar_id == item.calendar.id|string %}selected{% endif %}>
+              {{ item.calendar.name }}（{{ item.membership.role.label }}）
+            </option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">タイムゾーン</label>
+        <input type="text" name="timezone" value="{{ form_values.timezone }}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">場所</label>
+        <input type="text" name="location" value="{{ form_values.location }}" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">公開範囲</label>
+        <select name="visibility" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+          <option value="normal" {% if form_values.visibility == "normal" %}selected{% endif %}>通常</option>
+          <option value="private" {% if form_values.visibility == "private" %}selected{% endif %}>非公開</option>
+        </select>
+      </div>
+      <div class="md:col-span-2 flex items-center gap-2">
+        <input id="all-day" type="checkbox" name="is_all_day" value="true" {% if form_values.is_all_day %}checked{% endif %}>
+        <label for="all-day" class="text-sm font-medium text-slate-700">終日予定として扱う</label>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p class="text-sm font-semibold text-slate-800">繰り返し設定</p>
+      <div class="mt-3 grid gap-3 md:grid-cols-2">
+        <select name="recurrence_mode" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+          <option value="" {% if not recurrence_mode %}selected{% endif %}>繰り返しなし</option>
+          <option value="daily" {% if recurrence_mode == "daily" %}selected{% endif %}>毎日</option>
+          <option value="weekly" {% if recurrence_mode == "weekly" %}selected{% endif %}>毎週</option>
+          <option value="monthly" {% if recurrence_mode == "monthly" %}selected{% endif %}>毎月</option>
+          <option value="yearly" {% if recurrence_mode == "yearly" %}selected{% endif %}>毎年</option>
+        </select>
+        <input type="number" min="1" name="recurrence_interval" value="{{ recurrence_interval }}" placeholder="間隔" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+        <input type="text" name="recurrence_by_weekday" value="{{ recurrence_by_weekday }}" placeholder="曜日 例: MO,WE" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+        <input type="text" name="recurrence_by_month_day" value="{{ recurrence_by_month_day }}" placeholder="日付 例: 1,15" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+        <input type="number" min="1" name="recurrence_count" value="{{ recurrence_count }}" placeholder="回数" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+        <input type="date" name="recurrence_until" value="{{ recurrence_until }}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p class="text-sm font-semibold text-slate-800">通知</p>
+      <label class="mt-3 block text-sm font-medium text-slate-700">通知タイミング（分）。カンマ区切りで入力します。現在は予定作成者にのみ通知します。</label>
+      <input type="text" name="reminders" value="{{ form_values.reminders }}" placeholder="5, 10, 30" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+    </div>
+
+    {% if event and event.kind.value == "series_master" and occurrence %}
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate-700">変更範囲</label>
+      <select name="scope" class="w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+        <option value="one" {% if scope_default == "one" %}selected{% endif %}>この予定のみ</option>
+        <option value="following">この予定以降</option>
+        <option value="all">すべての予定</option>
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 pt-4 pb-1">
+      <button type="submit" class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800">{{ submit_label }}</button>
+      {% if event %}
+      <button
+        type="submit"
+        formaction="/events/{{ event.id }}/delete"
+        formmethod="post"
+        class="rounded-xl border border-rose-200 px-5 py-3 text-sm font-medium text-rose-700 hover:bg-rose-50"
+      >
+        削除
+      </button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<script>
+  (() => {
+    const modal = document.getElementById("event-modal");
+    if (!modal) return;
+
+    const startInput = modal.querySelector("[data-event-start]");
+    const endInput = modal.querySelector("[data-event-end]");
+    if (!startInput || !endInput || startInput.dataset.dateSyncBound === "true") return;
+
+    const syncEndDateFromStart = () => {
+      const startValue = startInput.value || "";
+      if (!startValue) return;
+
+      if (!endInput.value) {
+        endInput.value = startValue;
+        return;
+      }
+
+      const [startDate] = startValue.split("T");
+      const endParts = endInput.value.split("T");
+      const endTime = endParts.length > 1 && endParts[1] ? endParts[1] : startValue.split("T")[1];
+      if (!startDate || !endTime) return;
+
+      endInput.value = `${startDate}T${endTime}`;
+    };
+
+    startInput.dataset.dateSyncBound = "true";
+    startInput.addEventListener("change", syncEndDateFromStart);
+  })();
+</script>

@@ -1,0 +1,101 @@
+{% extends "calendar_base.html" %}
+
+{% block title %}カレンダー{% endblock %}
+
+{% block content %}
+{% include "calendar/_shell.html" %}
+
+<div id="event-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/45 p-4 backdrop-blur-sm sm:p-6"></div>
+<div id="toast-area"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const getModal = () => document.getElementById("event-modal");
+
+    const syncModal = () => {
+      const modal = getModal();
+      if (!modal) return;
+      const hasContent = modal.innerHTML.trim().length > 0;
+      modal.classList.toggle("hidden", !hasContent);
+    };
+
+    const closeModal = () => {
+      const modal = getModal();
+      if (!modal) return;
+      modal.innerHTML = "";
+      modal.classList.add("hidden");
+    };
+
+    document.body.addEventListener("click", (event) => {
+      if (event.target && event.target.id === "event-modal") {
+        closeModal();
+      }
+    });
+
+    document.body.addEventListener("htmx:afterSwap", (event) => {
+      if (!event.target) return;
+      if (event.target.id === "event-modal") {
+        syncModal();
+      }
+      if (window.calendarRealtime && ["calendar-shell", "calendar-sidebar", "calendar-main"].includes(event.target.id)) {
+        window.calendarRealtime.refresh();
+      }
+    });
+
+    document.body.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    });
+
+    document.body.addEventListener("calendar-close-modal", closeModal);
+
+    window.calendarRealtime = (() => {
+      const sockets = new Map();
+
+      const socketUrl = (calendarId) => {
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        return `${protocol}://${window.location.host}/ws/calendars/${calendarId}`;
+      };
+
+      const refreshShell = () => {
+        const main = document.getElementById("calendar-main");
+        if (!main) return;
+        const mode = main.dataset.viewMode || "month";
+        const anchorDate = main.dataset.anchorDate || "";
+        htmx.ajax("GET", `/calendar/shell?mode=${encodeURIComponent(mode)}&date=${encodeURIComponent(anchorDate)}`, { target: "#calendar-shell", swap: "outerHTML" });
+      };
+
+      const desiredIds = () => {
+        return Array.from(document.querySelectorAll("[data-visible-calendar='true']"))
+          .map((node) => node.getAttribute("data-calendar-id"))
+          .filter(Boolean);
+      };
+
+      const refresh = () => {
+        const wanted = new Set(desiredIds());
+        for (const [calendarId, socket] of sockets.entries()) {
+          if (wanted.has(calendarId)) continue;
+          socket.close();
+          sockets.delete(calendarId);
+        }
+        for (const calendarId of wanted) {
+          if (sockets.has(calendarId)) continue;
+          const socket = new WebSocket(socketUrl(calendarId));
+          socket.addEventListener("message", () => refreshShell());
+          socket.addEventListener("close", () => sockets.delete(calendarId));
+          socket.addEventListener("open", () => socket.send("ready"));
+          sockets.set(calendarId, socket);
+        }
+      };
+
+      return { refresh };
+    })();
+
+    syncModal();
+    window.calendarRealtime.refresh();
+  })();
+</script>
+{% endblock %}
