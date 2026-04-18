@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }} 健康プロフィール | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-emerald-700">健康プロフィール</p>
+      <h1 class="text-2xl font-bold text-slate-900">{{ child.full_name }}</h1>
+      <p class="mt-1 text-sm text-slate-500">医療的ケア、既往歴、食事制限などを管理します。</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="/health" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">健康一覧へ</a>
+      <a href="/children/{{ child.id }}/health" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">健康サマリーへ</a>
+      <a href="/children/{{ child.id }}/health/check-records" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">健診記録</a>
+    </div>
+  </div>
+
+  {% if notice %}
+  <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ notice }}</div>
+  {% endif %}
+  {% if form_error %}
+  <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ form_error }}</div>
+  {% endif %}
+
+  <form method="post" action="/children/{{ child.id }}/health/profile" class="space-y-6">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-900">基本医療情報</h2>
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">血液型</span>
+          <input name="blood_type" value="{{ form_data.blood_type }}" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="A / B / O / AB">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">かかりつけ医</span>
+          <input name="primary_doctor_name" value="{{ form_data.primary_doctor_name }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">かかりつけ医電話番号</span>
+          <input name="primary_doctor_phone" value="{{ form_data.primary_doctor_phone }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">緊急搬送先</span>
+          <input name="hospital_name" value="{{ form_data.hospital_name }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">かかりつけ医住所</span>
+          <input name="primary_doctor_address" value="{{ form_data.primary_doctor_address }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">搬送先電話番号</span>
+          <input name="hospital_phone" value="{{ form_data.hospital_phone }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-900">重点管理項目</h2>
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <input type="checkbox" name="requires_medical_care" {% if form_data.requires_medical_care %}checked{% endif %}>
+          <span>医療的ケアが必要</span>
+        </label>
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <input type="checkbox" name="epipen_required" {% if form_data.epipen_required %}checked{% endif %}>
+          <span>エピペン携帯が必要</span>
+        </label>
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <input type="checkbox" name="sids_risk_flag" {% if form_data.sids_risk_flag %}checked{% endif %}>
+          <span>SIDS高リスク対象</span>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">授乳状況</span>
+          <select name="breastfed" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            <option value="" {% if form_data.breastfed is none %}selected{% endif %}>未設定</option>
+            <option value="yes" {% if form_data.breastfed == true %}selected{% endif %}>母乳育児中</option>
+            <option value="no" {% if form_data.breastfed == false %}selected{% endif %}>母乳育児ではない</option>
+          </select>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">医療的ケア詳細</span>
+          <textarea name="medical_care_details" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.medical_care_details }}</textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">エピペン保管場所</span>
+          <input name="epipen_storage_location" value="{{ form_data.epipen_storage_location }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">SIDSメモ</span>
+          <textarea name="sids_notes" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.sids_notes }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-900">記録メモ</h2>
+      <div class="mt-5 grid gap-4">
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">既往歴・医療メモ</span>
+          <textarea name="medical_history" rows="4" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.medical_history }}</textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">常時服薬</span>
+          <textarea name="current_medications" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.current_medications }}</textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">障害・発達特性</span>
+          <textarea name="disability_info" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.disability_info }}</textarea>
+        </label>
+        <div class="grid gap-4 md:grid-cols-2">
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">ミルク種類</span>
+            <input name="formula_type" value="{{ form_data.formula_type }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">食形態</span>
+            <input name="food_texture_level" value="{{ form_data.food_texture_level }}" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="普通食 / きざみ食 など">
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">宗教上の食事制限</span>
+            <input name="religious_dietary" value="{{ form_data.religious_dietary }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          </label>
+          <label class="space-y-2 text-sm text-slate-700">
+            <span class="font-medium">その他食事制限</span>
+            <input name="other_dietary_restrictions" value="{{ form_data.other_dietary_restrictions }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          </label>
+        </div>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">発達特記事項</span>
+          <textarea name="developmental_notes" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.developmental_notes }}</textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">心理的特記事項</span>
+          <textarea name="psychological_notes" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.psychological_notes }}</textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">家族の健康上の留意事項</span>
+          <textarea name="family_health_notes" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.family_health_notes }}</textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">その他メモ</span>
+          <textarea name="other_notes" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ form_data.other_notes }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    {% if current_user and current_user.can_edit %}
+    <div class="flex justify-end">
+      <button type="submit" class="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">保存する</button>
+    </div>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

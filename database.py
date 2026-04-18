@@ -546,6 +546,19 @@ def bootstrap_family_records() -> None:
         session.commit()
 
 
+def bootstrap_health_records() -> None:
+    from child_health_service import sync_health_records_from_legacy_extra_data
+    from models import Child
+
+    with Session(engine) as session:
+        children = session.exec(select(Child)).all()
+        changed = False
+        for child in children:
+            changed = sync_health_records_from_legacy_extra_data(session, child) or changed
+        if changed:
+            session.commit()
+
+
 def seed_calendar_data() -> None:
     from models import Calendar, CalendarMember, CalendarMemberRole, CalendarType, CalendarUserPreference, User
 

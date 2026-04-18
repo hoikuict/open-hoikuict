@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit
+from child_health_service import sync_health_records_from_legacy_extra_data
 from child_profile_changes import RELATIONSHIP_OPTIONS
 from database import get_session
 from family_support import (
@@ -689,6 +690,7 @@ def create_child(
         ),
     )
 
+    sync_health_records_from_legacy_extra_data(session, child, actor_name=current_user.name)
     session.commit()
     return RedirectResponse(url="/children/", status_code=303)
 
@@ -917,5 +919,6 @@ def update_child(
         if previous_family:
             sync_parent_child_links(session, previous_family)
 
+    sync_health_records_from_legacy_extra_data(session, child, actor_name=current_user.name)
     session.commit()
     return RedirectResponse(url="/children/", status_code=303)
