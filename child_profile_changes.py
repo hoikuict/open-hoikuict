@@ -324,6 +324,10 @@ def apply_child_profile_payload(
     session.add(child)
     session.flush()
 
+    from child_health_service import sync_health_records_from_legacy_extra_data
+
+    sync_health_records_from_legacy_extra_data(session, child)
+
     family = create_family_for_child(session, child, family_name=f"{child.last_name}家")
     apply_family_shared_data(
         session,

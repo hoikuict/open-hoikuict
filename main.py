@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from database import (
     bootstrap_family_records,
+    bootstrap_health_records,
     create_db_and_tables,
     initialize_demo_template_database,
     seed_calendar_data,
@@ -24,6 +25,7 @@ from routers.attendance_checks import router as attendance_checks_router
 from routers.calendar import router as calendar_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.children import router as children_router
+from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
 from routers.daily_contacts import router as daily_contacts_router
 from routers.families import router as families_router
@@ -43,6 +45,7 @@ app.include_router(staff_auth_router)
 app.include_router(classrooms_router)
 app.include_router(families_router)
 app.include_router(children_router)
+app.include_router(child_health_router)
 app.include_router(child_change_requests_router)
 app.include_router(attendance_router)
 app.include_router(attendance_checks_router)
@@ -161,6 +164,7 @@ def on_startup():
     seed_staff_data()
     seed_sample_data()
     bootstrap_family_records()
+    bootstrap_health_records()
     seed_parent_portal_data()
     seed_calendar_data()
 

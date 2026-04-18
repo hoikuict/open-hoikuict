@@ -706,6 +706,19 @@ def bootstrap_family_records(db_engine: Optional[Engine] = None) -> None:
         session.commit()
 
 
+def bootstrap_health_records(db_engine: Optional[Engine] = None) -> None:
+    from child_health_service import sync_health_records_from_legacy_extra_data
+    from models import Child
+
+    with Session(_resolve_engine(db_engine)) as session:
+        children = session.exec(select(Child)).all()
+        changed = False
+        for child in children:
+            changed = sync_health_records_from_legacy_extra_data(session, child) or changed
+        if changed:
+            session.commit()
+
+
 def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
     from models import (
         Calendar,
@@ -899,6 +912,7 @@ def initialize_demo_template_database(db_path: Path) -> None:
         seed_staff_data(demo_engine)
         seed_sample_data(demo_engine)
         bootstrap_family_records(demo_engine)
+        bootstrap_health_records(demo_engine)
         seed_parent_portal_data(demo_engine)
         seed_calendar_data(demo_engine)
         seed_meeting_note_data(demo_engine)

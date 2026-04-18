@@ -9,6 +9,7 @@
       <p class="text-sm text-slate-500">園児情報と家族構成を閲覧できます。</p>
     </div>
     <div class="flex gap-3">
+      <a href="/children/{{ child.id }}/health" class="rounded border border-emerald-300 px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50">健康管理</a>
       {% if current_user and current_user.can_edit %}
       <a href="/children/{{ child.id }}/edit" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">編集</a>
       {% endif %}

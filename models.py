@@ -395,6 +395,156 @@ class Child(SQLModel, table=True):
         return str(value) if value is not None else ""
 
 
+class AllergenCategory(str, Enum):
+    food_mandatory = "food_mandatory"
+    food_advisory = "food_advisory"
+    other_food = "other_food"
+    latex = "latex"
+    animal_dander = "animal_dander"
+    pollen = "pollen"
+    dust_mite = "dust_mite"
+    contact = "contact"
+    insect = "insect"
+    other = "other"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.food_mandatory: "特定原材料",
+            self.food_advisory: "準特定原材料",
+            self.other_food: "その他食物",
+            self.latex: "ラテックス",
+            self.animal_dander: "動物",
+            self.pollen: "花粉",
+            self.dust_mite: "ダニ",
+            self.contact: "接触",
+            self.insect: "昆虫",
+            self.other: "その他",
+        }[self]
+
+
+class AllergySeverity(str, Enum):
+    mild = "mild"
+    moderate = "moderate"
+    severe = "severe"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.mild: "軽度",
+            self.moderate: "中等度",
+            self.severe: "重度",
+        }[self]
+
+
+class HealthCheckType(str, Enum):
+    entrance = "entrance"
+    periodic = "periodic"
+    daily = "daily"
+    post_illness = "post_illness"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.entrance: "入所時",
+            self.periodic: "定期健診",
+            self.daily: "日常観察",
+            self.post_illness: "病後登園",
+        }[self]
+
+
+class ChildHealthProfile(SQLModel, table=True):
+    __tablename__ = "child_health_profiles"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", unique=True, index=True)
+    blood_type: Optional[str] = None
+    primary_doctor_name: Optional[str] = None
+    primary_doctor_phone: Optional[str] = None
+    primary_doctor_address: Optional[str] = None
+    hospital_name: Optional[str] = None
+    hospital_phone: Optional[str] = None
+    requires_medical_care: bool = Field(default=False)
+    medical_care_details: Optional[str] = None
+    epipen_required: bool = Field(default=False)
+    epipen_storage_location: Optional[str] = None
+    medical_history: Optional[str] = None
+    disability_info: Optional[str] = None
+    current_medications: Optional[str] = None
+    sids_risk_flag: bool = Field(default=False)
+    sids_notes: Optional[str] = None
+    breastfed: Optional[bool] = None
+    formula_type: Optional[str] = None
+    food_texture_level: Optional[str] = None
+    religious_dietary: Optional[str] = None
+    other_dietary_restrictions: Optional[str] = None
+    developmental_notes: Optional[str] = None
+    psychological_notes: Optional[str] = None
+    family_health_notes: Optional[str] = None
+    other_notes: Optional[str] = None
+    extra_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ChildAllergy(SQLModel, table=True):
+    __tablename__ = "child_allergies"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    allergen_category: AllergenCategory = Field(default=AllergenCategory.other_food)
+    allergen_name: str
+    severity: AllergySeverity = Field(default=AllergySeverity.mild)
+    symptoms: Optional[str] = None
+    diagnosis_confirmed: bool = Field(default=False)
+    diagnosis_date: Optional[date] = None
+    treating_doctor: Optional[str] = None
+    removal_required: bool = Field(default=True)
+    substitute_food: Optional[str] = None
+    action_plan: Optional[str] = None
+    source_document: Optional[str] = None
+    source_document_date: Optional[date] = None
+    valid_until: Optional[date] = None
+    is_active: bool = Field(default=True, index=True)
+    notes: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class HealthCheckRecord(SQLModel, table=True):
+    __tablename__ = "health_check_records"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    check_type: HealthCheckType = Field(index=True)
+    checked_at: date = Field(index=True)
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    head_circumference_cm: Optional[float] = None
+    chest_circumference_cm: Optional[float] = None
+    temperature: Optional[float] = None
+    heart_rate: Optional[int] = None
+    respiratory_rate: Optional[int] = None
+    vision_right: Optional[str] = None
+    vision_left: Optional[str] = None
+    hearing_result: Optional[str] = None
+    dental_result: Optional[str] = None
+    overall_result: Optional[str] = None
+    doctor_name: Optional[str] = None
+    requires_followup: bool = Field(default=False)
+    followup_notes: Optional[str] = None
+    general_condition: Optional[str] = None
+    observer_name: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class Guardian(SQLModel, table=True):
     __tablename__ = "guardians"
 

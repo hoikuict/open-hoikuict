@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }} 健康サマリー | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-emerald-700">健康管理</p>
+      <h1 class="text-2xl font-bold text-slate-900">{{ child.full_name }} の健康サマリー</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ child.classroom.name if child.classroom else "クラス未設定" }}
+        {% if child.family %} / {{ child.family.family_name }}{% endif %}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="/health" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">健康一覧へ</a>
+      <a href="/children/{{ child.id }}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">園児詳細へ戻る</a>
+      <a href="/children/{{ child.id }}/health/profile" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">健康プロフィール</a>
+      <a href="/children/{{ child.id }}/health/allergies" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">アレルギー管理</a>
+      <a href="/children/{{ child.id }}/health/check-records" class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">健診記録とグラフ</a>
+    </div>
+  </div>
+
+  {% if notice %}
+  <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ notice }}</div>
+  {% endif %}
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">最新身長</p>
+      {% if latest_height.value is not none %}
+      <p class="mt-3 text-3xl font-bold text-slate-900">{{ '%.1f'|format(latest_height.value) }}<span class="ml-1 text-base font-medium text-slate-500">cm</span></p>
+      <p class="mt-2 text-sm text-slate-500">{{ latest_height.date.isoformat() }}</p>
+      {% if latest_height.delta is not none %}
+      <p class="mt-1 text-sm font-medium text-emerald-700">{{ '%+.1f'|format(latest_height.delta) }} cm</p>
+      {% endif %}
+      {% else %}
+      <p class="mt-3 text-sm text-slate-500">記録なし</p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">最新体重</p>
+      {% if latest_weight.value is not none %}
+      <p class="mt-3 text-3xl font-bold text-slate-900">{{ '%.1f'|format(latest_weight.value) }}<span class="ml-1 text-base font-medium text-slate-500">kg</span></p>
+      <p class="mt-2 text-sm text-slate-500">{{ latest_weight.date.isoformat() }}</p>
+      {% if latest_weight.delta is not none %}
+      <p class="mt-1 text-sm font-medium text-emerald-700">{{ '%+.1f'|format(latest_weight.delta) }} kg</p>
+      {% endif %}
+      {% else %}
+      <p class="mt-3 text-sm text-slate-500">記録なし</p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">アレルギー</p>
+      <p class="mt-3 text-3xl font-bold text-slate-900">{{ allergies|length }}</p>
+      <p class="mt-2 text-sm text-slate-500">有効な登録件数</p>
+      {% if expired_allergies %}
+      <p class="mt-2 text-sm font-medium text-rose-700">更新期限切れ {{ expired_allergies|length }} 件</p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">健診アラート</p>
+      {% if health_check_stale %}
+      <p class="mt-3 text-lg font-bold text-rose-700">定期健診の確認が必要</p>
+      <p class="mt-2 text-sm text-slate-500">前回記録から180日以上経過、または記録未登録です。</p>
+      {% else %}
+      <p class="mt-3 text-lg font-bold text-emerald-700">記録は最新です</p>
+      <p class="mt-2 text-sm text-slate-500">定期健診記録が確認できています。</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+    <div class="space-y-6">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-slate-900">重要フラグ</h2>
+          <a href="/children/{{ child.id }}/health/profile" class="text-sm font-medium text-emerald-700 hover:underline">編集</a>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <span class="rounded-full px-3 py-1 text-sm font-medium {% if profile.requires_medical_care %}bg-rose-100 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+            医療的ケア {% if profile.requires_medical_care %}あり{% else %}なし{% endif %}
+          </span>
+          <span class="rounded-full px-3 py-1 text-sm font-medium {% if profile.epipen_required %}bg-amber-100 text-amber-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+            エピペン {% if profile.epipen_required %}必要{% else %}不要{% endif %}
+          </span>
+          <span class="rounded-full px-3 py-1 text-sm font-medium {% if profile.sids_risk_flag %}bg-violet-100 text-violet-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+            SIDSリスク {% if profile.sids_risk_flag %}高{% else %}通常{% endif %}
+          </span>
+        </div>
+        <dl class="mt-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">既往歴・医療メモ</dt>
+            <dd class="mt-2 text-sm text-slate-700">{{ profile.medical_history or "未登録" }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">常時服薬</dt>
+            <dd class="mt-2 text-sm text-slate-700">{{ profile.current_medications or "未登録" }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">かかりつけ医</dt>
+            <dd class="mt-2 text-sm text-slate-700">{{ profile.primary_doctor_name or "未登録" }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">緊急搬送先</dt>
+            <dd class="mt-2 text-sm text-slate-700">{{ profile.hospital_name or "未登録" }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-slate-900">アレルギー情報</h2>
+          <a href="/children/{{ child.id }}/health/allergies" class="text-sm font-medium text-amber-700 hover:underline">管理画面へ</a>
+        </div>
+        {% if allergies %}
+        <div class="mt-4 space-y-3">
+          {% for allergy in allergies %}
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-base font-semibold text-slate-900">{{ allergy.allergen_name }}</span>
+              <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">{{ allergy.allergen_category.label }}</span>
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">{{ allergy.severity.label }}</span>
+              {% if allergy.valid_until %}
+              <span class="rounded-full px-2.5 py-1 text-xs font-medium {% if allergy.valid_until < today_date %}bg-rose-100 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+                {{ allergy.valid_until.isoformat() }} まで
+              </span>
+              {% endif %}
+            </div>
+            <div class="mt-3 grid gap-3 md:grid-cols-2">
+              <div class="text-sm text-slate-700"><span class="font-medium">症状:</span> {{ allergy.symptoms or "未登録" }}</div>
+              <div class="text-sm text-slate-700"><span class="font-medium">除去対応:</span> {% if allergy.removal_required %}必要{% else %}不要{% endif %}</div>
+              <div class="text-sm text-slate-700 md:col-span-2"><span class="font-medium">緊急時対応:</span> {{ allergy.action_plan or "未登録" }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="mt-4 text-sm text-slate-500">有効なアレルギー情報はまだ登録されていません。</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-slate-900">直近の健診記録</h2>
+          <a href="/children/{{ child.id }}/health/check-records" class="text-sm font-medium text-sky-700 hover:underline">一覧へ</a>
+        </div>
+        {% if latest_record %}
+        <dl class="mt-4 space-y-3 text-sm text-slate-700">
+          <div class="flex justify-between gap-4">
+            <dt class="font-medium text-slate-500">記録日</dt>
+            <dd>{{ latest_record.checked_at.isoformat() }}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="font-medium text-slate-500">種別</dt>
+            <dd>{{ latest_record.check_type.label }}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="font-medium text-slate-500">身長</dt>
+            <dd>{% if latest_record.height_cm is not none %}{{ '%.1f'|format(latest_record.height_cm) }} cm{% else %}-{% endif %}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="font-medium text-slate-500">体重</dt>
+            <dd>{% if latest_record.weight_kg is not none %}{{ '%.1f'|format(latest_record.weight_kg) }} kg{% else %}-{% endif %}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="font-medium text-slate-500">要フォロー</dt>
+            <dd>{% if latest_record.requires_followup %}あり{% else %}なし{% endif %}</dd>
+          </div>
+          <div>
+            <dt class="font-medium text-slate-500">所見</dt>
+            <dd class="mt-1">{{ latest_record.overall_result or latest_record.general_condition or "未登録" }}</dd>
+          </div>
+        </dl>
+        {% else %}
+        <p class="mt-4 text-sm text-slate-500">健康診断記録はまだありません。</p>
+        {% endif %}
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-slate-900">次の作業</h2>
+        <div class="mt-4 space-y-3 text-sm text-slate-700">
+          <p>1. 健康プロフィールで医療的ケア、既往歴、緊急連絡先を確認する</p>
+          <p>2. アレルギー管理で有効期限や対応方針を登録する</p>
+          <p>3. 健診記録で身長・体重を登録し、推移グラフを確認する</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

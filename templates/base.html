@@ -81,7 +81,8 @@
           <div>
             <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">基本業務</p>
             <div class="mt-3 space-y-1">
-              <a href="/children" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/children') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">園児一覧</a>
+              <a href="/children" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/children') and '/health' not in current_path %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">園児一覧</a>
+              <a href="/health" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/health') or '/health' in current_path %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">健康管理</a>
               <a href="/classrooms" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/classrooms') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">クラス管理</a>
               <a href="/attendance" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠一覧</a>
               <a href="/attendance-checks/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance-checks') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠確認</a>

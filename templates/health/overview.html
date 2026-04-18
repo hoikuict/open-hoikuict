@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}健康管理一覧 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-emerald-700">健康管理</p>
+      <h1 class="text-2xl font-bold text-slate-900">健康管理一覧</h1>
+      <p class="mt-1 text-sm text-slate-500">健診の期限切れ、医療的ケア、アレルギー対応が必要な園児を横断で確認できます。</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="/children" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">園児一覧</a>
+      <button onclick="window.print()" class="no-print rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">印刷</button>
+    </div>
+  </div>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">表示園児数</p>
+      <p class="mt-3 text-3xl font-bold text-slate-900">{{ summary.children_count }}</p>
+      <p class="mt-2 text-sm text-slate-500">現在の条件に一致</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">対応が必要</p>
+      <p class="mt-3 text-3xl font-bold text-rose-700">{{ summary.attention_count }}</p>
+      <p class="mt-2 text-sm text-slate-500">アラートあり</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">医療的ケア</p>
+      <p class="mt-3 text-3xl font-bold text-amber-700">{{ summary.medical_care_count }}</p>
+      <p class="mt-2 text-sm text-slate-500">要支援の園児</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">期限切れアレルギー</p>
+      <p class="mt-3 text-3xl font-bold text-violet-700">{{ summary.expired_allergy_children_count }}</p>
+      <p class="mt-2 text-sm text-slate-500">更新確認が必要</p>
+    </div>
+  </section>
+
+  <section class="no-print rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form method="get" action="/health" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">在籍状況</span>
+        <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="enrolled" {% if current_status == "enrolled" %}selected{% endif %}>在園のみ</option>
+          <option value="all" {% if current_status == "all" %}selected{% endif %}>すべて</option>
+          <option value="graduated" {% if current_status == "graduated" %}selected{% endif %}>卒園のみ</option>
+          <option value="withdrawn" {% if current_status == "withdrawn" %}selected{% endif %}>退園のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">アラート</span>
+        <select name="attention" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="all" {% if current_attention == "all" %}selected{% endif %}>すべて</option>
+          <option value="needs_attention" {% if current_attention == "needs_attention" %}selected{% endif %}>対応が必要のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">クラス</span>
+        <select name="classroom_id" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="" {% if current_classroom_id is none %}selected{% endif %}>すべて</option>
+          {% for classroom in classrooms %}
+          <option value="{{ classroom.id }}" {% if current_classroom_id == classroom.id %}selected{% endif %}>{{ classroom.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">検索</span>
+        <input name="q" value="{{ current_query }}" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="園児名 / クラス / 家族名">
+      </label>
+      <div class="md:col-span-2 xl:col-span-4 flex justify-end gap-3">
+        <a href="/health" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">リセット</a>
+        <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">絞り込む</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-emerald-50 text-emerald-900">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium">園児</th>
+            <th class="px-4 py-3 text-left font-medium">クラス</th>
+            <th class="px-4 py-3 text-left font-medium">健康フラグ</th>
+            <th class="px-4 py-3 text-left font-medium">アレルギー</th>
+            <th class="px-4 py-3 text-left font-medium">最新測定</th>
+            <th class="px-4 py-3 text-left font-medium">健診状態</th>
+            <th class="no-print px-4 py-3 text-left font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in rows %}
+          {% set child = row.child %}
+          {% set profile = row.profile %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 align-top">
+              <div class="font-medium text-slate-900">{{ child.full_name }}</div>
+              <div class="mt-1 text-xs text-slate-500">{{ child.family.family_name if child.family else "家族未設定" }}</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700">{{ child.classroom.name if child.classroom else "-" }}</td>
+            <td class="px-4 py-3 align-top">
+              <div class="flex flex-wrap gap-1.5">
+                {% if row.attention_labels %}
+                  {% for label in row.attention_labels %}
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">{{ label }}</span>
+                  {% endfor %}
+                {% else %}
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                {% endif %}
+                {% if profile and profile.sids_risk_flag %}
+                <span class="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">SIDS注意</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700">
+              {% if row.active_allergy_count %}
+              <div>{{ row.active_allergy_count }} 件</div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                {% for allergy in row.allergies[:3] %}
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ allergy.allergen_name }}</span>
+                {% endfor %}
+                {% if row.active_allergy_count > 3 %}
+                <span class="text-xs text-slate-500">ほか {{ row.active_allergy_count - 3 }} 件</span>
+                {% endif %}
+              </div>
+              {% if row.expired_allergy_count %}
+              <div class="mt-1 text-xs font-medium text-rose-700">期限切れ {{ row.expired_allergy_count }} 件</div>
+              {% endif %}
+              {% else %}
+              -
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700">
+              {% if row.latest_height.value is not none or row.latest_weight.value is not none %}
+              <div class="text-xs text-slate-500">
+                {% if row.latest_height.date %}{{ row.latest_height.date.isoformat() }}{% elif row.latest_weight.date %}{{ row.latest_weight.date.isoformat() }}{% endif %}
+              </div>
+              <div class="mt-1">
+                {% if row.latest_height.value is not none %}
+                <span class="mr-2">{{ '%.1f'|format(row.latest_height.value) }} cm</span>
+                {% endif %}
+                {% if row.latest_weight.value is not none %}
+                <span>{{ '%.1f'|format(row.latest_weight.value) }} kg</span>
+                {% endif %}
+              </div>
+              {% else %}
+              <span class="text-slate-400">未登録</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 align-top">
+              {% if row.health_check_stale %}
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              {% else %}
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              {% endif %}
+            </td>
+            <td class="no-print px-4 py-3 align-top">
+              <div class="flex flex-col gap-2">
+                <a href="/children/{{ child.id }}/health" class="text-sm font-medium text-emerald-700 hover:underline">健康サマリー</a>
+                <a href="/children/{{ child.id }}/health/check-records" class="text-sm font-medium text-sky-700 hover:underline">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="px-4 py-12 text-center text-sm text-slate-400">該当する園児がありません。</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
