@@ -27,3 +27,5 @@ extra_css:
   - stylesheets/extra.css
 copyright: |
   &copy; 2026 Hirake!!
+extra:
+  generator: false
