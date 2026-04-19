@@ -13,12 +13,13 @@ theme:
     - toc.integrate
     - search.suggest
     - search.highlight
+    - footer.hide.copyright
 plugins:
   - search
 nav:
   - はじめに: index.md
-  - 導入ロードマップ: roadmap.md
-  - 園児健康管理レビュー: health-record-spec-review.md
+  #- 導入ロードマップ: roadmap.md
+  #- 園児健康管理レビュー: health-record-spec-review.md
   - セキュリティ最低ライン: security.md
   - 園内運用テンプレ: templates.md
   - FAQ: faq.md
