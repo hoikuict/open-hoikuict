@@ -26,6 +26,8 @@ from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import router as parent_portal_router
 from routers.staff_auth import router as staff_auth_router
 from routers.staff_rooms import router as staff_rooms_router
+from routers.staff_surveys import router as staff_surveys_router
+from routers.surveys import router as surveys_router
 
 
 app = FastAPI(title="open-hoikuict", version="0.1.0")
@@ -45,6 +47,8 @@ app.include_router(meeting_notes_router)
 app.include_router(notices_router)
 app.include_router(daily_contacts_router)
 app.include_router(staff_rooms_router)
+app.include_router(surveys_router)
+app.include_router(staff_surveys_router)
 
 
 @app.on_event("startup")

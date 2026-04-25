@@ -36,6 +36,23 @@ from models import (
     ParentContactType,
     ParentChildLink,
     ProfileChangeNotification,
+    Survey,
+    SurveyAnswer,
+    SurveyAnswerUnit,
+    SurveyAudienceType,
+    SurveyQuestion,
+    SurveyStatus,
+)
+from survey_service import (
+    answer_value_for_display,
+    closes_soon,
+    eligible_children_for_survey,
+    load_existing_survey_answer,
+    resolve_parent_answer_scope,
+    response_by_question,
+    save_survey_answer,
+    survey_is_open,
+    survey_matches_parent_targets,
 )
 from time_utils import ensure_utc, utc_now
 
@@ -965,6 +982,233 @@ def parent_contact_history(
             "entries": entries,
         },
     )
+
+
+def _load_parent_survey(session: Session, survey_id: int) -> Optional[Survey]:
+    return session.exec(
+        select(Survey)
+        .options(
+            selectinload(Survey.targets),
+            selectinload(Survey.questions).selectinload(SurveyQuestion.options),
+            selectinload(Survey.answers).selectinload(SurveyAnswer.responses),
+        )
+        .where(Survey.id == survey_id)
+    ).first()
+
+
+def _load_visible_parent_surveys(session: Session, parent_account: ParentAccount) -> list[Survey]:
+    surveys = session.exec(
+        select(Survey)
+        .options(
+            selectinload(Survey.targets),
+            selectinload(Survey.questions).selectinload(SurveyQuestion.options),
+            selectinload(Survey.answers),
+        )
+        .where(
+            Survey.audience_type == SurveyAudienceType.parent,
+            Survey.status == SurveyStatus.published,
+        )
+        .order_by(Survey.closes_at, Survey.updated_at.desc())
+    ).all()
+    return [
+        survey
+        for survey in surveys
+        if survey_is_open(survey, utc_now()) and survey_matches_parent_targets(survey, parent_account)
+    ]
+
+
+@router.get("/surveys", response_class=HTMLResponse)
+def parent_survey_list(
+    request: Request,
+    notice: Optional[str] = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    survey_cards = []
+    for survey in _load_visible_parent_surveys(session, current_parent_user):
+        if survey.answer_unit == SurveyAnswerUnit.family:
+            scope = resolve_parent_answer_scope(survey, current_parent_user)
+            answer = load_existing_survey_answer(session, survey, scope) if scope else None
+            survey_cards.append(
+                {
+                    "survey": survey,
+                    "answer": answer,
+                    "blocked": scope is None,
+                    "children": [],
+                    "closes_soon": closes_soon(survey) and answer is None,
+                }
+            )
+        else:
+            children = []
+            for child in eligible_children_for_survey(survey, current_parent_user):
+                scope = resolve_parent_answer_scope(survey, current_parent_user, child.id)
+                answer = load_existing_survey_answer(session, survey, scope) if scope else None
+                children.append({"child": child, "answer": answer})
+            survey_cards.append(
+                {
+                    "survey": survey,
+                    "answer": None,
+                    "blocked": False,
+                    "children": children,
+                    "closes_soon": closes_soon(survey) and any(item["answer"] is None for item in children),
+                }
+            )
+
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/surveys.html",
+        {
+            "request": request,
+            "current_parent_user": current_parent_user,
+            "parent_portal_mode": True,
+            "survey_cards": survey_cards,
+            "notice": "回答しました。" if notice == "saved" else "",
+        },
+    )
+
+
+@router.get("/surveys/{survey_id}", response_class=HTMLResponse)
+def parent_survey_form(
+    request: Request,
+    survey_id: int,
+    child_id: Optional[int] = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    survey = _load_parent_survey(session, survey_id)
+    if not survey or not survey_is_open(survey, utc_now()) or not survey_matches_parent_targets(survey, current_parent_user):
+        raise HTTPException(status_code=404, detail="アンケートが見つかりません")
+
+    eligible_children = eligible_children_for_survey(survey, current_parent_user)
+    if survey.answer_unit == SurveyAnswerUnit.child and child_id is None:
+        if len(eligible_children) == 1 and eligible_children[0].id is not None:
+            return RedirectResponse(url=f"/parent-portal/surveys/{survey_id}?child_id={eligible_children[0].id}", status_code=303)
+        return templates.TemplateResponse(
+            request,
+            "parent_portal/survey_child_selector.html",
+            {
+                "request": request,
+                "current_parent_user": current_parent_user,
+                "parent_portal_mode": True,
+                "survey": survey,
+                "children": eligible_children,
+            },
+        )
+
+    scope = resolve_parent_answer_scope(survey, current_parent_user, child_id)
+    if scope is None:
+        return templates.TemplateResponse(
+            request,
+            "parent_portal/survey_form.html",
+            {
+                "request": request,
+                "current_parent_user": current_parent_user,
+                "parent_portal_mode": True,
+                "survey": survey,
+                "questions": sorted(survey.questions, key=lambda item: (item.order, item.id or 0)),
+                "answer": None,
+                "responses": {},
+                "child_id": child_id,
+                "errors": ["家族情報を特定できないため、このアンケートには回答できません。園へお問い合わせください。"],
+                "blocked": True,
+                "answer_value_for_display": answer_value_for_display,
+            },
+            status_code=409,
+        )
+
+    answer = load_existing_survey_answer(session, survey, scope)
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/survey_form.html",
+        {
+            "request": request,
+            "current_parent_user": current_parent_user,
+            "parent_portal_mode": True,
+            "survey": survey,
+            "questions": sorted(survey.questions, key=lambda item: (item.order, item.id or 0)),
+            "answer": answer,
+            "responses": response_by_question(answer),
+            "child_id": child_id,
+            "errors": [],
+            "blocked": False,
+            "answer_value_for_display": answer_value_for_display,
+        },
+    )
+
+
+@router.post("/surveys/{survey_id}")
+async def save_parent_survey_answer(
+    request: Request,
+    survey_id: int,
+    child_id: Optional[int] = Form(None),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    survey = _load_parent_survey(session, survey_id)
+    if not survey or not survey_is_open(survey, utc_now()) or not survey_matches_parent_targets(survey, current_parent_user):
+        raise HTTPException(status_code=404, detail="アンケートが見つかりません")
+
+    scope = resolve_parent_answer_scope(survey, current_parent_user, child_id)
+    if scope is None:
+        return templates.TemplateResponse(
+            request,
+            "parent_portal/survey_form.html",
+            {
+                "request": request,
+                "current_parent_user": current_parent_user,
+                "parent_portal_mode": True,
+                "survey": survey,
+                "questions": sorted(survey.questions, key=lambda item: (item.order, item.id or 0)),
+                "answer": None,
+                "responses": {},
+                "child_id": child_id,
+                "errors": ["家族情報を特定できないため、このアンケートには回答できません。園へお問い合わせください。"],
+                "blocked": True,
+                "answer_value_for_display": answer_value_for_display,
+            },
+            status_code=409,
+        )
+
+    form_data = await request.form()
+    result = save_survey_answer(
+        session,
+        survey=survey,
+        scope=scope,
+        form_data=form_data,
+        parent_account=current_parent_user,
+    )
+    if result.errors:
+        answer = load_existing_survey_answer(session, survey, scope)
+        return templates.TemplateResponse(
+            request,
+            "parent_portal/survey_form.html",
+            {
+                "request": request,
+                "current_parent_user": current_parent_user,
+                "parent_portal_mode": True,
+                "survey": survey,
+                "questions": sorted(survey.questions, key=lambda item: (item.order, item.id or 0)),
+                "answer": answer,
+                "responses": response_by_question(answer),
+                "child_id": child_id,
+                "errors": result.errors,
+                "blocked": False,
+                "answer_value_for_display": answer_value_for_display,
+            },
+            status_code=400,
+        )
+
+    session.commit()
+    return RedirectResponse(url="/parent-portal/surveys?notice=saved", status_code=303)
 
 
 @router.get("/notices", response_class=HTMLResponse)

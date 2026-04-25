@@ -3,7 +3,7 @@ from enum import Enum
 import uuid
 from typing import Any, List, Optional
 
-from sqlalchemy import JSON, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from time_utils import utc_now
@@ -142,6 +142,88 @@ class NoticeTargetType(str, Enum):
             self.all: "全保護者",
             self.classroom: "クラス",
             self.child: "園児",
+        }[self]
+
+
+class SurveyStatus(str, Enum):
+    draft = "draft"
+    published = "published"
+    closed = "closed"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.draft: "下書き",
+            self.published: "公開中",
+            self.closed: "締切済み",
+        }[self]
+
+
+class SurveyAudienceType(str, Enum):
+    parent = "parent"
+    staff = "staff"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.parent: "保護者向け",
+            self.staff: "職員向け",
+        }[self]
+
+
+class SurveyTargetType(str, Enum):
+    all = "all"
+    classroom = "classroom"
+    child = "child"
+    all_staff = "all_staff"
+    staff_role = "staff_role"
+    staff_user = "staff_user"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.all: "全保護者",
+            self.classroom: "クラス",
+            self.child: "園児",
+            self.all_staff: "全職員",
+            self.staff_role: "職員ロール",
+            self.staff_user: "職員",
+        }[self]
+
+
+class SurveyAnswerUnit(str, Enum):
+    family = "family"
+    child = "child"
+    staff_user = "staff_user"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.family: "世帯単位",
+            self.child: "子ども単位",
+            self.staff_user: "職員単位",
+        }[self]
+
+
+class QuestionType(str, Enum):
+    text_short = "text_short"
+    text_long = "text_long"
+    single_choice = "single_choice"
+    multiple_choice = "multiple_choice"
+    scale = "scale"
+    yes_no = "yes_no"
+    date = "date"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.text_short: "短文テキスト",
+            self.text_long: "長文テキスト",
+            self.single_choice: "単一選択",
+            self.multiple_choice: "複数選択",
+            self.scale: "評価スケール",
+            self.yes_no: "はい/いいえ",
+            self.date: "日付",
         }[self]
 
 
@@ -739,6 +821,129 @@ class NoticeRead(SQLModel, table=True):
 
     notice: Optional[Notice] = Relationship(back_populates="reads")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="notice_reads")
+
+
+class Survey(SQLModel, table=True):
+    __tablename__ = "surveys"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    description: Optional[str] = None
+    status: SurveyStatus = Field(default=SurveyStatus.draft, index=True)
+    audience_type: SurveyAudienceType = Field(default=SurveyAudienceType.parent, index=True)
+    answer_unit: SurveyAnswerUnit = Field(default=SurveyAnswerUnit.family)
+    opens_at: Optional[datetime] = None
+    closes_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    targets: List["SurveyTarget"] = Relationship(back_populates="survey")
+    questions: List["SurveyQuestion"] = Relationship(back_populates="survey")
+    answers: List["SurveyAnswer"] = Relationship(back_populates="survey")
+
+
+class SurveyTarget(SQLModel, table=True):
+    __tablename__ = "survey_targets"
+    __table_args__ = (
+        UniqueConstraint("survey_id", "target_type", "target_value", name="uq_survey_target"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    survey_id: int = Field(foreign_key="surveys.id", index=True)
+    target_type: SurveyTargetType = Field(default=SurveyTargetType.all)
+    target_value: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    survey: Optional[Survey] = Relationship(back_populates="targets")
+
+
+class SurveyQuestion(SQLModel, table=True):
+    __tablename__ = "survey_questions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    survey_id: int = Field(foreign_key="surveys.id", index=True)
+    order: int = Field(default=1, index=True)
+    question_type: QuestionType = Field(default=QuestionType.text_short)
+    label: str
+    description: Optional[str] = None
+    is_required: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    survey: Optional[Survey] = Relationship(back_populates="questions")
+    options: List["SurveyQuestionOption"] = Relationship(back_populates="question")
+    responses: List["SurveyResponse"] = Relationship(back_populates="question")
+
+
+class SurveyQuestionOption(SQLModel, table=True):
+    __tablename__ = "survey_question_options"
+    __table_args__ = (
+        UniqueConstraint("question_id", "option_key", name="uq_question_option_key"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="survey_questions.id", index=True)
+    order: int = Field(default=1)
+    option_key: str
+    label: str
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    question: Optional[SurveyQuestion] = Relationship(back_populates="options")
+
+
+class SurveyAnswer(SQLModel, table=True):
+    __tablename__ = "survey_answers"
+    __table_args__ = (
+        UniqueConstraint("survey_id", "family_id", name="uq_survey_family_answer"),
+        UniqueConstraint("survey_id", "child_id", name="uq_survey_child_answer"),
+        UniqueConstraint("survey_id", "staff_user_id", name="uq_survey_staff_user_answer"),
+        CheckConstraint(
+            "(family_id IS NOT NULL AND child_id IS NULL AND staff_user_id IS NULL) OR "
+            "(family_id IS NULL AND child_id IS NOT NULL AND staff_user_id IS NULL) OR "
+            "(family_id IS NULL AND child_id IS NULL AND staff_user_id IS NOT NULL)",
+            name="ck_survey_answer_scope",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    survey_id: int = Field(foreign_key="surveys.id", index=True)
+    family_id: Optional[int] = Field(default=None, foreign_key="families.id", index=True)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    staff_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    created_by_parent_account_id: Optional[int] = Field(default=None, foreign_key="parent_accounts.id", index=True)
+    created_by_staff_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    submitted_by_parent_account_id: Optional[int] = Field(default=None, foreign_key="parent_accounts.id", index=True)
+    submitted_by_staff_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    submitted_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    survey: Optional[Survey] = Relationship(back_populates="answers")
+    responses: List["SurveyResponse"] = Relationship(back_populates="answer")
+
+
+class SurveyResponse(SQLModel, table=True):
+    __tablename__ = "survey_responses"
+    __table_args__ = (
+        UniqueConstraint("answer_id", "question_id", name="uq_answer_question"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    answer_id: int = Field(foreign_key="survey_answers.id", index=True)
+    question_id: int = Field(foreign_key="survey_questions.id", index=True)
+    value_text: Optional[str] = None
+    value_option_ids: Optional[list[int]] = Field(default=None, sa_column=Column(JSON))
+    value_scale: Optional[int] = None
+    value_bool: Optional[bool] = None
+    value_date: Optional[date] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    answer: Optional[SurveyAnswer] = Relationship(back_populates="responses")
+    question: Optional[SurveyQuestion] = Relationship(back_populates="responses")
 
 
 class ProfileChangeNotification(SQLModel, table=True):

@@ -32,6 +32,7 @@ def create_db_and_tables() -> None:
     _migrate_add_family_columns()
     _migrate_add_message_columns()
     _migrate_add_calendar_columns()
+    _migrate_survey_tables()
 
 
 def _table_columns(table_name: str) -> list[str]:
@@ -161,6 +162,12 @@ def _migrate_add_calendar_columns() -> None:
             conn.commit()
     except Exception:
         pass
+
+
+def _migrate_survey_tables() -> None:
+    # New survey tables are created by SQLModel.metadata.create_all().
+    # Keep this hook explicit for future additive indexes or backfills.
+    return
 
 
 def seed_classroom_data() -> None:
