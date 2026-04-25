@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Optional, Protocol
 from urllib.parse import quote, unquote
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, Response
 
@@ -179,6 +180,28 @@ def clear_parent_account_cookie(response: Response) -> None:
 
 def get_calendar_user_cookie(request: Request) -> Optional[str]:
     return request.cookies.get(MOCK_CALENDAR_USER_COOKIE)
+
+
+def get_current_staff_user_id(request: Request) -> Optional[UUID]:
+    raw_user_id = get_calendar_user_cookie(request)
+    if not raw_user_id:
+        return None
+    try:
+        return UUID(str(raw_user_id))
+    except (TypeError, ValueError):
+        return None
+
+
+def get_current_staff_user_record(request: Request, session):
+    from models import User
+
+    staff_user_id = get_current_staff_user_id(request)
+    if staff_user_id is None:
+        return None
+    user = session.get(User, staff_user_id)
+    if user is None or not user.is_active or user.staff_sort_order >= 100:
+        return None
+    return user
 
 
 def set_calendar_user_cookie(response: Response, user_id: str) -> None:

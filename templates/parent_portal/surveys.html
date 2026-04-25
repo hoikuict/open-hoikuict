@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}アンケート | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">アンケート</h1>
+    <p class="text-sm text-gray-500">園から届いているアンケートに回答できます。</p>
+  </div>
+  <a href="/parent-portal/" class="text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
+</div>
+
+{% if notice %}
+<div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{{ notice }}</div>
+{% endif %}
+
+<div class="space-y-4">
+  {% for card in survey_cards %}
+  {% set survey = card.survey %}
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        <div class="mb-2 flex flex-wrap gap-2">
+          <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">{{ survey.answer_unit.label }}</span>
+          {% if card.closes_soon %}
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">締め切り間近</span>
+          {% endif %}
+          {% if card.answer %}
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">回答済み</span>
+          {% endif %}
+          {% if card.blocked %}
+          <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">要確認</span>
+          {% endif %}
+        </div>
+        <h2 class="text-lg font-semibold text-gray-800">{{ survey.title }}</h2>
+        {% if survey.description %}
+        <p class="mt-1 text-sm text-gray-600">{{ survey.description }}</p>
+        {% endif %}
+        <p class="mt-2 text-xs text-gray-500">
+          期限: {{ survey.closes_at.strftime("%Y-%m-%d %H:%M") if survey.closes_at else "指定なし" }}
+        </p>
+      </div>
+      {% if survey.answer_unit.value == 'family' %}
+      <div>
+        {% if card.blocked %}
+        <p class="max-w-xs text-sm text-rose-700">家族情報を特定できないため回答できません。園へお問い合わせください。</p>
+        {% else %}
+        <a href="/parent-portal/surveys/{{ survey.id }}" class="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+          {{ "回答を編集" if card.answer else "回答する" }}
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% if survey.answer_unit.value == 'child' %}
+    <div class="mt-4 space-y-2">
+      {% for item in card.children %}
+      <div class="flex flex-col gap-2 rounded-lg border border-gray-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="font-medium text-gray-800">{{ item.child.full_name }}</p>
+          <p class="text-sm text-gray-500">{{ item.child.classroom.name if item.child.classroom else "クラス未設定" }}</p>
+        </div>
+        <div class="flex items-center gap-3">
+          {% if item.answer %}
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">回答済み</span>
+          {% else %}
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">未回答</span>
+          {% endif %}
+          <a href="/parent-portal/surveys/{{ survey.id }}?child_id={{ item.child.id }}" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+            {{ "回答を編集" if item.answer else "回答する" }}
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">回答できるアンケートはありません。</div>
+  {% endfor %}
+</div>
+{% endblock %}

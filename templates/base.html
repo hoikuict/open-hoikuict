@@ -33,6 +33,7 @@
         {% endif %}
         <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
         <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
+        <a href="/parent-portal/surveys" class="text-sm hover:underline">アンケート</a>
         <div class="ml-auto flex items-center gap-3 text-sm">
           {% if current_parent_user is defined and current_parent_user %}
           <span class="text-indigo-100">{{ current_parent_user.display_name }}</span>
@@ -97,6 +98,8 @@
               <a href="/staff-rooms/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/staff-rooms') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">連絡タイムライン</a>
               <a href="/meeting-notes/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/meeting-notes') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">議事録</a>
               <a href="/notices" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/notices') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">お知らせ管理</a>
+              <a href="/surveys/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/surveys') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">アンケート管理</a>
+              <a href="/staff-surveys/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/staff-surveys') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">アンケート</a>
             </div>
           </div>
 

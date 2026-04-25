@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}アンケート詳細 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+  <div>
+    <div class="mb-2 flex flex-wrap gap-2">
+      <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">{{ survey.audience_type.label }}</span>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ survey.status.label }}</span>
+      <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">{{ survey.answer_unit.label }}</span>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-800">{{ survey.title }}</h1>
+    {% if survey.description %}
+    <p class="mt-2 text-sm text-gray-600">{{ survey.description }}</p>
+    {% endif %}
+    <p class="mt-2 text-sm text-gray-500">対象: {{ target_label }}</p>
+  </div>
+  <div class="flex flex-wrap gap-3">
+    <a href="/surveys/" class="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">一覧へ戻る</a>
+    <a href="/surveys/{{ survey.id }}/answers.csv" class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">CSV出力</a>
+    {% if current_user and current_user.can_edit %}
+    <a href="/surveys/{{ survey.id }}/edit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">編集</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">質問数</p>
+    <p class="mt-2 text-2xl font-bold text-gray-800">{{ questions|length }}</p>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">回答数</p>
+    <p class="mt-2 text-2xl font-bold text-emerald-700">{{ answers|length }}</p>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">公開期間</p>
+    <p class="mt-2 text-sm font-semibold text-gray-800">
+      {{ survey.opens_at.strftime("%Y-%m-%d %H:%M") if survey.opens_at else "開始指定なし" }}
+      〜
+      {{ survey.closes_at.strftime("%Y-%m-%d %H:%M") if survey.closes_at else "終了指定なし" }}
+    </p>
+  </div>
+</div>
+
+<section class="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+  <h2 class="mb-4 text-lg font-semibold text-gray-800">質問</h2>
+  <div class="space-y-3">
+    {% for question in questions %}
+    <div class="rounded-lg border border-gray-200 p-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-sm font-semibold text-gray-800">Q{{ question.order }}. {{ question.label }}</span>
+        <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ question.question_type.label }}</span>
+        {% if question.is_required %}
+        <span class="rounded-full bg-rose-50 px-2 py-1 text-xs text-rose-700">必須</span>
+        {% endif %}
+      </div>
+      {% if question.options %}
+      <p class="mt-2 text-sm text-gray-500">
+        {% for option in question.options|sort(attribute='order') %}
+        {{ option.label }}{% if not loop.last %} / {% endif %}
+        {% endfor %}
+      </p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+  <div class="border-b border-gray-200 px-5 py-4">
+    <h2 class="text-lg font-semibold text-gray-800">回答一覧</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-gray-50 text-left text-gray-600">
+        <tr>
+          <th class="px-4 py-3 font-semibold">回答ID</th>
+          <th class="px-4 py-3 font-semibold">提出日時</th>
+          <th class="px-4 py-3 font-semibold">スコープ</th>
+          {% for question in questions %}
+          <th class="px-4 py-3 font-semibold">Q{{ question.order }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for answer in answers %}
+        {% set responses = response_by_question(answer) %}
+        <tr>
+          <td class="px-4 py-3">{{ answer.id }}</td>
+          <td class="px-4 py-3">{{ answer.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td class="px-4 py-3">
+            {% if answer.family_id %}世帯ID: {{ answer.family_id }}{% endif %}
+            {% if answer.child_id %}園児ID: {{ answer.child_id }}{% endif %}
+            {% if answer.staff_user_id %}職員ID: {{ answer.staff_user_id }}{% endif %}
+          </td>
+          {% for question in questions %}
+          <td class="px-4 py-3">{{ answer_value_for_display(question, responses.get(question.id)) }}</td>
+          {% endfor %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ 3 + questions|length }}" class="px-4 py-10 text-center text-gray-400">回答はまだありません。</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

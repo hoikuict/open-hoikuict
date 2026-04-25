@@ -54,6 +54,7 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     _migrate_add_parent_account_columns(resolved_engine)
     _migrate_add_family_columns(resolved_engine)
     _migrate_add_message_columns(resolved_engine)
+    _migrate_survey_tables(resolved_engine)
 
 
 def _table_columns(table_name: str, db_engine: Optional[Engine] = None) -> list[str]:
@@ -187,6 +188,12 @@ def _migrate_add_message_columns(db_engine: Optional[Engine] = None) -> None:
             conn.commit()
     except Exception:
         pass
+
+
+def _migrate_survey_tables(db_engine: Optional[Engine] = None) -> None:
+    # New survey tables are created by SQLModel.metadata.create_all().
+    # Keep this hook explicit for future additive indexes or backfills.
+    return
 
 
 def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
