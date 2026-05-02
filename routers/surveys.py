@@ -46,6 +46,11 @@ templates = Jinja2Templates(directory="templates")
 QUESTION_ROW_COUNT = 6
 
 
+@router.get("", include_in_schema=False)
+def survey_list_without_trailing_slash():
+    return RedirectResponse(url="/surveys/", status_code=307)
+
+
 def _parse_optional_datetime(raw: str) -> Optional[datetime]:
     value = (raw or "").strip()
     if not value:
