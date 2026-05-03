@@ -12,7 +12,6 @@ from database import (
 )
 from routers.attendance import router as attendance_router
 from routers.attendance_checks import router as attendance_checks_router
-from routers.billing import router as billing_router
 from routers.calendar import router as calendar_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.children import router as children_router
@@ -29,7 +28,6 @@ from routers.staff_auth import router as staff_auth_router
 from routers.staff_rooms import router as staff_rooms_router
 from routers.staff_surveys import router as staff_surveys_router
 from routers.surveys import router as surveys_router
-from routers.zengin import router as zengin_router
 
 
 app = FastAPI(title="open-hoikuict", version="0.1.0")
@@ -40,7 +38,6 @@ app.include_router(child_health_router)
 app.include_router(child_change_requests_router)
 app.include_router(attendance_router)
 app.include_router(attendance_checks_router)
-app.include_router(billing_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
@@ -52,7 +49,6 @@ app.include_router(daily_contacts_router)
 app.include_router(staff_rooms_router)
 app.include_router(surveys_router)
 app.include_router(staff_surveys_router)
-app.include_router(zengin_router)
 
 
 @app.on_event("startup")
