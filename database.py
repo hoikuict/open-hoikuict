@@ -55,6 +55,7 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     _migrate_add_family_columns(resolved_engine)
     _migrate_add_message_columns(resolved_engine)
     _migrate_survey_tables(resolved_engine)
+    _migrate_billing_fee_labels(resolved_engine)
 
 
 def _table_columns(table_name: str, db_engine: Optional[Engine] = None) -> list[str]:
@@ -194,6 +195,43 @@ def _migrate_survey_tables(db_engine: Optional[Engine] = None) -> None:
     # New survey tables are created by SQLModel.metadata.create_all().
     # Keep this hook explicit for future additive indexes or backfills.
     return
+
+
+def _migrate_billing_fee_labels(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            fee_cols = _table_columns("fee_items", resolved_engine)
+            line_cols = _table_columns("billing_charge_lines", resolved_engine)
+            if not fee_cols:
+                return
+
+            conn.execute(
+                text(
+                    """
+                    UPDATE fee_items
+                    SET name = '延長保育料（月額）'
+                    WHERE code = 'monthly_childcare'
+                      AND name IN ('保育料', '保育料（月額）')
+                    """
+                )
+            )
+            if line_cols:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE billing_charge_lines
+                        SET description = '延長保育料（月額）'
+                        WHERE fee_item_id IN (
+                            SELECT id FROM fee_items WHERE code = 'monthly_childcare'
+                        )
+                          AND description IN ('保育料', '保育料（月額）')
+                        """
+                    )
+                )
+            conn.commit()
+    except Exception:
+        pass
 
 
 def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
