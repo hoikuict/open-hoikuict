@@ -28,6 +28,11 @@ router = APIRouter(prefix="/staff-surveys", tags=["staff_surveys"])
 templates = Jinja2Templates(directory="templates")
 
 
+@router.get("", include_in_schema=False)
+def staff_survey_list_without_trailing_slash():
+    return RedirectResponse(url="/staff-surveys/", status_code=307)
+
+
 def _login_redirect(request: Request) -> RedirectResponse:
     redirect_to = quote(request.url.path, safe="/")
     return RedirectResponse(url=f"/staff/login?redirect={redirect_to}", status_code=303)
