@@ -21,6 +21,7 @@ nav:
   #- 導入ロードマップ: roadmap.md
   #- 園児健康管理レビュー: health-record-spec-review.md
   - セキュリティ最低ライン: security.md
+  - インポート・エクスポート仕様: import-export-spec.md
   - 園内運用テンプレ: templates.md
   - FAQ: faq.md
 extra_css:
