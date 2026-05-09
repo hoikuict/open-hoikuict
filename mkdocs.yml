@@ -19,6 +19,7 @@ nav:
   - はじめに: index.md
   - 導入ロードマップ: roadmap.md
   - セキュリティ最低ライン: security.md
+  - インポート・エクスポート仕様: import-export-spec.md
   - 園内運用テンプレ: templates.md
   - FAQ: faq.md
 extra_css:

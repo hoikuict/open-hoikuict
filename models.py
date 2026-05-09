@@ -1612,3 +1612,19 @@ class NotificationJob(SQLModel, table=True):
     status: NotificationJobStatus = Field(default=NotificationJobStatus.pending)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class DataTransferLog(SQLModel, table=True):
+    __tablename__ = "data_transfer_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    transfer_type: str = Field(index=True)
+    dataset: str = Field(index=True)
+    filename: Optional[str] = None
+    actor_name: Optional[str] = None
+    result: str = Field(index=True)
+    created_count: int = Field(default=0)
+    updated_count: int = Field(default=0)
+    skipped_count: int = Field(default=0)
+    error_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utc_now, index=True)

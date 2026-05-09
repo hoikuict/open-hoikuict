@@ -28,6 +28,7 @@ from routers.child_change_requests import router as child_change_requests_router
 from routers.children import router as children_router
 from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
+from routers.data_transfers import router as data_transfers_router
 from routers.daily_contacts import router as daily_contacts_router
 from routers.families import router as families_router
 from routers.guardian import router as guardian_router
@@ -47,6 +48,7 @@ app = FastAPI(title="open-hoikuict", version="0.1.0")
 app.include_router(staff_router)
 app.include_router(staff_auth_router)
 app.include_router(classrooms_router)
+app.include_router(data_transfers_router)
 app.include_router(families_router)
 app.include_router(children_router)
 app.include_router(child_health_router)

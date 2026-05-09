@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}インポート・エクスポート | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">インポート・エクスポート</h1>
+    <p class="mt-1 text-sm text-slate-500">クラス、家庭、園児、保護者アカウント、保護者・園児紐づけを扱います。</p>
+  </div>
+</div>
+
+{% if notice %}
+<div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+  インポートを完了しました。
+</div>
+{% endif %}
+
+{% if not current_user.can_edit %}
+<div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  データの入出力には編集権限が必要です。
+</div>
+{% endif %}
+
+<section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <h2 class="text-lg font-semibold text-slate-900">表示するデータ</h2>
+  <div class="mt-4 flex flex-wrap gap-3" data-dataset-visibility>
+    {% for dataset in datasets %}
+    <label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+      <input type="checkbox" value="{{ dataset.id }}" checked class="h-4 w-4 rounded border-slate-300 text-indigo-600" data-dataset-toggle>
+      <span>{{ dataset.label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(24rem,0.9fr)]">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-900">エクスポート</h2>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-3 py-2">データ</th>
+            <th class="px-3 py-2">テンプレート</th>
+            <th class="px-3 py-2">出力</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for dataset in datasets %}
+          <tr data-dataset-row="{{ dataset.id }}">
+            <td class="px-3 py-3 font-medium text-slate-800">{{ dataset.label }}</td>
+            <td class="px-3 py-3">
+              <div class="flex flex-wrap gap-2">
+                <a href="/data-transfers/templates/{{ dataset.id }}.csv" class="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">CSV</a>
+                <a href="/data-transfers/templates/{{ dataset.id }}.xlsx" class="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Excel</a>
+              </div>
+            </td>
+            <td class="px-3 py-3">
+              <div class="flex flex-wrap gap-2">
+                <a href="/data-transfers/export/{{ dataset.id }}.csv" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">CSV</a>
+                <a href="/data-transfers/export/{{ dataset.id }}.xlsx" class="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">Excel</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <form id="filtered-export-form" method="get" class="mt-6 grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-3">
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-slate-700">データ</span>
+        <select name="dataset" class="w-full rounded border border-slate-300 px-3 py-2">
+          {% for dataset in datasets %}
+          <option value="{{ dataset.id }}" data-dataset-option="{{ dataset.id }}">{{ dataset.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-slate-700">形式</span>
+        <select name="format" class="w-full rounded border border-slate-300 px-3 py-2">
+          <option value="csv">CSV</option>
+          <option value="xlsx">Excel</option>
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-slate-700">クラス</span>
+        <select name="classroom_id" class="w-full rounded border border-slate-300 px-3 py-2">
+          <option value="">すべて</option>
+          {% for classroom in classrooms %}
+          <option value="{{ classroom.id }}">{{ classroom.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-slate-700">状態</span>
+        <select name="status" class="w-full rounded border border-slate-300 px-3 py-2">
+          <option value="">すべて</option>
+          {% for status in child_status_options %}
+          <option value="{{ status.value }}">{{ status.label }}</option>
+          {% endfor %}
+          {% for status in parent_status_options %}
+          <option value="{{ status.value }}">{{ status.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="flex items-end">
+        <button type="submit" class="w-full rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">絞り込んで出力</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">インポート</h2>
+    <form method="post" action="/data-transfers/import/classrooms/preview" enctype="multipart/form-data" class="mt-4 space-y-4" data-import-form>
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-slate-700">データ</span>
+        <select name="dataset" class="w-full rounded border border-slate-300 px-3 py-2" data-import-dataset>
+          {% for dataset in datasets %}
+          <option value="{{ dataset.id }}" data-dataset-option="{{ dataset.id }}">{{ dataset.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="mb-1 block font-medium text-slate-700">ファイル</span>
+        <input type="file" name="file" accept=".csv,.xlsx" required class="w-full rounded border border-slate-300 bg-white px-3 py-2">
+      </label>
+      <button type="submit" class="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">事前検証</button>
+    </form>
+
+    {% if preview_result %}
+    <div class="mt-6 border-t border-slate-200 pt-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <h3 class="text-base font-semibold text-slate-900">検証結果</h3>
+        <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ preview_result.dataset_label }}</span>
+      </div>
+      <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-xs text-slate-500">対象行</dt>
+          <dd class="mt-1 text-lg font-semibold text-slate-900">{{ preview_result.total_rows }}</dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-xs text-slate-500">新規</dt>
+          <dd class="mt-1 text-lg font-semibold text-slate-900">{{ preview_result.create_count }}</dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-xs text-slate-500">更新</dt>
+          <dd class="mt-1 text-lg font-semibold text-slate-900">{{ preview_result.update_count }}</dd>
+        </div>
+        <div class="rounded-lg bg-slate-50 p-3">
+          <dt class="text-xs text-slate-500">エラー</dt>
+          <dd class="mt-1 text-lg font-semibold {% if preview_result.errors %}text-rose-700{% else %}text-slate-900{% endif %}">{{ preview_result.errors|length }}</dd>
+        </div>
+      </dl>
+
+      {% if preview_result.errors %}
+      <div class="mt-4 overflow-x-auto rounded-lg border border-rose-200">
+        <table class="min-w-full divide-y divide-rose-100 text-sm">
+          <thead class="bg-rose-50 text-left text-xs font-semibold text-rose-700">
+            <tr>
+              <th class="px-3 py-2">行</th>
+              <th class="px-3 py-2">列</th>
+              <th class="px-3 py-2">入力値</th>
+              <th class="px-3 py-2">内容</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-rose-100 bg-white">
+            {% for error in preview_result.errors %}
+            <tr>
+              <td class="px-3 py-2">{{ error.row_number }}</td>
+              <td class="px-3 py-2">{{ error.column }}</td>
+              <td class="px-3 py-2">{{ error.value }}</td>
+              <td class="px-3 py-2 text-rose-700">{{ error.message }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if preview_result.warnings %}
+      <div class="mt-4 overflow-x-auto rounded-lg border border-amber-200">
+        <table class="min-w-full divide-y divide-amber-100 text-sm">
+          <thead class="bg-amber-50 text-left text-xs font-semibold text-amber-700">
+            <tr>
+              <th class="px-3 py-2">行</th>
+              <th class="px-3 py-2">列</th>
+              <th class="px-3 py-2">入力値</th>
+              <th class="px-3 py-2">内容</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-amber-100 bg-white">
+            {% for warning in preview_result.warnings %}
+            <tr>
+              <td class="px-3 py-2">{{ warning.row_number }}</td>
+              <td class="px-3 py-2">{{ warning.column }}</td>
+              <td class="px-3 py-2">{{ warning.value }}</td>
+              <td class="px-3 py-2 text-amber-700">{{ warning.message }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if preview_result.can_commit %}
+      <form method="post" action="/data-transfers/import/{{ preview_result.dataset }}/commit" class="mt-4">
+        <input type="hidden" name="preview_token" value="{{ preview_result.preview_token }}">
+        <button type="submit" class="w-full rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">インポート実行</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <h2 class="text-lg font-semibold text-slate-900">実行履歴</h2>
+  <div class="mt-4 overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-3 py-2">日時</th>
+          <th class="px-3 py-2">種別</th>
+          <th class="px-3 py-2">結果</th>
+          <th class="px-3 py-2">新規</th>
+          <th class="px-3 py-2">更新</th>
+          <th class="px-3 py-2">エラー</th>
+          <th class="px-3 py-2">実行者</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for log in logs %}
+        <tr>
+          <td class="px-3 py-2 text-slate-600">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="px-3 py-2">{{ log.dataset }}</td>
+          <td class="px-3 py-2">{{ log.result }}</td>
+          <td class="px-3 py-2">{{ log.created_count }}</td>
+          <td class="px-3 py-2">{{ log.updated_count }}</td>
+          <td class="px-3 py-2">{{ log.error_count }}</td>
+          <td class="px-3 py-2">{{ log.actor_name or '' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="px-3 py-8 text-center text-slate-400">実行履歴はありません。</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block body_end %}
+{{ super() }}
+<script>
+  (() => {
+    const storageKey = "open-hoikuict.dataTransfers.visibleDatasets";
+    const toggles = Array.from(document.querySelectorAll("[data-dataset-toggle]"));
+    const datasetIds = toggles.map((toggle) => toggle.value);
+
+    const readVisibleDatasets = () => {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (Array.isArray(parsed)) {
+          const visible = parsed.filter((item) => datasetIds.includes(item));
+          return visible.length ? visible : datasetIds;
+        }
+      } catch (error) {
+        return datasetIds;
+      }
+      return datasetIds;
+    };
+
+    const ensureSelectHasVisibleValue = (select, visibleSet) => {
+      if (!select || visibleSet.has(select.value)) {
+        return;
+      }
+      const firstVisibleOption = Array.from(select.options).find((option) => visibleSet.has(option.value));
+      if (firstVisibleOption) {
+        select.value = firstVisibleOption.value;
+      }
+    };
+
+    const applyDatasetVisibility = () => {
+      let visible = toggles.filter((toggle) => toggle.checked).map((toggle) => toggle.value);
+      if (!visible.length) {
+        visible = datasetIds;
+        toggles.forEach((toggle) => {
+          toggle.checked = true;
+        });
+      }
+      const visibleSet = new Set(visible);
+
+      document.querySelectorAll("[data-dataset-row]").forEach((row) => {
+        row.classList.toggle("hidden", !visibleSet.has(row.dataset.datasetRow));
+      });
+      document.querySelectorAll("[data-dataset-option]").forEach((option) => {
+        option.hidden = !visibleSet.has(option.value);
+        option.disabled = !visibleSet.has(option.value);
+      });
+
+      ensureSelectHasVisibleValue(document.querySelector("#filtered-export-form select[name='dataset']"), visibleSet);
+      ensureSelectHasVisibleValue(document.querySelector("[data-import-dataset]"), visibleSet);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(visibleSet)));
+      } catch (error) {
+        return;
+      }
+    };
+
+    if (toggles.length) {
+      const visibleSet = new Set(readVisibleDatasets());
+      toggles.forEach((toggle) => {
+        toggle.checked = visibleSet.has(toggle.value);
+        toggle.addEventListener("change", applyDatasetVisibility);
+      });
+      applyDatasetVisibility();
+    }
+
+    const exportForm = document.getElementById("filtered-export-form");
+    if (exportForm) {
+      exportForm.addEventListener("submit", (event) => {
+        const dataset = exportForm.elements.dataset.value;
+        const format = exportForm.elements.format.value;
+        exportForm.action = `/data-transfers/export/${dataset}.${format}`;
+      });
+    }
+
+    const importForm = document.querySelector("[data-import-form]");
+    const importDataset = document.querySelector("[data-import-dataset]");
+    if (importForm && importDataset) {
+      importDataset.addEventListener("change", () => {
+        importForm.action = `/data-transfers/import/${importDataset.value}/preview`;
+      });
+    }
+  })();
+</script>
+{% endblock %}
