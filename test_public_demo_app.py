@@ -144,6 +144,43 @@ class PublicDemoAppTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("議事録", response.text)
 
+    def test_staff_login_management_and_logout_flow(self):
+        with TestClient(main.app) as client:
+            login_page = client.get("/staff/login?redirect=/staff/")
+
+            self.assertEqual(login_page.status_code, 200)
+            self.assertIn("未ログイン", login_page.text)
+            self.assertIn('name="staff_id" value="1"', login_page.text)
+            self.assertIn("園長", login_page.text)
+            self.assertIn('href="/staff/"', login_page.text)
+
+            login_response = client.post(
+                "/staff/login",
+                data={"staff_id": "1", "redirect_to": "/staff/"},
+                follow_redirects=False,
+            )
+            self.assertEqual(login_response.status_code, 303)
+            self.assertEqual(login_response.headers["location"], "/staff/")
+
+            staff_page = client.get("/staff/")
+            self.assertEqual(staff_page.status_code, 200)
+            self.assertIn("職員管理", staff_page.text)
+            self.assertIn("職員を追加", staff_page.text)
+            self.assertIn('href="/staff/1/edit"', staff_page.text)
+
+            logout_response = client.post(
+                "/staff/logout",
+                data={"redirect_to": "/staff/login"},
+                follow_redirects=False,
+            )
+            self.assertEqual(logout_response.status_code, 303)
+            self.assertEqual(logout_response.headers["location"], "/staff/login")
+
+            logged_out_page = client.get("/staff/login")
+            self.assertEqual(logged_out_page.status_code, 200)
+            self.assertIn("未ログイン", logged_out_page.text)
+            self.assertNotIn("職員を追加", logged_out_page.text)
+
 
 if __name__ == "__main__":
     unittest.main()

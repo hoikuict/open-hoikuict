@@ -68,11 +68,13 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn('action="/staff/login"', response.text)
         self.assertIn('name="redirect_to" value="/staff-rooms/"', response.text)
         self.assertIn('name="staff_id" value="1"', response.text)
+        self.assertIn("未ログイン", response.text)
         self.assertIn("園長", response.text)
         self.assertIn("ひよこぐみ担任", response.text)
         self.assertIn("パート職員", response.text)
         self.assertIn("管理者", response.text)
         self.assertIn("閲覧のみ", response.text)
+        self.assertIn('href="/staff/"', response.text)
 
     def test_login_sets_staff_session_and_redirects(self):
         response = self.client.post(
@@ -89,6 +91,12 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", cookies)
 
     def test_logout_clears_staff_session_and_redirects_to_login(self):
+        self.client.post(
+            "/staff/login",
+            data={"staff_id": str(self.principal_id), "redirect_to": "/staff/"},
+            follow_redirects=False,
+        )
+
         response = self.client.post(
             "/staff/logout",
             data={"redirect_to": "/staff/login"},
@@ -101,6 +109,11 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_ROLE_COOKIE}=", cookies)
         self.assertIn(f"{MOCK_STAFF_ID_COOKIE}=", cookies)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", cookies)
+
+        login_page = self.client.get("/staff/login")
+        self.assertEqual(login_page.status_code, 200)
+        self.assertIn("未ログイン", login_page.text)
+        self.assertNotIn("ログイン中</p>\n          <p class=\"mt-2 text-base font-semibold\">園長", login_page.text)
 
 
 if __name__ == "__main__":

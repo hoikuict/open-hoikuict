@@ -17,10 +17,17 @@
     <div class="mt-6 rounded-2xl bg-slate-50 p-5">
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">現在の選択</p>
       <div class="mt-3 flex flex-wrap items-center gap-3">
+        {% if current_user and current_user.staff_id %}
         <span class="rounded-full bg-slate-900 px-3 py-1 text-sm font-medium text-white">
           {{ current_user.role_label }}
         </span>
         <span class="text-sm text-slate-600">{{ current_user.name }}</span>
+        {% else %}
+        <span class="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700">
+          未ログイン
+        </span>
+        <span class="text-sm text-slate-600">職員を選択してください</span>
+        {% endif %}
       </div>
     </div>
   </section>
