@@ -15,6 +15,9 @@ theme:
     - search.highlight
 plugins:
   - search
+markdown_extensions:
+  - pymdownx.tasklist:
+      custom_checkbox: true
 nav:
   - はじめに: index.md
   - 導入ロードマップ: roadmap.md
