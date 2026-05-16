@@ -9,7 +9,7 @@
       <p class="text-sm text-slate-500">職員の表示名、権限、雇用区分、主担当クラスを管理します。</p>
     </div>
     <div class="flex gap-2">
-      <a href="/staff/mock-login?redirect={{ request.url.path }}" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">モックログイン</a>
+      <a href="/staff/login?redirect={{ request.url.path }}" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">職員を選択する</a>
       {% if current_user and current_user.is_admin %}
       <a href="/staff/new" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">職員を追加</a>
       {% endif %}

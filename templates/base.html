@@ -131,24 +131,23 @@
           {% else %}
           <p class="mt-1 text-sm text-slate-600">職員を選ぶと権限が反映されます。</p>
           {% endif %}
-          <a href="/staff/login?redirect={{ staff_login_redirect }}" class="mt-4 inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">職員を切り替える</a>
+          <a href="/staff/login?redirect={{ staff_login_redirect }}" class="mt-4 block rounded-xl bg-slate-900 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800">職員を選択する</a>
         </div>
       </div>
 
+      {% if has_staff_session %}
       <div class="border-t border-slate-200 px-4 py-4">
         <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">認証</p>
         <div class="mt-3 space-y-2">
-          <a href="/staff/login?redirect={{ staff_login_redirect }}" class="block rounded-xl bg-slate-900 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800">職員ログイン</a>
-          {% if has_staff_session %}
           <form method="post" action="/staff/logout">
             <input type="hidden" name="redirect_to" value="/staff/login">
             <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
               ログアウト
             </button>
           </form>
-          {% endif %}
         </div>
       </div>
+      {% endif %}
     </aside>
 
     <div id="staff-sidebar-backdrop" class="no-print fixed inset-0 z-30 hidden bg-slate-900/40 lg:hidden"></div>
