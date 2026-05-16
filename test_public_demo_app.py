@@ -152,8 +152,12 @@ class PublicDemoAppTests(unittest.TestCase):
             self.assertIn("未ログイン", login_page.text)
             self.assertIn("職員を選択する", login_page.text)
             self.assertLess(login_page.text.index("職員を選択する"), login_page.text.index("基本業務"))
+            self.assertEqual(login_page.text.count('name="staff_id"'), 19)
             self.assertIn('name="staff_id" value="1"', login_page.text)
             self.assertIn("園長", login_page.text)
+            self.assertIn("看護師", login_page.text)
+            self.assertIn("ぞう組担任B", login_page.text)
+            self.assertIn("早番パート", login_page.text)
             self.assertIn('href="/staff/"', login_page.text)
 
             login_response = client.post(
@@ -171,6 +175,9 @@ class PublicDemoAppTests(unittest.TestCase):
             self.assertLess(staff_page.text.index("職員を選択する"), staff_page.text.index("基本業務"))
             self.assertIn("職員を追加", staff_page.text)
             self.assertIn('href="/staff/1/edit"', staff_page.text)
+            self.assertIn("看護師", staff_page.text)
+            self.assertIn("ぞう組担任B", staff_page.text)
+            self.assertIn("早番パート", staff_page.text)
 
             logout_response = client.post(
                 "/staff/logout",

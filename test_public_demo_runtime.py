@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from database import initialize_demo_template_database
 from demo_runtime import DemoSessionManager, DemoSettings
-from models import Child
+from models import Child, Staff
 
 
 class PublicDemoRuntimeTests(unittest.TestCase):
@@ -40,6 +40,9 @@ class PublicDemoRuntimeTests(unittest.TestCase):
         with Session(first_engine) as session:
             children = session.exec(select(Child)).all()
             self.assertEqual(len(children), 100)
+            staff_members = session.exec(select(Staff)).all()
+            self.assertEqual(len(staff_members), 19)
+            self.assertTrue(any(staff.display_name == "ぞう組担任B" for staff in staff_members))
             child = session.exec(select(Child).order_by(Child.id)).first()
             self.assertIsNotNone(child)
             child.last_name = "SessionA"

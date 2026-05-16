@@ -249,7 +249,7 @@ def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
 
 def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
     from auth import Role
-    from models import Classroom, Staff, StaffEmploymentType, StaffStatus
+    from models import Classroom, Staff, StaffEmploymentType, StaffStatus, User
 
     with Session(_resolve_engine(db_engine)) as session:
         if session.exec(select(Staff)).first():
@@ -257,46 +257,55 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
 
         classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
         classroom_ids = [classroom.id for classroom in classrooms if classroom.id is not None]
+        classroom_id_by_prefix = {
+            classroom.name.split("（", 1)[0]: classroom.id
+            for classroom in classrooms
+            if classroom.id is not None
+        }
 
         def classroom_id_at(index: int) -> int | None:
             if not classroom_ids:
                 return None
             return classroom_ids[min(index, len(classroom_ids) - 1)]
 
-        staff_members = [
-            Staff(
-                full_name="山田 園長",
-                display_name="山田園長",
-                role=Role.ADMIN,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=None,
-            ),
-            Staff(
-                full_name="佐藤 花",
-                display_name="佐藤先生",
-                role=Role.CAN_EDIT,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=classroom_id_at(0),
-            ),
-            Staff(
-                full_name="鈴木 空",
-                display_name="鈴木先生",
-                role=Role.CAN_EDIT,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=classroom_id_at(1),
-            ),
-            Staff(
-                full_name="中村 見学",
-                display_name="中村さん",
-                role=Role.VIEW_ONLY,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.part_time,
-                primary_classroom_id=classroom_id_at(2),
-            ),
-        ]
+        def primary_classroom_id_for(display_name: str) -> int | None:
+            for prefix, classroom_id in classroom_id_by_prefix.items():
+                if display_name.startswith(prefix):
+                    return classroom_id
+            return None
+
+        def role_for(staff_role: str) -> Role:
+            try:
+                return Role(staff_role)
+            except ValueError:
+                return Role.CAN_EDIT
+
+        staff_users = session.exec(
+            select(User)
+            .where(User.is_active.is_(True))
+            .order_by(User.staff_sort_order, User.display_name)
+        ).all()
+        if staff_users:
+            for user in staff_users:
+                role = role_for(user.staff_role)
+                employment_type = (
+                    StaffEmploymentType.part_time
+                    if role == Role.VIEW_ONLY or "パート" in user.display_name
+                    else StaffEmploymentType.regular
+                )
+                session.add(
+                    Staff(
+                        full_name=user.display_name,
+                        display_name=user.display_name,
+                        role=role,
+                        status=StaffStatus.active,
+                        employment_type=employment_type,
+                        primary_classroom_id=primary_classroom_id_for(user.display_name),
+                    )
+                )
+
+            session.commit()
+            return
 
         staff_members = [
             Staff(
