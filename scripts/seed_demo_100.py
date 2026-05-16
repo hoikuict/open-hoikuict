@@ -85,6 +85,7 @@ BOOL_FIELDS = {
     "is_primary_contact", "diagnosis_confirmed", "removal_required", "is_active", "requires_medical_care",
     "epipen_required", "sids_risk_flag", "breastfed", "requires_followup", "is_calendar_admin",
     "is_primary", "is_archived", "is_visible", "is_all_day", "is_deleted", "is_read",
+    "is_required", "value_bool",
 }
 INT_FIELDS = {
     "id", "display_order", "child_id", "classroom_id", "family_id", "older_sibling_id", "order",
