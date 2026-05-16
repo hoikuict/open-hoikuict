@@ -946,20 +946,16 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
 
 
 def initialize_demo_template_database(db_path: Path) -> None:
+    from scripts.seed_demo_100 import seed as seed_demo_100
+
     demo_engine = create_engine(
         f"sqlite:///{db_path.resolve().as_posix()}",
         echo=False,
         connect_args={"check_same_thread": False},
     )
     try:
-        create_db_and_tables(demo_engine)
-        seed_classroom_data(demo_engine)
+        seed_demo_100(wipe=True, db_engine=demo_engine)
         seed_staff_data(demo_engine)
-        seed_sample_data(demo_engine)
-        bootstrap_family_records(demo_engine)
-        bootstrap_health_records(demo_engine)
-        seed_parent_portal_data(demo_engine)
-        seed_calendar_data(demo_engine)
         seed_meeting_note_data(demo_engine)
     finally:
         demo_engine.dispose()

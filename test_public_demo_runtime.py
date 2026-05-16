@@ -38,6 +38,8 @@ class PublicDemoRuntimeTests(unittest.TestCase):
         second_engine = self.manager.get_engine("b" * 32)
 
         with Session(first_engine) as session:
+            children = session.exec(select(Child)).all()
+            self.assertEqual(len(children), 100)
             child = session.exec(select(Child).order_by(Child.id)).first()
             self.assertIsNotNone(child)
             child.last_name = "SessionA"
