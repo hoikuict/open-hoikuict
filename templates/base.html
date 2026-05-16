@@ -81,6 +81,7 @@
           <p class="mt-1 text-sm text-slate-300">職員を選択してください</p>
           {% endif %}
         </div>
+        <a href="/staff/login?redirect={{ staff_login_redirect }}" class="mt-3 block rounded-xl bg-slate-900 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800">職員を選択する</a>
 
         <nav class="mt-6 space-y-6">
           <div>
@@ -120,19 +121,6 @@
             </div>
           </div>
         </nav>
-      </div>
-
-      <div class="border-t border-slate-200 px-4 py-4">
-        <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{% if has_staff_session %}現在の権限{% else %}職員選択{% endif %}</p>
-        <div class="mt-3 rounded-2xl bg-slate-50 px-4 py-4">
-          <p class="text-sm font-semibold text-slate-900">{{ current_staff_name }}</p>
-          {% if has_staff_session %}
-          <p class="mt-1 text-sm text-slate-600">{{ staff_user.role_label }}</p>
-          {% else %}
-          <p class="mt-1 text-sm text-slate-600">職員を選ぶと権限が反映されます。</p>
-          {% endif %}
-          <a href="/staff/login?redirect={{ staff_login_redirect }}" class="mt-4 block rounded-xl bg-slate-900 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800">職員を選択する</a>
-        </div>
       </div>
 
       {% if has_staff_session %}

@@ -70,6 +70,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn('name="staff_id" value="1"', response.text)
         self.assertIn("未ログイン", response.text)
         self.assertIn("職員を選択する", response.text)
+        self.assertLess(response.text.index("職員を選択する"), response.text.index("基本業務"))
         self.assertIn("園長", response.text)
         self.assertIn("ひよこぐみ担任", response.text)
         self.assertIn("パート職員", response.text)
@@ -115,6 +116,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertEqual(login_page.status_code, 200)
         self.assertIn("未ログイン", login_page.text)
         self.assertIn("職員を選択する", login_page.text)
+        self.assertLess(login_page.text.index("職員を選択する"), login_page.text.index("基本業務"))
         self.assertNotIn("ログイン中</p>\n          <p class=\"mt-2 text-base font-semibold\">園長", login_page.text)
 
 
