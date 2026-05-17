@@ -40,7 +40,7 @@ def staff_login_page(
 ):
     users = session.exec(
         select(User)
-        .where(User.is_active.is_(True), User.staff_sort_order < 100)
+        .where(User.is_active.is_(True), User.staff_sort_order < 200)
         .order_by(User.staff_sort_order, User.display_name, User.email)
     ).all()
     return templates.TemplateResponse(

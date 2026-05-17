@@ -573,11 +573,23 @@ def seed_calendar_data() -> None:
         staff_specs = [
             {"email": "principal@example.com", "display_name": "園長", "staff_role": "admin", "staff_sort_order": 10, "color": "#2563EB"},
             {"email": "chief@example.com", "display_name": "主任", "staff_role": "admin", "staff_sort_order": 20, "color": "#7C3AED"},
-            {"email": "hiyoko@example.com", "display_name": "ひよこぐみ担任", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#F59E0B"},
-            {"email": "takenoko@example.com", "display_name": "たけのこぐみ担任", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#10B981"},
-            {"email": "kinoko@example.com", "display_name": "きのこぐみ担任", "staff_role": "can_edit", "staff_sort_order": 50, "color": "#EC4899"},
-            {"email": "part@example.com", "display_name": "パート職員", "staff_role": "view_only", "staff_sort_order": 60, "color": "#64748B"},
-            {"email": "arbeit@example.com", "display_name": "アルバイト職員", "staff_role": "view_only", "staff_sort_order": 70, "color": "#0EA5E9"},
+            {"email": "nurse@example.com", "display_name": "看護師", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#0891B2"},
+            {"email": "nutritionist@example.com", "display_name": "栄養士", "staff_role": "can_edit", "staff_sort_order": 35, "color": "#65A30D"},
+            {"email": "office@example.com", "display_name": "事務", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#9333EA"},
+            {"email": "hiyoko@example.com", "display_name": "ひよこ組担任A", "staff_role": "can_edit", "staff_sort_order": 60, "color": "#F59E0B"},
+            {"email": "hiyoko-b@example.com", "display_name": "ひよこ組担任B", "staff_role": "can_edit", "staff_sort_order": 61, "color": "#F97316"},
+            {"email": "takenoko@example.com", "display_name": "りす組担任A", "staff_role": "can_edit", "staff_sort_order": 70, "color": "#10B981"},
+            {"email": "risu-b@example.com", "display_name": "りす組担任B", "staff_role": "can_edit", "staff_sort_order": 71, "color": "#14B8A6"},
+            {"email": "kinoko@example.com", "display_name": "うさぎ組担任A", "staff_role": "can_edit", "staff_sort_order": 80, "color": "#EC4899"},
+            {"email": "usagi-b@example.com", "display_name": "うさぎ組担任B", "staff_role": "can_edit", "staff_sort_order": 81, "color": "#F43F5E"},
+            {"email": "panda-a@example.com", "display_name": "ぱんだ組担任A", "staff_role": "can_edit", "staff_sort_order": 90, "color": "#8B5CF6"},
+            {"email": "panda-b@example.com", "display_name": "ぱんだ組担任B", "staff_role": "can_edit", "staff_sort_order": 91, "color": "#A855F7"},
+            {"email": "kirin-a@example.com", "display_name": "きりん組担任A", "staff_role": "can_edit", "staff_sort_order": 100, "color": "#0EA5E9"},
+            {"email": "kirin-b@example.com", "display_name": "きりん組担任B", "staff_role": "can_edit", "staff_sort_order": 101, "color": "#38BDF8"},
+            {"email": "zou-a@example.com", "display_name": "ぞう組担任A", "staff_role": "can_edit", "staff_sort_order": 110, "color": "#2563EB"},
+            {"email": "zou-b@example.com", "display_name": "ぞう組担任B", "staff_role": "can_edit", "staff_sort_order": 111, "color": "#1D4ED8"},
+            {"email": "part@example.com", "display_name": "早番パート", "staff_role": "view_only", "staff_sort_order": 150, "color": "#64748B"},
+            {"email": "arbeit@example.com", "display_name": "遅番パート", "staff_role": "view_only", "staff_sort_order": 151, "color": "#475569"},
         ]
 
         def ensure_user(*, email: str, display_name: str, staff_role: str, staff_sort_order: int) -> User:

@@ -29,6 +29,11 @@ MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
 class StaffUser:
     role: Role
     name: str = "モック職員"
+    user_id: Optional[UUID] = None
+
+    @property
+    def staff_id(self) -> Optional[str]:
+        return str(self.user_id) if self.user_id is not None else None
 
     @property
     def can_view(self) -> bool:
@@ -66,6 +71,7 @@ class ParentPortalAuthBackend(Protocol):
 class MockStaffAuthBackend:
     def get_current_user(self, request: Request) -> StaffUser:
         role = Role.CAN_EDIT
+        user_id = get_current_staff_user_id(request)
         raw_name = request.cookies.get(MOCK_STAFF_NAME_COOKIE)
         name = unquote(raw_name) if raw_name else "モック職員"
         as_param = request.query_params.get("as")
@@ -76,7 +82,7 @@ class MockStaffAuthBackend:
             cookie_role = request.cookies.get(MOCK_ROLE_COOKIE)
             if cookie_role and cookie_role in valid_roles:
                 role = Role(cookie_role)
-        return StaffUser(role=role, name=name)
+        return StaffUser(role=role, name=name, user_id=user_id)
 
 
 class MockParentPortalAuthBackend:
@@ -152,7 +158,7 @@ def get_current_staff_user_record(request: Request, session):
     if staff_user_id is None:
         return None
     user = session.get(User, staff_user_id)
-    if user is None or not user.is_active or user.staff_sort_order >= 100:
+    if user is None or not user.is_active or user.staff_sort_order >= 200:
         return None
     return user
 

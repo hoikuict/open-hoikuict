@@ -223,7 +223,7 @@ def _ensure_calendar_member(
 def _ensure_facility_shared_memberships(session: Session, calendar: Calendar) -> set[UUID]:
     active_users = session.exec(
         select(User)
-        .where(User.is_active.is_(True), User.staff_sort_order < 100)
+        .where(User.is_active.is_(True), User.staff_sort_order < 200)
         .order_by(User.staff_sort_order, User.display_name, User.email)
     ).all()
     broadcast_ids = {calendar.id}
@@ -824,7 +824,7 @@ def mock_login(
     session: Session = Depends(get_session),
 ):
     user = session.get(User, _coerce_uuid(user_id) or UUID(int=0))
-    if user is None or not user.is_active or user.staff_sort_order >= 100:
+    if user is None or not user.is_active or user.staff_sort_order >= 200:
         return RedirectResponse(url="/staff/login", status_code=303)
     response = RedirectResponse(url=redirect_to if redirect_to.startswith("/") else "/calendar", status_code=303)
     role = Role.ADMIN if user.staff_role == "admin" else Role.CAN_EDIT if user.staff_role == "can_edit" else Role.VIEW_ONLY

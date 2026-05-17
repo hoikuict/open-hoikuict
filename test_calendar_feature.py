@@ -282,8 +282,8 @@ class CalendarFeatureTests(unittest.TestCase):
 
     def test_event_creation_on_shared_calendar_creates_creator_only_jobs(self):
         self._login(self.user_a_id)
-        tomorrow = datetime(2026, 4, 13, 9, 0).strftime("%Y-%m-%dT%H:%M")
-        tomorrow_end = datetime(2026, 4, 13, 10, 0).strftime("%Y-%m-%dT%H:%M")
+        tomorrow = datetime(2026, 6, 13, 9, 0).strftime("%Y-%m-%dT%H:%M")
+        tomorrow_end = datetime(2026, 6, 13, 10, 0).strftime("%Y-%m-%dT%H:%M")
 
         response = self.client.post(
             "/events",
@@ -298,7 +298,7 @@ class CalendarFeatureTests(unittest.TestCase):
                 "visibility": EventVisibility.normal.value,
                 "reminders": "5,30",
                 "mode": "day",
-                "anchor_date": "2026-04-13",
+                "anchor_date": "2026-06-13",
             },
             follow_redirects=False,
         )

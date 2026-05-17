@@ -116,7 +116,8 @@ class StaffRoomRouterTests(unittest.TestCase):
         self.assertIn('/children', response.text)
         self.assertIn('/staff-rooms/', response.text)
         self.assertIn('/staff/login', response.text)
-        self.assertIn('/staff/logout', response.text)
+        self.assertIn("職員を選択する", response.text)
+        self.assertNotIn('/staff/logout', response.text)
         self.assertIn('hx-get="/staff-rooms/partials/timeline"', response.text)
         self.assertIn('hx-trigger="every 5s"', response.text)
 

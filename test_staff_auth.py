@@ -3,9 +3,10 @@ import unittest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import MOCK_CALENDAR_USER_COOKIE, MOCK_ROLE_COOKIE, MOCK_STAFF_NAME_COOKIE
+import database
 from models import User
 import routers.staff_auth as staff_auth_module
 
@@ -39,13 +40,21 @@ class StaffAuthRouterTests(unittest.TestCase):
             )
             self.part_timer = User(
                 email="part@example.com",
-                display_name="パート職員",
+                display_name="早番パート",
                 staff_role="view_only",
-                staff_sort_order=60,
+                staff_sort_order=150,
+                is_calendar_admin=False,
+            )
+            self.external_user = User(
+                email="external@example.com",
+                display_name="外部確認用",
+                staff_role="view_only",
+                staff_sort_order=220,
                 is_calendar_admin=False,
             )
             session.add(self.principal)
             session.add(self.part_timer)
+            session.add(self.external_user)
             session.commit()
             self.principal_id = self.principal.id
 
@@ -59,9 +68,14 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('action="/staff/login"', response.text)
         self.assertIn('name="redirect_to" value="/staff-rooms/"', response.text)
+        self.assertEqual(response.text.count('name="user_id"'), 2)
         self.assertIn("職員ログイン", response.text)
+        self.assertIn("未ログイン", response.text)
+        self.assertIn("職員を選択する", response.text)
+        self.assertLess(response.text.index("職員を選択する"), response.text.index("基本業務"))
         self.assertIn("園長", response.text)
-        self.assertIn("パート職員", response.text)
+        self.assertIn("早番パート", response.text)
+        self.assertNotIn("外部確認用", response.text)
         self.assertIn("管理者", response.text)
         self.assertIn("閲覧のみ", response.text)
 
@@ -80,6 +94,12 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_CALENDAR_USER_COOKIE}=", set_cookie)
 
     def test_logout_clears_staff_and_calendar_cookies(self):
+        self.client.post(
+            "/staff/login",
+            data={"user_id": str(self.principal_id), "redirect_to": "/staff-rooms/"},
+            follow_redirects=False,
+        )
+
         response = self.client.post(
             "/staff/logout",
             data={"redirect_to": "/staff/login"},
@@ -92,6 +112,33 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_ROLE_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CALENDAR_USER_COOKIE}=", set_cookie)
+
+        login_page = self.client.get("/staff/login")
+        self.assertEqual(login_page.status_code, 200)
+        self.assertIn("未ログイン", login_page.text)
+        self.assertNotIn("ログイン中</p>\n          <p class=\"mt-2 text-base font-semibold\">園長", login_page.text)
+
+    def test_seed_calendar_data_restores_full_staff_users(self):
+        original_engine = database.engine
+        database.engine = self.engine
+        try:
+            database.seed_calendar_data()
+        finally:
+            database.engine = original_engine
+
+        with Session(self.engine) as session:
+            staff_users = session.exec(
+                select(User)
+                .where(User.is_active.is_(True), User.staff_sort_order < 200)
+                .order_by(User.staff_sort_order, User.display_name)
+            ).all()
+
+        self.assertEqual(len(staff_users), 19)
+        names = [user.display_name for user in staff_users]
+        self.assertIn("看護師", names)
+        self.assertIn("ぞう組担任B", names)
+        self.assertIn("早番パート", names)
+        self.assertIn("遅番パート", names)
 
 
 if __name__ == "__main__":
