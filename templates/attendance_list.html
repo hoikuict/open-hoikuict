@@ -182,6 +182,9 @@
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">登園</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">降園</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">状態</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">延長分数</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">延長料金</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">延長状態</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">お迎え予定時刻</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">お迎え予定者</th>
           {% if filters.is_single_day %}
@@ -191,7 +194,7 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for row in rows %}
-        <tr class="hover:bg-gray-50">
+        <tr class="{% if row.extended_care_requires_attention %}bg-amber-50 hover:bg-amber-100{% else %}hover:bg-gray-50{% endif %}">
           <td class="px-4 py-2 whitespace-nowrap">{{ row.attendance_date.strftime("%Y-%m-%d") }}</td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.child_name }}</td>
           <td class="px-4 py-2 whitespace-nowrap">
@@ -211,6 +214,37 @@
               <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">在園中</span>
             {% else %}
               <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">降園済み</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            {% if row.extended_care_minutes is not none %}
+            {{ row.extended_care_minutes }} 分
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            {% if row.extended_care_amount is not none %}
+            {{ "{:,}".format(row.extended_care_amount) }} 円
+            {% else %}
+            —
+            {% endif %}
+          </td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            {% if row.extended_care_status_label == "要確認" %}
+              <span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full">要確認</span>
+            {% elif row.extended_care_status_label == "確認済み" %}
+              <span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">確認済み</span>
+            {% elif row.extended_care_status_label == "調整済み" %}
+              <span class="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full">調整済み</span>
+            {% elif row.extended_care_status_label == "0円" %}
+              <span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">0円</span>
+            {% elif row.extended_care_status_label == "未計算" %}
+              <span class="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">未計算</span>
+            {% elif row.extended_care_status_label == "対象外" %}
+              <span class="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">対象外</span>
+            {% else %}
+              <span class="text-xs text-gray-400">—</span>
             {% endif %}
           </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.planned_pickup_time if row.planned_pickup_time else "—" }}</td>
@@ -243,7 +277,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="{{ 9 if filters.is_single_day else 8 }}" class="px-4 py-8 text-center text-gray-400">条件に一致する登降園データがありません</td>
+          <td colspan="{{ 12 if filters.is_single_day else 11 }}" class="px-4 py-8 text-center text-gray-400">条件に一致する登降園データがありません</td>
         </tr>
         {% endfor %}
       </tbody>

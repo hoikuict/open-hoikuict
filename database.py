@@ -190,6 +190,28 @@ def seed_classroom_data() -> None:
         session.commit()
 
 
+def seed_extended_care_fee_rules() -> None:
+    from models import ExtendedCareFeeRule
+
+    with Session(engine) as session:
+        if session.exec(select(ExtendedCareFeeRule)).first():
+            return
+
+        session.add(
+            ExtendedCareFeeRule(
+                name="標準延長保育料",
+                effective_from=date(2020, 1, 1),
+                start_time="18:00",
+                grace_minutes=5,
+                rounding_minutes=15,
+                unit_price=100,
+                daily_cap_amount=None,
+                is_active=True,
+            )
+        )
+        session.commit()
+
+
 def seed_sample_data() -> None:
     from models import Child, ChildStatus, Classroom, Family, Guardian
 
