@@ -75,9 +75,8 @@
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <thead class="bg-gray-50 text-left text-gray-600">
         <tr>
-          <th class="px-4 py-3 font-semibold">回答ID</th>
+          <th class="px-4 py-3 font-semibold">回答者</th>
           <th class="px-4 py-3 font-semibold">提出日時</th>
-          <th class="px-4 py-3 font-semibold">スコープ</th>
           {% for question in questions %}
           <th class="px-4 py-3 font-semibold">Q{{ question.order }}</th>
           {% endfor %}
@@ -87,20 +86,15 @@
         {% for answer in answers %}
         {% set responses = response_by_question(answer) %}
         <tr>
-          <td class="px-4 py-3">{{ answer.id }}</td>
+          <td class="px-4 py-3">{{ answer_scope_labels.get(answer.id, "-") }}</td>
           <td class="px-4 py-3">{{ answer.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
-          <td class="px-4 py-3">
-            {% if answer.family_id %}世帯ID: {{ answer.family_id }}{% endif %}
-            {% if answer.child_id %}園児ID: {{ answer.child_id }}{% endif %}
-            {% if answer.staff_user_id %}職員ID: {{ answer.staff_user_id }}{% endif %}
-          </td>
           {% for question in questions %}
           <td class="px-4 py-3">{{ answer_value_for_display(question, responses.get(question.id)) }}</td>
           {% endfor %}
         </tr>
         {% else %}
         <tr>
-          <td colspan="{{ 3 + questions|length }}" class="px-4 py-10 text-center text-gray-400">回答はまだありません。</td>
+          <td colspan="{{ 2 + questions|length }}" class="px-4 py-10 text-center text-gray-400">回答はまだありません。</td>
         </tr>
         {% endfor %}
       </tbody>

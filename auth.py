@@ -199,7 +199,7 @@ def get_current_staff_user_record(request: Request, session):
     if staff_user_id is None:
         return None
     user = session.get(User, staff_user_id)
-    if user is None or not user.is_active or user.staff_sort_order >= 100:
+    if user is None or not user.is_active or user.staff_sort_order >= 200:
         return None
     return user
 
