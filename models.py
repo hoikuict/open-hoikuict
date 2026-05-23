@@ -118,6 +118,22 @@ class AttendanceVerificationStatus(str, Enum):
         return self == self.unknown
 
 
+class ExtendedCareChargeStatus(str, Enum):
+    draft = "draft"
+    confirmed = "confirmed"
+    manual_adjusted = "manual_adjusted"
+    excluded = "excluded"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.draft: "要確認",
+            self.confirmed: "確認済み",
+            self.manual_adjusted: "調整済み",
+            self.excluded: "対象外",
+        }[self]
+
+
 class ChildProfileChangeRequestStatus(str, Enum):
     pending = "pending"
     approved = "approved"
@@ -666,6 +682,59 @@ class AttendanceRecord(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
     child: Optional[Child] = Relationship(back_populates="attendance_records")
+    extended_care_charge: Optional["ExtendedCareCharge"] = Relationship(
+        back_populates="attendance_record",
+        sa_relationship_kwargs={"uselist": False},
+    )
+
+
+class ExtendedCareFeeRule(SQLModel, table=True):
+    __tablename__ = "extended_care_fee_rules"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    effective_from: date = Field(index=True)
+    effective_to: Optional[date] = Field(default=None, index=True)
+    start_time: str = Field(default="18:00")
+    grace_minutes: int = Field(default=5)
+    rounding_minutes: int = Field(default=15)
+    unit_price: int = Field(default=100)
+    daily_cap_amount: Optional[int] = None
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    charges: List["ExtendedCareCharge"] = Relationship(back_populates="rule")
+
+
+class ExtendedCareCharge(SQLModel, table=True):
+    __tablename__ = "extended_care_charges"
+    __table_args__ = (
+        UniqueConstraint("attendance_record_id", name="uq_extended_care_charge_attendance_record"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    rule_id: int = Field(foreign_key="extended_care_fee_rules.id", index=True)
+    charge_start_at: datetime
+    actual_check_out_at: Optional[datetime] = None
+    extended_minutes: int = Field(default=0)
+    billable_units: int = Field(default=0)
+    auto_amount: int = Field(default=0)
+    adjustment_amount: int = Field(default=0)
+    final_amount: int = Field(default=0)
+    status: ExtendedCareChargeStatus = Field(default=ExtendedCareChargeStatus.draft, index=True)
+    adjustment_reason: Optional[str] = None
+    confirmed_by: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    attendance_record: Optional[AttendanceRecord] = Relationship(back_populates="extended_care_charge")
+    child: Optional[Child] = Relationship()
+    rule: Optional[ExtendedCareFeeRule] = Relationship(back_populates="charges")
 
 
 class ParentAccount(SQLModel, table=True):

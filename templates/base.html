@@ -20,7 +20,7 @@
 {% set is_parent_portal = (parent_portal_mode is defined and parent_portal_mode) or (current_parent_user is defined and current_parent_user) %}
 {% set current_path = request.url.path if request is defined and request else '' %}
 {% set staff_user = current_user if current_user is defined and current_user else none %}
-{% set has_staff_session = staff_user and staff_user.staff_id is not none %}
+{% set has_staff_session = staff_user and (staff_user.staff_id is not none or request.cookies.get('mock_calendar_user_id') or (staff_user.name and staff_user.name != 'モック職員')) %}
 {% set current_staff_name = staff_user.name if has_staff_session else "職員未選択" %}
 {% set staff_login_redirect = current_path or '/children' %}
 <body class="bg-slate-50 text-slate-800">
@@ -92,6 +92,7 @@
               <a href="/classrooms" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/classrooms') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">クラス管理</a>
               <a href="/attendance" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠一覧</a>
               <a href="/attendance-checks/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance-checks') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠確認</a>
+              <a href="/extended-care-fees/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/extended-care-fees') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">延長保育料金</a>
               <a href="/billing/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/billing') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">請求入力</a>
               <a href="/guardian" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/guardian') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者キオスク</a>
             </div>

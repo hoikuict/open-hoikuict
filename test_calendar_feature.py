@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -282,8 +282,8 @@ class CalendarFeatureTests(unittest.TestCase):
 
     def test_event_creation_on_shared_calendar_creates_creator_only_jobs(self):
         self._login(self.user_a_id)
-        tomorrow = datetime(2026, 4, 13, 9, 0).strftime("%Y-%m-%dT%H:%M")
-        tomorrow_end = datetime(2026, 4, 13, 10, 0).strftime("%Y-%m-%dT%H:%M")
+        tomorrow = (datetime.now() + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+        tomorrow_end = tomorrow + timedelta(hours=1)
 
         response = self.client.post(
             "/events",
@@ -293,12 +293,12 @@ class CalendarFeatureTests(unittest.TestCase):
                 "description": "連絡事項の確認",
                 "location": "会議室",
                 "timezone": "Asia/Tokyo",
-                "start_value": tomorrow,
-                "end_value": tomorrow_end,
+                "start_value": tomorrow.strftime("%Y-%m-%dT%H:%M"),
+                "end_value": tomorrow_end.strftime("%Y-%m-%dT%H:%M"),
                 "visibility": EventVisibility.normal.value,
                 "reminders": "5,30",
                 "mode": "day",
-                "anchor_date": "2026-04-13",
+                "anchor_date": tomorrow.strftime("%Y-%m-%d"),
             },
             follow_redirects=False,
         )

@@ -8,6 +8,7 @@ from database import (
     initialize_demo_template_database,
     seed_calendar_data,
     seed_classroom_data,
+    seed_extended_care_fee_rules,
     seed_parent_portal_data,
     seed_sample_data,
     seed_staff_data,
@@ -30,6 +31,7 @@ from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
 from routers.data_transfers import router as data_transfers_router
 from routers.daily_contacts import router as daily_contacts_router
+from routers.extended_care_fees import router as extended_care_fees_router
 from routers.families import router as families_router
 from routers.guardian import router as guardian_router
 from routers.meeting_notes import router as meeting_notes_router
@@ -55,6 +57,7 @@ app.include_router(child_health_router)
 app.include_router(child_change_requests_router)
 app.include_router(attendance_router)
 app.include_router(attendance_checks_router)
+app.include_router(extended_care_fees_router)
 app.include_router(billing_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
@@ -171,6 +174,7 @@ def on_startup():
 
     create_db_and_tables()
     seed_classroom_data()
+    seed_extended_care_fee_rules()
     seed_staff_data()
     seed_sample_data()
     bootstrap_family_records()

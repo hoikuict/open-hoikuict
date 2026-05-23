@@ -1,12 +1,95 @@
 :root {
-  /* 全体の基本テキストカラーを真っ黒に */
-  --md-text-color: #000000;
-  
-  /* 記事内の段落やリストなどのテキストカラーを真っ黒に */
-  --md-typeset-color: #000000;
+  --md-text-color: #0f172a;
+  --md-typeset-color: #0f172a;
 }
 
-/* h1見出しを真っ黒にする */
 .md-typeset h1 {
-  color: #000000;
+  color: #0f172a;
+}
+
+.home-hero {
+  margin: 0 0 2rem;
+  padding: 2rem;
+  border: 1px solid #d7e2f0;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 30%),
+    linear-gradient(135deg, #f8fbff 0%, #eef8f5 100%);
+}
+
+.home-eyebrow {
+  margin: 0 0 0.75rem;
+  color: #0f766e;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-lead {
+  max-width: 46rem;
+  margin: 1rem 0 0;
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.home-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.15rem;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none !important;
+}
+
+.home-button-primary {
+  color: #ffffff !important;
+  background: #0f766e;
+}
+
+.home-button-primary:hover {
+  background: #115e59;
+}
+
+.home-button-secondary {
+  color: #0f172a !important;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+}
+
+.home-button-secondary:hover {
+  background: #f8fafc;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+.home-card {
+  height: 100%;
+  padding: 1.1rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.home-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.home-card p {
+  margin: 0;
 }

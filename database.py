@@ -247,6 +247,28 @@ def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
 
         session.commit()
 
+
+def seed_extended_care_fee_rules(db_engine: Optional[Engine] = None) -> None:
+    from models import ExtendedCareFeeRule
+
+    with Session(_resolve_engine(db_engine)) as session:
+        if session.exec(select(ExtendedCareFeeRule)).first():
+            return
+
+        session.add(
+            ExtendedCareFeeRule(
+                name="標準延長保育料",
+                effective_from=date(2025, 4, 1),
+                start_time="18:00",
+                grace_minutes=5,
+                rounding_minutes=15,
+                unit_price=100,
+                daily_cap_amount=1200,
+            )
+        )
+        session.commit()
+
+
 def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
     from auth import Role
     from models import Classroom, Staff, StaffEmploymentType, StaffStatus, User
@@ -964,6 +986,7 @@ def initialize_demo_template_database(db_path: Path) -> None:
     )
     try:
         seed_demo_100(wipe=True, db_engine=demo_engine)
+        seed_extended_care_fee_rules(demo_engine)
         seed_staff_data(demo_engine)
         seed_meeting_note_data(demo_engine)
     finally:

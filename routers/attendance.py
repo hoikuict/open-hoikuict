@@ -16,7 +16,16 @@ from sqlmodel import Session, select
 from attendance_checks_service import parent_contact_label, sync_attendance_alarm
 from auth import get_current_staff_user, require_can_edit
 from database import get_session
-from models import AttendanceRecord, Child, ChildStatus, Classroom, DailyContactEntry
+from extended_care_fee_service import charge_status_label, recalculate_attendance_charge
+from models import (
+    AttendanceRecord,
+    Child,
+    ChildStatus,
+    Classroom,
+    DailyContactEntry,
+    ExtendedCareCharge,
+    ExtendedCareChargeStatus,
+)
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 templates = Jinja2Templates(directory="templates")
@@ -95,6 +104,7 @@ class AttendanceFilterParams:
 @dataclass
 class AttendanceReportRow:
     attendance_date: date
+    attendance_record_id: Optional[int]
     child_id: int
     child_name: str
     child_name_kana: str
@@ -110,6 +120,13 @@ class AttendanceReportRow:
     note: str
     status: str
     parent_contact_status: str
+    extended_care_charge_id: Optional[int]
+    extended_care_minutes: Optional[int]
+    extended_care_amount: Optional[int]
+    extended_care_status_label: str
+    extended_care_requires_attention: bool
+
+
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return date.today()
@@ -219,9 +236,27 @@ def _build_row(
     child: Child,
     record: Optional[AttendanceRecord],
     entry: Optional[DailyContactEntry],
+    charge: Optional[ExtendedCareCharge] = None,
 ) -> AttendanceReportRow:
+    extended_care_status_label = "—"
+    extended_care_minutes = None
+    extended_care_amount = None
+    extended_care_charge_id = None
+    extended_care_requires_attention = False
+    if charge:
+        extended_care_status_label = charge_status_label(charge)
+        extended_care_minutes = charge.extended_minutes
+        extended_care_amount = charge.final_amount
+        extended_care_charge_id = charge.id
+        extended_care_requires_attention = (
+            charge.status == ExtendedCareChargeStatus.draft and charge.final_amount > 0
+        )
+    elif record and record.check_out_at:
+        extended_care_status_label = "未計算"
+
     return AttendanceReportRow(
         attendance_date=target_day,
+        attendance_record_id=record.id if record else None,
         child_id=child.id or 0,
         child_name=child.full_name,
         child_name_kana=child.full_name_kana,
@@ -237,6 +272,11 @@ def _build_row(
         note=record.note if record and record.note else "",
         status=_attendance_status(record),
         parent_contact_status=parent_contact_label(entry),
+        extended_care_charge_id=extended_care_charge_id,
+        extended_care_minutes=extended_care_minutes,
+        extended_care_amount=extended_care_amount,
+        extended_care_status_label=extended_care_status_label,
+        extended_care_requires_attention=extended_care_requires_attention,
     )
 
 
@@ -283,6 +323,19 @@ def _matches_time_range(row: AttendanceReportRow, filters: AttendanceFilterParam
         candidates.append(row.check_out_at)
 
     return any(_time_in_range(value, filters.time_from, filters.time_to) for value in candidates)
+
+
+def _load_charges_by_record_id(
+    session: Session,
+    records: list[AttendanceRecord],
+) -> dict[int, ExtendedCareCharge]:
+    record_ids = [record.id for record in records if record.id is not None]
+    if not record_ids:
+        return {}
+    charges = session.exec(
+        select(ExtendedCareCharge).where(ExtendedCareCharge.attendance_record_id.in_(record_ids))
+    ).all()
+    return {charge.attendance_record_id: charge for charge in charges}
 
 
 def _sort_rows(rows: list[AttendanceReportRow], sort_by: str, sort_order: str) -> list[AttendanceReportRow]:
@@ -374,6 +427,7 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
         (entry.child_id, entry.target_date): entry
         for entry in entries
     }
+    charges_by_record_id = _load_charges_by_record_id(session, records)
 
     if filters.is_single_day:
         enrolled_ids = {
@@ -389,12 +443,15 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
         for child in children:
             if child.id not in candidate_ids:
                 continue
+            record = records_by_child.get(child.id)
+            charge = charges_by_record_id.get(record.id) if record and record.id is not None else None
             rows.append(
                 _build_row(
                     filters.start_date,
                     child,
-                    records_by_child.get(child.id),
+                    record,
                     entry_by_child_and_date.get((child.id or 0, filters.start_date)),
+                    charge,
                 )
             )
     else:
@@ -409,6 +466,7 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
                     child,
                     record,
                     entry_by_child_and_date.get((record.child_id, record.attendance_date)),
+                    charges_by_record_id.get(record.id) if record.id is not None else None,
                 )
             )
 
@@ -448,43 +506,11 @@ def _export_headers() -> list[str]:
         "状態",
         "お迎え予定時刻",
         "お迎え予定者",
-        "備考",
-    ]
-
-
-def _export_rows(rows: list[AttendanceReportRow]) -> list[list[str]]:
-    return [
-        [
-            row.attendance_date.isoformat(),
-            row.child_name,
-            row.child_name_kana,
-            row.classroom_name,
-            f"{row.age}歳",
-            _format_time(row.check_in_at),
-            _format_time(row.check_out_at),
-            row.status,
-            row.planned_pickup_time,
-            row.pickup_person,
-            row.note,
-        ]
-        for row in rows
-    ]
-
-
-def _export_headers() -> list[str]:
-    return [
-        "日付",
-        "園児名",
-        "園児名（カナ）",
-        "クラス",
-        "年齢",
-        "登園時刻",
-        "降園時刻",
-        "状態",
-        "お迎え予定時刻",
-        "お迎え予定者",
         "保護者連絡",
         "備考",
+        "延長分数",
+        "延長料金",
+        "延長状態",
     ]
 
 
@@ -503,6 +529,9 @@ def _export_rows(rows: list[AttendanceReportRow]) -> list[list[str]]:
             row.pickup_person,
             row.parent_contact_status,
             row.note,
+            str(row.extended_care_minutes) if row.extended_care_minutes is not None else "",
+            str(row.extended_care_amount) if row.extended_care_amount is not None else "",
+            row.extended_care_status_label if row.extended_care_status_label != "—" else "",
         ]
         for row in rows
     ]
@@ -823,6 +852,8 @@ def check_out(
     record.updated_at = now
 
     session.add(record)
+    session.flush()
+    recalculate_attendance_charge(session, record)
     session.commit()
 
     return RedirectResponse(url=_build_redirect_url(day, return_query), status_code=303)

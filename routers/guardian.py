@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 
 from attendance_checks_service import sync_attendance_alarm
 from database import get_session
+from extended_care_fee_service import recalculate_attendance_charge
 from models import AttendanceRecord, Child, ChildStatus, Classroom
 
 router = APIRouter(prefix="/guardian", tags=["guardian"])
@@ -282,6 +283,8 @@ def guardian_check_out_commit(
     record.updated_at = now
 
     session.add(record)
+    session.flush()
+    recalculate_attendance_charge(session, record)
     session.commit()
 
     return RedirectResponse(

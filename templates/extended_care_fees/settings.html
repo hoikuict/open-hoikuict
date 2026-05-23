@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}延長保育料金ルール設定 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
+  <div>
+    <h1 class="text-xl font-bold text-gray-700">延長保育料金ルール設定</h1>
+    <p class="text-sm text-gray-500 mt-1">適用期間ごとに開始時刻、猶予時間、丸め単位、単価を設定します。</p>
+  </div>
+  <a href="/extended-care-fees/" class="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50">月次集計へ</a>
+</div>
+
+{% if errors %}
+<div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+  <ul class="space-y-1">
+    {% for error in errors %}
+    <li>{{ error }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if not current_user.can_edit %}
+<div class="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  閲覧専用のため、料金ルールは変更できません。
+</div>
+{% endif %}
+
+{% if current_user.can_edit %}
+<div class="mb-5 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+  <h2 class="text-base font-semibold text-gray-700 mb-3">新しいルール</h2>
+  <form method="post" action="/extended-care-fees/settings" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">ルール名</label>
+      <input type="text" name="name" value="{{ form_values.name }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">適用開始日</label>
+      <input type="date" name="effective_from" value="{{ form_values.effective_from }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">適用終了日</label>
+      <input type="date" name="effective_to" value="{{ form_values.effective_to }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">延長開始時刻</label>
+      <input type="time" name="start_time" value="{{ form_values.start_time }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">猶予時間（分）</label>
+      <input type="number" min="0" max="120" name="grace_minutes" value="{{ form_values.grace_minutes }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">丸め単位（分）</label>
+      <input type="number" min="1" max="120" name="rounding_minutes" value="{{ form_values.rounding_minutes }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">単価（円）</label>
+      <input type="number" min="0" name="unit_price" value="{{ form_values.unit_price }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
+    </div>
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">日別上限額（円）</label>
+      <input type="number" min="0" name="daily_cap_amount" value="{{ form_values.daily_cap_amount }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+    </div>
+    <label class="flex items-center gap-2 text-sm text-gray-700 pb-2">
+      <input type="checkbox" name="is_active" value="1" {% if form_values.is_active %}checked{% endif %} class="h-4 w-4 rounded border-gray-300">
+      有効
+    </label>
+    <div class="md:col-span-3">
+      <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">ルールを追加</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="px-4 py-2 border-b border-gray-100 text-sm text-gray-500">登録済みルール</div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-indigo-50 text-indigo-800">
+        <tr>
+          <th class="px-3 py-2 text-left font-medium whitespace-nowrap">ルール名</th>
+          <th class="px-3 py-2 text-left font-medium whitespace-nowrap">期間</th>
+          <th class="px-3 py-2 text-left font-medium whitespace-nowrap">開始</th>
+          <th class="px-3 py-2 text-right font-medium whitespace-nowrap">猶予</th>
+          <th class="px-3 py-2 text-right font-medium whitespace-nowrap">丸め</th>
+          <th class="px-3 py-2 text-right font-medium whitespace-nowrap">単価</th>
+          <th class="px-3 py-2 text-right font-medium whitespace-nowrap">上限</th>
+          <th class="px-3 py-2 text-left font-medium whitespace-nowrap">状態</th>
+          {% if current_user.can_edit %}
+          <th class="px-3 py-2 text-left font-medium whitespace-nowrap no-print">操作</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for rule in rules %}
+        <tr>
+          {% if current_user.can_edit %}
+            <td class="px-3 py-2 whitespace-nowrap">
+              <input form="rule-form-{{ rule.id }}" type="text" name="name" value="{{ rule.name }}" class="w-40 px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              <div class="flex items-center gap-1">
+                <input form="rule-form-{{ rule.id }}" type="date" name="effective_from" value="{{ rule.effective_from.isoformat() }}" class="px-2 py-1 border border-gray-300 rounded">
+                <span>〜</span>
+                <input form="rule-form-{{ rule.id }}" type="date" name="effective_to" value="{{ rule.effective_to.isoformat() if rule.effective_to else '' }}" class="px-2 py-1 border border-gray-300 rounded">
+              </div>
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              <input form="rule-form-{{ rule.id }}" type="time" name="start_time" value="{{ rule.start_time }}" class="px-2 py-1 border border-gray-300 rounded">
+            </td>
+            <td class="px-3 py-2 text-right whitespace-nowrap">
+              <input form="rule-form-{{ rule.id }}" type="number" min="0" max="120" name="grace_minutes" value="{{ rule.grace_minutes }}" class="w-20 px-2 py-1 border border-gray-300 rounded text-right">
+            </td>
+            <td class="px-3 py-2 text-right whitespace-nowrap">
+              <input form="rule-form-{{ rule.id }}" type="number" min="1" max="120" name="rounding_minutes" value="{{ rule.rounding_minutes }}" class="w-20 px-2 py-1 border border-gray-300 rounded text-right">
+            </td>
+            <td class="px-3 py-2 text-right whitespace-nowrap">
+              <input form="rule-form-{{ rule.id }}" type="number" min="0" name="unit_price" value="{{ rule.unit_price }}" class="w-24 px-2 py-1 border border-gray-300 rounded text-right">
+            </td>
+            <td class="px-3 py-2 text-right whitespace-nowrap">
+              <input form="rule-form-{{ rule.id }}" type="number" min="0" name="daily_cap_amount" value="{{ rule.daily_cap_amount if rule.daily_cap_amount is not none else '' }}" class="w-24 px-2 py-1 border border-gray-300 rounded text-right">
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              <label class="inline-flex items-center gap-2">
+                <input form="rule-form-{{ rule.id }}" type="checkbox" name="is_active" value="1" {% if rule.is_active %}checked{% endif %} class="h-4 w-4 rounded border-gray-300">
+                {% if rule.is_active %}有効{% else %}無効{% endif %}
+              </label>
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap no-print">
+              <form id="rule-form-{{ rule.id }}" method="post" action="/extended-care-fees/settings/{{ rule.id }}"></form>
+              <button type="submit" form="rule-form-{{ rule.id }}" class="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">更新</button>
+            </td>
+          {% else %}
+          <td class="px-3 py-2 whitespace-nowrap">{{ rule.name }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">{{ rule.effective_from.isoformat() }} 〜 {{ rule.effective_to.isoformat() if rule.effective_to else "指定なし" }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">{{ rule.start_time }}</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">{{ rule.grace_minutes }} 分</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">{{ rule.rounding_minutes }} 分</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">{{ "{:,}".format(rule.unit_price) }} 円</td>
+          <td class="px-3 py-2 text-right whitespace-nowrap">{{ "{:,}".format(rule.daily_cap_amount) ~ " 円" if rule.daily_cap_amount is not none else "なし" }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">{% if rule.is_active %}有効{% else %}無効{% endif %}</td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ 9 if current_user.can_edit else 8 }}" class="px-4 py-8 text-center text-gray-400">料金ルールがありません</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
