@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}請求入力 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Billing</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">請求・Zengin</h1>
+    <p class="mt-2 text-sm text-slate-500">新規請求月を作成し、園児別の請求入力からZengin出力まで確認します。</p>
+  </div>
+  {% if current_user and current_user.can_edit %}
+  <form method="post" action="/billing/cycles/new-input">
+    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+      新規請求月作成
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% if message %}
+<div class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="mb-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>
+{% endif %}
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-base font-semibold text-slate-900">施設設定</h2>
+    {% if setting %}
+    <dl class="mt-4 space-y-2 text-sm">
+      <div class="flex justify-between gap-4"><dt class="text-slate-500">委託者コード</dt><dd class="font-medium">{{ setting.collector_code }}</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-slate-500">文字コード</dt><dd class="font-medium">{{ setting.file_encoding }}</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-slate-500">改行</dt><dd class="font-medium">{{ setting.line_separator }}</dd></div>
+      <div class="flex justify-between gap-4"><dt class="text-slate-500">施設側預金種目</dt><dd class="font-medium">{{ setting.collector_account_type }}</dd></div>
+    </dl>
+    {% else %}
+    <p class="mt-4 text-sm text-slate-500">未作成です。</p>
+    {% endif %}
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-base font-semibold text-slate-900">口座プロファイル</h2>
+    <div class="mt-4 space-y-3">
+      {% for profile in profiles %}
+      <div class="rounded border border-slate-200 px-3 py-2 text-sm">
+        <div class="font-medium text-slate-800">Family #{{ profile.family_id }}</div>
+        <div class="mt-1 text-slate-500">{{ profile.customer_number }}</div>
+        <div class="mt-1 flex gap-2">
+          <span class="rounded bg-slate-100 px-2 py-0.5 text-xs">{{ profile.payment_method.value }}</span>
+          <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">{{ profile.direct_debit_status.value }}</span>
+          <span class="rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">new {{ profile.new_code }}</span>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-500">未作成です。</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-base font-semibold text-slate-900">確認手順</h2>
+    <ol class="mt-4 list-decimal space-y-2 pl-5 text-sm text-slate-600">
+      <li>新規請求月作成</li>
+      <li>請求月の「園児別入力」</li>
+      <li>必要な金額と口座情報を入力</li>
+      <li>請求月の「Zengin作成」</li>
+      <li>出力履歴の「ダウンロード」</li>
+      <li>「全件振替済みで取込」</li>
+    </ol>
+  </section>
+</div>
+
+<section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-200 px-5 py-4">
+    <h2 class="text-lg font-semibold text-slate-900">請求月</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-5 py-3">請求月</th>
+          <th class="px-5 py-3">状態</th>
+          <th class="px-5 py-3">引落日</th>
+          <th class="px-5 py-3 text-right">請求件数</th>
+          <th class="px-5 py-3 text-right">合計</th>
+          <th class="px-5 py-3">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in cycle_rows %}
+        <tr>
+          <td class="px-5 py-3 font-medium text-slate-900">{{ row.cycle.year_month }}</td>
+          <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.cycle.status.value }}</span></td>
+          <td class="px-5 py-3">{{ row.cycle.withdrawal_date }}</td>
+          <td class="px-5 py-3 text-right">{{ row.claim_count }}</td>
+          <td class="px-5 py-3 text-right">{{ "{:,}".format(row.total_amount) }}円</td>
+          <td class="px-5 py-3">
+            <div class="flex flex-wrap gap-2">
+            <a href="/billing/cycles/{{ row.cycle.id }}/child-charges" class="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">園児別入力</a>
+            {% if current_user and current_user.can_edit and row.cycle.status.value == "confirmed" %}
+            <form method="post" action="/billing/zengin/{{ row.cycle.id }}/create-ui">
+              <button type="submit" class="rounded border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">Zengin作成</button>
+            </form>
+            {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="px-5 py-10 text-center text-slate-400">請求月がありません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-200 px-5 py-4">
+    <h2 class="text-lg font-semibold text-slate-900">Zengin出力履歴</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-5 py-3">ID</th>
+          <th class="px-5 py-3">状態</th>
+          <th class="px-5 py-3 text-right">件数</th>
+          <th class="px-5 py-3 text-right">金額</th>
+          <th class="px-5 py-3">ハッシュ</th>
+          <th class="px-5 py-3">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in export_rows %}
+        <tr>
+          <td class="px-5 py-3 font-medium">#{{ row.export.id }}</td>
+          <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.export.status.value }}</span></td>
+          <td class="px-5 py-3 text-right">{{ row.export.total_count }}</td>
+          <td class="px-5 py-3 text-right">{{ "{:,}".format(row.export.total_amount) }}円</td>
+          <td class="px-5 py-3 font-mono text-xs text-slate-500">{{ row.export.content_hash[:16] }}...</td>
+          <td class="px-5 py-3">
+            <div class="flex flex-wrap gap-2">
+              <a href="/billing/zengin/exports/{{ row.export.id }}/download" class="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">ダウンロード</a>
+              {% if current_user and current_user.can_edit and row.export.result_imported_at is none and row.export.status.value in ["created", "downloaded"] %}
+              <form method="post" action="/billing/zengin/exports/{{ row.export.id }}/import-paid-demo">
+                <button type="submit" class="rounded border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50">全件振替済みで取込</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="px-5 py-10 text-center text-slate-400">Zengin出力履歴がありません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

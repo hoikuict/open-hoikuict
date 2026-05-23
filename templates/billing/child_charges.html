@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}園児別請求入力 | open-hoikuict{% endblock %}
+
+{% block content %}
+{% set can_edit_table = editable and current_user and current_user.can_edit %}
+
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">請求金額入力</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">園児別請求入力</h1>
+    <p class="mt-2 text-sm text-slate-500">{{ cycle.year_month }} / 振替日 {{ cycle.withdrawal_date }}</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="rounded bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">{{ cycle.status.value }}</span>
+    <a href="/billing/" class="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">請求一覧へ戻る</a>
+  </div>
+</div>
+
+{% if message %}
+<div class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="mb-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>
+{% endif %}
+
+<section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <div>
+      <h2 class="text-lg font-semibold text-slate-900">一括入力</h2>
+      <div class="mt-2 flex flex-wrap gap-2 text-xs font-medium">
+        <span class="rounded bg-sky-50 px-2 py-1 text-sky-700">毎月請求</span>
+        <span class="rounded bg-amber-50 px-2 py-1 text-amber-700">単発請求</span>
+        <span class="rounded bg-rose-50 px-2 py-1 text-rose-700">調整</span>
+      </div>
+    </div>
+    {% if can_edit_table %}
+    <button form="child-charge-table" type="submit" class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">保存</button>
+    {% elif current_user and current_user.can_edit %}
+    <form method="post" action="/billing/child-charges/new-editable-cycle">
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">入力用請求月を作成</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if can_edit_table %}
+  <form id="child-charge-table" method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/table">
+  {% endif %}
+    <div class="overflow-x-auto">
+      <table class="min-w-[980px] divide-y divide-slate-200 text-sm">
+        <thead class="text-left text-xs font-semibold text-slate-600">
+          <tr class="bg-slate-50">
+            <th rowspan="2" class="sticky left-0 z-20 w-44 bg-slate-50 px-4 py-3">園児</th>
+            <th rowspan="2" class="w-40 px-4 py-3">口座</th>
+            <th rowspan="2" class="w-28 px-4 py-3 text-right">家族合計</th>
+            {% for group in charge_column_groups %}
+            <th colspan="{{ group.columns|length }}" class="px-4 py-2 text-center {% if group.key == 'monthly' %}bg-sky-50 text-sky-800{% elif group.key == 'temporary' %}bg-amber-50 text-amber-800{% else %}bg-rose-50 text-rose-800{% endif %}">
+              {{ group.label }}
+            </th>
+            {% endfor %}
+            <th rowspan="2" class="w-28 px-4 py-3 text-right">行合計</th>
+            <th rowspan="2" class="w-24 px-4 py-3"></th>
+          </tr>
+          <tr class="bg-slate-50">
+            {% for column in charge_columns %}
+            <th class="w-32 px-3 py-2 text-right {% if column.category == 'monthly' %}bg-sky-50/70{% elif column.category == 'temporary' %}bg-amber-50/70{% else %}bg-rose-50/70{% endif %}">
+              {{ column.label }}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in table_rows %}
+          <tr class="hover:bg-slate-50">
+            <td class="sticky left-0 z-10 bg-white px-4 py-3">
+              <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}" class="font-semibold text-indigo-700 hover:underline">{{ row.child.full_name }}</a>
+              <div class="mt-1 text-xs text-slate-400">ID {{ row.child.id }}</div>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-600">
+              {% if row.profile %}
+              <div class="font-medium text-slate-700">{{ row.profile.direct_debit_status.value }}</div>
+              <div class="mt-1 font-mono text-[11px] text-slate-400">{{ row.profile.customer_number }}</div>
+              {% else %}
+              <span class="text-slate-400">未設定</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-right font-semibold text-slate-900">
+              {% if row.claim %}{{ "{:,}".format(row.claim.total_amount) }}円{% else %}-{% endif %}
+            </td>
+            {% for column in charge_columns %}
+            {% set amount = row.amounts.get(column.code, 0) %}
+            <td class="px-3 py-2 {% if column.category == 'monthly' %}bg-sky-50/30{% elif column.category == 'temporary' %}bg-amber-50/30{% else %}bg-rose-50/30{% endif %}">
+              <input
+                name="amount_{{ column.code }}_{{ row.child.id }}"
+                type="number"
+                inputmode="numeric"
+                value="{% if amount != 0 %}{{ amount }}{% endif %}"
+                class="h-9 w-28 rounded border border-slate-300 bg-white px-2 text-right text-sm font-medium text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                {% if not can_edit_table %}disabled{% endif %}
+              >
+            </td>
+            {% endfor %}
+            <td class="px-4 py-3 text-right font-semibold {% if row.row_total < 0 %}text-rose-700{% else %}text-slate-900{% endif %}">
+              {{ "{:,}".format(row.row_total) }}円
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}" class="rounded border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">詳細</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="{{ 5 + charge_columns|length }}" class="px-5 py-10 text-center text-slate-400">在園児がいません。</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if can_edit_table %}
+    <div class="flex justify-end border-t border-slate-200 px-5 py-4">
+      <button type="submit" class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">保存</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+
+<section class="mt-5 rounded-lg border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-200 px-5 py-4">
+    <h2 class="text-lg font-semibold text-slate-900">入力済み明細</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-500">
+        <tr>
+          <th class="px-5 py-3">園児</th>
+          <th class="px-5 py-3">内容</th>
+          <th class="px-5 py-3">発生日</th>
+          <th class="px-5 py-3 text-right">金額</th>
+          <th class="px-5 py-3">請求状態</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in line_rows %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3">
+            {% if row.child %}
+            <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}" class="font-medium text-indigo-700 hover:underline">{{ row.child.full_name }}</a>
+            {% else %}
+            <span class="text-slate-400">園児未設定</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-slate-700">{{ row.line.description }}</td>
+          <td class="px-5 py-3 text-slate-500">{{ row.line.source_date or "-" }}</td>
+          <td class="px-5 py-3 text-right font-medium {% if row.line.amount < 0 %}text-rose-700{% else %}text-slate-900{% endif %}">
+            {{ "{:,}".format(row.line.amount) }}円
+          </td>
+          <td class="px-5 py-3">
+            {% if row.claim %}
+            <span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.claim.status.value }}</span>
+            {% else %}
+            <span class="text-slate-400">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-5 py-10 text-center text-slate-400">まだ明細がありません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

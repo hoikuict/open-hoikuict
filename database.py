@@ -35,6 +35,7 @@ def create_db_and_tables() -> None:
     _migrate_add_message_columns()
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
+    _migrate_billing_fee_labels()
 
 
 def _table_columns(table_name: str) -> list[str]:
@@ -174,6 +175,42 @@ def _migrate_survey_tables() -> None:
     # New survey tables are created by SQLModel.metadata.create_all().
     # Keep this hook explicit for future additive indexes or backfills.
     return
+
+
+def _migrate_billing_fee_labels() -> None:
+    try:
+        with engine.connect() as conn:
+            fee_cols = _table_columns("fee_items")
+            line_cols = _table_columns("billing_charge_lines")
+            if not fee_cols:
+                return
+
+            conn.execute(
+                text(
+                    """
+                    UPDATE fee_items
+                    SET name = '延長保育料（月額）'
+                    WHERE code = 'monthly_childcare'
+                      AND name IN ('保育料', '保育料（月額）')
+                    """
+                )
+            )
+            if line_cols:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE billing_charge_lines
+                        SET description = '延長保育料（月額）'
+                        WHERE fee_item_id IN (
+                            SELECT id FROM fee_items WHERE code = 'monthly_childcare'
+                        )
+                          AND description IN ('保育料', '保育料（月額）')
+                        """
+                    )
+                )
+            conn.commit()
+    except Exception:
+        pass
 
 
 def seed_classroom_data() -> None:
