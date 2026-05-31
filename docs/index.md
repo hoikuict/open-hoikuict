@@ -1,8 +1,8 @@
 # open-hoikuict
 
 ## 現場で確かめながら育てる、保育園のためのICT
-<div class="home-buttons">
-  <a class="home-button primary" href="https://demo.hoikuict.net/">デモサイト</a>
+<div class="home-button">
+  <a class="home-button-primary" href="https://demo.hoikuict.net/">デモサイト</a>
   <a class="home-button" href="https://hoiku-docs-demo.hoikuict.net/">ドキュメントデモ</a>
   <a class="home-button" href="https://plan-writer.hoikuict.net/">指導案作成ツール</a>
 </div>
