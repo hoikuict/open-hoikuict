@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
@@ -12,7 +13,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import utc_now
 
-DATABASE_URL = "sqlite:///./hoikuict.db"
+DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 engine = create_engine(DATABASE_URL, echo=False)
 
 DEFAULT_CLASSROOMS = [
@@ -45,6 +46,8 @@ def get_session(connection: HTTPConnection):
 
 
 def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
+    import plan_docs.db_models  # noqa: F401
+
     resolved_engine = _resolve_engine(db_engine)
     SQLModel.metadata.create_all(resolved_engine)
     _migrate_add_child_columns(resolved_engine)

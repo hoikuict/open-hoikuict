@@ -28,6 +28,7 @@ env/
 # Database
 *.db
 *.sqlite3
+data/
 runtime/
 tmp*/
 _demo_runtime_test_*/

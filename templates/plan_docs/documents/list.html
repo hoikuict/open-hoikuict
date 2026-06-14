@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}帳票一覧 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="toolbar-band">
+    <div>
+      <p class="eyebrow">帳票一覧</p>
+      <h1>帳票一覧</h1>
+      <p class="lead">{{ user.nursery_label }} の帳票</p>
+    </div>
+    <div class="toolbar-actions">
+      <a class="button button--primary" href="/plans/">指導案作成</a>
+    </div>
+  </section>
+  <section class="section-block">
+    {% include "plan_docs/documents/_list.html" %}
+  </section>
+{% endblock %}
+

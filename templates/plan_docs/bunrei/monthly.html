@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}月案を文例から作成 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">文例選択</p>
+      <h1>月案を文例から作成</h1>
+      <p class="lead">{{ total_examples }}件の文例から候補を表示しています。選択後に修正できます。</p>
+    </div>
+    <div class="toolbar-actions">
+      <a class="button button--secondary" href="/plans/bunrei/facility/new">自作文例を追加</a>
+    </div>
+  </section>
+
+  <form class="form-layout compact" method="get" action="/plans/bunrei/monthly">
+    <section class="form-panel">
+      <h2>候補の条件</h2>
+      <div class="field-grid">
+        <label>
+          <span>年齢</span>
+          <select name="age_class">
+            {% for age in age_options %}
+              <option value="{{ age }}" {% if age == selected_age_class %}selected{% endif %}>{{ age }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>月</span>
+          <select name="month">
+            {% for month in month_options %}
+              <option value="{{ month }}" {% if month == selected_month %}selected{% endif %}>{{ month }}月</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="button button--secondary" type="submit">候補を表示</button>
+      </div>
+    </section>
+  </form>
+
+  <form class="form-layout" method="post" action="/plans/bunrei/monthly">
+    <input type="hidden" name="age_class" value="{{ selected_age_class }}">
+    <input type="hidden" name="month" value="{{ selected_month }}">
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>対象月</span>
+          <input name="target_month" type="month" value="2026-{{ '%02d'|format(selected_month) }}">
+        </label>
+        <label>
+          <span>クラス</span>
+          <select name="classroom_ref">
+            {% for classroom_ref in user.classroom_refs %}
+            <option value="{{ classroom_ref }}" {% if classroom_ref == default_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="{{ user.name }}">
+        </label>
+      </div>
+    </section>
+
+    {% include "plan_docs/bunrei/_candidate_groups.html" %}
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/">戻る</a>
+      <button class="button button--primary" type="submit">選んだ文例で作成して修正へ</button>
+    </div>
+  </form>
+{% endblock %}
+

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}年案作成 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">annual_plan</p>
+      <h1>年案を作成</h1>
+      <p class="lead">年度全体のねらいと4期の見通しを、帳票セクションに分けて作成します。</p>
+    </div>
+  </section>
+
+  <form class="form-layout" method="post" action="/plans/annual-plans">
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>年度</span>
+          <input name="school_year" type="number" min="2020" max="2100" value="2026">
+        </label>
+        <label>
+          <span>クラス</span>
+          <select name="classroom_ref">
+            {% for classroom_ref in user.classroom_refs %}
+            <option value="{{ classroom_ref }}" {% if classroom_ref == default_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="{{ user.name }}">
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>年間の軸</h2>
+      <label>
+        <span>クラスの姿</span>
+        <textarea name="class_outlook" rows="4" placeholder="年度初めの子どもの姿、関係性、生活面の特徴"></textarea>
+      </label>
+      <label>
+        <span>年間で大切にしたい育ち</span>
+        <textarea name="focus_growth" rows="4" placeholder="主体性、協同性、言葉、身体、表現など"></textarea>
+      </label>
+      <div class="field-grid">
+        <label>
+          <span>主な行事</span>
+          <textarea name="annual_events" rows="3"></textarea>
+        </label>
+        <label>
+          <span>季節・地域の文脈</span>
+          <textarea name="seasonal_context" rows="3"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>配慮と連携</h2>
+      <div class="field-grid">
+        <label>
+          <span>配慮事項</span>
+          <textarea name="care_points" rows="4"></textarea>
+        </label>
+        <label>
+          <span>家庭連携方針</span>
+          <textarea name="family_collaboration_policy" rows="4"></textarea>
+        </label>
+        <label>
+          <span>健康・安全</span>
+          <textarea name="health_safety_policy" rows="4"></textarea>
+        </label>
+        <label>
+          <span>好ましい表現</span>
+          <textarea name="preferred_expressions" rows="4"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>4期のメモ</h2>
+      <div class="field-grid">
+        <label>
+          <span>4〜6月</span>
+          <textarea name="term_1_note" rows="3"></textarea>
+        </label>
+        <label>
+          <span>7〜9月</span>
+          <textarea name="term_2_note" rows="3"></textarea>
+        </label>
+        <label>
+          <span>10〜12月</span>
+          <textarea name="term_3_note" rows="3"></textarea>
+        </label>
+        <label>
+          <span>1〜3月</span>
+          <textarea name="term_4_note" rows="3"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/">戻る</a>
+      <button class="button button--primary" type="submit">年案帳票を作成</button>
+    </div>
+  </form>
+{% endblock %}
+

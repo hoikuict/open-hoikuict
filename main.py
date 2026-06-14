@@ -44,6 +44,11 @@ from routers.staff_rooms import router as staff_rooms_router
 from routers.staff_surveys import router as staff_surveys_router
 from routers.surveys import router as surveys_router
 from routers.zengin import router as zengin_router
+from plan_docs.runtime import ensure_runtime_files
+from plan_docs.routers.bunrei import router as plan_docs_bunrei_router
+from plan_docs.routers.documents import router as plan_docs_documents_router
+from plan_docs.routers.home import router as plan_docs_home_router
+from plan_docs.routers.plans import router as plan_docs_plans_router
 
 
 app = FastAPI(title="open-hoikuict", version="0.1.0")
@@ -70,6 +75,10 @@ app.include_router(staff_rooms_router)
 app.include_router(surveys_router)
 app.include_router(staff_surveys_router)
 app.include_router(zengin_router)
+app.include_router(plan_docs_home_router, prefix="/plans")
+app.include_router(plan_docs_plans_router, prefix="/plans")
+app.include_router(plan_docs_documents_router, prefix="/plans")
+app.include_router(plan_docs_bunrei_router, prefix="/plans")
 
 
 def _content_length(header_value: str | None) -> int:
@@ -168,6 +177,8 @@ async def public_demo_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 def on_startup():
+    ensure_runtime_files()
+
     if is_public_demo_enabled():
         get_demo_session_manager().prepare_base_database(initialize_demo_template_database)
         return
@@ -186,6 +197,11 @@ def on_startup():
 @app.get("/")
 def root():
     return RedirectResponse(url="/children")
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
 
 
 @app.get("/switch-role")

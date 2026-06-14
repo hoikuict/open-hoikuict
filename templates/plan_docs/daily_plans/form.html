@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}日案作成 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">daily_plan</p>
+      <h1>日案を作成</h1>
+      <p class="lead">週案と子どもの姿を受けて、1日の流れ、環境、援助を見通します。</p>
+    </div>
+  </section>
+
+  {% if errors %}
+    <section class="notice">
+      <strong>入力を確認してください</strong>
+      <span>{{ errors | join("、") }}</span>
+    </section>
+  {% endif %}
+
+  <form class="form-layout" method="post" action="/plans/daily-plans">
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>対象日</span>
+          <input name="target_date" type="date" required value="{{ form_values.get('target_date', '') }}">
+        </label>
+        <label>
+          <span>クラス</span>
+          {% set selected_classroom_ref = form_values.get('classroom_ref', default_classroom_ref) %}
+          <select name="classroom_ref">
+            {% for classroom_ref in user.classroom_refs %}
+            <option value="{{ classroom_ref }}" {% if classroom_ref == selected_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>年齢</span>
+          <select name="age_class" required>
+            <option value="">選択してください</option>
+            {% for option in age_class_options %}
+              <option value="{{ option }}" {% if form_values.get('age_class') == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="{{ form_values.get('owner_name', user.name) }}">
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>週案との接続</h2>
+      {% if weekly_documents %}
+        <div class="reference-list">
+          {% for document in weekly_documents %}
+            <a href="/plans/documents/{{ document.id }}">{{ document.title }} / {{ document.status_label }}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <label>
+        <span>接続する週案</span>
+        <select name="parent_document_id">
+          <option value="">接続しない</option>
+          {% for document in weekly_documents %}
+            <option value="{{ document.id }}" {% if form_values.get('parent_document_id') == document.id|string %}selected{% endif %}>{{ document.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>週案から本日へつなぐ文脈</span>
+        <textarea name="related_weekly_summary" rows="4" placeholder="週案のねらい、活動、環境や援助のうち本日に効くことを短く記入">{{ form_values.get('related_weekly_summary', '') }}</textarea>
+      </label>
+    </section>
+
+    <section class="form-panel">
+      <h2>本日の入力</h2>
+      <label>
+        <span>前日までの子どもの姿</span>
+        <textarea name="current_children_snapshot" rows="4" placeholder="登園時や前日の記録から、本日の環境や援助につながる姿を書く">{{ form_values.get('current_children_snapshot', '') }}</textarea>
+      </label>
+      <label>
+        <span>本日の主な活動</span>
+        <textarea name="daily_main_activity_note" rows="4" placeholder="中心となる活動や経験。詳細な時系列は作成後に調整できます">{{ form_values.get('daily_main_activity_note', '') }}</textarea>
+      </label>
+      <div class="field-grid">
+        <label>
+          <span>季節・行事・食に関する文脈</span>
+          <textarea name="seasonal_context" rows="3">{{ form_values.get('seasonal_context', '') }}</textarea>
+        </label>
+        <label>
+          <span>健康・安全メモ</span>
+          <textarea name="health_notes" rows="3">{{ form_values.get('health_notes', '') }}</textarea>
+        </label>
+        <label>
+          <span>家庭からの情報</span>
+          <textarea name="family_context" rows="3">{{ form_values.get('family_context', '') }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/">戻る</a>
+      <button class="button button--primary" type="submit" {% if not user.can_edit %}disabled{% endif %}>日案帳票を作成</button>
+    </div>
+  </form>
+{% endblock %}
+

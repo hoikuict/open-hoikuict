@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}自作文例を追加 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">園文例</p>
+      <h1>自作文例を追加</h1>
+      <p class="lead">{{ user.nursery_label }} の文例として保存し、文例選択画面で使えるようにします。</p>
+    </div>
+    <div class="toolbar-actions">
+      <a class="button button--secondary" href="/plans/bunrei/monthly">月案の文例選択へ</a>
+      <a class="button button--ghost" href="/plans/bunrei/annual">年案の文例選択へ</a>
+    </div>
+  </section>
+
+  {% if import_result %}
+    <section class="notice">
+      <strong>取り込みが完了しました。</strong>
+      <span>{{ import_result.imported }}件を園文例として追加しました。{% if import_result.skipped %}本文が空の{{ import_result.skipped }}件は取り込みませんでした。{% endif %}{% if import_result.masked %} 自動マスク該当は{{ import_result.masked }}件です。{% endif %}</span>
+    </section>
+  {% endif %}
+
+  <form class="form-layout" method="post" action="/plans/bunrei/facility">
+    <section class="form-panel">
+      <h2>文例の分類</h2>
+      <div class="field-grid">
+        <label>
+          <span>計画種別</span>
+          <select name="plan_type">
+            <option value="月案" selected>月案</option>
+            <option value="年案">年案</option>
+            <option value="個別指導計画">個別指導計画</option>
+          </select>
+        </label>
+        <label>
+          <span>年齢</span>
+          <select name="age_class">
+            {% for age in age_options %}
+              <option value="{{ age }}" {% if age == "5歳児" %}selected{% endif %}>{{ age }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>月</span>
+          <select name="month">
+            <option value="">月を指定しない</option>
+            {% for month in month_options %}
+              <option value="{{ month }}" {% if month == 4 %}selected{% endif %}>{{ month }}月</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>項目</span>
+          <select name="item">
+            {% for item in item_options %}
+              <option value="{{ item }}" {% if item == "活動内容" %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>領域・観点</span>
+          <input name="ryoiki" type="text" placeholder="必要な場合だけ入力">
+        </label>
+        <label>
+          <span>出所メモ</span>
+          <input name="source_note" type="text" placeholder="例: 2025年度 5歳児 月案より">
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>文例本文</h2>
+      <label>
+        <span>本文</span>
+        <textarea name="text" rows="8" required placeholder="園やクラスで使っている文例を入力"></textarea>
+      </label>
+      <p class="field-note">追加した文例は園内限定で表示します。個人名らしい表現は自動で伏せますが、選択後に必ず修正画面で確認してください。</p>
+    </section>
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/">戻る</a>
+      <button class="button button--primary" type="submit">園文例として追加</button>
+    </div>
+  </form>
+
+  <form class="form-layout" method="post" action="/plans/bunrei/facility/import" enctype="multipart/form-data">
+    <section class="form-panel">
+      <h2>CSV・Excelからまとめて取り込み</h2>
+      <div class="field-grid">
+        <label>
+          <span>ファイル</span>
+          <input name="file" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+        </label>
+        <label>
+          <span>既定の計画種別</span>
+          <select name="default_plan_type">
+            <option value="月案" selected>月案</option>
+            <option value="年案">年案</option>
+            <option value="個別指導計画">個別指導計画</option>
+          </select>
+        </label>
+        <label>
+          <span>既定の年齢</span>
+          <select name="default_age_class">
+            {% for age in age_options %}
+              <option value="{{ age }}" {% if age == "5歳児" %}selected{% endif %}>{{ age }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>既定の月</span>
+          <select name="default_month">
+            <option value="">月を指定しない</option>
+            {% for month in month_options %}
+              <option value="{{ month }}" {% if month == 4 %}selected{% endif %}>{{ month }}月</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>既定の項目</span>
+          <select name="default_item">
+            {% for item in item_options %}
+              <option value="{{ item }}" {% if item == "活動内容" %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>共通の出所メモ</span>
+          <input name="default_source_note" type="text" placeholder="例: 2025年度の月案より">
+        </label>
+      </div>
+      <p class="field-note">列名は「計画種別」「年齢」「月」「項目」「領域・観点」「出所メモ」「本文」に対応します。本文だけのファイルは既定値で取り込みます。</p>
+      <div class="form-actions">
+        <a class="button button--ghost" href="/plans/bunrei/facility/import-template.csv">空のCSVをダウンロード</a>
+        <a class="button button--ghost" href="/plans/bunrei/facility/import-template.xlsx">空のExcelをダウンロード</a>
+        <button class="button button--secondary" type="submit">ファイルから取り込む</button>
+      </div>
+    </section>
+  </form>
+{% endblock %}
+
