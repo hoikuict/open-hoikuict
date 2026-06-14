@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: open-hoikuict:local
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKU_NURSERY_REF: ${NURSERY_REF:-ひかり保育園}
+    volumes:
+      - hoikuict_data:/data
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read()"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hoikuict_data:

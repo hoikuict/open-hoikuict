@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date, timedelta
 
 from sqlalchemy import text
@@ -9,7 +10,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import utc_now
 
-DATABASE_URL = "sqlite:///./hoikuict.db"
+DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 engine = create_engine(DATABASE_URL, echo=False)
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ def get_session():
 
 
 def create_db_and_tables() -> None:
+    import plan_docs.db_models  # noqa: F401
+
     SQLModel.metadata.create_all(engine)
     _migrate_add_child_columns()
     _migrate_add_attendance_columns()

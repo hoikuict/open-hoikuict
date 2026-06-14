@@ -35,9 +35,15 @@ from routers.staff_rooms import router as staff_rooms_router
 from routers.staff_surveys import router as staff_surveys_router
 from routers.surveys import router as surveys_router
 from routers.zengin import router as zengin_router
+from plan_docs.runtime import ensure_runtime_files
+from plan_docs.routers.bunrei import router as plan_docs_bunrei_router
+from plan_docs.routers.documents import router as plan_docs_documents_router
+from plan_docs.routers.home import router as plan_docs_home_router
+from plan_docs.routers.plans import router as plan_docs_plans_router
 
 
 def initialize_application() -> None:
+    ensure_runtime_files()
     create_db_and_tables()
     seed_classroom_data()
     seed_extended_care_fee_rules()
@@ -77,6 +83,10 @@ app.include_router(staff_rooms_router)
 app.include_router(surveys_router)
 app.include_router(staff_surveys_router)
 app.include_router(zengin_router)
+app.include_router(plan_docs_home_router, prefix="/plans")
+app.include_router(plan_docs_plans_router, prefix="/plans")
+app.include_router(plan_docs_documents_router, prefix="/plans")
+app.include_router(plan_docs_bunrei_router, prefix="/plans")
 
 @app.get("/")
 def root():
@@ -87,3 +97,8 @@ def root():
 def switch_role(redirect: str = "/children"):
     target = redirect if redirect.startswith("/") and not redirect.startswith("//") else "/children"
     return RedirectResponse(url=f"/staff/login?redirect={target}", status_code=303)
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}

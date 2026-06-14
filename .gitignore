@@ -28,6 +28,8 @@ env/
 # Database
 *.db
 *.sqlite3
+hoikuict.db
+data/
 
 # Environment / secrets
 .env

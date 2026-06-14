@@ -1,0 +1,32 @@
+<section class="form-panel">
+  <h2>文例候補</h2>
+  <div class="bunrei-groups">
+    {% for group in groups %}
+      <section class="bunrei-group">
+        <h3>{{ group.section_title }}</h3>
+        {% if group.examples %}
+          <div class="bunrei-options">
+            {% for example in group.examples %}
+              <label class="bunrei-option">
+                <input type="checkbox" name="section_{{ group.section_key }}" value="{{ example.id }}">
+                <span>
+                  <strong>{{ example.source_label }} / {{ example.label }}</strong>
+                  <em>{{ example.text }}</em>
+                  {% if example.masked %}
+                    <small>自動マスクあり。確認してから使ってください。</small>
+                  {% endif %}
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <strong>候補がありません。</strong>
+            <span>条件を変えるか、作成後の修正画面で直接入力してください。</span>
+          </div>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+</section>
+

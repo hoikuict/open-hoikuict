@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ document.title }} | hoiku-plan-docs{% endblock %}
+{% block content %}
+  {% macro render_schedule(schedule) %}
+    <section class="report-section report-schedule">
+      <div class="report-section__heading">
+        <h2>{{ "1日の流れ" if schedule.layout == "daily_timeline" else "週の活動" }}</h2>
+      </div>
+      <div class="schedule-scroll">
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th>{{ "時間" if schedule.layout == "daily_timeline" else "曜日" }}</th>
+              {% for column in schedule.columns %}
+                <th>{{ column.title }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in schedule.rows|sort(attribute="order") %}
+              <tr>
+                <th scope="row">
+                  {% if row.start_time %}<span class="schedule-time">{{ row.start_time }}</span>{% endif %}
+                  <span>{{ row.label }}</span>
+                </th>
+                {% for column in schedule.columns %}
+                  {% set cell = row.cells.get(column.key) %}
+                  <td>
+                    {{ cell.body if cell else "" }}
+                    {% if cell and cell.needs_confirmation %}
+                      <div class="inline-note">{{ cell.editor_note or "確認が必要です。" }}</div>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endmacro %}
+
+  <section class="document-header">
+    <div>
+      <p class="eyebrow">{{ document.document_type_label }}</p>
+      <h1>{{ document.title }}</h1>
+      <p class="lead">園: {{ document.nursery_label }} / クラス: {{ document.classroom_label }} / 作成者: {{ document.owner_name }}</p>
+    </div>
+    <div class="document-header__actions">
+      <span class="status status--{{ document.status.value }}">{{ document.status_label }}</span>
+      {% if user.can_edit and document.can_edit_body %}
+        <a class="button button--primary" href="/plans/documents/{{ document.id }}/edit">修正</a>
+      {% endif %}
+      <button class="button button--secondary" type="button" onclick="window.print()">印刷</button>
+    </div>
+  </section>
+
+  {% if document.confirmation_items %}
+    <section class="notice">
+      <strong>確認が必要な入力</strong>
+      <span>{{ document.confirmation_items | join("、") }}</span>
+    </section>
+  {% endif %}
+
+  <section class="status-panel">
+    <form method="post" action="/plans/documents/{{ document.id }}/status" class="status-form">
+      {% if user.can_edit %}
+        <button class="button button--secondary" name="status" value="draft">下書きへ戻す</button>
+        <button class="button button--primary" name="status" value="in_review">レビュー依頼</button>
+      {% endif %}
+      {% if user.is_admin %}
+        <button class="button button--success" name="status" value="approved">承認</button>
+        <button class="button button--danger" name="status" value="rejected">差戻し</button>
+        <button class="button button--ghost" name="status" value="archived">アーカイブ</button>
+      {% endif %}
+    </form>
+  </section>
+
+  <article class="report-sheet">
+    <header class="report-sheet__meta">
+      <span>{{ document.document_type_label }}</span>
+      <span>
+        {% if document.school_year %}{{ document.school_year }}年度{% endif %}
+        {% if document.target_month %}{{ document.target_month }}{% endif %}
+        {% if document.target_week %}{{ document.target_week }}（{{ document.week_start_date }}〜）{% endif %}
+        {% if document.target_date %}{{ document.target_date }}{% endif %}
+      </span>
+      <span>{{ document.status_label }}</span>
+    </header>
+    {% if document.schedule and document.schedule.layout == "daily_timeline" %}
+      {{ render_schedule(document.schedule) }}
+    {% endif %}
+    {% for section in document.sections %}
+      <section class="report-section">
+        <div class="report-section__heading">
+          <h2>{{ section.title }}</h2>
+        </div>
+        <p>{{ section.body }}</p>
+        <footer class="report-section__footer">
+          <span>
+            {% for tag in section.evidence_tags %}
+              <b>{{ tag }}</b>
+            {% endfor %}
+          </span>
+        </footer>
+        {% if section.needs_confirmation %}
+          <div class="inline-note">{{ section.editor_note or "確認が必要です。" }}</div>
+        {% endif %}
+      </section>
+    {% endfor %}
+    {% if document.schedule and document.schedule.layout == "weekly_grid" %}
+      {{ render_schedule(document.schedule) }}
+    {% endif %}
+  </article>
+{% endblock %}
+

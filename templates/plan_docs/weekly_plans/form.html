@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}週案作成 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">weekly_plan</p>
+      <h1>週案を作成</h1>
+      <p class="lead">月案、前週の振り返り、今の子どもの姿をつなぎ、1週間の見通しを作成します。</p>
+    </div>
+  </section>
+
+  {% if errors %}
+    <section class="notice">
+      <strong>入力を確認してください</strong>
+      <span>{{ errors | join("、") }}</span>
+    </section>
+  {% endif %}
+
+  <form class="form-layout" method="post" action="/plans/weekly-plans">
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>対象週</span>
+          <input name="target_week" type="week" required value="{{ form_values.get('target_week', '') }}">
+        </label>
+        <label>
+          <span>クラス</span>
+          {% set selected_classroom_ref = form_values.get('classroom_ref', default_classroom_ref) %}
+          <select name="classroom_ref">
+            {% for classroom_ref in user.classroom_refs %}
+            <option value="{{ classroom_ref }}" {% if classroom_ref == selected_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>年齢</span>
+          <select name="age_class" required>
+            <option value="">選択してください</option>
+            {% for option in age_class_options %}
+              <option value="{{ option }}" {% if form_values.get('age_class') == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="{{ form_values.get('owner_name', user.name) }}">
+        </label>
+      </div>
+      <label class="check-row">
+        <input name="include_saturday" type="checkbox" value="on" {% if form_values.get('include_saturday') %}checked{% endif %}>
+        <span>土曜を含める</span>
+      </label>
+    </section>
+
+    <section class="form-panel">
+      <h2>月案との接続</h2>
+      {% if monthly_documents %}
+        <div class="reference-list">
+          {% for document in monthly_documents %}
+            <a href="/plans/documents/{{ document.id }}">{{ document.title }} / {{ document.status_label }}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <label>
+        <span>接続する月案</span>
+        <select name="parent_document_id">
+          <option value="">接続しない</option>
+          {% for document in monthly_documents %}
+            <option value="{{ document.id }}" {% if form_values.get('parent_document_id') == document.id|string %}selected{% endif %}>{{ document.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>月案から今週へつなぐ文脈</span>
+        <textarea name="related_monthly_summary" rows="4" placeholder="月案のねらい、子どもの姿、環境や援助のうち今週に効くことを短く記入">{{ form_values.get('related_monthly_summary', '') }}</textarea>
+      </label>
+    </section>
+
+    <section class="form-panel">
+      <h2>今週の入力</h2>
+      <label>
+        <span>前週の振り返り</span>
+        <textarea name="previous_week_reflection" rows="4" placeholder="子どもが深めたこと、環境が働いた場面、次へ残したい問い">{{ form_values.get('previous_week_reflection', '') }}</textarea>
+      </label>
+      <label>
+        <span>現在の子どもの姿</span>
+        <textarea name="current_children_snapshot" rows="4" placeholder="具体的な場面、友だちとの関わり、興味や戸惑い">{{ form_values.get('current_children_snapshot', '') }}</textarea>
+      </label>
+      <label>
+        <span>今週の主な活動・経験</span>
+        <textarea name="weekly_activities_note" rows="4" placeholder="決め切りすぎず、子どもの姿から広がりそうな経験を書く">{{ form_values.get('weekly_activities_note', '') }}</textarea>
+      </label>
+      <div class="field-grid">
+        <label>
+          <span>季節・行事・生活の流れ</span>
+          <textarea name="seasonal_context" rows="3">{{ form_values.get('seasonal_context', '') }}</textarea>
+        </label>
+        <label>
+          <span>家庭からの情報</span>
+          <textarea name="family_context" rows="3">{{ form_values.get('family_context', '') }}</textarea>
+        </label>
+        <label>
+          <span>担任間で共有したい配慮</span>
+          <textarea name="class_notes" rows="3">{{ form_values.get('class_notes', '') }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/">戻る</a>
+      <button class="button button--primary" type="submit" {% if not user.can_edit %}disabled{% endif %}>週案帳票を作成</button>
+    </div>
+  </form>
+{% endblock %}
+

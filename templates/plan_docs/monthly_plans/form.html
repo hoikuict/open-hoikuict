@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}月案作成 | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">monthly_plan</p>
+      <h1>月案を作成</h1>
+      <p class="lead">年間計画、前月の反省、現在の子どもの姿をつないで帳票を作成します。</p>
+    </div>
+  </section>
+
+  <form class="form-layout" method="post" action="/plans/monthly-plans">
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>対象月</span>
+          <input name="target_month" type="month" value="2026-04">
+        </label>
+        <label>
+          <span>クラス</span>
+          <select name="classroom_ref">
+            {% for classroom_ref in user.classroom_refs %}
+            <option value="{{ classroom_ref }}" {% if classroom_ref == default_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="{{ user.name }}">
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>年間計画との接続</h2>
+      {% if annual_documents %}
+        <div class="reference-list">
+          {% for document in annual_documents[:4] %}
+            <a href="/plans/documents/{{ document.id }}">{{ document.title }} / {{ document.status_label }}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <label>
+        <span>年間計画の関連文脈</span>
+        <textarea name="related_annual_summary" rows="4" placeholder="年案の該当期から今月に関係するねらい、環境、援助を要約"></textarea>
+      </label>
+    </section>
+
+    <section class="form-panel">
+      <h2>今月の入力</h2>
+      <label>
+        <span>前月の反省</span>
+        <textarea name="previous_reflection" rows="4"></textarea>
+      </label>
+      <label>
+        <span>現在の子どもの姿</span>
+        <textarea name="current_children_snapshot" rows="4"></textarea>
+      </label>
+      <div class="field-grid">
+        <label>
+          <span>遊びの関心</span>
+          <textarea name="play_interests" rows="3"></textarea>
+        </label>
+        <label>
+          <span>季節・行事</span>
+          <textarea name="seasonal_context" rows="3"></textarea>
+        </label>
+        <label>
+          <span>家庭からの情報</span>
+          <textarea name="family_context" rows="3"></textarea>
+        </label>
+        <label>
+          <span>クラス内共有メモ</span>
+          <textarea name="class_notes" rows="3"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/">戻る</a>
+      <button class="button button--primary" type="submit">月案帳票を作成</button>
+    </div>
+  </form>
+{% endblock %}
+
