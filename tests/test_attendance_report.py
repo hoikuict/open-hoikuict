@@ -209,6 +209,27 @@ class AttendanceReportTests(unittest.TestCase):
         self.assertIn("2026-03-02", sheet_xml)
         self.assertIn("2026-02-15", sheet_xml)
 
+    def test_admin_attendance_list_shows_export_links(self):
+        response = self.client.get("/attendance?date=2026-02-15")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/attendance/export.csv", response.text)
+        self.assertIn("/attendance/export.xlsx", response.text)
+
+    def test_admin_query_mode_can_use_export_links(self):
+        self.app.dependency_overrides.pop(attendance_module.get_current_staff_user, None)
+        try:
+            response = self.client.get("/attendance?date=2026-02-15&as=admin")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("/attendance/export.csv", response.text)
+            self.assertIn("as=admin", response.text)
+
+            export_response = self.client.get("/attendance/export.csv?date=2026-02-15&as=admin")
+            self.assertEqual(export_response.status_code, 200)
+        finally:
+            self.app.dependency_overrides[attendance_module.get_current_staff_user] = lambda: self.current_user
+
     def test_non_admin_cannot_export_attendance(self):
         self.current_user = StaffUser(role=Role.CAN_EDIT, name="一般職員")
 
