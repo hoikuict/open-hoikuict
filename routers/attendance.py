@@ -14,8 +14,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from attendance_checks_service import parent_contact_label, sync_attendance_alarm
-from auth import get_current_staff_user, require_can_edit
-from attendance_checks_service import sync_attendance_alarm
+from auth import Role, get_current_staff_user, require_can_edit
 from database import get_session
 from extended_care_fee_service import charge_status_label, recalculate_attendance_charge
 from models import (
@@ -541,8 +540,13 @@ def _export_rows(rows: list[AttendanceReportRow]) -> list[list[str]]:
     ]
 
 
-def _build_query_string(filters: AttendanceFilterParams) -> str:
-    return urlencode(filters.query_params())
+def _build_query_string(filters: AttendanceFilterParams, request: Request | None = None) -> str:
+    params = filters.query_params()
+    if request is not None:
+        as_role = request.query_params.get("as")
+        if as_role in {role.value for role in Role}:
+            params["as"] = as_role
+    return urlencode(params)
 
 
 def _notice_message(notice: Optional[str]) -> str:
@@ -694,7 +698,7 @@ def attendance_list(
             "request": request,
             "rows": rows,
             "filters": filters,
-            "current_query_string": _build_query_string(filters),
+            "current_query_string": _build_query_string(filters, request),
             "notice_message": _notice_message(notice),
             "current_user": current_user,
             "result_count": summary["result_count"],
