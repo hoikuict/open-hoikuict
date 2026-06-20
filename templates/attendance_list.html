@@ -15,10 +15,8 @@
     >
       検索詳細
     </button>
-    {% if current_user and current_user.is_admin %}
     <a href="/attendance/export.csv?{{ current_query_string }}" class="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700">CSV出力</a>
     <a href="/attendance/export.xlsx?{{ current_query_string }}" class="px-3 py-1.5 bg-sky-600 text-white text-sm rounded hover:bg-sky-700">Excel出力</a>
-    {% endif %}
   </div>
 </div>
 
