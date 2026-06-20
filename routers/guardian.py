@@ -19,8 +19,8 @@ def _parse_target_date(raw: Optional[str]) -> date:
         return date.today()
     try:
         return date.fromisoformat(raw)
-    except ValueError:
-        return date.today()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="日付は YYYY-MM-DD 形式で指定してください") from exc
 
 
 def _redirect_url(day: date, class_id: Optional[int], child_id: Optional[int], notice: Optional[str] = None) -> str:
@@ -168,6 +168,8 @@ def guardian_check_in(
     record.updated_at = now
 
     session.add(record)
+    session.flush()
+    recalculate_attendance_charge(session, record)
     sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=now)
     session.commit()
 
@@ -285,6 +287,7 @@ def guardian_check_out_commit(
     session.add(record)
     session.flush()
     recalculate_attendance_charge(session, record)
+    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=now)
     session.commit()
 
     return RedirectResponse(
