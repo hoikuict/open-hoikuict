@@ -244,14 +244,14 @@ class AttendanceReportTests(unittest.TestCase):
         self.assertEqual(notice_response.status_code, 200)
         self.assertIn("CSV/Excel出力は管理者のみ利用できます。", notice_response.text)
 
-    def test_non_admin_attendance_list_hides_export_links(self):
+    def test_non_admin_attendance_list_keeps_guarded_export_links(self):
         self.current_user = StaffUser(role=Role.CAN_EDIT, name="一般職員")
 
         response = self.client.get("/attendance?date=2026-02-15")
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn("/attendance/export.csv", response.text)
-        self.assertNotIn("/attendance/export.xlsx", response.text)
+        self.assertIn("/attendance/export.csv", response.text)
+        self.assertIn("/attendance/export.xlsx", response.text)
 
     def test_invalid_date_is_rejected(self):
         response = self.client.get("/attendance?date=not-a-date")
