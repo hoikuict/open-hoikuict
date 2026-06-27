@@ -829,7 +829,13 @@ def mock_login(
         return RedirectResponse(url="/staff/login", status_code=303)
     response = RedirectResponse(url=redirect_to if redirect_to.startswith("/") else "/calendar", status_code=303)
     role = Role.ADMIN if user.staff_role == "admin" else Role.CAN_EDIT if user.staff_role == "can_edit" else Role.VIEW_ONLY
-    set_staff_cookies(response, role=role, name=user.display_name, user_id=str(user.id))
+    set_staff_cookies(
+        response,
+        role=role,
+        name=user.display_name,
+        user_id=str(user.id),
+        can_manage_child_records=user.can_manage_child_records_effective,
+    )
     return response
 
 

@@ -31,6 +31,7 @@ MOCK_STAFF_CLASSROOM_COOKIE = "mock_staff_primary_classroom_id"
 MOCK_STAFF_EMPLOYMENT_COOKIE = "mock_staff_employment_type"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 MOCK_CALENDAR_USER_COOKIE = "mock_calendar_user_id"
+MOCK_CHILD_RECORDS_PERMISSION_COOKIE = "mock_can_manage_child_records"
 
 
 def _mock_cookie_options(request: Request | None = None) -> dict[str, object]:
@@ -54,6 +55,11 @@ class StaffUser:
     staff_id: Optional[int] = None
     primary_classroom_id: Optional[int] = None
     employment_type: Optional[str] = None
+    can_manage_child_records: bool = False
+
+    def __post_init__(self) -> None:
+        if self.role == Role.ADMIN:
+            self.can_manage_child_records = True
 
     @property
     def can_view(self) -> bool:
@@ -106,6 +112,7 @@ class MockStaffAuthBackend:
         primary_classroom_id = _parse_optional_int(request.cookies.get(MOCK_STAFF_CLASSROOM_COOKIE))
         employment_type = (request.cookies.get(MOCK_STAFF_EMPLOYMENT_COOKIE) or "").strip() or None
         name = _decode_cookie_text(request.cookies.get(MOCK_STAFF_NAME_COOKIE)) or "モック職員"
+        can_manage_child_records = request.cookies.get(MOCK_CHILD_RECORDS_PERMISSION_COOKIE) == "1"
         if as_param and as_param in valid_roles:
             role = Role(as_param)
         else:
@@ -118,6 +125,7 @@ class MockStaffAuthBackend:
             staff_id=staff_id,
             primary_classroom_id=primary_classroom_id,
             employment_type=employment_type,
+            can_manage_child_records=can_manage_child_records,
         )
 
 
@@ -221,11 +229,17 @@ def set_mock_staff_session(
     primary_classroom_id: Optional[int] = None,
     employment_type: Optional[str] = None,
     calendar_user_id: Optional[str] = None,
+    can_manage_child_records: bool = False,
 ) -> None:
     max_age = 60 * 60 * 24
     response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=max_age)
     response.set_cookie(MOCK_STAFF_ID_COOKIE, str(staff_id), max_age=max_age)
     response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name, safe=""), max_age=max_age)
+    response.set_cookie(
+        MOCK_CHILD_RECORDS_PERMISSION_COOKIE,
+        "1" if can_manage_child_records or role == Role.ADMIN else "0",
+        max_age=max_age,
+    )
     if primary_classroom_id is None:
         response.delete_cookie(MOCK_STAFF_CLASSROOM_COOKIE)
     else:
@@ -246,12 +260,25 @@ def clear_mock_staff_session(response: Response) -> None:
     response.delete_cookie(MOCK_STAFF_NAME_COOKIE)
     response.delete_cookie(MOCK_STAFF_CLASSROOM_COOKIE)
     response.delete_cookie(MOCK_STAFF_EMPLOYMENT_COOKIE)
+    response.delete_cookie(MOCK_CHILD_RECORDS_PERMISSION_COOKIE)
     clear_calendar_user_cookie(response)
 
 
-def set_staff_cookies(response: Response, *, role: Role, name: str, user_id: str) -> None:
+def set_staff_cookies(
+    response: Response,
+    *,
+    role: Role,
+    name: str,
+    user_id: str,
+    can_manage_child_records: bool = False,
+) -> None:
     response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=60 * 60 * 24)
     response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name, safe=""), max_age=60 * 60 * 24)
+    response.set_cookie(
+        MOCK_CHILD_RECORDS_PERMISSION_COOKIE,
+        "1" if can_manage_child_records or role == Role.ADMIN else "0",
+        max_age=60 * 60 * 24,
+    )
     set_calendar_user_cookie(response, user_id)
 
 
@@ -276,6 +303,11 @@ def require_can_edit(user: CurrentUser) -> None:
 def require_admin(user: CurrentUser) -> None:
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
+
+
+def require_child_record_manager(user: CurrentUser) -> None:
+    if not user.can_manage_child_records:
+        raise HTTPException(status_code=403, detail="園児台帳管理権限が必要です")
 
 
 def require_attendance_check_editor(user: CurrentUser) -> None:

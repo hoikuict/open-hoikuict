@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_can_edit
+from auth import get_current_staff_user, require_child_record_manager
 from database import get_session
 from family_support import (
     apply_family_shared_data,
@@ -179,7 +179,7 @@ def new_family_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     return _render_form(
         request,
         current_user=current_user,
@@ -219,7 +219,7 @@ def create_family(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
 
     family = Family(family_name=family_name.strip())
     session.add(family)
@@ -289,7 +289,7 @@ def edit_family_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     family = _load_family(session, family_id)
     return _render_form(
         request,
@@ -331,7 +331,7 @@ def update_family(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     family = _load_family(session, family_id)
 
     selected_child_ids = set(_parse_ids(child_ids))

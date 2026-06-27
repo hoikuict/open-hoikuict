@@ -8,7 +8,7 @@
     <p class="text-sm text-slate-500">家族単位で紐づいた園児情報を確認できます。</p>
   </div>
   <div class="flex gap-2">
-    {% if current_user and current_user.can_edit %}
+    {% if current_user and current_user.can_manage_child_records %}
     <a href="/children/new" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">園児を追加</a>
     {% endif %}
     <button onclick="window.print()" class="no-print rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">印刷</button>

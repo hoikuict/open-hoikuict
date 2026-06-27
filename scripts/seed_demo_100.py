@@ -23,6 +23,7 @@ from models import (
     NoticeTarget, ParentAccount, ParentChildLink, ProfileChangeNotification,
     Survey, SurveyAnswer, SurveyQuestion, SurveyQuestionOption,
     SurveyResponse, SurveyTarget, User,
+    USER_SOURCE_WEB_DEMO,
 )
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -86,7 +87,7 @@ BOOL_FIELDS = {
     "is_primary_contact", "diagnosis_confirmed", "removal_required", "is_active", "requires_medical_care",
     "epipen_required", "sids_risk_flag", "breastfed", "requires_followup", "is_calendar_admin",
     "is_primary", "is_archived", "is_visible", "is_all_day", "is_deleted", "is_read",
-    "is_required", "value_bool",
+    "is_required", "value_bool", "can_manage_child_records",
 }
 INT_FIELDS = {
     "id", "display_order", "child_id", "classroom_id", "family_id", "older_sibling_id", "order",
@@ -162,6 +163,14 @@ def seed(wipe: bool = False, db_engine: Engine | None = None) -> dict[str, int]:
         session.exec(text("PRAGMA foreign_keys=OFF"))
         for table, model in MODEL_ORDER:
             rows = load_rows(table)
+            if table == "users":
+                for row in rows:
+                    row.setdefault("provisioning_source", USER_SOURCE_WEB_DEMO)
+                    row.setdefault(
+                        "can_manage_child_records",
+                        row.get("staff_role") == "admin"
+                        or str(row.get("email", "")).startswith("office@"),
+                    )
             for row in rows:
                 session.add(model(**row))
             counts[table] = len(rows)

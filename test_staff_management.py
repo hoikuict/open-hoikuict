@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import Role
-from models import Classroom, Staff, StaffEmploymentType, StaffStatus
+from models import Classroom, Staff, StaffEmploymentType, StaffStatus, USER_SOURCE_MANUAL
 import routers.classrooms as classrooms_module
 import routers.staff as staff_module
 
@@ -106,6 +106,7 @@ class StaffManagementTests(unittest.TestCase):
                 "status": StaffStatus.active.value,
                 "employment_type": StaffEmploymentType.part_time.value,
                 "primary_classroom_id": str(self.hiyoko_id),
+                "can_manage_child_records": "1",
             },
             follow_redirects=False,
         )
@@ -117,6 +118,8 @@ class StaffManagementTests(unittest.TestCase):
         self.assertIsNotNone(created)
         self.assertEqual(created.primary_classroom_id, self.hiyoko_id)
         self.assertEqual(created.employment_type, StaffEmploymentType.part_time)
+        self.assertTrue(created.can_manage_child_records)
+        self.assertEqual(created.provisioning_source, USER_SOURCE_MANUAL)
 
         update_response = self.client.post(
             f"/staff/{created.id}/edit",
@@ -127,6 +130,7 @@ class StaffManagementTests(unittest.TestCase):
                 "status": StaffStatus.retired.value,
                 "employment_type": StaffEmploymentType.regular.value,
                 "primary_classroom_id": "",
+                "can_manage_child_records": "",
             },
             follow_redirects=False,
         )
@@ -140,6 +144,7 @@ class StaffManagementTests(unittest.TestCase):
         self.assertEqual(updated.status, StaffStatus.retired)
         self.assertEqual(updated.employment_type, StaffEmploymentType.regular)
         self.assertIsNone(updated.primary_classroom_id)
+        self.assertTrue(updated.can_manage_child_records)
 
     def test_can_edit_staff_can_use_editable_screen_but_not_staff_admin_screen(self):
         self._mock_login(self.editor_id)

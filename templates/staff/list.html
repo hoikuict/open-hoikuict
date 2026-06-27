@@ -16,7 +16,17 @@
     </div>
   </div>
 
+  <div class="mb-4 flex flex-wrap gap-2">
+    {% for value, label in source_filter_options %}
+    <a href="/staff/?source={{ value }}{% if search_query %}&q={{ search_query }}{% endif %}&status={{ selected_status }}" class="rounded-full border px-3 py-1 text-xs font-medium {% if selected_source == value %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}border-slate-200 bg-white text-slate-600 hover:bg-slate-50{% endif %}">
+      {{ label }}
+      <span class="ml-1 text-slate-400">{{ source_counts.get(value, 0) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
   <form method="get" action="/staff/" class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <input type="hidden" name="source" value="{{ selected_source }}">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
       <div class="md:col-span-2">
         <label for="q" class="mb-1 block text-sm font-medium text-slate-600">検索</label>
@@ -43,7 +53,9 @@
         <tr>
           <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">表示名</th>
           <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">氏名</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">区分</th>
           <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">権限</th>
+          <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">園児台帳</th>
           <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">雇用区分</th>
           <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">在籍状態</th>
           <th class="px-4 py-3 text-left text-sm font-semibold text-slate-600">主担当クラス</th>
@@ -55,7 +67,25 @@
         <tr>
           <td class="px-4 py-3 text-sm font-medium text-slate-800">{{ staff.display_name }}</td>
           <td class="px-4 py-3 text-sm text-slate-700">{{ staff.full_name }}</td>
+          <td class="px-4 py-3 text-sm">
+            {% if staff.provisioning_source == 'web_demo' %}
+            <span class="rounded-full bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ staff.provisioning_source_label }}</span>
+            {% elif staff.provisioning_source == 'local_sample' %}
+            <span class="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">{{ staff.provisioning_source_label }}</span>
+            {% elif staff.provisioning_source == 'manual' %}
+            <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">{{ staff.provisioning_source_label }}</span>
+            {% else %}
+            <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ staff.provisioning_source_label }}</span>
+            {% endif %}
+          </td>
           <td class="px-4 py-3 text-sm text-slate-700">{{ role_labels[staff.role] }}</td>
+          <td class="px-4 py-3 text-sm">
+            {% if staff.can_manage_child_records_effective %}
+            <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">可</span>
+            {% else %}
+            <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500">不可</span>
+            {% endif %}
+          </td>
           <td class="px-4 py-3 text-sm text-slate-700">{{ employment_type_labels[staff.employment_type.value] }}</td>
           <td class="px-4 py-3 text-sm">
             {% if staff.status.value == "active" %}
@@ -76,7 +106,7 @@
         {% endfor %}
         {% if not staff_members %}
         <tr>
-          <td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">条件に一致する職員がいません。</td>
+          <td colspan="9" class="px-4 py-10 text-center text-sm text-slate-400">条件に一致する職員がいません。</td>
         </tr>
         {% endif %}
       </tbody>

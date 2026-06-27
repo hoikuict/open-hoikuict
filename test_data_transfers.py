@@ -67,7 +67,7 @@ class DataTransferTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_exports_children_as_csv(self):
-        response = self.client.get("/data-transfers/export/children.csv")
+        response = self.client.get("/data-transfers/export/children.csv?as=admin")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "text/csv; charset=utf-8")
@@ -90,7 +90,7 @@ class DataTransferTests(unittest.TestCase):
             ["", "佐藤", "みお", "サトウ", "ミオ", "2022-05-06", "2025-04-01", "", "", "ひよこ組", str(self.family_id), "田中家", "", ""],
         ]
         response = self.client.post(
-            "/data-transfers/import/children/commit",
+            "/data-transfers/import/children/commit?as=admin",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,
         )
@@ -113,7 +113,7 @@ class DataTransferTests(unittest.TestCase):
             [str(self.child_id), "田中", "さくら", "タナカ", "サクラ", "2021-04-05", "2024-04-01", "", "", "ひよこ組", str(self.family_id), "田中家", "東京都", ""],
         ]
         response = self.client.post(
-            "/data-transfers/import/children/commit",
+            "/data-transfers/import/children/commit?as=admin",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,
         )
@@ -136,7 +136,7 @@ class DataTransferTests(unittest.TestCase):
             ["", "山田", "あおい", "ヤマダ", "アオイ", "2022-01-01", "2025-04-01", "", "在園", "ひよこ組", str(self.family_id), "佐藤家", "", ""],
         ]
         response = self.client.post(
-            "/data-transfers/import/children/preview",
+            "/data-transfers/import/children/preview?as=admin",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
         )
 
@@ -150,7 +150,7 @@ class DataTransferTests(unittest.TestCase):
         ]
 
         response = self.client.post(
-            "/data-transfers/import/classrooms/preview",
+            "/data-transfers/import/classrooms/preview?as=admin",
             files={"file": ("classrooms.csv", _csv_bytes(rows), "text/csv")},
         )
 

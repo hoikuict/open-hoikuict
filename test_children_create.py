@@ -48,7 +48,7 @@ class ChildCreateTests(unittest.TestCase):
             before_count = len(before)
 
         response = self.client.post(
-            "/children/",
+            "/children/?as=admin",
             data={
                 "last_name": "追加",
                 "first_name": "太郎",

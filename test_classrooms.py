@@ -95,7 +95,7 @@ class ClassroomManagementTests(unittest.TestCase):
         self.assertEqual(updated.display_order, 3)
 
     def test_child_edit_form_can_change_classroom_from_list(self):
-        form_response = self.client.get(f"/children/{self.child_id}/edit")
+        form_response = self.client.get(f"/children/{self.child_id}/edit?as=admin")
 
         self.assertEqual(form_response.status_code, 200)
         self.assertIn('name="classroom_id"', form_response.text)
@@ -103,7 +103,7 @@ class ClassroomManagementTests(unittest.TestCase):
         self.assertIn("うさぎ組", form_response.text)
 
         update_response = self.client.post(
-            f"/children/{self.child_id}/edit",
+            f"/children/{self.child_id}/edit?as=admin",
             data={
                 "last_name": "田中",
                 "first_name": "さくら",

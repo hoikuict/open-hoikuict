@@ -52,6 +52,7 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     SQLModel.metadata.create_all(resolved_engine)
     _migrate_add_child_columns(resolved_engine)
     _migrate_add_attendance_columns(resolved_engine)
+    _migrate_add_user_columns(resolved_engine)
     _migrate_add_staff_columns(resolved_engine)
     _migrate_add_daily_contact_columns(resolved_engine)
     _migrate_add_parent_account_columns(resolved_engine)
@@ -113,6 +114,121 @@ def _migrate_add_staff_columns(db_engine: Optional[Engine] = None) -> None:
                 return
             if "employment_type" not in cols:
                 conn.execute(text("ALTER TABLE staff ADD COLUMN employment_type VARCHAR DEFAULT 'regular'"))
+            if "can_manage_child_records" not in cols:
+                conn.execute(text("ALTER TABLE staff ADD COLUMN can_manage_child_records BOOLEAN DEFAULT 0"))
+                cols.append("can_manage_child_records")
+            if "provisioning_source" not in cols:
+                conn.execute(text("ALTER TABLE staff ADD COLUMN provisioning_source VARCHAR DEFAULT 'manual'"))
+                cols.append("provisioning_source")
+            if "can_manage_child_records" in cols:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE staff
+                        SET can_manage_child_records = 1
+                        WHERE role = 'admin'
+                        """
+                    )
+                )
+            if "provisioning_source" in cols:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE staff
+                        SET provisioning_source = COALESCE(
+                            (
+                                SELECT users.provisioning_source
+                                FROM users
+                                WHERE users.display_name = staff.display_name
+                                  AND users.provisioning_source IS NOT NULL
+                                  AND users.provisioning_source != ''
+                                ORDER BY users.staff_sort_order, users.email
+                                LIMIT 1
+                            ),
+                            provisioning_source
+                        )
+                        WHERE provisioning_source IS NULL
+                           OR provisioning_source = ''
+                           OR provisioning_source = 'manual'
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE staff
+                        SET provisioning_source = 'local_sample'
+                        WHERE display_name IN (
+                            '園長',
+                            '主任',
+                            'ひよこぐみ担任',
+                            'たけのこぐみ担任',
+                            'きのこぐみ担任',
+                            'パート職員',
+                            'アルバイト職員'
+                        )
+                          AND (
+                            provisioning_source IS NULL
+                            OR provisioning_source = ''
+                            OR provisioning_source = 'manual'
+                          )
+                        """
+                    )
+                )
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_user_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            user_cols = _table_columns("users", resolved_engine)
+            if not user_cols:
+                return
+            if "can_manage_child_records" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN can_manage_child_records BOOLEAN DEFAULT 0"))
+            if "provisioning_source" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN provisioning_source VARCHAR DEFAULT 'manual'"))
+                user_cols.append("provisioning_source")
+            if "provisioning_source" in user_cols:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE users
+                        SET provisioning_source = 'local_sample'
+                        WHERE email IN (
+                            'principal@example.com',
+                            'chief@example.com',
+                            'hiyoko@example.com',
+                            'takenoko@example.com',
+                            'kinoko@example.com',
+                            'part@example.com',
+                            'arbeit@example.com'
+                        )
+                          AND (
+                            provisioning_source IS NULL
+                            OR provisioning_source = ''
+                            OR provisioning_source = 'manual'
+                          )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE users
+                        SET provisioning_source = 'web_demo'
+                        WHERE email LIKE '%@demo.open-hoikuict.example'
+                          AND (
+                            provisioning_source IS NULL
+                            OR provisioning_source = ''
+                            OR provisioning_source = 'manual'
+                          )
+                        """
+                    )
+                )
             conn.commit()
     except Exception:
         pass
@@ -274,7 +390,14 @@ def seed_extended_care_fee_rules(db_engine: Optional[Engine] = None) -> None:
 
 def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
     from auth import Role
-    from models import Classroom, Staff, StaffEmploymentType, StaffStatus, User
+    from models import (
+        Classroom,
+        Staff,
+        StaffEmploymentType,
+        StaffStatus,
+        USER_SOURCE_LOCAL_SAMPLE,
+        User,
+    )
 
     with Session(_resolve_engine(db_engine)) as session:
         if session.exec(select(Staff)).first():
@@ -326,6 +449,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                         status=StaffStatus.active,
                         employment_type=employment_type,
                         primary_classroom_id=primary_classroom_id_for(user.display_name),
+                        can_manage_child_records=user.can_manage_child_records_effective,
+                        provisioning_source=user.provisioning_source or USER_SOURCE_LOCAL_SAMPLE,
                     )
                 )
 
@@ -340,6 +465,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.regular,
                 primary_classroom_id=None,
+                can_manage_child_records=True,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
             Staff(
                 full_name="主任",
@@ -348,6 +475,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.regular,
                 primary_classroom_id=None,
+                can_manage_child_records=True,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
             Staff(
                 full_name="ひよこぐみ担任",
@@ -356,6 +485,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.regular,
                 primary_classroom_id=classroom_id_at(0),
+                can_manage_child_records=False,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
             Staff(
                 full_name="たけのこぐみ担任",
@@ -364,6 +495,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.regular,
                 primary_classroom_id=classroom_id_at(1),
+                can_manage_child_records=False,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
             Staff(
                 full_name="きのこぐみ担任",
@@ -372,6 +505,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.regular,
                 primary_classroom_id=classroom_id_at(2),
+                can_manage_child_records=False,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
             Staff(
                 full_name="パート職員",
@@ -380,6 +515,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.part_time,
                 primary_classroom_id=None,
+                can_manage_child_records=False,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
             Staff(
                 full_name="アルバイト職員",
@@ -388,6 +525,8 @@ def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
                 status=StaffStatus.active,
                 employment_type=StaffEmploymentType.part_time,
                 primary_classroom_id=None,
+                can_manage_child_records=False,
+                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
             ),
         ]
 
@@ -807,10 +946,15 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
         CalendarUserPreference,
         Staff,
         StaffStatus,
+        USER_SOURCE_LOCAL_SAMPLE,
+        USER_SOURCE_WEB_DEMO,
         User,
     )
 
     with Session(_resolve_engine(db_engine)) as session:
+        if session.exec(select(User).where(User.provisioning_source == USER_SOURCE_WEB_DEMO)).first():
+            return
+
         active_staff = session.exec(
             select(Staff)
             .where(Staff.status == StaffStatus.active)
@@ -849,6 +993,8 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
                     staff_role=staff.role.value,
                     staff_sort_order=sort_order,
                     is_calendar_admin=staff.role.value == "admin",
+                    can_manage_child_records=staff.can_manage_child_records_effective,
+                    provisioning_source=staff.provisioning_source or USER_SOURCE_LOCAL_SAMPLE,
                     is_active=True,
                 )
             else:
@@ -858,6 +1004,8 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
                 user.staff_role = staff.role.value
                 user.staff_sort_order = sort_order
                 user.is_calendar_admin = staff.role.value == "admin"
+                user.can_manage_child_records = staff.can_manage_child_records_effective
+                user.provisioning_source = staff.provisioning_source or USER_SOURCE_LOCAL_SAMPLE
                 user.is_active = True
                 user.updated_at = utc_now()
             session.add(user)

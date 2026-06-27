@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_can_edit
+from auth import get_current_staff_user, require_child_record_manager
 from child_health_service import sync_health_records_from_legacy_extra_data
 from child_profile_changes import RELATIONSHIP_OPTIONS
 from database import get_session
@@ -316,7 +316,7 @@ def new_child_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     inherit_from = _load_child(session, sibling_id) if sibling_id else None
     selected_family = session.get(Family, family_id) if family_id else (inherit_from.family if inherit_from else None)
     family_form_data = (
@@ -575,7 +575,7 @@ def create_child(
     g2_workplace_phone: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     parsed_birth_date = _parse_date(birth_date)
     parsed_enrollment_date = _parse_date(enrollment_date)
     parsed_withdrawal_date = _parse_date(withdrawal_date)
@@ -735,7 +735,7 @@ def edit_child_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     child = _load_child(session, child_id)
     return _base_form_context(
         request,
@@ -792,7 +792,7 @@ def update_child(
     g2_workplace_phone: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     child = _load_child(session, child_id)
     old_family_id = child.family_id
     parsed_birth_date = _parse_date(birth_date)

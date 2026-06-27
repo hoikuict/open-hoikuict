@@ -15,9 +15,9 @@
 </div>
 {% endif %}
 
-{% if not current_user.can_edit %}
+{% if not current_user.can_manage_child_records %}
 <div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-  データの入出力には編集権限が必要です。
+  データの入出力には園児台帳管理権限が必要です。
 </div>
 {% endif %}
 

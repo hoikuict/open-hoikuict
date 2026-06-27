@@ -64,6 +64,14 @@
       パート職員は新しい出席確認ツールを更新できません。常勤職員はクラスに関係なく全園児の出席確認を操作できます。
     </div>
 
+    <label class="flex items-start gap-3 rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+      <input type="checkbox" name="can_manage_child_records" value="1" {% if form_data.can_manage_child_records %}checked{% endif %}>
+      <span>
+        <span class="block font-medium text-slate-800">園児台帳管理</span>
+        <span class="block text-xs text-slate-500">園児・家族・保護者アカウントの追加と編集を許可します。</span>
+      </span>
+    </label>
+
     <div class="flex gap-3">
       <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
       <a href="/staff/" class="rounded border border-slate-300 px-4 py-2 hover:bg-slate-50">キャンセル</a>

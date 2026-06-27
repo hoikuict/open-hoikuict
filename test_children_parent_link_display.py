@@ -149,14 +149,14 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
         self.assertIn(f'/children/{self.sibling_id}', detail_response.text)
 
     def test_sibling_add_link_opens_new_child_form(self):
-        response = self.client.get(f"/children/new?sibling_id={self.child_id}")
+        response = self.client.get(f"/children/new?sibling_id={self.child_id}&as=admin")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(f'name="older_sibling_id" value="{self.child_id}"', response.text)
         self.assertIn("Tanaka Family", response.text)
 
     def test_edit_form_shows_registered_sibling_relationships(self):
-        younger_response = self.client.get(f"/children/{self.child_id}/edit")
+        younger_response = self.client.get(f"/children/{self.child_id}/edit?as=admin")
 
         self.assertEqual(younger_response.status_code, 200)
         self.assertIn("兄弟関係", younger_response.text)
@@ -164,7 +164,7 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
         self.assertIn("Tanaka Haru", younger_response.text)
         self.assertIn("Class B", younger_response.text)
 
-        older_response = self.client.get(f"/children/{self.sibling_id}/edit")
+        older_response = self.client.get(f"/children/{self.sibling_id}/edit?as=admin")
 
         self.assertEqual(older_response.status_code, 200)
         self.assertIn("弟妹", older_response.text)

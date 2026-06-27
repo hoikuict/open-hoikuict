@@ -89,7 +89,7 @@ class FamilyManagementTests(unittest.TestCase):
 
     def test_edit_family_updates_membership_and_shared_profile(self):
         response = self.client.post(
-            f"/families/{self.family_id}/edit",
+            f"/families/{self.family_id}/edit?as=admin",
             data={
                 "family_name": "田中家",
                 "home_address": "New Shared Address",

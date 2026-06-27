@@ -17,18 +17,39 @@ from auth import (
     set_mock_staff_session,
 )
 from database import get_session
-from models import Classroom, Staff, StaffEmploymentType, StaffStatus
+from models import (
+    Classroom,
+    Staff,
+    StaffEmploymentType,
+    StaffStatus,
+    USER_SOURCE_EXTERNAL,
+    USER_SOURCE_IMPORT,
+    USER_SOURCE_LOCAL_SAMPLE,
+    USER_SOURCE_MANUAL,
+    USER_SOURCE_SYSTEM,
+    USER_SOURCE_WEB_DEMO,
+)
 from time_utils import utc_now
 
 router = APIRouter(prefix="/staff", tags=["staff"])
 templates = Jinja2Templates(directory="templates")
+STAFF_SOURCE_FILTER_OPTIONS = [
+    ("all", "すべて"),
+    (USER_SOURCE_MANUAL, "手動追加"),
+    (USER_SOURCE_LOCAL_SAMPLE, "ローカルサンプル"),
+    (USER_SOURCE_WEB_DEMO, "WEB公開デモ"),
+    (USER_SOURCE_IMPORT, "インポート"),
+    (USER_SOURCE_EXTERNAL, "外部連携"),
+    (USER_SOURCE_SYSTEM, "システム"),
+]
+STAFF_SOURCE_FILTER_VALUES = {value for value, _label in STAFF_SOURCE_FILTER_OPTIONS}
 
 
 def _all_classrooms(session: Session) -> list[Classroom]:
     return session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
 
 
-def _list_staff(session: Session, *, q: str, status: str) -> list[Staff]:
+def _list_staff(session: Session, *, q: str, status: str, source: str) -> list[Staff]:
     statement = select(Staff).options(selectinload(Staff.primary_classroom)).order_by(
         Staff.status,
         Staff.display_name,
@@ -38,6 +59,8 @@ def _list_staff(session: Session, *, q: str, status: str) -> list[Staff]:
         statement = statement.where(Staff.status == StaffStatus.active)
     elif status == StaffStatus.retired.value:
         statement = statement.where(Staff.status == StaffStatus.retired)
+    if source != "all":
+        statement = statement.where(Staff.provisioning_source == source)
 
     normalized_q = q.strip()
     if normalized_q:
@@ -77,6 +100,26 @@ def _status_filter_options() -> list[dict[str, str]]:
         {"value": "retired", "label": "退職のみ"},
         {"value": "all", "label": "すべて"},
     ]
+
+
+def _normalize_source_filter(raw_source: str) -> str:
+    return raw_source if raw_source in STAFF_SOURCE_FILTER_VALUES else "all"
+
+
+def _default_source_filter(session: Session) -> str:
+    has_web_demo = session.exec(
+        select(Staff.id).where(Staff.provisioning_source == USER_SOURCE_WEB_DEMO)
+    ).first()
+    return USER_SOURCE_WEB_DEMO if has_web_demo else "all"
+
+
+def _source_counts(session: Session) -> dict[str, int]:
+    counts = {"all": 0}
+    for source in session.exec(select(Staff.provisioning_source)).all():
+        key = source or USER_SOURCE_MANUAL
+        counts[key] = counts.get(key, 0) + 1
+        counts["all"] += 1
+    return counts
 
 
 def _staff_form_role_options() -> list[dict[str, str]]:
@@ -150,6 +193,7 @@ def _render_form(
         "status": staff.status.value if staff else StaffStatus.active.value,
         "employment_type": staff.employment_type.value if staff else StaffEmploymentType.regular.value,
         "primary_classroom_id": str(staff.primary_classroom_id or "") if staff else "",
+        "can_manage_child_records": "1" if staff and staff.can_manage_child_records_effective else "",
     }
     return templates.TemplateResponse(
         "staff/form.html",
@@ -196,19 +240,24 @@ def staff_list(
     request: Request,
     q: str = "",
     status: str = "active",
+    source: str = "",
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     selected_status = status if status in {"active", "retired", "all"} else "active"
+    selected_source = _normalize_source_filter(source) if source else _default_source_filter(session)
     return templates.TemplateResponse(
         "staff/list.html",
         {
             "request": request,
             "current_user": current_user,
-            "staff_members": _list_staff(session, q=q, status=selected_status),
+            "staff_members": _list_staff(session, q=q, status=selected_status, source=selected_source),
             "search_query": q,
             "selected_status": selected_status,
+            "selected_source": selected_source,
             "status_filter_options": _status_filter_options(),
+            "source_filter_options": STAFF_SOURCE_FILTER_OPTIONS,
+            "source_counts": _source_counts(session),
             "role_labels": ROLE_LABELS,
             "employment_type_labels": EMPLOYMENT_TYPE_LABELS,
         },
@@ -242,6 +291,7 @@ def create_staff(
     status: str = Form(StaffStatus.active.value),
     employment_type: str = Form(StaffEmploymentType.regular.value),
     primary_classroom_id: str = Form(""),
+    can_manage_child_records: str = Form(""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -285,6 +335,7 @@ def create_staff(
                 "status": status,
                 "employment_type": employment_type,
                 "primary_classroom_id": primary_classroom_id,
+                "can_manage_child_records": can_manage_child_records,
             },
         )
 
@@ -295,6 +346,8 @@ def create_staff(
         status=selected_status,
         employment_type=selected_employment_type,
         primary_classroom_id=selected_classroom.id if selected_classroom else None,
+        can_manage_child_records=can_manage_child_records in {"1", "true", "on", "yes"} or selected_role == Role.ADMIN,
+        provisioning_source=USER_SOURCE_MANUAL,
         updated_at=utc_now(),
     )
     session.add(staff)
@@ -332,6 +385,7 @@ def update_staff(
     status: str = Form(StaffStatus.active.value),
     employment_type: str = Form(StaffEmploymentType.regular.value),
     primary_classroom_id: str = Form(""),
+    can_manage_child_records: str = Form(""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -376,6 +430,7 @@ def update_staff(
                 "status": status,
                 "employment_type": employment_type,
                 "primary_classroom_id": primary_classroom_id,
+                "can_manage_child_records": can_manage_child_records,
             },
         )
 
@@ -385,6 +440,7 @@ def update_staff(
     staff.status = selected_status
     staff.employment_type = selected_employment_type
     staff.primary_classroom_id = selected_classroom.id if selected_classroom else None
+    staff.can_manage_child_records = can_manage_child_records in {"1", "true", "on", "yes"} or selected_role == Role.ADMIN
     staff.updated_at = utc_now()
     session.add(staff)
     session.commit()
@@ -438,6 +494,7 @@ def mock_login(
         role=staff.role,
         primary_classroom_id=staff.primary_classroom_id,
         employment_type=staff.employment_type.value,
+        can_manage_child_records=staff.can_manage_child_records_effective,
     )
     return response
 

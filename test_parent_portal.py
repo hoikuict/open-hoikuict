@@ -312,7 +312,7 @@ class ParentPortalTests(unittest.TestCase):
 
     def test_staff_can_create_parent_account_for_family(self):
         response = self.client.post(
-            "/parent-accounts/",
+            "/parent-accounts/?as=admin",
             data={
                 "display_name": "田中 美香",
                 "email": "new-parent@example.com",

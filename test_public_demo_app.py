@@ -85,7 +85,7 @@ class PublicDemoAppTests(unittest.TestCase):
 
     def test_http_preview_keeps_same_demo_session_after_create(self):
         with TestClient(main.app) as client:
-            form_response = client.get("/children/new")
+            form_response = client.get("/children/new?as=admin")
 
             self.assertEqual(form_response.status_code, 200)
             self.assertIn("demo_session_id=", form_response.headers.get("set-cookie", ""))
@@ -94,7 +94,7 @@ class PublicDemoAppTests(unittest.TestCase):
             initial_session_id = client.cookies.get("demo_session_id")
             self.assertIsNotNone(initial_session_id)
 
-            create_response = client.post("/children/", data=self._child_form_data(), follow_redirects=True)
+            create_response = client.post("/children/?as=admin", data=self._child_form_data(), follow_redirects=True)
 
             self.assertEqual(create_response.status_code, 200)
             self.assertEqual(client.cookies.get("demo_session_id"), initial_session_id)
@@ -103,7 +103,7 @@ class PublicDemoAppTests(unittest.TestCase):
 
     def test_forwarded_https_requests_keep_secure_cookie(self):
         with TestClient(main.app) as client:
-            response = client.get("/children/new", headers={"x-forwarded-proto": "https"})
+            response = client.get("/children/new?as=admin", headers={"x-forwarded-proto": "https"})
 
             self.assertEqual(response.status_code, 200)
             self.assertIn("Secure", response.headers.get("set-cookie", ""))

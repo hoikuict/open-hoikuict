@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_can_edit
+from auth import get_current_staff_user, require_child_record_manager
 from database import get_session
 from family_support import sync_parent_child_links
 from models import Family, ParentAccount, ParentAccountStatus, ProfileChangeNotification
@@ -83,7 +83,7 @@ def new_parent_account_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     return templates.TemplateResponse(
         "parent_accounts/form.html",
         {
@@ -113,7 +113,7 @@ def create_parent_account(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     try:
         normalized_status = ParentAccountStatus(status)
     except ValueError:
@@ -149,7 +149,7 @@ def edit_parent_account_form(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     account = _load_account(session, account_id)
     return templates.TemplateResponse(
         "parent_accounts/form.html",
@@ -181,7 +181,7 @@ def update_parent_account(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     account = _load_account(session, account_id)
     old_family_id = account.family_id
 
@@ -216,7 +216,7 @@ def mark_profile_notification_read(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     notification = session.get(ProfileChangeNotification, notification_id)
     if not notification:
         raise HTTPException(status_code=404, detail="通知が見つかりません")

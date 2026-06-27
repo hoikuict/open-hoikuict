@@ -63,6 +63,11 @@
               {{ notes if notes else "-" }}
             {% elif key == "age" %}
               {{ child.age }}歳
+            {% elif key == "family_name" %}
+              {{ child.family.family_name if child.family else "-" }}
+              {% if child.family %}
+              <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ child.family.display_code }}</span>
+              {% endif %}
             {% else %}
               {{ child.get_field(key) or "-" }}
             {% endif %}
@@ -70,7 +75,7 @@
           {% endfor %}
           {% if current_user %}
           <td class="no-print whitespace-nowrap px-4 py-2">
-            {% if current_user.can_edit %}
+            {% if current_user.can_manage_child_records %}
             <a href="/children/{{ child.id }}/edit" class="text-sm text-indigo-600 hover:underline">編集</a>
             <a href="/children/new?sibling_id={{ child.id }}" class="ml-3 text-sm text-indigo-600 hover:underline">兄弟として追加</a>
             {% else %}

@@ -5,7 +5,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
-from auth import MOCK_ROLE_COOKIE, MOCK_STAFF_ID_COOKIE, MOCK_STAFF_NAME_COOKIE, Role
+from auth import (
+    MOCK_CHILD_RECORDS_PERMISSION_COOKIE,
+    MOCK_ROLE_COOKIE,
+    MOCK_STAFF_ID_COOKIE,
+    MOCK_STAFF_NAME_COOKIE,
+    Role,
+)
 from models import Staff, StaffEmploymentType, StaffStatus
 import routers.staff_auth as staff_auth_module
 
@@ -76,6 +82,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn("パート職員", response.text)
         self.assertIn("管理者", response.text)
         self.assertIn("閲覧のみ", response.text)
+        self.assertIn("園児台帳管理", response.text)
         self.assertIn('href="/staff/"', response.text)
 
     def test_login_sets_staff_session_and_redirects(self):
@@ -91,6 +98,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_ROLE_COOKIE}=admin", cookies)
         self.assertIn(f"{MOCK_STAFF_ID_COOKIE}={self.principal_id}", cookies)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", cookies)
+        self.assertIn(f"{MOCK_CHILD_RECORDS_PERMISSION_COOKIE}=1", cookies)
 
     def test_logout_clears_staff_session_and_redirects_to_login(self):
         self.client.post(
@@ -111,6 +119,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_ROLE_COOKIE}=", cookies)
         self.assertIn(f"{MOCK_STAFF_ID_COOKIE}=", cookies)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", cookies)
+        self.assertIn(f"{MOCK_CHILD_RECORDS_PERMISSION_COOKIE}=", cookies)
 
         login_page = self.client.get("/staff/login")
         self.assertEqual(login_page.status_code, 200)

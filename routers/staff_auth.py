@@ -33,6 +33,11 @@ class StaffLoginOption:
     employment_type_label: str = "-"
     primary_classroom_name: str = ""
     login_field: str = "staff_id"
+    can_manage_child_records: bool = False
+
+    @property
+    def can_manage_child_records_effective(self) -> bool:
+        return self.role == Role.ADMIN or self.can_manage_child_records
 
 
 def _normalize_redirect(redirect_to: str | None, fallback: str) -> str:
@@ -81,6 +86,7 @@ def _active_staff_members(session: Session) -> list[StaffLoginOption]:
                 role=staff.role,
                 employment_type_label=staff.employment_type.label,
                 primary_classroom_name=staff.primary_classroom_name,
+                can_manage_child_records=staff.can_manage_child_records_effective,
             )
             for staff in staff_members
         ]
@@ -106,6 +112,7 @@ def _active_staff_members(session: Session) -> list[StaffLoginOption]:
                 display_name=user.display_name,
                 role=_role_from_calendar_user(user),
                 login_field="user_id",
+                can_manage_child_records=user.can_manage_child_records_effective,
             )
         )
     return options
@@ -170,6 +177,7 @@ def staff_login(
                 primary_classroom_id=selected_staff.primary_classroom_id,
                 employment_type=selected_staff.employment_type.value,
                 calendar_user_id=str(calendar_user.id),
+                can_manage_child_records=selected_staff.can_manage_child_records_effective,
             )
         else:
             set_staff_cookies(
@@ -177,6 +185,7 @@ def staff_login(
                 role=resolved_role,
                 name=calendar_user.display_name,
                 user_id=str(calendar_user.id),
+                can_manage_child_records=calendar_user.can_manage_child_records_effective,
             )
         return response
 
@@ -217,6 +226,7 @@ def staff_login(
         primary_classroom_id=selected_staff.primary_classroom_id,
         employment_type=selected_staff.employment_type.value,
         calendar_user_id=str(calendar_user.id) if calendar_user else None,
+        can_manage_child_records=selected_staff.can_manage_child_records_effective,
     )
     return response
 

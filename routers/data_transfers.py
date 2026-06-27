@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_can_edit
+from auth import get_current_staff_user, require_child_record_manager
 from data_transfer_service import (
     build_csv_content,
     build_xlsx_content,
@@ -153,7 +153,7 @@ def download_template(
     file_name: str,
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     dataset, extension = _split_file_name(file_name)
     return _download_response(
         rows=template_rows(dataset),
@@ -171,7 +171,7 @@ def download_export(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     dataset, extension = _split_file_name(file_name)
     rows = export_rows(session, dataset, classroom_id=classroom_id, status=status)
     return _download_response(
@@ -190,7 +190,7 @@ async def preview_import_file(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     try:
         get_dataset(dataset)
     except ValueError as exc:
@@ -213,7 +213,7 @@ async def commit_import_file(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    require_child_record_manager(current_user)
     try:
         get_dataset(dataset)
     except ValueError as exc:
