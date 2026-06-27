@@ -10,11 +10,12 @@ from models import User
 STAFF_USER_SORT_ORDER_LIMIT = 200
 
 
-def staff_user_identity_key(user: User) -> tuple[int, str, str]:
+def staff_user_identity_key(user: User) -> tuple[int, str, str, bool]:
     return (
         user.staff_sort_order,
         (user.display_name or "").strip(),
         (user.staff_role or "").strip(),
+        bool(user.can_manage_child_records),
     )
 
 

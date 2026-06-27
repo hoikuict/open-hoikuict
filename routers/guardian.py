@@ -131,6 +131,7 @@ def guardian_kiosk(
     }
 
     return templates.TemplateResponse(
+        request,
         "guardian/kiosk.html",
         {
             "request": request,
@@ -197,6 +198,7 @@ def guardian_pickup_confirm(
     selected_classroom = session.get(Classroom, class_id) if class_id else None
 
     return templates.TemplateResponse(
+        request,
         "guardian/pickup_confirm.html",
         {
             "request": request,
@@ -232,6 +234,7 @@ def guardian_pickup_commit(
     session.commit()
 
     return templates.TemplateResponse(
+        request,
         "guardian/pickup_done.html",
         {
             "request": request,
@@ -258,6 +261,7 @@ def guardian_check_out_confirm(
     selected_classroom = session.get(Classroom, class_id) if class_id else None
 
     return templates.TemplateResponse(
+        request,
         "guardian/checkout_confirm.html",
         {
             "request": request,

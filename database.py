@@ -169,6 +169,60 @@ def _migrate_add_calendar_columns() -> None:
                 conn.execute(text("ALTER TABLE users ADD COLUMN staff_role VARCHAR DEFAULT 'can_edit'"))
             if user_cols and "staff_sort_order" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN staff_sort_order INTEGER DEFAULT 100"))
+            if user_cols and "can_manage_child_records" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN can_manage_child_records BOOLEAN DEFAULT 0"))
+            if user_cols and "provisioning_source" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN provisioning_source VARCHAR DEFAULT 'manual'"))
+                user_cols.append("provisioning_source")
+            if user_cols and "provisioning_source" in user_cols:
+                conn.execute(
+                    text(
+                        """
+                        UPDATE users
+                        SET provisioning_source = 'local_sample'
+                        WHERE email IN (
+                            'principal@example.com',
+                            'chief@example.com',
+                            'nurse@example.com',
+                            'nutritionist@example.com',
+                            'office@example.com',
+                            'hiyoko@example.com',
+                            'hiyoko-b@example.com',
+                            'takenoko@example.com',
+                            'risu-b@example.com',
+                            'kinoko@example.com',
+                            'usagi-b@example.com',
+                            'panda-a@example.com',
+                            'panda-b@example.com',
+                            'kirin-a@example.com',
+                            'kirin-b@example.com',
+                            'zou-a@example.com',
+                            'zou-b@example.com',
+                            'part@example.com',
+                            'arbeit@example.com'
+                        )
+                          AND (
+                            provisioning_source IS NULL
+                            OR provisioning_source = ''
+                            OR provisioning_source = 'manual'
+                          )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE users
+                        SET provisioning_source = 'web_demo'
+                        WHERE email LIKE '%@demo.open-hoikuict.example'
+                          AND (
+                            provisioning_source IS NULL
+                            OR provisioning_source = ''
+                            OR provisioning_source = 'manual'
+                          )
+                        """
+                    )
+                )
             conn.commit()
     except Exception as exc:
         _log_migration_skip("calendar column", exc)
@@ -635,32 +689,51 @@ def bootstrap_health_records() -> None:
 
 
 def seed_calendar_data() -> None:
-    from models import Calendar, CalendarMember, CalendarMemberRole, CalendarType, CalendarUserPreference, User
+    from models import (
+        Calendar,
+        CalendarMember,
+        CalendarMemberRole,
+        CalendarType,
+        CalendarUserPreference,
+        USER_SOURCE_LOCAL_SAMPLE,
+        USER_SOURCE_WEB_DEMO,
+        User,
+    )
 
     with Session(engine) as session:
+        if session.exec(select(User).where(User.provisioning_source == USER_SOURCE_WEB_DEMO)).first():
+            return
+
         staff_specs = [
-            {"email": "principal@example.com", "display_name": "園長", "staff_role": "admin", "staff_sort_order": 10, "color": "#2563EB"},
-            {"email": "chief@example.com", "display_name": "主任", "staff_role": "admin", "staff_sort_order": 20, "color": "#7C3AED"},
-            {"email": "nurse@example.com", "display_name": "看護師", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#0891B2"},
-            {"email": "nutritionist@example.com", "display_name": "栄養士", "staff_role": "can_edit", "staff_sort_order": 35, "color": "#65A30D"},
-            {"email": "office@example.com", "display_name": "事務", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#9333EA"},
-            {"email": "hiyoko@example.com", "display_name": "ひよこ組担任A", "staff_role": "can_edit", "staff_sort_order": 60, "color": "#F59E0B"},
-            {"email": "hiyoko-b@example.com", "display_name": "ひよこ組担任B", "staff_role": "can_edit", "staff_sort_order": 61, "color": "#F97316"},
-            {"email": "takenoko@example.com", "display_name": "りす組担任A", "staff_role": "can_edit", "staff_sort_order": 70, "color": "#10B981"},
-            {"email": "risu-b@example.com", "display_name": "りす組担任B", "staff_role": "can_edit", "staff_sort_order": 71, "color": "#14B8A6"},
-            {"email": "kinoko@example.com", "display_name": "うさぎ組担任A", "staff_role": "can_edit", "staff_sort_order": 80, "color": "#EC4899"},
-            {"email": "usagi-b@example.com", "display_name": "うさぎ組担任B", "staff_role": "can_edit", "staff_sort_order": 81, "color": "#F43F5E"},
-            {"email": "panda-a@example.com", "display_name": "ぱんだ組担任A", "staff_role": "can_edit", "staff_sort_order": 90, "color": "#8B5CF6"},
-            {"email": "panda-b@example.com", "display_name": "ぱんだ組担任B", "staff_role": "can_edit", "staff_sort_order": 91, "color": "#A855F7"},
-            {"email": "kirin-a@example.com", "display_name": "きりん組担任A", "staff_role": "can_edit", "staff_sort_order": 100, "color": "#0EA5E9"},
-            {"email": "kirin-b@example.com", "display_name": "きりん組担任B", "staff_role": "can_edit", "staff_sort_order": 101, "color": "#38BDF8"},
-            {"email": "zou-a@example.com", "display_name": "ぞう組担任A", "staff_role": "can_edit", "staff_sort_order": 110, "color": "#2563EB"},
-            {"email": "zou-b@example.com", "display_name": "ぞう組担任B", "staff_role": "can_edit", "staff_sort_order": 111, "color": "#1D4ED8"},
-            {"email": "part@example.com", "display_name": "早番パート", "staff_role": "view_only", "staff_sort_order": 150, "color": "#64748B"},
-            {"email": "arbeit@example.com", "display_name": "遅番パート", "staff_role": "view_only", "staff_sort_order": 151, "color": "#475569"},
+            {"email": "principal@example.com", "display_name": "園長", "staff_role": "admin", "staff_sort_order": 10, "color": "#2563EB", "can_manage_child_records": True},
+            {"email": "chief@example.com", "display_name": "主任", "staff_role": "admin", "staff_sort_order": 20, "color": "#7C3AED", "can_manage_child_records": True},
+            {"email": "nurse@example.com", "display_name": "看護師", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#0891B2", "can_manage_child_records": False},
+            {"email": "nutritionist@example.com", "display_name": "栄養士", "staff_role": "can_edit", "staff_sort_order": 35, "color": "#65A30D", "can_manage_child_records": False},
+            {"email": "office@example.com", "display_name": "事務", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#9333EA", "can_manage_child_records": True},
+            {"email": "hiyoko@example.com", "display_name": "ひよこ組担任A", "staff_role": "can_edit", "staff_sort_order": 60, "color": "#F59E0B", "can_manage_child_records": False},
+            {"email": "hiyoko-b@example.com", "display_name": "ひよこ組担任B", "staff_role": "can_edit", "staff_sort_order": 61, "color": "#F97316", "can_manage_child_records": False},
+            {"email": "takenoko@example.com", "display_name": "りす組担任A", "staff_role": "can_edit", "staff_sort_order": 70, "color": "#10B981", "can_manage_child_records": False},
+            {"email": "risu-b@example.com", "display_name": "りす組担任B", "staff_role": "can_edit", "staff_sort_order": 71, "color": "#14B8A6", "can_manage_child_records": False},
+            {"email": "kinoko@example.com", "display_name": "うさぎ組担任A", "staff_role": "can_edit", "staff_sort_order": 80, "color": "#EC4899", "can_manage_child_records": False},
+            {"email": "usagi-b@example.com", "display_name": "うさぎ組担任B", "staff_role": "can_edit", "staff_sort_order": 81, "color": "#F43F5E", "can_manage_child_records": False},
+            {"email": "panda-a@example.com", "display_name": "ぱんだ組担任A", "staff_role": "can_edit", "staff_sort_order": 90, "color": "#8B5CF6", "can_manage_child_records": False},
+            {"email": "panda-b@example.com", "display_name": "ぱんだ組担任B", "staff_role": "can_edit", "staff_sort_order": 91, "color": "#A855F7", "can_manage_child_records": False},
+            {"email": "kirin-a@example.com", "display_name": "きりん組担任A", "staff_role": "can_edit", "staff_sort_order": 100, "color": "#0EA5E9", "can_manage_child_records": False},
+            {"email": "kirin-b@example.com", "display_name": "きりん組担任B", "staff_role": "can_edit", "staff_sort_order": 101, "color": "#38BDF8", "can_manage_child_records": False},
+            {"email": "zou-a@example.com", "display_name": "ぞう組担任A", "staff_role": "can_edit", "staff_sort_order": 110, "color": "#2563EB", "can_manage_child_records": False},
+            {"email": "zou-b@example.com", "display_name": "ぞう組担任B", "staff_role": "can_edit", "staff_sort_order": 111, "color": "#1D4ED8", "can_manage_child_records": False},
+            {"email": "part@example.com", "display_name": "早番パート", "staff_role": "view_only", "staff_sort_order": 150, "color": "#64748B", "can_manage_child_records": False},
+            {"email": "arbeit@example.com", "display_name": "遅番パート", "staff_role": "view_only", "staff_sort_order": 151, "color": "#475569", "can_manage_child_records": False},
         ]
 
-        def ensure_user(*, email: str, display_name: str, staff_role: str, staff_sort_order: int) -> User:
+        def ensure_user(
+            *,
+            email: str,
+            display_name: str,
+            staff_role: str,
+            staff_sort_order: int,
+            can_manage_child_records: bool,
+        ) -> User:
             is_calendar_admin = staff_role == "admin"
             user = session.exec(select(User).where(User.email == email)).first()
             if user is None:
@@ -672,6 +745,8 @@ def seed_calendar_data() -> None:
                     staff_role=staff_role,
                     staff_sort_order=staff_sort_order,
                     is_calendar_admin=is_calendar_admin,
+                    can_manage_child_records=can_manage_child_records,
+                    provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
                 )
             else:
                 user.display_name = display_name
@@ -680,6 +755,8 @@ def seed_calendar_data() -> None:
                 user.staff_role = staff_role
                 user.staff_sort_order = staff_sort_order
                 user.is_calendar_admin = is_calendar_admin
+                user.can_manage_child_records = can_manage_child_records
+                user.provisioning_source = USER_SOURCE_LOCAL_SAMPLE
                 user.is_active = True
                 user.updated_at = utc_now()
             session.add(user)
@@ -738,6 +815,7 @@ def seed_calendar_data() -> None:
                 display_name=spec["display_name"],
                 staff_role=spec["staff_role"],
                 staff_sort_order=spec["staff_sort_order"],
+                can_manage_child_records=spec["can_manage_child_records"],
             )
             for spec in staff_specs
         ]

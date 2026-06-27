@@ -516,6 +516,7 @@ def billing_dashboard(
     profiles = session.exec(select(FamilyBillingProfile).order_by(FamilyBillingProfile.family_id)).all()
 
     return templates.TemplateResponse(
+        request,
         "billing/index.html",
         {
             "request": request,
@@ -599,6 +600,7 @@ def child_charge_form(
         BillingCycleStatus.confirmed,
     }
     return templates.TemplateResponse(
+        request,
         "billing/child_charges.html",
         {
             "request": request,
@@ -710,6 +712,7 @@ def child_charge_input(
         BillingCycleStatus.confirmed,
     }
     return templates.TemplateResponse(
+        request,
         "billing/child_charge_input.html",
         {
             "request": request,

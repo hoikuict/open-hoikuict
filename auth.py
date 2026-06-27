@@ -25,6 +25,7 @@ MOCK_ROLE_COOKIE = "mock_role"
 MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 MOCK_CALENDAR_USER_COOKIE = "mock_calendar_user_id"
 MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
+MOCK_CHILD_RECORDS_PERMISSION_COOKIE = "mock_can_manage_child_records"
 
 
 @dataclass(slots=True)
@@ -32,6 +33,11 @@ class StaffUser:
     role: Role
     name: str = "モック職員"
     user_id: Optional[UUID] = None
+    can_manage_child_records: bool = False
+
+    def __post_init__(self) -> None:
+        if self.role == Role.ADMIN:
+            self.can_manage_child_records = True
 
     @property
     def staff_id(self) -> Optional[str]:
@@ -84,7 +90,15 @@ class MockStaffAuthBackend:
             cookie_role = request.cookies.get(MOCK_ROLE_COOKIE)
             if cookie_role and cookie_role in valid_roles:
                 role = Role(cookie_role)
-        return StaffUser(role=role, name=name, user_id=user_id)
+        can_manage_child_records = (
+            request.cookies.get(MOCK_CHILD_RECORDS_PERMISSION_COOKIE) == "1"
+        )
+        return StaffUser(
+            role=role,
+            name=name,
+            user_id=user_id,
+            can_manage_child_records=can_manage_child_records,
+        )
 
 
 class MockParentPortalAuthBackend:
@@ -173,15 +187,28 @@ def clear_calendar_user_cookie(response: Response) -> None:
     response.delete_cookie(MOCK_CALENDAR_USER_COOKIE)
 
 
-def set_staff_cookies(response: Response, *, role: Role, name: str, user_id: str) -> None:
+def set_staff_cookies(
+    response: Response,
+    *,
+    role: Role,
+    name: str,
+    user_id: str,
+    can_manage_child_records: bool = False,
+) -> None:
     response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=60 * 60 * 24)
     response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name, safe=""), max_age=60 * 60 * 24)
+    response.set_cookie(
+        MOCK_CHILD_RECORDS_PERMISSION_COOKIE,
+        "1" if can_manage_child_records or role == Role.ADMIN else "0",
+        max_age=60 * 60 * 24,
+    )
     set_calendar_user_cookie(response, user_id)
 
 
 def clear_staff_cookies(response: Response) -> None:
     response.delete_cookie(MOCK_ROLE_COOKIE)
     response.delete_cookie(MOCK_STAFF_NAME_COOKIE)
+    response.delete_cookie(MOCK_CHILD_RECORDS_PERMISSION_COOKIE)
     clear_calendar_user_cookie(response)
 
 
@@ -202,6 +229,11 @@ def require_can_edit(user: CurrentUser) -> None:
 def require_admin(user: CurrentUser) -> None:
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
+
+
+def require_child_record_manager(user: CurrentUser) -> None:
+    if not user.can_manage_child_records:
+        raise HTTPException(status_code=403, detail="園児台帳管理権限が必要です")
 
 
 def require_attendance_check_editor(user: CurrentUser) -> None:

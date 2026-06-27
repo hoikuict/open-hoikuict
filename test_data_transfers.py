@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from auth import Role, StaffUser
 import routers.data_transfers as data_transfers_module
 from models import Child, ChildStatus, Classroom, DataTransferLog, Family, ParentAccount
 
@@ -129,6 +130,13 @@ class DataTransferTests(unittest.TestCase):
                 yield session
 
         self.app.dependency_overrides[data_transfers_module.get_session] = override_get_session
+        self.app.dependency_overrides[data_transfers_module.get_current_staff_user] = (
+            lambda: StaffUser(
+                role=Role.CAN_EDIT,
+                name="台帳担当",
+                can_manage_child_records=True,
+            )
+        )
         self.client = TestClient(self.app)
 
         with Session(self.engine) as session:

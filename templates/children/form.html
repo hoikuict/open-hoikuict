@@ -25,7 +25,9 @@
         <select id="sibling_id" name="sibling_id" class="w-full rounded border border-indigo-300 px-3 py-2 text-sm">
           <option value="">選択してください</option>
           {% for sibling in all_children %}
-          <option value="{{ sibling.id }}">{{ sibling.full_name }}（{{ sibling.family_display_name or '家族未設定' }}）</option>
+          <option value="{{ sibling.id }}">
+            {{ sibling.full_name }}{% if sibling.family %} / {{ sibling.family.identity_label }}{% else %}（家族未設定）{% endif %}
+          </option>
           {% endfor %}
         </select>
       </div>
@@ -61,7 +63,7 @@
           <option value="new" {% if selected_family_value == 'new' %}selected{% endif %}>新しい家族を作る</option>
           {% for family in families %}
           <option value="{{ family.id }}" {% if selected_family_value == family.id %}selected{% endif %}>
-            {{ family.family_name }}{% if family.children %} / {{ family.children|length }}人{% endif %}
+            {{ family.selection_label }}
           </option>
           {% endfor %}
         </select>

@@ -288,6 +288,18 @@ class Family(SQLModel, table=True):
             key=lambda item: int(item.get("order", 99)),
         )
 
+    @property
+    def display_code(self) -> str:
+        return f"F-{self.id:05d}" if self.id is not None else "F-未保存"
+
+    @property
+    def identity_label(self) -> str:
+        return f"{self.family_name}（{self.display_code}）"
+
+    @property
+    def selection_label(self) -> str:
+        return self.identity_label
+
 
 class Classroom(SQLModel, table=True):
     __tablename__ = "classrooms"
@@ -356,7 +368,7 @@ class Child(SQLModel, table=True):
 
     @property
     def family_display_name(self) -> str:
-        return self.family.family_name if self.family else ""
+        return self.family.identity_label if self.family else ""
 
     @property
     def shared_home_address(self) -> str:
@@ -1452,6 +1464,23 @@ class CalendarActivityKind(str, Enum):
     event_resized = "event_resized"
 
 
+USER_SOURCE_SYSTEM = "system"
+USER_SOURCE_LOCAL_SAMPLE = "local_sample"
+USER_SOURCE_WEB_DEMO = "web_demo"
+USER_SOURCE_MANUAL = "manual"
+USER_SOURCE_IMPORT = "import"
+USER_SOURCE_EXTERNAL = "external"
+
+USER_PROVISIONING_SOURCE_LABELS = {
+    USER_SOURCE_SYSTEM: "システム",
+    USER_SOURCE_LOCAL_SAMPLE: "ローカルサンプル",
+    USER_SOURCE_WEB_DEMO: "WEB公開デモ",
+    USER_SOURCE_MANUAL: "手動追加",
+    USER_SOURCE_IMPORT: "インポート",
+    USER_SOURCE_EXTERNAL: "外部連携",
+}
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -1464,6 +1493,8 @@ class User(SQLModel, table=True):
     staff_role: str = Field(default="can_edit", max_length=32)
     staff_sort_order: int = Field(default=100, index=True)
     is_calendar_admin: bool = Field(default=False)
+    can_manage_child_records: bool = Field(default=False)
+    provisioning_source: str = Field(default=USER_SOURCE_MANUAL, max_length=32, index=True)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -1483,6 +1514,17 @@ class User(SQLModel, table=True):
     @property
     def is_view_only_staff(self) -> bool:
         return self.staff_role == "view_only"
+
+    @property
+    def can_manage_child_records_effective(self) -> bool:
+        return self.staff_role == "admin" or self.can_manage_child_records
+
+    @property
+    def provisioning_source_label(self) -> str:
+        return USER_PROVISIONING_SOURCE_LABELS.get(
+            self.provisioning_source,
+            self.provisioning_source or "未分類",
+        )
 
 
 class Calendar(SQLModel, table=True):

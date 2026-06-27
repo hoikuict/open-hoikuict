@@ -5,9 +5,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
-from auth import MOCK_CALENDAR_USER_COOKIE, MOCK_ROLE_COOKIE, MOCK_STAFF_NAME_COOKIE
+from auth import (
+    MOCK_CALENDAR_USER_COOKIE,
+    MOCK_CHILD_RECORDS_PERMISSION_COOKIE,
+    MOCK_ROLE_COOKIE,
+    MOCK_STAFF_NAME_COOKIE,
+)
 import database
-from models import User
+from models import USER_SOURCE_LOCAL_SAMPLE, USER_SOURCE_MANUAL, USER_SOURCE_WEB_DEMO, User
 import routers.staff_auth as staff_auth_module
 
 
@@ -62,6 +67,14 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.client.close()
         self.engine.dispose()
 
+    def _login_admin(self):
+        response = self.client.post(
+            "/staff/login",
+            data={"user_id": str(self.principal_id), "redirect_to": "/staff/users"},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+
     def test_login_page_renders_staff_cards(self):
         response = self.client.get("/staff/login?redirect=/staff-rooms/")
 
@@ -78,6 +91,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertNotIn("外部確認用", response.text)
         self.assertIn("管理者", response.text)
         self.assertIn("閲覧のみ", response.text)
+        self.assertIn("園児台帳管理", response.text)
 
     def test_login_sets_staff_and_calendar_cookies_and_redirects(self):
         response = self.client.post(
@@ -92,6 +106,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_ROLE_COOKIE}=admin", set_cookie)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CALENDAR_USER_COOKIE}=", set_cookie)
+        self.assertIn(f"{MOCK_CHILD_RECORDS_PERMISSION_COOKIE}=1", set_cookie)
 
     def test_logout_clears_staff_and_calendar_cookies(self):
         self.client.post(
@@ -112,6 +127,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_ROLE_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CALENDAR_USER_COOKIE}=", set_cookie)
+        self.assertIn(f"{MOCK_CHILD_RECORDS_PERMISSION_COOKIE}=", set_cookie)
 
         login_page = self.client.get("/staff/login")
         self.assertEqual(login_page.status_code, 200)
@@ -139,6 +155,121 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn("ぞう組担任B", names)
         self.assertIn("早番パート", names)
         self.assertIn("遅番パート", names)
+        office = next(user for user in staff_users if user.display_name == "事務")
+        self.assertTrue(office.can_manage_child_records)
+        self.assertTrue(all(user.provisioning_source == USER_SOURCE_LOCAL_SAMPLE for user in staff_users))
+
+    def test_seed_calendar_data_skips_local_staff_when_web_demo_users_exist(self):
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    email="principal@demo.open-hoikuict.example",
+                    display_name="園長",
+                    staff_role="admin",
+                    staff_sort_order=10,
+                    provisioning_source=USER_SOURCE_WEB_DEMO,
+                    is_calendar_admin=True,
+                )
+            )
+            session.commit()
+
+        original_engine = database.engine
+        database.engine = self.engine
+        try:
+            database.seed_calendar_data()
+        finally:
+            database.engine = original_engine
+
+        with Session(self.engine) as session:
+            local_principal = session.exec(
+                select(User).where(User.email == "principal@example.com")
+            ).first()
+            local_chief = session.exec(
+                select(User).where(User.email == "chief@example.com")
+            ).first()
+            demo_principal = session.exec(
+                select(User).where(User.email == "principal@demo.open-hoikuict.example")
+            ).first()
+
+        self.assertEqual(local_principal.provisioning_source, USER_SOURCE_MANUAL)
+        self.assertIsNone(local_chief)
+        self.assertIsNotNone(demo_principal)
+        self.assertEqual(demo_principal.provisioning_source, USER_SOURCE_WEB_DEMO)
+
+    def test_admin_can_create_staff_user_with_child_record_permission(self):
+        self._login_admin()
+
+        response = self.client.post(
+            "/staff/users",
+            data={
+                "display_name": "台帳担当",
+                "email": "records@example.com",
+                "staff_role": "can_edit",
+                "can_manage_child_records": "1",
+                "staff_sort_order": "45",
+                "is_active": "1",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/staff/users")
+        with Session(self.engine) as session:
+            user = session.exec(select(User).where(User.email == "records@example.com")).first()
+        self.assertIsNotNone(user)
+        self.assertEqual(user.staff_role, "can_edit")
+        self.assertTrue(user.can_manage_child_records)
+        self.assertEqual(user.provisioning_source, USER_SOURCE_MANUAL)
+
+    def test_admin_can_filter_staff_users_by_source(self):
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    email="principal@demo.open-hoikuict.example",
+                    display_name="デモ園長",
+                    staff_role="admin",
+                    staff_sort_order=10,
+                    provisioning_source=USER_SOURCE_WEB_DEMO,
+                    is_calendar_admin=True,
+                )
+            )
+            session.commit()
+
+        self._login_admin()
+
+        response = self.client.get("/staff/users")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("手動追加", response.text)
+        self.assertIn("WEB公開デモ", response.text)
+        self.assertIn("デモ園長", response.text)
+        self.assertNotIn("早番パート", response.text)
+
+        all_response = self.client.get("/staff/users?source=all")
+        self.assertEqual(all_response.status_code, 200)
+        self.assertIn("デモ園長", all_response.text)
+        self.assertIn("早番パート", all_response.text)
+
+        filtered_response = self.client.get("/staff/users?source=web_demo")
+        self.assertEqual(filtered_response.status_code, 200)
+        self.assertIn("デモ園長", filtered_response.text)
+        self.assertNotIn("早番パート", filtered_response.text)
+
+    def test_admin_cannot_remove_own_last_admin_permission(self):
+        self._login_admin()
+
+        response = self.client.post(
+            f"/staff/users/{self.principal_id}/edit",
+            data={
+                "display_name": "園長",
+                "email": "principal@example.com",
+                "staff_role": "can_edit",
+                "staff_sort_order": "10",
+                "is_active": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("自分自身の管理者権限はこの画面では外せません。", response.text)
 
 
 if __name__ == "__main__":

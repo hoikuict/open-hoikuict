@@ -6,9 +6,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_admin
+from auth import get_current_staff_user, require_child_record_manager
 from child_profile_changes import apply_child_profile_payload, merge_child_profile_form_data
-from database import get_session, seed_classroom_data
+from database import get_session
 from models import (
     Child,
     ChildProfileChangeRequest,
@@ -52,7 +52,7 @@ def child_change_request_list(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_admin(current_user)
+    require_child_record_manager(current_user)
     status_filter = _parse_status_filter(status)
 
     statement = (
@@ -101,7 +101,7 @@ def child_change_request_detail(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_admin(current_user)
+    require_child_record_manager(current_user)
     change_request = _load_change_request(session, request_id)
     child = change_request.child
     current_form_data = merge_child_profile_form_data(child) if child else {}
@@ -130,7 +130,7 @@ def approve_child_change_request(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_admin(current_user)
+    require_child_record_manager(current_user)
     change_request = _load_change_request(session, request_id)
     if change_request.status != ChildProfileChangeRequestStatus.pending:
         return RedirectResponse(url=f"/child-change-requests/{request_id}", status_code=303)
@@ -160,7 +160,6 @@ def approve_child_change_request(
     change_request.updated_at = utc_now()
     session.add(change_request)
     session.commit()
-    seed_classroom_data()
 
     return RedirectResponse(url=f"/child-change-requests/{request_id}?notice=approved", status_code=303)
 
@@ -172,7 +171,7 @@ def reject_child_change_request(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_admin(current_user)
+    require_child_record_manager(current_user)
     change_request = _load_change_request(session, request_id)
     if change_request.status != ChildProfileChangeRequestStatus.pending:
         return RedirectResponse(url=f"/child-change-requests/{request_id}", status_code=303)

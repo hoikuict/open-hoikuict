@@ -24,6 +24,7 @@ from models import (
     NoticeTarget, ParentAccount, ParentChildLink, ProfileChangeNotification,
     Survey, SurveyAnswer, SurveyQuestion, SurveyQuestionOption,
     SurveyResponse, SurveyTarget, User,
+    USER_SOURCE_WEB_DEMO,
 )
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -231,6 +232,9 @@ def seed(wipe: bool = False) -> dict[str, int]:
         session.exec(text("PRAGMA foreign_keys=OFF"))
         for table, model in MODEL_ORDER:
             rows = load_rows(table)
+            if table == "users":
+                for row in rows:
+                    row.setdefault("provisioning_source", USER_SOURCE_WEB_DEMO)
             for row in rows:
                 session.add(model(**row))
             counts[table] = len(rows)

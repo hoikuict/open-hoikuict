@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
+from auth import Role, StaffUser
 from models import Child, ChildStatus, Classroom, Family, ParentAccount, ParentAccountStatus
 from time_utils import utc_now
 import routers.children as children_module
@@ -22,12 +23,21 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
 
         self.app = FastAPI()
         self.app.include_router(children_module.router)
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="台帳担当",
+            can_manage_child_records=True,
+        )
 
         def override_get_session():
             with Session(self.engine) as session:
                 yield session
 
+        def override_get_current_staff_user():
+            return self.current_user
+
         self.app.dependency_overrides[children_module.get_session] = override_get_session
+        self.app.dependency_overrides[children_module.get_current_staff_user] = override_get_current_staff_user
         self.client = TestClient(self.app)
 
         with Session(self.engine) as session:
@@ -62,6 +72,7 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
             )
             session.add(family)
             session.flush()
+            self.family_id = family.id
 
             child = Child(
                 last_name="Tanaka",
@@ -127,26 +138,81 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
 
         name_desc_response = self.client.get("/children/?sort_by=name&sort_order=desc")
         self.assertEqual(name_desc_response.status_code, 200)
-        self.assertLess(name_desc_response.text.find("Sakura"), name_desc_response.text.find("Haru"))
+        self.assertLess(
+            name_desc_response.text.find(f"/children/{self.child_id}/edit"),
+            name_desc_response.text.find(f"/children/{self.sibling_id}/edit"),
+        )
 
         birth_desc_response = self.client.get("/children/?sort_by=birth_date&sort_order=desc")
         self.assertEqual(birth_desc_response.status_code, 200)
-        self.assertLess(birth_desc_response.text.find("Sakura"), birth_desc_response.text.find("Haru"))
+        self.assertLess(
+            birth_desc_response.text.find(f"/children/{self.child_id}/edit"),
+            birth_desc_response.text.find(f"/children/{self.sibling_id}/edit"),
+        )
+
+    def test_new_child_family_dropdown_disambiguates_duplicate_family_names(self):
+        with Session(self.engine) as session:
+            duplicate_family = Family(
+                family_name="Tanaka Family",
+                shared_profile={
+                    "guardians": [
+                        {
+                            "order": 1,
+                            "last_name": "Tanaka",
+                            "first_name": "Aiko",
+                            "relationship": "母",
+                        }
+                    ]
+                },
+            )
+            session.add(duplicate_family)
+            session.flush()
+            duplicate_child = Child(
+                last_name="Tanaka",
+                first_name="Taro",
+                last_name_kana="TANAKA",
+                first_name_kana="TARO",
+                birth_date=date(2022, 7, 7),
+                enrollment_date=date(2025, 4, 1),
+                status=ChildStatus.enrolled,
+                classroom_id=self.classroom_a_id,
+                family_id=duplicate_family.id,
+            )
+            session.add(duplicate_child)
+            session.commit()
+            duplicate_family_id = duplicate_family.id
+
+        response = self.client.get("/children/new")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f"F-{self.family_id:05d}", response.text)
+        self.assertIn(f"F-{duplicate_family_id:05d}", response.text)
+        self.assertNotIn("園児:", response.text)
+        self.assertNotIn("保護者:", response.text)
 
     def test_view_only_user_sees_detail_link_and_family_overview(self):
-        response = self.client.get("/children/?fields=family_name&fields=guardians&as=view_only")
+        self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+
+        response = self.client.get("/children/?fields=family_name&fields=guardians")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(f'/children/{self.child_id}', response.text)
         self.assertIn("詳細", response.text)
         self.assertNotIn(f"/children/{self.child_id}/edit", response.text)
 
-        detail_response = self.client.get(f"/children/{self.child_id}?as=view_only")
+        detail_response = self.client.get(f"/children/{self.child_id}")
 
         self.assertEqual(detail_response.status_code, 200)
         self.assertIn("家族一覧", detail_response.text)
         self.assertIn("Portal Account Name", detail_response.text)
         self.assertIn(f'/children/{self.sibling_id}', detail_response.text)
+
+    def test_non_manager_cannot_open_child_form(self):
+        self.current_user = StaffUser(role=Role.CAN_EDIT, name="日常編集担当")
+
+        response = self.client.get("/children/new")
+
+        self.assertEqual(response.status_code, 403)
 
     def test_sibling_add_link_opens_new_child_form(self):
         response = self.client.get(f"/children/new?sibling_id={self.child_id}")

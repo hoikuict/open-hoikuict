@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from auth import Role, StaffUser
 from models import Child, ChildStatus, Classroom, Family, ParentAccount, ParentAccountStatus
 import routers.families as families_module
 
@@ -21,12 +22,21 @@ class FamilyManagementTests(unittest.TestCase):
 
         self.app = FastAPI()
         self.app.include_router(families_module.router)
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="台帳担当",
+            can_manage_child_records=True,
+        )
 
         def override_get_session():
             with Session(self.engine) as session:
                 yield session
 
+        def override_get_current_staff_user():
+            return self.current_user
+
         self.app.dependency_overrides[families_module.get_session] = override_get_session
+        self.app.dependency_overrides[families_module.get_current_staff_user] = override_get_current_staff_user
         self.client = TestClient(self.app)
 
         with Session(self.engine) as session:
@@ -128,6 +138,13 @@ class FamilyManagementTests(unittest.TestCase):
         self.assertEqual({child.family_id for child in children}, {self.family_id})
         self.assertEqual({child.home_address for child in children}, {"New Shared Address"})
         self.assertEqual(family.home_phone, "03-9999-9999")
+
+    def test_non_manager_cannot_edit_family(self):
+        self.current_user = StaffUser(role=Role.CAN_EDIT, name="日常編集担当")
+
+        response = self.client.get(f"/families/{self.family_id}/edit")
+
+        self.assertEqual(response.status_code, 403)
 
 
 if __name__ == "__main__":

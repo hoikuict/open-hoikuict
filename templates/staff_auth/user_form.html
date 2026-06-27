@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ submit_label }} | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl">
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">{{ submit_label }}</h1>
+      <p class="text-sm text-slate-500">職員情報と権限を設定します。</p>
+    </div>
+    <a href="/staff/users" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
+  </div>
+
+  {% if form_error %}
+  <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ form_error }}</div>
+  {% endif %}
+
+  <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">表示名</label>
+        <input type="text" name="display_name" required value="{{ form_data.display_name }}" class="w-full rounded border border-slate-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
+        <input type="email" name="email" required value="{{ form_data.email }}" class="w-full rounded border border-slate-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">権限</label>
+        <select name="staff_role" class="w-full rounded border border-slate-300 px-3 py-2">
+          {% for value, label in staff_role_options %}
+          <option value="{{ value }}" {% if form_data.staff_role == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">表示順</label>
+        <input type="number" name="staff_sort_order" value="{{ form_data.staff_sort_order }}" class="w-full rounded border border-slate-300 px-3 py-2">
+      </div>
+    </div>
+
+    <div class="grid gap-3">
+      <label class="flex items-start gap-3 rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+        <input type="checkbox" name="can_manage_child_records" value="1" {% if form_data.can_manage_child_records %}checked{% endif %}>
+        <span>
+          <span class="block font-medium text-slate-800">園児台帳管理</span>
+          <span class="block text-xs text-slate-500">園児・家族・保護者アカウントの追加と編集を許可します。</span>
+        </span>
+      </label>
+      <label class="flex items-start gap-3 rounded border border-slate-200 px-4 py-3 hover:bg-slate-50">
+        <input type="checkbox" name="is_active" value="1" {% if form_data.is_active %}checked{% endif %}>
+        <span>
+          <span class="block font-medium text-slate-800">有効</span>
+          <span class="block text-xs text-slate-500">ログイン画面の職員候補に表示します。</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
+      <a href="/staff/users" class="rounded border border-slate-300 px-4 py-2 hover:bg-slate-50">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
