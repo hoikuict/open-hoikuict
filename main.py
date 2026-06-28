@@ -90,6 +90,14 @@ def _content_length(header_value: str | None) -> int:
         return 0
 
 
+def _incoming_demo_session_id(request: Request) -> str | None:
+    return (
+        request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+        or request.headers.get("x-demo-session-id")
+        or request.query_params.get(DEMO_SESSION_COOKIE_NAME)
+    )
+
+
 def _limit_response(status_code: int, title: str, message: str) -> HTMLResponse:
     body = f"""
     <!doctype html>
@@ -139,8 +147,10 @@ async def public_demo_middleware(request: Request, call_next):
     manager = get_demo_session_manager()
     manager.cleanup_expired_sessions()
 
-    incoming_session_id = request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+    cookie_session_id = request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+    incoming_session_id = _incoming_demo_session_id(request)
     session_id, should_set_cookie = manager.ensure_session_id(incoming_session_id)
+    should_set_cookie = should_set_cookie or cookie_session_id != session_id
     request.state.demo_session_id = session_id
     manager.ensure_session_database(session_id)
     manager.touch_session(session_id)
@@ -163,6 +173,7 @@ async def public_demo_middleware(request: Request, call_next):
             )
 
     response = await call_next(request)
+    response.headers["X-Demo-Session-Id"] = session_id
     if should_set_cookie:
         response.set_cookie(
             DEMO_SESSION_COOKIE_NAME,

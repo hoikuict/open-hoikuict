@@ -69,15 +69,27 @@ class AttendanceChecksTests(unittest.TestCase):
                 status=ChildStatus.enrolled,
                 classroom_id=classroom.id,
             )
+            second_child = Child(
+                last_name="Suzuki",
+                first_name="Hana",
+                last_name_kana="suzuki",
+                first_name_kana="hana",
+                birth_date=date(2021, 5, 1),
+                enrollment_date=date(2024, 4, 1),
+                status=ChildStatus.enrolled,
+                classroom_id=classroom.id,
+            )
             parent = ParentAccount(
                 display_name="Tanaka Parent",
                 email="tanaka-parent@example.com",
             )
             session.add(child)
+            session.add(second_child)
             session.add(parent)
             session.commit()
 
             self.child_id = child.id
+            self.second_child_id = second_child.id
             self.parent_id = parent.id
 
     def tearDown(self):
@@ -150,6 +162,45 @@ class AttendanceChecksTests(unittest.TestCase):
         self.assertEqual(len(histories), 2)
         self.assertTrue(all(history.updated_by_name == "Checker" for history in histories))
         self.assertTrue(all(history.updated_by_staff_id == 1 for history in histories))
+
+    def test_htmx_update_keeps_other_children_verifications(self):
+        first_response = self.client.post(
+            f"/attendance-checks/{self.child_id}/verification",
+            headers={"HX-Request": "true"},
+            data={
+                "date": self.day.isoformat(),
+                "status": "present",
+                "layout": "flat",
+                "filter": "all",
+                "classroom_id": "",
+            },
+        )
+        second_response = self.client.post(
+            f"/attendance-checks/{self.second_child_id}/verification",
+            headers={"HX-Request": "true"},
+            data={
+                "date": self.day.isoformat(),
+                "status": "sick_absent",
+                "layout": "flat",
+                "filter": "all",
+                "classroom_id": "",
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+
+        with Session(self.engine) as session:
+            verifications = session.exec(
+                select(AttendanceVerification).order_by(AttendanceVerification.child_id)
+            ).all()
+
+        self.assertEqual(len(verifications), 2)
+        status_by_child_id = {verification.child_id: verification.status.value for verification in verifications}
+        self.assertEqual(status_by_child_id[self.child_id], "present")
+        self.assertEqual(status_by_child_id[self.second_child_id], "sick_absent")
+        self.assertIn("目視確認: 出席", second_response.text)
+        self.assertIn("目視確認: 病気休み", second_response.text)
 
     def test_list_shows_compact_summary_row_and_detail_toggle(self):
         with Session(self.engine) as session:

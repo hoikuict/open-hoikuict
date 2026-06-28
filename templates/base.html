@@ -1,3 +1,4 @@
+{% set demo_session_id = request.state.demo_session_id|default('', true) if request is defined and request else '' %}
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,6 +7,9 @@
   <title>{% block title %}open-hoikuict{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  {% if demo_session_id %}
+  <meta name="demo-session-id" content="{{ demo_session_id }}">
+  {% endif %}
   <style>
     @media print {
       .no-print { display: none !important; }
@@ -300,6 +304,65 @@
   {% endif %}
 
   {% block body_end %}{% endblock %}
+  {% if demo_session_id %}
+  <script>
+    (() => {
+      const meta = document.querySelector('meta[name="demo-session-id"]');
+      const sessionId = meta ? meta.content : "";
+      const sessionKey = "demo_session_id";
+
+      if (!sessionId) {
+        return;
+      }
+
+      const withSession = (rawUrl) => {
+        const url = new URL(rawUrl || window.location.href, window.location.href);
+        if (url.origin !== window.location.origin) {
+          return rawUrl;
+        }
+        url.searchParams.set(sessionKey, sessionId);
+        return `${url.pathname}${url.search}${url.hash}`;
+      };
+
+      const decorateForm = (form) => {
+        const action = form.getAttribute("action") || window.location.href;
+        form.setAttribute("action", withSession(action));
+
+        let hidden = form.querySelector(`input[type="hidden"][name="${sessionKey}"]`);
+        if (!hidden) {
+          hidden = document.createElement("input");
+          hidden.type = "hidden";
+          hidden.name = sessionKey;
+          form.appendChild(hidden);
+        }
+        hidden.value = sessionId;
+      };
+
+      document.body.addEventListener("htmx:configRequest", (event) => {
+        event.detail.headers["X-Demo-Session-Id"] = sessionId;
+      });
+
+      document.body.addEventListener("submit", (event) => {
+        if (event.target instanceof HTMLFormElement) {
+          decorateForm(event.target);
+        }
+      }, true);
+
+      document.body.addEventListener("click", (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const link = target ? target.closest("a[href]") : null;
+        if (!link || link.target || link.download) {
+          return;
+        }
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+          return;
+        }
+        link.setAttribute("href", withSession(href));
+      }, true);
+    })();
+  </script>
+  {% endif %}
   {% if not is_parent_portal %}
   <script>
     (() => {

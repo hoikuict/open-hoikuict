@@ -36,6 +36,7 @@ def get_session(connection: HTTPConnection):
             session_id = (
                 getattr(connection.state, "demo_session_id", None)
                 or connection.cookies.get(DEMO_SESSION_COOKIE_NAME)
+                or connection.headers.get("x-demo-session-id")
                 or connection.query_params.get(DEMO_SESSION_COOKIE_NAME)
             )
             if session_id:
