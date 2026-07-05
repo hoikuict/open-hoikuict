@@ -36,36 +36,24 @@ class ParentAccountStatus(str, Enum):
         }[self]
 
 
-class StaffStatus(str, Enum):
-    active = "active"
-    retired = "retired"
-
-    @property
-    def label(self) -> str:
-        return {
-            self.active: "在籍",
-            self.retired: "退職",
-        }[self]
-
-
-class StaffEmploymentType(str, Enum):
-    regular = "regular"
-    part_time = "part_time"
-
-    @property
-    def label(self) -> str:
-        return {
-            self.regular: "常勤",
-            self.part_time: "パート",
-        }[self]
-
-
 class DailyContactEntryStatus(str, Enum):
     submitted = "submitted"
 
     @property
     def label(self) -> str:
         return {self.submitted: "提出済み"}[self]
+
+
+class DailyContactReplyStatus(str, Enum):
+    draft = "draft"
+    published = "published"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.draft: "下書き",
+            self.published: "公開済み",
+        }[self]
 
 
 class ParentContactType(str, Enum):
@@ -157,6 +145,30 @@ class NoticeStatus(str, Enum):
         return {
             self.draft: "下書き",
             self.published: "公開中",
+        }[self]
+
+
+class StaffStatus(str, Enum):
+    active = "active"
+    retired = "retired"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.active: "在籍中",
+            self.retired: "退職",
+        }[self]
+
+
+class StaffEmploymentType(str, Enum):
+    regular = "regular"
+    part_time = "part_time"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.regular: "常勤",
+            self.part_time: "パート",
         }[self]
 
 
@@ -336,7 +348,6 @@ class Classroom(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
     children: List["Child"] = Relationship(back_populates="classroom")
-    staff_members: List["Staff"] = Relationship(back_populates="primary_classroom")
     messages: List["Message"] = Relationship(back_populates="room")
 
 
@@ -344,10 +355,10 @@ class Staff(SQLModel, table=True):
     __tablename__ = "staff"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    full_name: str = Field(index=True)
+    full_name: str
     display_name: str = Field(index=True)
-    role: Role = Field(default=Role.CAN_EDIT)
-    status: StaffStatus = Field(default=StaffStatus.active)
+    role: Role = Field(default=Role.CAN_EDIT, index=True)
+    status: StaffStatus = Field(default=StaffStatus.active, index=True)
     employment_type: StaffEmploymentType = Field(default=StaffEmploymentType.regular)
     primary_classroom_id: Optional[int] = Field(default=None, foreign_key="classrooms.id", index=True)
     can_manage_child_records: bool = Field(default=False)
@@ -355,15 +366,15 @@ class Staff(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
-    primary_classroom: Optional[Classroom] = Relationship(back_populates="staff_members")
-
-    @property
-    def primary_classroom_name(self) -> str:
-        return self.primary_classroom.name if self.primary_classroom else ""
+    primary_classroom: Optional[Classroom] = Relationship()
 
     @property
     def can_manage_child_records_effective(self) -> bool:
         return self.role == Role.ADMIN or self.can_manage_child_records
+
+    @property
+    def primary_classroom_name(self) -> str:
+        return self.primary_classroom.name if self.primary_classroom else ""
 
     @property
     def provisioning_source_label(self) -> str:
@@ -408,6 +419,7 @@ class Child(SQLModel, table=True):
     attendance_records: List["AttendanceRecord"] = Relationship(back_populates="child")
     parent_links: List["ParentChildLink"] = Relationship(back_populates="child")
     daily_contact_entries: List["DailyContactEntry"] = Relationship(back_populates="child")
+    daily_contact_replies: List["DailyContactReply"] = Relationship(back_populates="child")
     profile_change_requests: List["ChildProfileChangeRequest"] = Relationship(back_populates="child")
 
     @property
@@ -702,6 +714,7 @@ class AttendanceRecord(SQLModel, table=True):
     check_out_at: Optional[datetime] = None
     planned_pickup_time: Optional[str] = None
     pickup_person: Optional[str] = None
+    snack_required: bool = Field(default=False)
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -790,7 +803,7 @@ class ParentAccount(SQLModel, table=True):
 
     @property
     def family_display_name(self) -> str:
-        return self.family.identity_label if self.family else ""
+        return self.family.family_name if self.family else ""
 
 
 class ParentChildLink(SQLModel, table=True):
@@ -840,6 +853,7 @@ class DailyContactEntry(SQLModel, table=True):
     child: Optional[Child] = Relationship(back_populates="daily_contact_entries")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="daily_contact_entries")
 
+
     @property
     def is_present_contact(self) -> bool:
         return self.contact_type == ParentContactType.present
@@ -857,6 +871,26 @@ class DailyContactEntry(SQLModel, table=True):
         return ""
 
 
+class DailyContactReply(SQLModel, table=True):
+    __tablename__ = "daily_contact_replies"
+    __table_args__ = (UniqueConstraint("child_id", "target_date", name="uq_daily_contact_reply_child_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    daily_contact_entry_id: Optional[int] = Field(default=None, foreign_key="daily_contact_entries.id", index=True)
+    target_date: date = Field(index=True)
+    status: DailyContactReplyStatus = Field(default=DailyContactReplyStatus.draft, index=True)
+    field_values: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    message: Optional[str] = None
+    staff_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    staff_name: Optional[str] = None
+    published_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    child: Optional[Child] = Relationship(back_populates="daily_contact_replies")
+
+
 class AttendanceVerification(SQLModel, table=True):
     __tablename__ = "attendance_verifications"
     __table_args__ = (UniqueConstraint("child_id", "target_date", name="uq_attendance_verification_child_date"),)
@@ -865,7 +899,7 @@ class AttendanceVerification(SQLModel, table=True):
     child_id: int = Field(foreign_key="children.id", index=True)
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
-    updated_by_staff_id: Optional[int] = Field(default=None, foreign_key="staff.id", index=True)
+    updated_by_staff_id: Optional[int] = Field(default=None, index=True)
     updated_by_name: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -878,7 +912,7 @@ class AttendanceVerificationHistory(SQLModel, table=True):
     child_id: int = Field(foreign_key="children.id", index=True)
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
-    updated_by_staff_id: Optional[int] = Field(default=None, foreign_key="staff.id", index=True)
+    updated_by_staff_id: Optional[int] = Field(default=None, index=True)
     updated_by_name: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -1419,7 +1453,7 @@ class Message(SQLModel, table=True):
     @property
     def display_body(self) -> str:
         if self.is_deleted:
-            return "\u3053\u306e\u30e1\u30c3\u30bb\u30fc\u30b8\u306f\u524a\u9664\u3055\u308c\u307e\u3057\u305f\u3002"
+            return "このメッセージは削除されました。"
         return self.body
 
 

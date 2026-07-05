@@ -6,11 +6,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from auth import Role, StaffUser
 from models import (
     Child,
     ChildStatus,
     Classroom,
     DailyContactEntry,
+    DailyContactReply,
+    DailyContactReplyStatus,
     Family,
     Notice,
     NoticePriority,
@@ -53,6 +56,13 @@ class ParentPortalTests(unittest.TestCase):
         self.app.dependency_overrides[parent_accounts_module.get_session] = override_get_session
         self.app.dependency_overrides[notices_module.get_session] = override_get_session
         self.app.dependency_overrides[daily_contacts_module.get_session] = override_get_session
+        self.app.dependency_overrides[parent_accounts_module.get_current_staff_user] = (
+            lambda: StaffUser(
+                role=Role.CAN_EDIT,
+                name="台帳担当",
+                can_manage_child_records=True,
+            )
+        )
 
         self.client = TestClient(self.app)
 
@@ -214,12 +224,20 @@ class ParentPortalTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            f"/parent-portal/?date={today}&notice=saved",
+        )
 
         with Session(self.engine) as session:
             entry = session.exec(select(DailyContactEntry).where(DailyContactEntry.child_id == self.child_id)).first()
         self.assertIsNotNone(entry)
         self.assertEqual(entry.contact_type, ParentContactType.present)
         self.assertEqual(entry.contact_note, "本日は16:30に迎えます。")
+
+        home_response = self.client.get(response.headers["location"])
+        self.assertEqual(home_response.status_code, 200)
+        self.assertIn("日次連絡を保存しました。", home_response.text)
 
         history_response = self.client.get("/parent-portal/history")
         self.assertEqual(history_response.status_code, 200)
@@ -235,6 +253,147 @@ class ParentPortalTests(unittest.TestCase):
         detail_response = self.client.get(f"/daily-contacts/{self.child_id}?date={today}")
         self.assertEqual(detail_response.status_code, 200)
         self.assertIn("本日は16:30に迎えます。", detail_response.text)
+
+    def test_staff_can_publish_daily_contact_reply_to_parent(self):
+        self._login_parent(self.parent_account_id)
+        target = date(2026, 7, 5)
+
+        contact_response = self.client.post(
+            f"/parent-portal/children/{self.child_id}/contact",
+            data={
+                "date": target.isoformat(),
+                "attendance_mode": "present",
+                "contact_type": ParentContactType.present.value,
+                "temperature": "36.8",
+                "mood": "良好",
+                "breakfast_status": "完食",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(contact_response.status_code, 303)
+
+        draft_response = self.client.post(
+            f"/daily-contacts/{self.child_id}/reply",
+            data={
+                "date": target.isoformat(),
+                "reply_nap_time": "12:30-14:10",
+                "action": "draft",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(draft_response.status_code, 303)
+        staff_list_with_draft = self.client.get(f"/daily-contacts/?date={target.isoformat()}")
+        self.assertEqual(staff_list_with_draft.status_code, 200)
+        self.assertIn("下書き", staff_list_with_draft.text)
+        self.assertIn("返信者: 台帳担当", staff_list_with_draft.text)
+        self.assertNotIn("返信済み", staff_list_with_draft.text)
+
+        parent_home_before_publish = self.client.get(f"/parent-portal/?date={target.isoformat()}")
+        self.assertEqual(parent_home_before_publish.status_code, 200)
+        self.assertNotIn("園からの返信", parent_home_before_publish.text)
+        self.assertNotIn("12:30-14:10", parent_home_before_publish.text)
+
+        publish_response = self.client.post(
+            f"/daily-contacts/{self.child_id}/reply",
+            data={
+                "date": target.isoformat(),
+                "reply_nap_time": "12:30-14:10",
+                "reply_temperature": "36.9",
+                "reply_bowel_movement": "あり",
+                "reply_appetite": "完食",
+                "reply_message": "今日も元気に過ごしました。",
+                "action": "publish",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(publish_response.status_code, 303)
+
+        staff_list_after_publish = self.client.get(f"/daily-contacts/?date={target.isoformat()}")
+        self.assertEqual(staff_list_after_publish.status_code, 200)
+        self.assertIn("返信済み", staff_list_after_publish.text)
+        self.assertIn("返信者: 台帳担当", staff_list_after_publish.text)
+
+        staff_detail = self.client.get(f"/daily-contacts/{self.child_id}?date={target.isoformat()}")
+        self.assertEqual(staff_detail.status_code, 200)
+        self.assertIn("公開済み", staff_detail.text)
+        self.assertIn("更新者: 台帳担当", staff_detail.text)
+        self.assertIn("今日も元気に過ごしました。", staff_detail.text)
+
+        parent_home = self.client.get(f"/parent-portal/?date={target.isoformat()}")
+        self.assertEqual(parent_home.status_code, 200)
+        self.assertIn("園からの返信", parent_home.text)
+        self.assertIn("返信者: 台帳担当", parent_home.text)
+        self.assertIn("お昼寝時間: 12:30-14:10", parent_home.text)
+        self.assertIn("体温: 36.9", parent_home.text)
+        self.assertIn("今日も元気に過ごしました。", parent_home.text)
+
+        parent_contact_form = self.client.get(
+            f"/parent-portal/children/{self.child_id}/contact?date={target.isoformat()}"
+        )
+        self.assertEqual(parent_contact_form.status_code, 200)
+        self.assertIn("返信者: 台帳担当", parent_contact_form.text)
+        self.assertIn("食欲: 完食", parent_contact_form.text)
+
+        history_response = self.client.get("/parent-portal/history")
+        self.assertEqual(history_response.status_code, 200)
+        self.assertIn("返信者: 台帳担当", history_response.text)
+        self.assertIn("排便: あり", history_response.text)
+
+        with Session(self.engine) as session:
+            reply = session.exec(
+                select(DailyContactReply).where(DailyContactReply.child_id == self.child_id)
+            ).first()
+        self.assertIsNotNone(reply)
+        self.assertEqual(reply.status, DailyContactReplyStatus.published)
+        self.assertEqual(reply.staff_name, "台帳担当")
+
+    def test_daily_contact_list_can_sort_by_submission_status(self):
+        target = date(2026, 7, 5)
+        with Session(self.engine) as session:
+            session.add(
+                DailyContactEntry(
+                    child_id=self.second_child_id,
+                    parent_account_id=self.parent_account_id,
+                    target_date=target,
+                    contact_type=ParentContactType.present,
+                )
+            )
+            session.commit()
+
+        submitted_first_response = self.client.get(
+            f"/daily-contacts/?date={target.isoformat()}&classroom_id=&sort=submitted_first"
+        )
+        self.assertEqual(submitted_first_response.status_code, 200)
+        submitted_first_html = submitted_first_response.text
+        self.assertIn('value="submitted_first" selected', submitted_first_html)
+        self.assertIn(
+            f'/daily-contacts/{self.second_child_id}?date={target.isoformat()}&amp;sort=submitted_first',
+            submitted_first_html,
+        )
+        self.assertLess(
+            submitted_first_html.index("田中 はると"),
+            submitted_first_html.index("田中 さくら"),
+        )
+
+        detail_response = self.client.get(
+            f"/daily-contacts/{self.second_child_id}?date={target.isoformat()}&sort=submitted_first"
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertIn(
+            f'href="/daily-contacts/?date={target.isoformat()}&amp;sort=submitted_first"',
+            detail_response.text,
+        )
+
+        unsubmitted_first_response = self.client.get(
+            f"/daily-contacts/?date={target.isoformat()}&sort=unsubmitted_first"
+        )
+        self.assertEqual(unsubmitted_first_response.status_code, 200)
+        unsubmitted_first_html = unsubmitted_first_response.text
+        self.assertIn('value="unsubmitted_first" selected', unsubmitted_first_html)
+        self.assertLess(
+            unsubmitted_first_html.index("田中 さくら"),
+            unsubmitted_first_html.index("田中 はると"),
+        )
 
     def test_parent_can_submit_sick_absence_and_staff_can_review_it(self):
         self._login_parent(self.parent_account_id)
@@ -289,6 +448,26 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("現在の体温", response.text)
 
+    def test_absence_requires_private_or_sick_reason(self):
+        self._login_parent(self.parent_account_id)
+        today = date.today().isoformat()
+
+        response = self.client.post(
+            f"/parent-portal/children/{self.child_id}/contact",
+            data={
+                "date": today,
+                "attendance_mode": "absent",
+                "contact_type": ParentContactType.present.value,
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("欠席の場合は、私用または病欠を選択してください。", response.text)
+        with Session(self.engine) as session:
+            entry = session.exec(select(DailyContactEntry).where(DailyContactEntry.child_id == self.child_id)).first()
+        self.assertIsNone(entry)
+
     def test_parent_only_sees_accessible_notices_and_read_is_recorded(self):
         self._login_parent(self.parent_account_id)
 
@@ -312,7 +491,7 @@ class ParentPortalTests(unittest.TestCase):
 
     def test_staff_can_create_parent_account_for_family(self):
         response = self.client.post(
-            "/parent-accounts/?as=admin",
+            "/parent-accounts/",
             data={
                 "display_name": "田中 美香",
                 "email": "new-parent@example.com",

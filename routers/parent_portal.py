@@ -21,12 +21,15 @@ from child_profile_changes import (
     merge_child_profile_form_data,
     validate_child_profile_payload,
 )
+from daily_contact_reply_fields import reply_items_for_display
 from database import get_session
 from models import (
     Child,
     ChildProfileChangeRequest,
     ChildProfileChangeRequestStatus,
     DailyContactEntry,
+    DailyContactReply,
+    DailyContactReplyStatus,
     Family,
     Notice,
     NoticeRead,
@@ -91,11 +94,52 @@ def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
         return None
 
 
+def _contact_reply_key(child_id: int, target_date: date) -> str:
+    return f"{child_id}:{target_date.isoformat()}"
+
+
+def _load_published_daily_contact_replies(
+    session: Session,
+    child_ids: list[int],
+    target_date: date,
+) -> list[DailyContactReply]:
+    if not child_ids:
+        return []
+    return session.exec(
+        select(DailyContactReply).where(
+            DailyContactReply.child_id.in_(child_ids),
+            DailyContactReply.target_date == target_date,
+            DailyContactReply.status == DailyContactReplyStatus.published,
+        )
+    ).all()
+
+
+def _load_published_daily_contact_reply(
+    session: Session,
+    child_id: int,
+    target_date: date,
+) -> DailyContactReply | None:
+    return session.exec(
+        select(DailyContactReply).where(
+            DailyContactReply.child_id == child_id,
+            DailyContactReply.target_date == target_date,
+            DailyContactReply.status == DailyContactReplyStatus.published,
+        )
+    ).first()
+
+
 def _contact_form_data(entry: Optional[DailyContactEntry], form_data: Optional[dict[str, str]] = None) -> dict[str, str]:
     if form_data is not None:
         return form_data
+    contact_type_value = entry.contact_type.value if entry and entry.contact_type else ParentContactType.present.value
+    attendance_mode = "absent" if contact_type_value in {
+        ParentContactType.absent_private.value,
+        ParentContactType.absent_sick.value,
+    } else "present"
     return {
-        "contact_type": entry.contact_type.value if entry and entry.contact_type else ParentContactType.present.value,
+        "attendance_mode": attendance_mode,
+        "absence_reason": contact_type_value if attendance_mode == "absent" else "",
+        "contact_type": contact_type_value,
         "temperature": entry.temperature or "" if entry else "",
         "sleep_notes": entry.sleep_notes or "" if entry else "",
         "breakfast_status": entry.breakfast_status or "" if entry else "",
@@ -120,6 +164,7 @@ def _render_contact_form(
     child: Child,
     entry: Optional[DailyContactEntry],
     target_date_value: str,
+    published_reply: Optional[DailyContactReply] = None,
     notice: str = "",
     form_error: str = "",
     form_data: Optional[dict[str, str]] = None,
@@ -138,6 +183,8 @@ def _render_contact_form(
             "form_error": form_error,
             "form_data": _contact_form_data(entry, form_data),
             "parent_contact_types": list(ParentContactType),
+            "published_reply": published_reply,
+            "reply_display_items": reply_items_for_display(published_reply),
         },
     )
 
@@ -396,6 +443,7 @@ def parent_logout():
 def parent_home(
     request: Request,
     target_date: Optional[str] = Query(default=None, alias="date"),
+    notice: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
 ):
     current_parent_user = _get_parent_account(request, session)
@@ -417,6 +465,12 @@ def parent_home(
         else []
     )
     entry_by_child_id = {entry.child_id: entry for entry in entries}
+    replies = _load_published_daily_contact_replies(session, child_ids, day)
+    reply_by_child_id = {reply.child_id: reply for reply in replies}
+    reply_display_by_child_id = {
+        reply.child_id: reply_items_for_display(reply)
+        for reply in replies
+    }
     pending_request_by_child_id = _load_pending_child_profile_requests_by_child_id(
         session,
         parent_account_id=current_parent_user.id,
@@ -437,10 +491,13 @@ def parent_home(
             "target_date_value": day.isoformat(),
             "children": children,
             "entry_by_child_id": entry_by_child_id,
+            "reply_by_child_id": reply_by_child_id,
+            "reply_display_by_child_id": reply_display_by_child_id,
             "pending_request_by_child_id": pending_request_by_child_id,
             "latest_notices": notices[:5],
             "read_notice_ids": read_notice_ids,
             "unread_notice_count": sum(1 for notice in notices if notice.id not in read_notice_ids),
+            "flash_notice": "日次連絡を保存しました。" if notice == "saved" else "",
         },
     )
 
@@ -793,6 +850,7 @@ def parent_contact_form(
             DailyContactEntry.target_date == day,
         )
     ).first()
+    published_reply = _load_published_daily_contact_reply(session, child_id, day)
 
     return _render_contact_form(
         request,
@@ -800,6 +858,7 @@ def parent_contact_form(
         child=child,
         entry=entry,
         target_date_value=day.isoformat(),
+        published_reply=published_reply,
         notice="日次連絡を保存しました。" if notice == "saved" else "",
     )
 
@@ -809,7 +868,9 @@ def save_parent_contact(
     request: Request,
     child_id: int,
     target_date: str = Form(..., alias="date"),
-    contact_type: str = Form(ParentContactType.present.value),
+    attendance_mode: str = Form(""),
+    absence_reason: str = Form(""),
+    contact_type: str = Form(""),
     temperature: str = Form(""),
     sleep_notes: str = Form(""),
     breakfast_status: str = Form(""),
@@ -832,8 +893,29 @@ def save_parent_contact(
 
     child = _load_accessible_child(current_parent_user, child_id)
     day = _parse_target_date(target_date)
+    published_reply = _load_published_daily_contact_reply(session, child_id, day)
+
+    absence_contact_types = {
+        ParentContactType.absent_private.value,
+        ParentContactType.absent_sick.value,
+    }
+    submitted_mode = (attendance_mode or "").strip()
+    submitted_reason = (absence_reason or "").strip()
+    submitted_contact_type = (contact_type or "").strip()
+    if submitted_mode not in {"present", "absent"}:
+        if submitted_contact_type in absence_contact_types:
+            submitted_mode = "absent"
+        elif submitted_contact_type == ParentContactType.present.value:
+            submitted_mode = "present"
+        else:
+            submitted_mode = ""
+    if submitted_mode == "absent" and not submitted_reason and submitted_contact_type in absence_contact_types:
+        submitted_reason = submitted_contact_type
+
     form_data = {
-        "contact_type": contact_type,
+        "attendance_mode": submitted_mode,
+        "absence_reason": submitted_reason,
+        "contact_type": submitted_contact_type,
         "temperature": temperature,
         "sleep_notes": sleep_notes,
         "breakfast_status": breakfast_status,
@@ -850,15 +932,34 @@ def save_parent_contact(
         "absence_note": absence_note,
     }
 
-    try:
-        selected_contact_type = ParentContactType(contact_type)
-    except ValueError:
+    if submitted_mode == "present":
+        selected_contact_type = ParentContactType.present
+        form_data["contact_type"] = selected_contact_type.value
+    elif submitted_mode == "absent":
+        if submitted_reason not in absence_contact_types:
+            form_data["contact_type"] = ""
+            form_data["absence_reason"] = ""
+            return _render_contact_form(
+                request,
+                current_parent_user=current_parent_user,
+                child=child,
+                entry=None,
+                target_date_value=day.isoformat(),
+                published_reply=published_reply,
+                form_error="欠席の場合は、私用または病欠を選択してください。",
+                form_data=form_data,
+            )
+        selected_contact_type = ParentContactType(submitted_reason)
+        form_data["contact_type"] = selected_contact_type.value
+        form_data["absence_reason"] = selected_contact_type.value
+    else:
         return _render_contact_form(
             request,
             current_parent_user=current_parent_user,
             child=child,
             entry=None,
             target_date_value=day.isoformat(),
+            published_reply=published_reply,
             form_error="出席または欠席を選択してください。",
             form_data=form_data,
         )
@@ -911,6 +1012,7 @@ def save_parent_contact(
                 child=child,
                 entry=entry,
                 target_date_value=day.isoformat(),
+                published_reply=published_reply,
                 form_error="病欠の場合は現在の体温を入力してください。",
                 form_data=form_data,
             )
@@ -921,6 +1023,7 @@ def save_parent_contact(
                 child=child,
                 entry=entry,
                 target_date_value=day.isoformat(),
+                published_reply=published_reply,
                 form_error="病欠の場合は症状を入力してください。",
                 form_data=form_data,
             )
@@ -946,7 +1049,7 @@ def save_parent_contact(
     session.commit()
 
     return RedirectResponse(
-        url=f"/parent-portal/children/{child_id}/contact?date={day.isoformat()}&notice=saved",
+        url=f"/parent-portal/?date={day.isoformat()}&notice=saved",
         status_code=303,
     )
 
@@ -971,6 +1074,30 @@ def parent_contact_history(
         if child_ids
         else []
     )
+    replies = (
+        session.exec(
+            select(DailyContactReply).where(
+                DailyContactReply.child_id.in_(child_ids),
+                DailyContactReply.status == DailyContactReplyStatus.published,
+            )
+        ).all()
+        if child_ids
+        else []
+    )
+    reply_by_key = {
+        _contact_reply_key(reply.child_id, reply.target_date): reply
+        for reply in replies
+    }
+    history_items = []
+    for entry in entries:
+        reply = reply_by_key.get(_contact_reply_key(entry.child_id, entry.target_date))
+        history_items.append(
+            {
+                "entry": entry,
+                "reply": reply,
+                "reply_items": reply_items_for_display(reply),
+            }
+        )
 
     return templates.TemplateResponse(
         request,
@@ -980,6 +1107,7 @@ def parent_contact_history(
             "current_parent_user": current_parent_user,
             "parent_portal_mode": True,
             "entries": entries,
+            "history_items": history_items,
         },
     )
 

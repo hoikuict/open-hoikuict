@@ -2,8 +2,15 @@
 {% block title %}日次連絡入力 | open-hoikuict{% endblock %}
 
 {% block content %}
-{% set selected_contact_type = form_data.contact_type if form_data and form_data.contact_type else 'present' %}
-{% set selected_mode = 'absent' if selected_contact_type in ['absent_private', 'absent_sick'] else 'present' %}
+{% set selected_contact_type = form_data.contact_type if form_data and form_data.contact_type is not none else 'present' %}
+{% set selected_absence_reason = form_data.absence_reason if form_data and form_data.absence_reason else '' %}
+{% if not selected_absence_reason and selected_contact_type in ['absent_private', 'absent_sick'] %}
+{% set selected_absence_reason = selected_contact_type %}
+{% endif %}
+{% set selected_mode = form_data.attendance_mode if form_data and form_data.attendance_mode else ('absent' if selected_absence_reason else 'present') %}
+{% if selected_mode not in ['present', 'absent'] %}
+{% set selected_mode = 'absent' if selected_absence_reason else 'present' %}
+{% endif %}
 
 <div class="mx-auto max-w-4xl">
   <div class="mb-5 flex items-center justify-between">
@@ -19,6 +26,32 @@
   {% endif %}
   {% if form_error %}
   <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form_error }}</div>
+  {% endif %}
+
+  {% if published_reply %}
+  <section class="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-5">
+    <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+      <h2 class="text-lg font-semibold text-sky-900">園からの返信</h2>
+      <div class="flex flex-wrap items-center gap-2 text-xs text-sky-700">
+        {% if published_reply.staff_name %}
+        <span>返信者: {{ published_reply.staff_name }}</span>
+        {% endif %}
+      {% if published_reply.published_at %}
+        <span>{{ published_reply.published_at.strftime("%Y-%m-%d %H:%M") }}</span>
+      {% endif %}
+      </div>
+    </div>
+    {% if reply_display_items %}
+    <div class="mt-3 grid gap-2 text-sm text-sky-900 md:grid-cols-4">
+      {% for item in reply_display_items %}
+      <div class="rounded border border-sky-200 bg-white/70 px-3 py-2">{{ item.label }}: {{ item.value }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if published_reply.message %}
+    <div class="mt-3 whitespace-pre-wrap rounded border border-sky-200 bg-white/70 px-3 py-2 text-sm text-sky-900">{{ published_reply.message }}</div>
+    {% endif %}
+  </section>
   {% endif %}
 
   <form method="post" action="/parent-portal/children/{{ child.id }}/contact" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -50,21 +83,22 @@
       <div id="absence-reason-panel" class="{% if selected_mode != 'absent' %}hidden{% endif %}">
         <div class="mb-2 text-sm font-medium text-slate-600">2. 欠席理由</div>
         <div class="grid gap-3 md:grid-cols-2">
-          <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_contact_type == 'absent_private' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
-            <input type="radio" name="absence_reason" value="absent_private" {% if selected_contact_type == 'absent_private' %}checked{% endif %} class="h-4 w-4">
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_absence_reason == 'absent_private' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
+            <input type="radio" name="absence_reason" value="absent_private" {% if selected_absence_reason == 'absent_private' %}checked{% endif %} class="h-4 w-4">
             <div>
               <div class="font-medium text-slate-800">私用</div>
               <div class="text-sm text-slate-500">備考のみ入力</div>
             </div>
           </label>
-          <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_contact_type == 'absent_sick' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
-            <input type="radio" name="absence_reason" value="absent_sick" {% if selected_contact_type == 'absent_sick' %}checked{% endif %} class="h-4 w-4">
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 {% if selected_absence_reason == 'absent_sick' %}border-amber-500 bg-amber-50{% else %}border-slate-200 bg-white{% endif %}">
+            <input type="radio" name="absence_reason" value="absent_sick" {% if selected_absence_reason == 'absent_sick' %}checked{% endif %} class="h-4 w-4">
             <div>
               <div class="font-medium text-slate-800">病欠</div>
               <div class="text-sm text-slate-500">体温、症状などを入力</div>
             </div>
           </label>
         </div>
+        <p id="absence-reason-error" class="mt-2 hidden text-sm text-rose-600">欠席の場合は、私用または病欠を選択してください。</p>
       </div>
     </section>
 
@@ -115,7 +149,7 @@
       </div>
     </section>
 
-    <section id="absence-private-fields" class="space-y-4 {% if selected_contact_type != 'absent_private' %}hidden{% endif %}">
+    <section id="absence-private-fields" class="space-y-4 {% if selected_absence_reason != 'absent_private' %}hidden{% endif %}">
       <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
         <h2 class="text-lg font-semibold text-amber-900">私用休み</h2>
         <p class="mt-1 text-sm text-amber-800">必要に応じて備考を入力してください。</p>
@@ -126,7 +160,7 @@
       </div>
     </section>
 
-    <section id="absence-sick-fields" class="space-y-4 {% if selected_contact_type != 'absent_sick' %}hidden{% endif %}">
+    <section id="absence-sick-fields" class="space-y-4 {% if selected_absence_reason != 'absent_sick' %}hidden{% endif %}">
       <div class="rounded-xl border border-rose-200 bg-rose-50 p-5">
         <h2 class="text-lg font-semibold text-rose-900">病欠</h2>
         <p class="mt-1 text-sm text-rose-800">現在の体温と症状は必須です。</p>
@@ -171,8 +205,10 @@
     const contactTypeInput = document.getElementById("contact_type");
     const modeInputs = Array.from(document.querySelectorAll('input[name="attendance_mode"]'));
     const reasonInputs = Array.from(document.querySelectorAll('input[name="absence_reason"]'));
+    const form = contactTypeInput.closest("form");
     const presentFields = document.getElementById("present-fields");
     const absenceReasonPanel = document.getElementById("absence-reason-panel");
+    const absenceReasonError = document.getElementById("absence-reason-error");
     const absencePrivateFields = document.getElementById("absence-private-fields");
     const absenceSickFields = document.getElementById("absence-sick-fields");
 
@@ -207,10 +243,24 @@
       setDisabled(presentFields, mode !== "present");
       setDisabled(absencePrivateFields, contactType !== "absent_private");
       setDisabled(absenceSickFields, contactType !== "absent_sick");
+      if (absenceReasonError && (mode !== "absent" || reason)) {
+        absenceReasonError.classList.add("hidden");
+      }
     }
 
     modeInputs.forEach((input) => input.addEventListener("change", syncState));
     reasonInputs.forEach((input) => input.addEventListener("change", syncState));
+    form.addEventListener("submit", (event) => {
+      const mode = selectedMode();
+      const reason = selectedReason();
+      if (mode === "absent" && !reason) {
+        event.preventDefault();
+        if (absenceReasonError) {
+          absenceReasonError.classList.remove("hidden");
+        }
+        absenceReasonPanel.scrollIntoView({ block: "center" });
+      }
+    });
     syncState();
   })();
 </script>

@@ -101,6 +101,14 @@ def _migrate_add_attendance_columns(db_engine: Optional[Engine] = None) -> None:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN planned_pickup_time VARCHAR"))
             if "pickup_person" not in cols:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN pickup_person VARCHAR"))
+            if "snack_required" not in cols:
+                conn.execute(text("ALTER TABLE attendance_records ADD COLUMN snack_required BOOLEAN DEFAULT 0 NOT NULL"))
+            verification_cols = _table_columns("attendance_verifications", resolved_engine)
+            if verification_cols and "updated_by_staff_id" not in verification_cols:
+                conn.execute(text("ALTER TABLE attendance_verifications ADD COLUMN updated_by_staff_id INTEGER"))
+            history_cols = _table_columns("attendance_verification_histories", resolved_engine)
+            if history_cols and "updated_by_staff_id" not in history_cols:
+                conn.execute(text("ALTER TABLE attendance_verification_histories ADD COLUMN updated_by_staff_id INTEGER"))
             conn.commit()
     except Exception:
         pass
