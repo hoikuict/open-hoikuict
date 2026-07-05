@@ -11,7 +11,8 @@
 </div>
 
 <div class="space-y-4">
-  {% for entry in entries %}
+  {% for item in history_items %}
+  {% set entry = item.entry %}
   <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <div>
@@ -64,6 +65,32 @@
         <div class="mb-1 text-xs font-semibold text-gray-500">医師から伝えられた診断名</div>
         <div class="whitespace-pre-wrap">{{ entry.absence_diagnosis or "-" }}</div>
       </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if item.reply %}
+    <div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
+      <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+        <h3 class="font-semibold text-sky-900">園からの返信</h3>
+        <div class="flex flex-wrap items-center gap-2 text-xs text-sky-700">
+          {% if item.reply.staff_name %}
+          <span>返信者: {{ item.reply.staff_name }}</span>
+          {% endif %}
+        {% if item.reply.published_at %}
+          <span>{{ item.reply.published_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        {% endif %}
+        </div>
+      </div>
+      {% if item.reply_items %}
+      <div class="mt-3 grid gap-2 text-sm text-sky-900 md:grid-cols-4">
+        {% for reply_item in item.reply_items %}
+        <div class="rounded border border-sky-200 bg-white/70 px-3 py-2">{{ reply_item.label }}: {{ reply_item.value }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if item.reply.message %}
+      <div class="mt-3 whitespace-pre-wrap rounded border border-sky-200 bg-white/70 px-3 py-2 text-sm text-sky-900">{{ item.reply.message }}</div>
       {% endif %}
     </div>
     {% endif %}

@@ -43,6 +43,18 @@ class DailyContactEntryStatus(str, Enum):
         return {self.submitted: "提出済み"}[self]
 
 
+class DailyContactReplyStatus(str, Enum):
+    draft = "draft"
+    published = "published"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.draft: "下書き",
+            self.published: "公開済み",
+        }[self]
+
+
 class ParentContactType(str, Enum):
     present = "present"
     absent_private = "absent_private"
@@ -349,6 +361,7 @@ class Child(SQLModel, table=True):
     attendance_records: List["AttendanceRecord"] = Relationship(back_populates="child")
     parent_links: List["ParentChildLink"] = Relationship(back_populates="child")
     daily_contact_entries: List["DailyContactEntry"] = Relationship(back_populates="child")
+    daily_contact_replies: List["DailyContactReply"] = Relationship(back_populates="child")
     profile_change_requests: List["ChildProfileChangeRequest"] = Relationship(back_populates="child")
 
     @property
@@ -643,6 +656,7 @@ class AttendanceRecord(SQLModel, table=True):
     check_out_at: Optional[datetime] = None
     planned_pickup_time: Optional[str] = None
     pickup_person: Optional[str] = None
+    snack_required: bool = Field(default=False)
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -797,6 +811,26 @@ class DailyContactEntry(SQLModel, table=True):
         if self.contact_type == ParentContactType.absent_sick:
             return "病欠"
         return ""
+
+
+class DailyContactReply(SQLModel, table=True):
+    __tablename__ = "daily_contact_replies"
+    __table_args__ = (UniqueConstraint("child_id", "target_date", name="uq_daily_contact_reply_child_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    daily_contact_entry_id: Optional[int] = Field(default=None, foreign_key="daily_contact_entries.id", index=True)
+    target_date: date = Field(index=True)
+    status: DailyContactReplyStatus = Field(default=DailyContactReplyStatus.draft, index=True)
+    field_values: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    message: Optional[str] = None
+    staff_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    staff_name: Optional[str] = None
+    published_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    child: Optional[Child] = Relationship(back_populates="daily_contact_replies")
 
 
 class AttendanceVerification(SQLModel, table=True):

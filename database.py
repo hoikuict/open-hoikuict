@@ -80,6 +80,8 @@ def _migrate_add_attendance_columns() -> None:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN planned_pickup_time VARCHAR"))
             if "pickup_person" not in cols:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN pickup_person VARCHAR"))
+            if "snack_required" not in cols:
+                conn.execute(text("ALTER TABLE attendance_records ADD COLUMN snack_required BOOLEAN DEFAULT 0 NOT NULL"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("attendance column", exc)

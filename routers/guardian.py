@@ -11,12 +11,19 @@ from attendance_checks_service import sync_attendance_alarm
 from database import get_session
 from extended_care_fee_service import recalculate_attendance_charge
 from models import AttendanceRecord, Child, ChildStatus, Classroom
+from time_utils import local_naive_now, local_today
 
 router = APIRouter(prefix="/guardian", tags=["guardian"])
 templates = Jinja2Templates(directory="templates")
+
+PICKUP_HOUR_OPTIONS = [f"{hour:02d}" for hour in range(7, 22)]
+PICKUP_MINUTE_OPTIONS = ["00", "15", "30", "45"]
+PICKUP_PERSON_OPTIONS = ["母", "父", "祖父", "祖母", "ファミリーサポート", "その他"]
+
+
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
-        return date.today()
+        return local_today()
     try:
         return date.fromisoformat(raw)
     except ValueError as exc:
@@ -52,6 +59,16 @@ def _normalize_pickup_time(raw: str) -> Optional[str]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="お迎え予定時刻は HH:MM 形式で入力してください") from exc
     return parsed.strftime("%H:%M")
+
+
+def _pickup_time_parts(value: str) -> tuple[str, str]:
+    if len(value) == 5 and value[2] == ":":
+        return value[:2], value[3:]
+    return "", ""
+
+
+def _is_truthy(raw: Optional[str]) -> bool:
+    return (raw or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _validate_pickup_inputs(raw_time: str, raw_person: str) -> tuple[str, str]:
@@ -95,6 +112,7 @@ def guardian_kiosk(
     notice: Optional[str] = Query(default=None),
     draft_pickup_time: Optional[str] = Query(default=None),
     draft_pickup_person: Optional[str] = Query(default=None),
+    draft_snack_required: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
 ):
     day = _parse_target_date(target_date)
@@ -125,6 +143,19 @@ def guardian_kiosk(
     if selected_child:
         selected_record = _load_attendance_record(session, selected_child.id, day)
 
+    raw_pickup_time = (draft_pickup_time or "").strip()
+    if not raw_pickup_time and selected_record and selected_record.planned_pickup_time:
+        raw_pickup_time = selected_record.planned_pickup_time
+    current_pickup_time = _normalize_pickup_time(raw_pickup_time) or ""
+    current_pickup_hour, current_pickup_minute = _pickup_time_parts(current_pickup_time)
+    current_pickup_person = (draft_pickup_person or "").strip()
+    if not current_pickup_person and selected_record and selected_record.pickup_person:
+        current_pickup_person = selected_record.pickup_person
+    if draft_snack_required is None:
+        current_snack_required = bool(selected_record and selected_record.snack_required)
+    else:
+        current_snack_required = _is_truthy(draft_snack_required)
+
     notice_map = {
         "checked_in": "登園を受け付けました。",
         "checked_out": "降園を受け付けました。",
@@ -143,8 +174,14 @@ def guardian_kiosk(
             "selected_child": selected_child,
             "selected_record": selected_record,
             "notice_message": notice_map.get(notice, ""),
-            "draft_pickup_time": (draft_pickup_time or "").strip() or None,
-            "draft_pickup_person": (draft_pickup_person or "").strip() or None,
+            "pickup_hour_options": PICKUP_HOUR_OPTIONS,
+            "pickup_minute_options": PICKUP_MINUTE_OPTIONS,
+            "pickup_person_options": PICKUP_PERSON_OPTIONS,
+            "current_pickup_time": current_pickup_time,
+            "current_pickup_hour": current_pickup_hour,
+            "current_pickup_minute": current_pickup_minute,
+            "current_pickup_person": current_pickup_person,
+            "current_snack_required": current_snack_required,
         },
     )
 
@@ -161,7 +198,7 @@ def guardian_check_in(
     day = _parse_target_date(target_date)
     record = _load_attendance_record(session, child_id, day)
 
-    now = datetime.now()
+    now = local_naive_now()
     if not record:
         record = AttendanceRecord(child_id=child_id, attendance_date=day)
     if record.check_in_at is None:
@@ -188,6 +225,7 @@ def guardian_pickup_confirm(
     class_id: Optional[int] = Form(default=None),
     planned_pickup_time: str = Form(""),
     pickup_person: str = Form(""),
+    snack_required: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
 ):
     child = _load_valid_child(session, child_id, class_id)
@@ -195,6 +233,7 @@ def guardian_pickup_confirm(
     _load_record_for_checkout(session, child_id, day)
 
     normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
+    normalized_snack_required = _is_truthy(snack_required)
     selected_classroom = session.get(Classroom, class_id) if class_id else None
 
     return templates.TemplateResponse(
@@ -207,6 +246,7 @@ def guardian_pickup_confirm(
             "selected_classroom": selected_classroom,
             "planned_pickup_time": normalized_time,
             "pickup_person": normalized_person,
+            "snack_required": normalized_snack_required,
         },
     )
 
@@ -219,6 +259,7 @@ def guardian_pickup_commit(
     class_id: Optional[int] = Form(default=None),
     planned_pickup_time: str = Form(""),
     pickup_person: str = Form(""),
+    snack_required: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
 ):
     child = _load_valid_child(session, child_id, class_id)
@@ -226,10 +267,12 @@ def guardian_pickup_commit(
     record = _load_record_for_checkout(session, child_id, day)
 
     normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
+    normalized_snack_required = _is_truthy(snack_required)
 
     record.planned_pickup_time = normalized_time
     record.pickup_person = normalized_person
-    record.updated_at = datetime.now()
+    record.snack_required = normalized_snack_required
+    record.updated_at = local_naive_now()
     session.add(record)
     session.commit()
 
@@ -284,7 +327,7 @@ def guardian_check_out_commit(
     day = _parse_target_date(target_date)
     record = _load_record_for_checkout(session, child_id, day)
 
-    now = datetime.now()
+    now = local_naive_now()
     record.check_out_at = now
     record.updated_at = now
 

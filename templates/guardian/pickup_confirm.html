@@ -14,6 +14,7 @@
       <p><span class="text-gray-500">対象日:</span> <span class="font-semibold text-gray-800">{{ target_date_value }}</span></p>
       <p><span class="text-gray-500">お迎え予定時刻:</span> <span class="font-semibold text-gray-800">{{ planned_pickup_time }}</span></p>
       <p><span class="text-gray-500">お迎え予定者:</span> <span class="font-semibold text-gray-800">{{ pickup_person }}</span></p>
+      <p><span class="text-gray-500">補食:</span> <span class="font-semibold text-gray-800">{{ "必要" if snack_required else "不要" }}</span></p>
     </div>
 
     <div class="flex flex-wrap gap-3">
@@ -25,6 +26,7 @@
         <input type="hidden" name="child_id" value="{{ selected_child.id }}">
         <input type="hidden" name="draft_pickup_time" value="{{ planned_pickup_time }}">
         <input type="hidden" name="draft_pickup_person" value="{{ pickup_person }}">
+        <input type="hidden" name="draft_snack_required" value="{{ '1' if snack_required else '0' }}">
         <button type="submit" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">戻る</button>
       </form>
 
@@ -40,6 +42,7 @@
         {% endif %}
         <input type="hidden" name="planned_pickup_time" value="{{ planned_pickup_time }}">
         <input type="hidden" name="pickup_person" value="{{ pickup_person }}">
+        <input type="hidden" name="snack_required" value="{{ '1' if snack_required else '0' }}">
         <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">決定</button>
       </form>
     </div>
