@@ -52,6 +52,7 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     resolved_engine = _resolve_engine(db_engine)
     SQLModel.metadata.create_all(resolved_engine)
     _migrate_add_child_columns(resolved_engine)
+    _migrate_add_child_health_profile_columns(resolved_engine)
     _migrate_add_attendance_columns(resolved_engine)
     _migrate_add_user_columns(resolved_engine)
     _migrate_add_staff_columns(resolved_engine)
@@ -59,6 +60,7 @@ def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
     _migrate_add_parent_account_columns(resolved_engine)
     _migrate_add_family_columns(resolved_engine)
     _migrate_add_message_columns(resolved_engine)
+    _migrate_add_meeting_note_columns(resolved_engine)
     _migrate_survey_tables(resolved_engine)
     _migrate_billing_fee_labels(resolved_engine)
 
@@ -85,6 +87,59 @@ def _migrate_add_child_columns(db_engine: Optional[Engine] = None) -> None:
                 conn.execute(text("ALTER TABLE children ADD COLUMN older_sibling_id INTEGER REFERENCES children(id)"))
             if "classroom_id" not in cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN classroom_id INTEGER REFERENCES classrooms(id)"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_child_health_profile_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            cols = _table_columns("child_health_profiles", resolved_engine)
+            if not cols:
+                return
+            boolean_columns = (
+                "has_allergy",
+                "has_epipen",
+                "has_anaphylaxis",
+                "has_febrile_seizure",
+                "has_nursemaids_elbow",
+                "has_medication",
+            )
+            for column_name in boolean_columns:
+                if column_name not in cols:
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE child_health_profiles ADD COLUMN {column_name} "
+                            "BOOLEAN DEFAULT 0 NOT NULL"
+                        )
+                    )
+            if "other_management_items" not in cols:
+                conn.execute(
+                    text("ALTER TABLE child_health_profiles ADD COLUMN other_management_items VARCHAR")
+                )
+
+            # Carry forward only legacy values whose meaning is equivalent.
+            if "epipen_required" in cols:
+                conn.execute(
+                    text(
+                        "UPDATE child_health_profiles SET has_epipen = 1 "
+                        "WHERE epipen_required = 1"
+                    )
+                )
+            allergy_cols = _table_columns("child_allergies", resolved_engine)
+            if {"child_id", "is_active"}.issubset(allergy_cols):
+                conn.execute(
+                    text(
+                        "UPDATE child_health_profiles SET has_allergy = 1 "
+                        "WHERE EXISTS ("
+                        "SELECT 1 FROM child_allergies "
+                        "WHERE child_allergies.child_id = child_health_profiles.child_id "
+                        "AND child_allergies.is_active = 1"
+                        ")"
+                    )
+                )
             conn.commit()
     except Exception:
         pass
@@ -314,6 +369,18 @@ def _migrate_add_message_columns(db_engine: Optional[Engine] = None) -> None:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
                 if "deleted_by" not in message_cols:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
+            conn.commit()
+    except Exception:
+        pass
+
+
+def _migrate_add_meeting_note_columns(db_engine: Optional[Engine] = None) -> None:
+    resolved_engine = _resolve_engine(db_engine)
+    try:
+        with resolved_engine.connect() as conn:
+            columns = _table_columns("meeting_notes", resolved_engine)
+            if columns and "search_text" not in columns:
+                conn.execute(text("ALTER TABLE meeting_notes ADD COLUMN search_text VARCHAR"))
             conn.commit()
     except Exception:
         pass
