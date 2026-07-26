@@ -4,21 +4,25 @@ import argparse
 import csv
 import json
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, text
 from sqlalchemy.engine import Engine
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from child_profile_changes import build_child_profile_change_details, resolve_child_profile_change_payload
+from child_profile_history import ensure_initial_child_profile_history
 from database import create_db_and_tables, engine as default_engine
+from extended_care_fee_service import recalculate_period
 from models import (
     AttendanceAlarmHistory, AttendanceAlarmState, AttendanceRecord,
     AttendanceVerification, AttendanceVerificationHistory, Calendar,
     CalendarMember, CalendarUserPreference, Child, ChildAllergy, DailyContactEntry,
-    ChildHealthProfile, ChildProfileChangeRequest, Classroom, Event,
+    ChildHealthProfile, ChildProfileChangeRequest, ChildProfileHistory, Classroom, Event,
+    ExtendedCareCharge, ExtendedCareChargeStatus, ExtendedCareFeeRule,
     Family, Guardian, HealthCheckRecord, Message, Notice, NoticeRead,
     NoticeTarget, ParentAccount, ParentChildLink, ProfileChangeNotification,
     Survey, SurveyAnswer, SurveyQuestion, SurveyQuestionOption,
@@ -64,7 +68,12 @@ MODEL_ORDER = [
     ("child_profile_change_requests", ChildProfileChangeRequest),
 ]
 
-WIPE_ORDER = list(reversed([model for _, model in MODEL_ORDER]))
+WIPE_ORDER = [
+    ChildProfileHistory,
+    ExtendedCareCharge,
+    ExtendedCareFeeRule,
+    *list(reversed([model for _, model in MODEL_ORDER])),
+]
 
 DATE_FIELDS = {
     "birth_date", "enrollment_date", "withdrawal_date", "target_date", "attendance_date",
@@ -147,6 +156,66 @@ def wipe_all(session: Session) -> None:
     session.commit()
     session.exec(text("PRAGMA foreign_keys=ON"))
 
+
+def seed_extended_care_demo_data(session: Session) -> dict[str, int]:
+    rule = ExtendedCareFeeRule(
+        id=1,
+        name="標準延長保育料（デモ）",
+        effective_from=date(2026, 4, 1),
+        start_time="18:00",
+        grace_minutes=5,
+        rounding_minutes=15,
+        unit_price=100,
+        daily_cap_amount=None,
+        is_active=True,
+        created_at=datetime(2026, 4, 1, 9, 0),
+        updated_at=datetime(2026, 4, 1, 9, 0),
+    )
+    session.add(rule)
+    session.flush()
+
+    recalculate_period(
+        session,
+        date(2026, 4, 13),
+        date(2026, 5, 15),
+        include_locked=True,
+    )
+    session.flush()
+
+    charges = session.exec(select(ExtendedCareCharge)).all()
+    for charge in charges:
+        if charge.auto_amount <= 0:
+            continue
+
+        confirmed_at = (charge.actual_check_out_at or charge.charge_start_at) + timedelta(minutes=8)
+        if charge.attendance_record_id % 29 == 0:
+            charge.status = ExtendedCareChargeStatus.excluded
+            charge.adjustment_amount = -charge.auto_amount
+            charge.final_amount = 0
+            charge.adjustment_reason = "デモ対象外: 園判断"
+            charge.confirmed_by = "園長"
+            charge.confirmed_at = confirmed_at + timedelta(minutes=4)
+        elif charge.attendance_record_id % 17 == 0:
+            charge.status = ExtendedCareChargeStatus.manual_adjusted
+            charge.adjustment_amount = 50
+            charge.final_amount = charge.auto_amount + charge.adjustment_amount
+            charge.adjustment_reason = "デモ調整: 連絡確認済み"
+            charge.confirmed_by = "事務"
+            charge.confirmed_at = confirmed_at + timedelta(minutes=2)
+        elif charge.attendance_record_id % 5 == 0:
+            charge.status = ExtendedCareChargeStatus.confirmed
+            charge.confirmed_by = "事務"
+            charge.confirmed_at = confirmed_at
+
+        if charge.confirmed_at is not None:
+            charge.updated_at = charge.confirmed_at
+        session.add(charge)
+
+    return {
+        "extended_care_fee_rules": 1,
+        "extended_care_charges": len(charges),
+    }
+
 def seed(wipe: bool = False, db_engine: Engine | None = None) -> dict[str, int]:
     resolved_engine = db_engine or default_engine
     create_db_and_tables(resolved_engine)
@@ -173,10 +242,25 @@ def seed(wipe: bool = False, db_engine: Engine | None = None) -> dict[str, int]:
                         row.get("staff_role") == "admin"
                         or str(row.get("email", "")).startswith("office@"),
                     )
+            if table == "child_profile_change_requests":
+                for row in rows:
+                    child = session.get(Child, row["child_id"])
+                    if not child:
+                        continue
+                    payload = resolve_child_profile_change_payload(child, row.get("request_data"))
+                    if payload:
+                        row["request_data"] = payload
+                        row["change_details"] = build_child_profile_change_details(child, payload)
             for row in rows:
                 session.add(model(**row))
             counts[table] = len(rows)
             session.flush()
+            if table == "attendance_records":
+                counts.update(seed_extended_care_demo_data(session))
+        children = session.exec(select(Child).order_by(Child.id)).all()
+        for child in children:
+            ensure_initial_child_profile_history(session, child, actor_name="デモデータ")
+        counts["child_profile_histories"] = len(children)
         session.commit()
         session.exec(text("PRAGMA foreign_keys=ON"))
     return counts

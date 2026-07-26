@@ -6,7 +6,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -29,6 +28,13 @@ from child_health_service import (
     sync_child_extra_data_from_health_records,
     sync_health_records_from_legacy_extra_data,
 )
+from child_profile_history import (
+    build_allergy_records_snapshot,
+    build_child_profile_snapshot,
+    ensure_health_allergy_baseline,
+    ensure_initial_child_profile_history,
+    record_child_profile_history,
+)
 from database import get_session
 from models import (
     AllergenCategory,
@@ -44,7 +50,37 @@ from time_utils import utc_now
 
 router = APIRouter(tags=["child_health"])
 child_router = APIRouter(prefix="/children/{child_id}/health", tags=["child_health"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
+
+
+def _prepare_allergy_history(session: Session, child: Child):
+    previous_snapshot = build_child_profile_snapshot(session, child)
+    ensure_initial_child_profile_history(session, child, snapshot=previous_snapshot)
+    previous_allergies = build_allergy_records_snapshot(session, child.id)
+    ensure_health_allergy_baseline(session, child, previous_allergies)
+    return previous_snapshot, previous_allergies
+
+
+def _record_allergy_history(
+    session: Session,
+    child: Child,
+    *,
+    current_user,
+    previous_snapshot,
+    previous_allergies,
+):
+    current_allergies = build_allergy_records_snapshot(session, child.id)
+    record_child_profile_history(
+        session,
+        child,
+        actor_name=current_user.name,
+        previous_snapshot=previous_snapshot,
+        source="health_management",
+        allergy_before=previous_allergies,
+        allergy_after=current_allergies,
+    )
 
 
 def _load_child(session: Session, child_id: int) -> Child:
@@ -583,6 +619,7 @@ def save_allergy(
             status_code=400,
         )
 
+    previous_snapshot, previous_allergies = _prepare_allergy_history(session, child)
     now = utc_now()
     if existing_allergy is None:
         allergy = ChildAllergy(
@@ -613,6 +650,13 @@ def save_allergy(
     session.add(allergy)
     session.flush()
     sync_child_extra_data_from_health_records(session, child)
+    _record_allergy_history(
+        session,
+        child,
+        current_user=current_user,
+        previous_snapshot=previous_snapshot,
+        previous_allergies=previous_allergies,
+    )
     session.commit()
     notice_key = "updated" if existing_allergy is not None else "created"
     return RedirectResponse(url=f"/children/{child_id}/health/allergies?notice={notice_key}", status_code=303)
@@ -631,12 +675,20 @@ def deactivate_allergy(
     if allergy is None or allergy.child_id != child_id:
         raise HTTPException(status_code=404, detail="アレルギー情報が見つかりません")
 
+    previous_snapshot, previous_allergies = _prepare_allergy_history(session, child)
     allergy.is_active = False
     allergy.updated_by = current_user.name
     allergy.updated_at = utc_now()
     session.add(allergy)
     session.flush()
     sync_child_extra_data_from_health_records(session, child)
+    _record_allergy_history(
+        session,
+        child,
+        current_user=current_user,
+        previous_snapshot=previous_snapshot,
+        previous_allergies=previous_allergies,
+    )
     session.commit()
     return RedirectResponse(url=f"/children/{child_id}/health/allergies?notice=deactivated", status_code=303)
 
@@ -654,12 +706,20 @@ def reactivate_allergy(
     if allergy is None or allergy.child_id != child_id:
         raise HTTPException(status_code=404, detail="アレルギー情報が見つかりません")
 
+    previous_snapshot, previous_allergies = _prepare_allergy_history(session, child)
     allergy.is_active = True
     allergy.updated_by = current_user.name
     allergy.updated_at = utc_now()
     session.add(allergy)
     session.flush()
     sync_child_extra_data_from_health_records(session, child)
+    _record_allergy_history(
+        session,
+        child,
+        current_user=current_user,
+        previous_snapshot=previous_snapshot,
+        previous_allergies=previous_allergies,
+    )
     session.commit()
     return RedirectResponse(url=f"/children/{child_id}/health/allergies?notice=reactivated", status_code=303)
 

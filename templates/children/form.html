@@ -10,6 +10,7 @@
     </div>
     <div class="flex gap-3">
       {% if child %}
+      <a href="/children/{{ child.id }}/history" class="text-sm text-indigo-600 hover:underline">変更履歴</a>
       <a href="/children/new?sibling_id={{ child.id }}" class="text-sm text-indigo-600 hover:underline">兄弟として追加</a>
       {% endif %}
       <a href="/children/" class="text-sm text-indigo-600 hover:underline">一覧に戻る</a>

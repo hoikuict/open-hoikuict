@@ -7,7 +7,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -37,14 +36,18 @@ from survey_service import (
     resolve_staff_answer_scope,
     response_by_question,
     sanitize_csv_header_label,
+    survey_effective_status_key,
+    survey_effective_status_label,
     target_label,
     validate_survey_definition,
+    unanswered_parent_survey_count,
 )
-from time_utils import utc_now
+from template_utils import create_templates
+from time_utils import parse_local_datetime_input, utc_now
 
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
 
 QUESTION_ROW_COUNT = 6
 
@@ -55,11 +58,8 @@ def survey_list_without_trailing_slash():
 
 
 def _parse_optional_datetime(raw: str) -> Optional[datetime]:
-    value = (raw or "").strip()
-    if not value:
-        return None
     try:
-        return datetime.fromisoformat(value)
+        return parse_local_datetime_input(raw)
     except ValueError:
         return None
 
@@ -214,6 +214,10 @@ def _form_context(
         selected_target_type = survey.targets[0].target_type.value
         selected_target_value = survey.targets[0].target_value or ""
 
+    effective_status_value = survey.status.value if survey else SurveyStatus.draft.value
+    if survey and survey_effective_status_key(survey) == SurveyStatus.closed.value:
+        effective_status_value = SurveyStatus.closed.value
+
     if form_data:
         question_rows = form_data.get("question_rows", question_rows)
         selected_target_type = form_data.get("target_type", selected_target_type)
@@ -230,6 +234,7 @@ def _form_context(
             "errors": errors or [],
             "current_user": current_user,
             "status_options": list(SurveyStatus),
+            "effective_status_value": effective_status_value,
             "audience_options": list(SurveyAudienceType),
             "answer_unit_options": list(SurveyAnswerUnit),
             "question_type_options": list(QuestionType),
@@ -257,18 +262,26 @@ def survey_list(
         .options(selectinload(Survey.targets), selectinload(Survey.answers))
         .order_by(Survey.updated_at.desc(), Survey.created_at.desc())
     )
-    if status:
-        try:
-            statement = statement.where(Survey.status == SurveyStatus(status))
-        except ValueError:
-            pass
     if audience_type:
         try:
             statement = statement.where(Survey.audience_type == SurveyAudienceType(audience_type))
         except ValueError:
             pass
     surveys = session.exec(statement).all()
+    valid_status_filters = {
+        SurveyStatus.draft.value,
+        "scheduled",
+        SurveyStatus.published.value,
+        SurveyStatus.closed.value,
+    }
+    if status in valid_status_filters:
+        surveys = [survey for survey in surveys if survey_effective_status_key(survey) == status]
     labels = _target_labels(session, surveys)
+    status_labels = {
+        survey.id: survey_effective_status_label(survey)
+        for survey in surveys
+        if survey.id is not None
+    }
     unanswered_counts: dict[int, int] = {}
     for survey in surveys:
         if survey.audience_type == SurveyAudienceType.staff:
@@ -280,7 +293,7 @@ def survey_list(
                     unanswered_count += 1
             unanswered_counts[survey.id] = unanswered_count
         else:
-            unanswered_counts[survey.id] = 0
+            unanswered_counts[survey.id] = unanswered_parent_survey_count(session, survey)
 
     return templates.TemplateResponse(
         request,
@@ -289,11 +302,17 @@ def survey_list(
             "request": request,
             "surveys": surveys,
             "target_labels": labels,
+            "status_labels": status_labels,
             "unanswered_counts": unanswered_counts,
             "current_user": current_user,
             "selected_status": status,
             "selected_audience_type": audience_type,
-            "status_options": list(SurveyStatus),
+            "status_filter_options": [
+                {"value": SurveyStatus.draft.value, "label": "下書き"},
+                {"value": "scheduled", "label": "公開前"},
+                {"value": SurveyStatus.published.value, "label": "公開中"},
+                {"value": SurveyStatus.closed.value, "label": "公開終了"},
+            ],
             "audience_options": list(SurveyAudienceType),
         },
     )
@@ -484,6 +503,7 @@ def survey_detail(
     labels = _target_labels(session, [survey])
     questions = sorted(survey.questions, key=lambda item: (item.order, item.id or 0))
     answers = sorted(survey.answers, key=lambda item: item.submitted_at, reverse=True)
+    status_label = survey_effective_status_label(survey)
     return templates.TemplateResponse(
         request,
         "surveys/detail.html",
@@ -491,6 +511,7 @@ def survey_detail(
             "request": request,
             "survey": survey,
             "target_label": labels.get(survey.id, "-"),
+            "status_label": status_label,
             "questions": questions,
             "answers": answers,
             "answer_scope_labels": _answer_scope_labels(session, answers),

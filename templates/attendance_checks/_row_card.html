@@ -18,7 +18,7 @@
         / {{ row.verification_updated_by_name }}
         {% endif %}
         {% if row.verification_updated_at %}
-        / {{ row.verification_updated_at.strftime("%H:%M") }}
+        / {{ row.verification_updated_at|jst_datetime("%H:%M") }}
         {% endif %}
       </p>
     </div>
@@ -70,10 +70,13 @@
           <input type="hidden" name="layout" value="{{ selected_layout }}">
           <input type="hidden" name="filter" value="{{ selected_filter }}">
           <input type="hidden" name="classroom_id" value="{{ selected_classroom_id_value }}">
+          <input type="hidden" name="notify_parent" value="false" data-notify-parent>
           <button
-            type="submit"
+            type="{{ 'button' if option.value == 'unknown' else 'submit' }}"
             data-status-key="{{ option.value }}"
-            class="w-full rounded-lg px-3 py-2 text-sm font-medium transition {% if row.verification_key == option.value %}bg-indigo-600 text-white{% else %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-100{% endif %}"
+            {% if option.value == 'unknown' %}data-child-name="{{ row.child.full_name }}" onclick="openUnknownContactDialog(this.form, this.dataset.childName)"{% endif %}
+            aria-pressed="{{ 'true' if row.verification and row.verification_key == option.value else 'false' }}"
+            class="w-full rounded-lg px-3 py-2 text-sm font-medium transition {% if row.verification and row.verification_key == option.value %}bg-indigo-600 text-white{% else %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-100{% endif %}"
           >
             {{ option.label }}
           </button>
@@ -81,7 +84,28 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-slate-500">閲覧モードでは更新できません。</p>
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          data-readonly-status="{{ row.verification_key }}"
+          class="inline-flex rounded-full px-3 py-1.5 text-sm font-semibold
+            {% if row.verification_key == 'present' %}bg-emerald-100 text-emerald-700
+            {% elif row.verification_key == 'private_absent' %}bg-amber-100 text-amber-800
+            {% elif row.verification_key == 'sick_absent' %}bg-rose-100 text-rose-700
+            {% elif row.verification %}bg-slate-200 text-slate-600
+            {% else %}border border-slate-200 bg-white text-slate-600{% endif %}"
+        >
+          {{ row.verification_label }}
+        </span>
+        <div class="text-xs text-slate-500">
+          {% if row.verification_updated_by_name %}
+          <div>確認者: {{ row.verification_updated_by_name }}</div>
+          {% endif %}
+          {% if row.verification_updated_at %}
+          <div>確認時刻 (JST): {{ row.verification_updated_at|jst_datetime("%H:%M") }}</div>
+          {% endif %}
+        </div>
+      </div>
+      <p class="mt-2 text-xs text-slate-400">閲覧のみのため変更はできません。</p>
       {% endif %}
     </div>
   </div>
@@ -114,7 +138,7 @@
         <div class="text-sm text-slate-800">{{ row.verification_label }}</div>
         <div class="space-y-1 text-xs text-slate-500">
           <div>更新者: {{ row.verification_updated_by_name or "-" }}</div>
-          <div>更新時刻: {{ row.verification_updated_at.strftime("%H:%M:%S") if row.verification_updated_at else "-" }}</div>
+          <div>更新時刻 (JST): {{ (row.verification_updated_at|jst_datetime("%H:%M:%S")) if row.verification_updated_at else "-" }}</div>
         </div>
       </section>
 
@@ -139,7 +163,7 @@
           {% for history in row.history_items %}
           <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs" data-history-status="{{ history.status.value }}">
             <span class="font-medium text-slate-700">{{ history.status.label }}</span>
-            <span class="text-slate-500">{{ history.updated_by_name or "-" }} / {{ history.created_at.strftime("%H:%M:%S") }}</span>
+            <span class="text-slate-500">{{ history.updated_by_name or "-" }} / {{ history.created_at|jst_datetime("%H:%M:%S") }} JST</span>
           </li>
           {% endfor %}
         </ul>

@@ -32,7 +32,7 @@
           </span>
         </div>
         <p class="text-sm text-gray-600">申請者: {{ change_request.parent_account.display_name if change_request.parent_account else "不明" }}</p>
-        <p class="text-sm text-gray-600">申請日時: {{ change_request.submitted_at.strftime("%Y-%m-%d %H:%M") }}</p>
+        <p class="text-sm text-gray-600">申請日時: {{ change_request.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
         <p class="text-sm text-gray-700">{{ change_request.change_summary }}</p>
       </div>
       <div class="flex flex-wrap gap-2">

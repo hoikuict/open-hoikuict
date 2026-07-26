@@ -18,7 +18,7 @@
   {% if entry %}
   <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-      提出者: {{ entry.parent_account.display_name if entry.parent_account else '-' }} / 更新日時: {{ entry.updated_at.strftime("%Y-%m-%d %H:%M") }} / 連絡内容: {{ entry.contact_type.label }}
+      提出者: {{ entry.parent_account.display_name if entry.parent_account else '-' }} / 更新日時: {{ entry.updated_at|jst_datetime("%Y-%m-%d %H:%M") }} JST / 連絡内容: {{ entry.contact_type.label }}
     </div>
 
     {% if entry.is_present_contact %}
@@ -70,7 +70,7 @@
         <span>更新者: {{ reply.staff_name }}</span>
         {% endif %}
         {% if reply.published_at %}
-        <span>公開: {{ reply.published_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        <span>公開: {{ reply.published_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
         {% endif %}
       </div>
       {% endif %}

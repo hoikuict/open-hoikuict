@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }}の履歴詳細 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div class="mb-2 flex flex-wrap items-center gap-2">
+        <span class="rounded-full px-3 py-1 text-xs font-semibold {% if history.action == 'created' %}bg-emerald-100 text-emerald-700{% elif is_parent_request %}bg-violet-100 text-violet-700{% elif is_health_management %}bg-orange-100 text-orange-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">{{ action_label }}</span>
+        <span class="text-sm text-slate-500">{{ recorded_at_label }}</span>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-800">{{ child.full_name }}のプロフィール</h1>
+      {% if is_parent_request %}
+      <p class="text-sm text-slate-500">申請者: {{ requester_name }} / 承認: {{ history.actor_name }} / 変更箇所: {{ changed_count }}項目</p>
+      {% elif is_health_management %}
+      <p class="text-sm text-slate-500">更新: {{ history.actor_name }} / 変更箇所: {{ changed_count }}項目</p>
+      {% else %}
+      <p class="text-sm text-slate-500">担当: {{ history.actor_name }} / 変更箇所: {{ changed_count }}項目</p>
+      {% endif %}
+    </div>
+    <a href="/children/{{ child.id }}/history" class="text-sm text-indigo-600 hover:underline">変更履歴に戻る</a>
+  </div>
+
+  <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    黄色の項目が、この時点で変更された箇所です。その他の項目も当時の値を表示しています。
+  </div>
+
+  <div class="space-y-5">
+    {% if show_allergy_details %}
+    <section class="rounded-xl border border-orange-200 bg-white p-5 shadow-sm">
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-slate-800">アレルギー詳細</h2>
+        <p class="text-sm text-slate-500">健康管理に登録されていたアレルギー情報です。</p>
+      </div>
+      <div class="space-y-4">
+        {% for item in allergy_items %}
+        <article class="rounded-xl border p-4 {% if item.changed %}border-amber-300 bg-amber-50 ring-1 ring-amber-200{% else %}border-slate-200 bg-slate-50{% endif %}">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <h3 class="font-semibold text-slate-800">{{ item.name }}</h3>
+              <span class="rounded-full px-2 py-0.5 text-xs {% if item.active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ "有効" if item.active else "解除" }}</span>
+            </div>
+            {% if item.event_title %}<span class="rounded bg-amber-200 px-2 py-1 text-xs font-semibold text-amber-900">{{ item.event_title }}</span>{% endif %}
+          </div>
+          <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {% for field in item.fields %}
+            <div class="rounded-lg border p-3 {% if field.changed %}border-amber-300 bg-white{% else %}border-slate-200{% endif %}">
+              <div class="mb-1 flex items-center justify-between gap-2">
+                <span class="text-xs font-medium text-slate-500">{{ field.label }}</span>
+                {% if field.changed %}<span class="text-xs font-semibold text-amber-700">変更</span>{% endif %}
+              </div>
+              {% if field.changed %}<div class="mb-1 text-xs text-slate-500">変更前: {{ field.old }}</div>{% endif %}
+              <div class="whitespace-pre-wrap text-sm font-medium text-slate-900">{{ field.value }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+        {% else %}
+        <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">この時点ではアレルギー情報は登録されていません。</div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% for group in profile_groups %}
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-4 text-lg font-semibold text-slate-800">{{ group.title }}</h2>
+      <div class="grid gap-3 md:grid-cols-2">
+        {% for field in group.fields %}
+        <div class="rounded-lg border p-4 {% if field.changed %}border-amber-300 bg-amber-50 ring-1 ring-amber-200{% else %}border-slate-200{% endif %}">
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <span class="text-sm font-medium text-slate-600">{{ field.label }}</span>
+            {% if field.changed %}<span class="rounded bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">変更</span>{% endif %}
+          </div>
+          {% if field.changed and history.action != 'created' %}
+          <div class="mb-1 text-xs text-slate-500">変更前: {{ field.old }}</div>
+          {% endif %}
+          <div class="whitespace-pre-wrap font-medium text-slate-900">{{ field.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

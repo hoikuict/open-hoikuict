@@ -4,7 +4,6 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -15,7 +14,9 @@ from models import Family, ParentAccount, ParentAccountStatus, ProfileChangeNoti
 from time_utils import utc_now
 
 router = APIRouter(prefix="/parent-accounts", tags=["parent_accounts"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 def _all_families(session: Session) -> list[Family]:
     return session.exec(
         select(Family)

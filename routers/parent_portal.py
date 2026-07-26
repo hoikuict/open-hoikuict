@@ -3,7 +3,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -38,6 +37,7 @@ from models import (
     ParentAccountStatus,
     ParentContactType,
     ParentChildLink,
+    ParentNotification,
     ProfileChangeNotification,
     Survey,
     SurveyAnswer,
@@ -57,10 +57,18 @@ from survey_service import (
     survey_is_open,
     survey_matches_parent_targets,
 )
-from time_utils import ensure_utc, utc_now
+from template_utils import create_templates
+from time_utils import (
+    ensure_utc,
+    ensure_utc_from_local,
+    format_jst_datetime,
+    format_local_datetime,
+    local_today,
+    utc_now,
+)
 
 router = APIRouter(prefix="/parent-portal", tags=["parent_portal"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
 
 PROFILE_FIELD_LABELS = {
     "email": "メールアドレス",
@@ -78,7 +86,7 @@ CHILD_PROFILE_NOTICE_MESSAGES = {
 }
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
-        return date.today()
+        return local_today()
     try:
         return date.fromisoformat(raw)
     except ValueError as exc:
@@ -479,6 +487,70 @@ def parent_home(
 
     notices = _load_visible_notices(session, current_parent_user)
     read_notice_ids = _read_notice_ids(current_parent_user, notices)
+    parent_notifications = session.exec(
+        select(ParentNotification)
+        .where(ParentNotification.parent_account_id == current_parent_user.id)
+        .order_by(ParentNotification.created_at.desc(), ParentNotification.id.desc())
+    ).all()
+    unread_parent_notifications = [item for item in parent_notifications if not item.is_read]
+    unanswered_surveys = _load_unanswered_parent_surveys(session, current_parent_user)
+    latest_updates = [
+        {
+            "kind": "notice",
+            "title": item.title,
+            "url": f"/parent-portal/notices/{item.id}",
+            "published_at": item.publish_start_at or item.created_at,
+            "published_at_label": format_jst_datetime(item.publish_start_at or item.created_at),
+            "sort_at": ensure_utc(item.publish_start_at or item.created_at),
+            "is_unread": item.id not in read_notice_ids,
+            "is_important": item.priority.value == "high",
+            "closes_at": None,
+            "closes_at_label": None,
+            "summary": None,
+        }
+        for item in notices
+    ]
+    latest_updates.extend(
+        {
+            "kind": "survey",
+            "title": survey.title,
+            "url": f"/parent-portal/surveys/{survey.id}",
+            "published_at": survey.opens_at or survey.created_at,
+            "published_at_label": (
+                format_local_datetime(survey.opens_at)
+                if survey.opens_at
+                else format_jst_datetime(survey.created_at)
+            ),
+            "sort_at": (
+                ensure_utc_from_local(survey.opens_at)
+                if survey.opens_at
+                else ensure_utc(survey.created_at)
+            ),
+            "is_unread": True,
+            "is_important": False,
+            "closes_at": survey.closes_at,
+            "closes_at_label": format_local_datetime(survey.closes_at) if survey.closes_at else None,
+            "summary": None,
+        }
+        for survey in unanswered_surveys
+    )
+    latest_updates.extend(
+        {
+            "kind": "parent_notification",
+            "title": notification.title,
+            "url": f"/parent-portal/notifications/{notification.id}",
+            "published_at": notification.created_at,
+            "published_at_label": format_jst_datetime(notification.created_at),
+            "sort_at": ensure_utc(notification.created_at),
+            "is_unread": not notification.is_read,
+            "is_important": True,
+            "closes_at": None,
+            "closes_at_label": None,
+            "summary": notification.body,
+        }
+        for notification in parent_notifications
+    )
+    latest_updates.sort(key=lambda item: item["sort_at"], reverse=True)
 
     return templates.TemplateResponse(
         request,
@@ -494,9 +566,12 @@ def parent_home(
             "reply_by_child_id": reply_by_child_id,
             "reply_display_by_child_id": reply_display_by_child_id,
             "pending_request_by_child_id": pending_request_by_child_id,
-            "latest_notices": notices[:5],
-            "read_notice_ids": read_notice_ids,
-            "unread_notice_count": sum(1 for notice in notices if notice.id not in read_notice_ids),
+            "latest_updates": latest_updates[:5],
+            "unread_notice_count": (
+                sum(1 for item in notices if item.id not in read_notice_ids)
+                + len(unanswered_surveys)
+                + len(unread_parent_notifications)
+            ),
             "flash_notice": "日次連絡を保存しました。" if notice == "saved" else "",
         },
     )
@@ -1145,6 +1220,33 @@ def _load_visible_parent_surveys(session: Session, parent_account: ParentAccount
     ]
 
 
+def _parent_survey_has_unanswered_scope(
+    session: Session,
+    survey: Survey,
+    parent_account: ParentAccount,
+) -> bool:
+    if survey.answer_unit == SurveyAnswerUnit.family:
+        scope = resolve_parent_answer_scope(survey, parent_account)
+        return bool(scope and load_existing_survey_answer(session, survey, scope) is None)
+
+    for child in eligible_children_for_survey(survey, parent_account):
+        scope = resolve_parent_answer_scope(survey, parent_account, child.id)
+        if scope and load_existing_survey_answer(session, survey, scope) is None:
+            return True
+    return False
+
+
+def _load_unanswered_parent_surveys(
+    session: Session,
+    parent_account: ParentAccount,
+) -> list[Survey]:
+    return [
+        survey
+        for survey in _load_visible_parent_surveys(session, parent_account)
+        if _parent_survey_has_unanswered_scope(session, survey, parent_account)
+    ]
+
+
 @router.get("/surveys", response_class=HTMLResponse)
 def parent_survey_list(
     request: Request,
@@ -1350,6 +1452,11 @@ def parent_notice_list(
 
     notices = _load_visible_notices(session, current_parent_user)
     read_notice_ids = _read_notice_ids(current_parent_user, notices)
+    parent_notifications = session.exec(
+        select(ParentNotification)
+        .where(ParentNotification.parent_account_id == current_parent_user.id)
+        .order_by(ParentNotification.created_at.desc(), ParentNotification.id.desc())
+    ).all()
 
     return templates.TemplateResponse(
         request,
@@ -1360,6 +1467,46 @@ def parent_notice_list(
             "parent_portal_mode": True,
             "notices": notices,
             "read_notice_ids": read_notice_ids,
+            "parent_notifications": parent_notifications,
+        },
+    )
+
+
+@router.get("/notifications/{notification_id}", response_class=HTMLResponse)
+def parent_notification_detail(
+    request: Request,
+    notification_id: int,
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    notification = session.exec(
+        select(ParentNotification).where(
+            ParentNotification.id == notification_id,
+            ParentNotification.parent_account_id == current_parent_user.id,
+        )
+    ).first()
+    if not notification:
+        raise HTTPException(status_code=404, detail="通知が見つかりません")
+
+    if not notification.is_read:
+        notification.is_read = True
+        notification.read_at = utc_now()
+        session.add(notification)
+        session.commit()
+        session.refresh(notification)
+
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/notification_detail.html",
+        {
+            "request": request,
+            "current_parent_user": current_parent_user,
+            "parent_portal_mode": True,
+            "notification": notification,
+            "child": session.get(Child, notification.child_id) if notification.child_id else None,
         },
     )
 

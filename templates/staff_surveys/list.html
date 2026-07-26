@@ -34,7 +34,7 @@
         <p class="mt-1 text-sm text-gray-600">{{ survey.description }}</p>
         {% endif %}
         <p class="mt-2 text-xs text-gray-500">
-          期限: {{ survey.closes_at.strftime("%Y-%m-%d %H:%M") if survey.closes_at else "指定なし" }}
+          期限: {{ (survey.closes_at|local_datetime("%Y-%m-%d %H:%M") ~ " JST") if survey.closes_at else "指定なし" }}
         </p>
       </div>
       <a href="/staff-surveys/{{ survey.id }}" class="inline-flex rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">

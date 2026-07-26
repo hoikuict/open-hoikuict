@@ -37,7 +37,7 @@
         <span>返信者: {{ published_reply.staff_name }}</span>
         {% endif %}
       {% if published_reply.published_at %}
-        <span>{{ published_reply.published_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        <span>{{ published_reply.published_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
       {% endif %}
       </div>
     </div>
@@ -187,7 +187,7 @@
 
     {% if entry %}
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-      最終更新: {{ entry.updated_at.strftime("%Y-%m-%d %H:%M") if entry.updated_at else "-" }}
+      最終更新: {{ (entry.updated_at|jst_datetime("%Y-%m-%d %H:%M") ~ " JST") if entry.updated_at else "-" }}
     </div>
     {% endif %}
 

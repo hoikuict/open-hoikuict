@@ -9,7 +9,6 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -28,7 +27,9 @@ from models import (
 )
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 VALID_TIME_FIELDS = {"either", "check_in", "check_out"}
 VALID_SORT_FIELDS = {

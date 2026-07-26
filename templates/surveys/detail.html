@@ -6,7 +6,7 @@
   <div>
     <div class="mb-2 flex flex-wrap gap-2">
       <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">{{ survey.audience_type.label }}</span>
-      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ survey.status.label }}</span>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ status_label }}</span>
       <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">{{ survey.answer_unit.label }}</span>
     </div>
     <h1 class="text-2xl font-bold text-gray-800">{{ survey.title }}</h1>
@@ -36,9 +36,9 @@
   <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
     <p class="text-sm text-gray-500">公開期間</p>
     <p class="mt-2 text-sm font-semibold text-gray-800">
-      {{ survey.opens_at.strftime("%Y-%m-%d %H:%M") if survey.opens_at else "開始指定なし" }}
+      {{ (survey.opens_at|local_datetime("%Y-%m-%d %H:%M") ~ " JST") if survey.opens_at else "開始指定なし" }}
       〜
-      {{ survey.closes_at.strftime("%Y-%m-%d %H:%M") if survey.closes_at else "終了指定なし" }}
+      {{ (survey.closes_at|local_datetime("%Y-%m-%d %H:%M") ~ " JST") if survey.closes_at else "終了指定なし" }}
     </p>
   </div>
 </div>
@@ -87,7 +87,7 @@
         {% set responses = response_by_question(answer) %}
         <tr>
           <td class="px-4 py-3">{{ answer_scope_labels.get(answer.id, "-") }}</td>
-          <td class="px-4 py-3">{{ answer.submitted_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td class="px-4 py-3">{{ answer.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</td>
           {% for question in questions %}
           <td class="px-4 py-3">{{ answer_value_for_display(question, responses.get(question.id)) }}</td>
           {% endfor %}

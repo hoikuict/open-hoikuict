@@ -9,7 +9,7 @@
         {% if notice.priority.value == 'high' %}
         <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">重要</span>
         {% endif %}
-        <span class="text-sm text-gray-500">{{ notice.publish_start_at.strftime("%Y-%m-%d %H:%M") if notice.publish_start_at else notice.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        <span class="text-sm text-gray-500">{{ (notice.publish_start_at if notice.publish_start_at else notice.created_at)|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
       </div>
       <h1 class="text-2xl font-bold text-gray-800">{{ notice.title }}</h1>
     </div>

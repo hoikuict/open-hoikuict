@@ -5,13 +5,22 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
 from child_health_service import sync_health_records_from_legacy_extra_data
 from child_profile_changes import RELATIONSHIP_OPTIONS
+from child_profile_history import (
+    allergy_change_labels,
+    allergy_items_for_history,
+    annotate_legacy_parent_request_histories,
+    build_child_profile_snapshot,
+    changed_field_labels,
+    ensure_initial_child_profile_history,
+    profile_groups_for_history,
+    record_child_profile_history,
+)
 from database import get_session
 from family_support import (
     apply_family_shared_data,
@@ -24,11 +33,21 @@ from family_support import (
     move_child_to_family,
     sync_parent_child_links,
 )
-from models import CHILD_FIELDS, Child, ChildStatus, Classroom, Family, ParentChildLink
-from time_utils import utc_now
+from models import (
+    CHILD_FIELDS,
+    Child,
+    ChildProfileHistory,
+    ChildStatus,
+    Classroom,
+    Family,
+    ParentChildLink,
+)
+from time_utils import format_jst_datetime, utc_now
 
 router = APIRouter(prefix="/children", tags=["children"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 SORT_OPTIONS = {
     "name": "名前",
     "birth_date": "生年月日",
@@ -691,8 +710,145 @@ def create_child(
     )
 
     sync_health_records_from_legacy_extra_data(session, child, actor_name=current_user.name)
+    record_child_profile_history(
+        session,
+        child,
+        actor_name=current_user.name,
+        action="created",
+        recorded_at=child.created_at,
+    )
     session.commit()
     return RedirectResponse(url="/children/", status_code=303)
+
+
+def _history_presentation(history: ChildProfileHistory) -> dict[str, object]:
+    snapshot = history.snapshot or {}
+    source = snapshot.get("_history_source")
+    is_parent_request = source == "parent_request"
+    is_health_management = source == "health_management"
+    if history.action == "created":
+        action_label = "新規登録"
+    elif is_parent_request:
+        action_label = "保護者申請"
+    elif history.action == "health_baseline":
+        action_label = "健康管理・初期状態"
+    elif is_health_management:
+        action_label = "健康管理"
+    else:
+        action_label = "更新"
+
+    if is_parent_request:
+        actor_label = f"承認: {history.actor_name}"
+    elif is_health_management and history.action != "health_baseline":
+        actor_label = f"更新: {history.actor_name}"
+    else:
+        actor_label = history.actor_name
+
+    if history.action == "created":
+        changed_labels = ["プロフィール一式"]
+    elif history.action == "health_baseline":
+        changed_labels = ["アレルギー詳細一式"]
+    elif is_health_management:
+        changed_labels = allergy_change_labels(history) or changed_field_labels(history)
+    else:
+        changed_labels = changed_field_labels(history)
+
+    return {
+        "history": history,
+        "is_parent_request": is_parent_request,
+        "is_health_management": is_health_management,
+        "action_label": action_label,
+        "actor_label": actor_label,
+        "requester_label": (
+            f"申請者: {snapshot.get('_requester_name', '保護者')}"
+            if is_parent_request
+            else ""
+        ),
+        "recorded_at_label": format_jst_datetime(history.recorded_at) + " JST",
+        "changed_labels": changed_labels,
+    }
+
+
+@router.get("/{child_id}/history", response_class=HTMLResponse)
+def child_profile_history_list(
+    request: Request,
+    child_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_child_record_manager(current_user)
+    child = _load_child(session, child_id)
+    ensure_initial_child_profile_history(session, child)
+    annotate_legacy_parent_request_histories(session, child_id)
+    session.commit()
+
+    histories = session.exec(
+        select(ChildProfileHistory)
+        .where(ChildProfileHistory.child_id == child_id)
+        .order_by(ChildProfileHistory.recorded_at.desc(), ChildProfileHistory.id.desc())
+    ).all()
+    history_items = [_history_presentation(history) for history in histories]
+    return templates.TemplateResponse(
+        request,
+        "children/history_list.html",
+        {
+            "request": request,
+            "child": child,
+            "history_items": history_items,
+            "current_user": current_user,
+        },
+    )
+
+
+@router.get("/{child_id}/history/{history_id}", response_class=HTMLResponse)
+def child_profile_history_detail(
+    request: Request,
+    child_id: int,
+    history_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_child_record_manager(current_user)
+    child = _load_child(session, child_id)
+    if annotate_legacy_parent_request_histories(session, child_id):
+        session.commit()
+    history = session.exec(
+        select(ChildProfileHistory).where(
+            ChildProfileHistory.id == history_id,
+            ChildProfileHistory.child_id == child_id,
+        )
+    ).first()
+    if not history:
+        raise HTTPException(status_code=404, detail="変更履歴が見つかりません")
+
+    presentation = _history_presentation(history)
+    allergy_items = allergy_items_for_history(history)
+    allergy_field_change_count = sum(
+        1
+        for item in allergy_items
+        for field in item["fields"]
+        if field["changed"]
+    )
+
+    return templates.TemplateResponse(
+        request,
+        "children/history_detail.html",
+        {
+            "request": request,
+            "child": child,
+            "history": history,
+            "action_label": presentation["action_label"],
+            "is_parent_request": presentation["is_parent_request"],
+            "is_health_management": presentation["is_health_management"],
+            "requester_name": (history.snapshot or {}).get("_requester_name", "保護者"),
+            "recorded_at_label": format_jst_datetime(history.recorded_at) + " JST",
+            "profile_groups": profile_groups_for_history(history),
+            "show_allergy_details": "_allergy_records" in (history.snapshot or {}),
+            "allergy_items": allergy_items,
+            "changed_count": len(history.changes or {}) + allergy_field_change_count,
+            "current_user": current_user,
+        },
+    )
 
 
 @router.get("/{child_id}", response_class=HTMLResponse)
@@ -794,6 +950,8 @@ def update_child(
 ):
     require_child_record_manager(current_user)
     child = _load_child(session, child_id)
+    previous_snapshot = build_child_profile_snapshot(session, child)
+    ensure_initial_child_profile_history(session, child, snapshot=previous_snapshot)
     old_family_id = child.family_id
     parsed_birth_date = _parse_date(birth_date)
     parsed_enrollment_date = _parse_date(enrollment_date)
@@ -920,5 +1078,11 @@ def update_child(
             sync_parent_child_links(session, previous_family)
 
     sync_health_records_from_legacy_extra_data(session, child, actor_name=current_user.name)
+    record_child_profile_history(
+        session,
+        child,
+        actor_name=current_user.name,
+        previous_snapshot=previous_snapshot,
+    )
     session.commit()
     return RedirectResponse(url="/children/", status_code=303)

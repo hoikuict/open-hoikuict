@@ -2,12 +2,21 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
-from child_profile_changes import apply_child_profile_payload, merge_child_profile_form_data
+from child_profile_changes import (
+    apply_child_profile_payload,
+    build_child_profile_change_details,
+    merge_child_profile_form_data,
+    resolve_child_profile_change_payload,
+)
+from child_profile_history import (
+    build_child_profile_snapshot,
+    ensure_initial_child_profile_history,
+    record_child_profile_history,
+)
 from database import get_session, seed_classroom_data
 from models import (
     Child,
@@ -19,7 +28,37 @@ from models import (
 from time_utils import utc_now
 
 router = APIRouter(prefix="/child-change-requests", tags=["child_change_requests"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
+
+
+def _display_change_details(change_request: ChildProfileChangeRequest, child: Optional[Child]) -> dict:
+    details = change_request.change_details or {}
+    if isinstance(details, dict) and details and all(
+        isinstance(detail, dict) and {"label", "old", "new"}.issubset(detail)
+        for detail in details.values()
+    ):
+        return details
+
+    if child:
+        payload = resolve_child_profile_change_payload(child, change_request.request_data)
+        if payload:
+            resolved_details = build_child_profile_change_details(child, payload)
+            if resolved_details:
+                return resolved_details
+
+    if isinstance(details, dict) and ("before" in details or "after" in details):
+        return {
+            "legacy_phone": {
+                "label": "緊急連絡先",
+                "old": details.get("before") or "未登録",
+                "new": details.get("after") or "未登録",
+            }
+        }
+    return {}
+
+
 def _parse_status_filter(raw_status: Optional[str]) -> Optional[ChildProfileChangeRequestStatus]:
     if not raw_status or raw_status == "all":
         return None
@@ -105,9 +144,16 @@ def child_change_request_detail(
     change_request = _load_change_request(session, request_id)
     child = change_request.child
     current_form_data = merge_child_profile_form_data(child) if child else {}
+    display_change_details = _display_change_details(change_request, child)
+    approvable_details = {}
+    if child:
+        approval_payload = resolve_child_profile_change_payload(child, change_request.request_data)
+        if approval_payload:
+            approvable_details = build_child_profile_change_details(child, approval_payload)
     notice_message = {
         "approved": "変更申請を承認し、園児情報へ反映しました。",
         "rejected": "変更申請を差し戻しました。",
+        "invalid": "変更内容が空のため承認できません。内容を確認して差し戻してください。",
     }.get(notice or "", "")
 
     return templates.TemplateResponse(
@@ -118,7 +164,10 @@ def child_change_request_detail(
             "current_user": current_user,
             "change_request": change_request,
             "current_form_data": current_form_data,
+            "display_change_details": display_change_details,
+            "can_approve": bool(approvable_details),
             "notice": notice_message,
+            "notice_is_error": notice == "invalid",
         },
     )
 
@@ -143,22 +192,56 @@ def approve_child_change_request(
     if not child:
         raise HTTPException(status_code=404, detail="園児が見つかりません")
 
+    previous_snapshot = build_child_profile_snapshot(session, child)
+    ensure_initial_child_profile_history(session, child, snapshot=previous_snapshot)
+
+    payload = resolve_child_profile_change_payload(child, change_request.request_data)
+    if not payload:
+        return RedirectResponse(
+            url=f"/child-change-requests/{request_id}?notice=invalid",
+            status_code=303,
+        )
+
+    change_details = build_child_profile_change_details(child, payload)
+    if not change_details:
+        return RedirectResponse(
+            url=f"/child-change-requests/{request_id}?notice=invalid",
+            status_code=303,
+        )
+
     try:
         apply_child_profile_payload(
             session,
             child,
-            change_request.request_data or {},
+            payload,
             applied_at=utc_now(),
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError:
+        return RedirectResponse(
+            url=f"/child-change-requests/{request_id}?notice=invalid",
+            status_code=303,
+        )
 
+    change_request.request_data = payload
+    change_request.change_details = change_details
     change_request.status = ChildProfileChangeRequestStatus.approved
     change_request.review_note = (review_note or "").strip() or None
     change_request.reviewed_at = utc_now()
     change_request.reviewed_by = current_user.name
     change_request.updated_at = utc_now()
     session.add(change_request)
+    record_child_profile_history(
+        session,
+        child,
+        actor_name=current_user.name,
+        previous_snapshot=previous_snapshot,
+        source="parent_request",
+        requester_name=(
+            change_request.parent_account.display_name
+            if change_request.parent_account
+            else "保護者"
+        ),
+    )
     session.commit()
     seed_classroom_data(session.get_bind())
 

@@ -40,15 +40,15 @@
         </select>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">公開開始</label>
+        <label class="mb-1 block text-sm font-medium text-gray-600">公開開始（JST）</label>
         <input type="datetime-local" name="publish_start_at"
-               value="{{ notice.publish_start_at.strftime('%Y-%m-%dT%H:%M') if notice and notice.publish_start_at else '' }}"
+               value="{{ notice.publish_start_at|jst_datetime('%Y-%m-%dT%H:%M') if notice and notice.publish_start_at else '' }}"
                class="w-full rounded border border-gray-300 px-3 py-2">
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">公開終了</label>
+        <label class="mb-1 block text-sm font-medium text-gray-600">公開終了（JST）</label>
         <input type="datetime-local" name="publish_end_at"
-               value="{{ notice.publish_end_at.strftime('%Y-%m-%dT%H:%M') if notice and notice.publish_end_at else '' }}"
+               value="{{ notice.publish_end_at|jst_datetime('%Y-%m-%dT%H:%M') if notice and notice.publish_end_at else '' }}"
                class="w-full rounded border border-gray-300 px-3 py-2">
       </div>
     </div>

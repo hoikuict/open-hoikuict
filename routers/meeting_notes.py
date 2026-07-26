@@ -6,7 +6,6 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlmodel import Session, select
@@ -24,10 +23,11 @@ from auth import (
 from database import get_session
 from demo_runtime import DEMO_SESSION_COOKIE_NAME
 from models import MeetingNote
+from template_utils import create_templates
 from time_utils import utc_now
 
 router = APIRouter(prefix="/meeting-notes", tags=["meeting_notes"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
 
 
 class SaveMeetingNotePayload(BaseModel):

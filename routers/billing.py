@@ -6,7 +6,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_admin, require_can_edit
@@ -46,7 +45,9 @@ from zengin_service import (
 )
 
 router = APIRouter(prefix="/billing", tags=["billing"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 TABLE_CHARGE_COLUMNS = [
     {

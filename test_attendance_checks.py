@@ -1,5 +1,5 @@
 import unittest
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -17,9 +17,13 @@ from models import (
     Classroom,
     DailyContactEntry,
     ParentAccount,
+    ParentChildLink,
     ParentContactType,
+    ParentNotification,
+    ParentNotificationDelivery,
 )
 import routers.attendance_checks as attendance_checks_module
+from parent_notification_service import queue_push_delivery
 
 
 class AttendanceChecksTests(unittest.TestCase):
@@ -86,6 +90,15 @@ class AttendanceChecksTests(unittest.TestCase):
             session.add(child)
             session.add(second_child)
             session.add(parent)
+            session.flush()
+            session.add(
+                ParentChildLink(
+                    parent_account_id=parent.id,
+                    child_id=child.id,
+                    relationship_label="母",
+                    is_primary_contact=True,
+                )
+            )
             session.commit()
 
             self.child_id = child.id
@@ -226,6 +239,93 @@ class AttendanceChecksTests(unittest.TestCase):
         self.assertIn('data-status-key="sick_absent"', response.text)
         self.assertIn('data-status-key="unknown"', response.text)
         self.assertIn("38.2", response.text)
+        self.assertRegex(
+            response.text,
+            r'data-status-key="unknown"[\s\S]*?aria-pressed="false"',
+        )
+        self.assertIn("病欠", response.text)
+
+    def test_only_explicit_unknown_is_highlighted(self):
+        response = self.client.post(
+            f"/attendance-checks/{self.child_id}/verification",
+            data={
+                "date": self.day.isoformat(),
+                "status": "unknown",
+                "layout": "flat",
+                "filter": "all",
+                "classroom_id": "",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+
+        list_response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
+
+        self.assertRegex(
+            list_response.text,
+            r'data-status-key="unknown"[\s\S]*?aria-pressed="true"',
+        )
+
+    def test_unknown_can_notify_linked_parent_for_future_push_delivery(self):
+        response = self.client.post(
+            f"/attendance-checks/{self.child_id}/verification",
+            data={
+                "date": self.day.isoformat(),
+                "status": "unknown",
+                "notify_parent": "true",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("notice=parent_notified", response.headers["location"])
+        with Session(self.engine) as session:
+            notification = session.exec(select(ParentNotification)).one()
+            delivery = session.exec(select(ParentNotificationDelivery)).one()
+
+        self.assertEqual(notification.parent_account_id, self.parent_id)
+        self.assertEqual(notification.child_id, self.child_id)
+        self.assertEqual(
+            notification.body,
+            "本日の連絡をいただいておりません。出席か欠席かお知らせください。",
+        )
+        self.assertEqual(delivery.notification_id, notification.id)
+        self.assertEqual(delivery.channel.value, "in_app")
+        self.assertEqual(delivery.status.value, "delivered")
+
+        with Session(self.engine) as session:
+            notification = session.get(ParentNotification, notification.id)
+            push_delivery = queue_push_delivery(session, notification)
+            session.commit()
+            session.refresh(push_delivery)
+            self.assertEqual(push_delivery.channel.value, "push")
+            self.assertEqual(push_delivery.status.value, "pending")
+
+    def test_unknown_without_parent_contact_does_not_create_notification(self):
+        response = self.client.post(
+            f"/attendance-checks/{self.child_id}/verification",
+            data={
+                "date": self.day.isoformat(),
+                "status": "unknown",
+                "notify_parent": "false",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(ParentNotification)).all(), [])
+
+    def test_view_only_unconfirmed_status_uses_white_background(self):
+        self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+
+        response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertRegex(
+            response.text,
+            r'data-readonly-status="unknown"[\s\S]*?border border-slate-200 bg-white',
+        )
 
     def test_view_only_staff_cannot_update_attendance_check(self):
         self.current_user = StaffUser(
@@ -247,6 +347,59 @@ class AttendanceChecksTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+    def test_view_only_staff_can_see_present_and_absent_results(self):
+        for status, expected_label in (("present", "出席"), ("sick_absent", "病欠")):
+            self.current_user = StaffUser(
+                role=Role.CAN_EDIT,
+                name="確認担当",
+                staff_id=1,
+                employment_type="regular",
+            )
+            update_response = self.client.post(
+                f"/attendance-checks/{self.child_id}/verification",
+                data={
+                    "date": self.day.isoformat(),
+                    "status": status,
+                    "layout": "flat",
+                    "filter": "all",
+                    "classroom_id": "",
+                },
+                follow_redirects=False,
+            )
+            self.assertEqual(update_response.status_code, 303)
+
+            self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+            response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("確認結果", response.text)
+            self.assertIn(f'data-readonly-status="{status}"', response.text)
+            self.assertIn(expected_label, response.text)
+            self.assertIn("確認者: 確認担当", response.text)
+            self.assertNotIn('data-status-key="present"', response.text)
+
+    def test_verification_audit_time_is_displayed_in_jst(self):
+        with Session(self.engine) as session:
+            session.add(
+                AttendanceVerification(
+                    child_id=self.child_id,
+                    target_date=self.day,
+                    status="present",
+                    updated_by_name="主任",
+                    created_at=datetime(2026, 7, 25, 23, 22),
+                    updated_at=datetime(2026, 7, 25, 23, 22),
+                )
+            )
+            session.commit()
+
+        self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+        response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("確認時刻 (JST):", response.text)
+        self.assertIn("08:22", response.text)
+        self.assertNotIn("確認時刻 (JST): 23:22", response.text)
 
     def test_alarm_is_not_recalculated_by_list_get(self):
         response = self.client.post(

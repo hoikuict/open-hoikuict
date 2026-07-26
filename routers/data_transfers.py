@@ -7,7 +7,6 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
@@ -26,7 +25,9 @@ from models import ChildStatus, Classroom, DataTransferLog, ParentAccountStatus
 from time_utils import utc_now
 
 router = APIRouter(prefix="/data-transfers", tags=["data_transfers"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 PREVIEW_DIR = Path("storage/data_transfer_previews")
 

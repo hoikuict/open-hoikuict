@@ -3,7 +3,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -19,10 +18,11 @@ from models import (
     NoticeTarget,
     NoticeTargetType,
 )
-from time_utils import ensure_utc, utc_now
+from template_utils import create_templates
+from time_utils import ensure_utc_from_local, utc_now
 
 router = APIRouter(prefix="/notices", tags=["notices"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
 NOTICE_SORT_OPTIONS = (
     ("updated_desc", "更新日時（新しい順）"),
     ("updated_asc", "更新日時（古い順）"),
@@ -40,7 +40,7 @@ def _parse_optional_datetime(raw: str) -> Optional[datetime]:
     if not value:
         return None
     try:
-        return ensure_utc(datetime.fromisoformat(value))
+        return ensure_utc_from_local(datetime.fromisoformat(value))
     except ValueError:
         return None
 

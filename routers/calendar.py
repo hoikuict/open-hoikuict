@@ -10,7 +10,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from auth import Role, clear_staff_cookies, get_calendar_user_cookie, set_staff_cookies
@@ -65,7 +64,9 @@ from models import (
 from time_utils import utc_now
 
 router = APIRouter(tags=["calendar"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 VALID_VIEW_MODES = {"month", "week", "day"}
 WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"]
 VIEW_MODE_LABELS = {

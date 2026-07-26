@@ -6,7 +6,6 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -17,7 +16,9 @@ from models import Classroom, Message, MessageAttachment
 from time_utils import utc_now
 
 router = APIRouter(prefix="/staff-rooms", tags=["staff_rooms"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 MESSAGE_UPLOAD_ROOT = Path("storage") / "message_attachments"
 
 

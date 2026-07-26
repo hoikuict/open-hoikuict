@@ -1,10 +1,10 @@
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from models import (
     Child,
@@ -88,6 +88,30 @@ class NoticeRouterTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    def test_publish_window_is_entered_in_jst_and_saved_as_utc(self):
+        response = self.client.post(
+            "/notices/",
+            data={
+                "title": "JST確認",
+                "body": "本文",
+                "publish_start_at": "2026-07-26T08:22",
+                "publish_end_at": "2026-07-26T09:22",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            notice = session.exec(select(Notice).where(Notice.title == "JST確認")).one()
+            self.assertEqual(notice.publish_start_at, datetime(2026, 7, 25, 23, 22))
+            self.assertEqual(notice.publish_end_at, datetime(2026, 7, 26, 0, 22))
+            notice_id = notice.id
+
+        edit_response = self.client.get(f"/notices/{notice_id}/edit")
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertIn('value="2026-07-26T08:22"', edit_response.text)
+        self.assertIn("公開開始（JST）", edit_response.text)
 
     def test_list_can_search_filter_and_sort_notices(self):
         now = utc_now()

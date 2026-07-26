@@ -4,19 +4,26 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from attendance_checks_service import sync_attendance_alarm
 from database import get_session
 from extended_care_fee_service import recalculate_attendance_charge
 from models import AttendanceRecord, Child, ChildStatus, Classroom
+from template_utils import create_templates
+from time_utils import local_naive_now, local_today, utc_now
 
 router = APIRouter(prefix="/guardian", tags=["guardian"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
+
+PICKUP_HOUR_OPTIONS = [f"{hour:02d}" for hour in range(7, 22)]
+PICKUP_MINUTE_OPTIONS = ["00", "15", "30", "45"]
+PICKUP_PERSON_OPTIONS = ["母", "父", "祖父", "祖母", "ファミリーサポート", "その他"]
+
+
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
-        return date.today()
+        return local_today()
     try:
         return date.fromisoformat(raw)
     except ValueError as exc:
