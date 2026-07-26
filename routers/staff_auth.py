@@ -2,7 +2,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from auth import (
@@ -31,7 +30,9 @@ from url_utils import safe_internal_redirect
 
 router = APIRouter(prefix="/staff", tags=["staff-auth"])
 mock_login_router = APIRouter(prefix="/staff", tags=["staff-auth-mock"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 DEFAULT_STAFF_REDIRECT = "/children"
 DEFAULT_LOGOUT_REDIRECT = "/staff/login"

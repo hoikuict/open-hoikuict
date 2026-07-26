@@ -6,7 +6,6 @@ from typing import DefaultDict
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlmodel import Session, select
@@ -18,7 +17,9 @@ from time_utils import utc_now
 from security_config import websocket_origin_allowed
 
 router = APIRouter(prefix="/meeting-notes", tags=["meeting_notes"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 logger = logging.getLogger(__name__)
 
 

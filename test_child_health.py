@@ -7,8 +7,19 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from child_health_service import build_health_check_chart_records
-from models import Child, ChildAllergy, ChildHealthProfile, ChildStatus, Classroom, Family, HealthCheckRecord, HealthCheckType
+from models import (
+    Child,
+    ChildAllergy,
+    ChildHealthProfile,
+    ChildProfileHistory,
+    ChildStatus,
+    Classroom,
+    Family,
+    HealthCheckRecord,
+    HealthCheckType,
+)
 import routers.child_health as child_health_module
+import routers.children as children_module
 from testing_helpers import authenticate_mock_staff
 
 
@@ -23,14 +34,16 @@ class ChildHealthRouterTests(unittest.TestCase):
 
         self.app = FastAPI()
         self.app.include_router(child_health_module.router)
+        self.app.include_router(children_module.router)
 
         def override_get_session():
             with Session(self.engine) as session:
                 yield session
 
         self.app.dependency_overrides[child_health_module.get_session] = override_get_session
+        self.app.dependency_overrides[children_module.get_session] = override_get_session
         self.client = TestClient(self.app)
-        authenticate_mock_staff(self.client)
+        authenticate_mock_staff(self.client, can_manage_child_records=True)
 
         with Session(self.engine) as session:
             classroom = Classroom(name="ひよこ組", display_order=1)
@@ -233,10 +246,34 @@ class ChildHealthRouterTests(unittest.TestCase):
 
         with Session(self.engine) as session:
             updated = session.get(ChildAllergy, allergy.id)
+            history = session.exec(
+                select(ChildProfileHistory)
+                .where(ChildProfileHistory.child_id == self.child_id)
+                .order_by(ChildProfileHistory.recorded_at.desc(), ChildProfileHistory.id.desc())
+            ).first()
 
         self.assertEqual(updated.severity.value, "severe")
         self.assertEqual(updated.symptoms, "発疹")
         self.assertEqual(updated.action_plan, "救急対応")
+        self.assertEqual(history.snapshot["_history_source"], "health_management")
+        allergy_change = history.snapshot["_allergy_changes"][0]
+        self.assertEqual(allergy_change["title"], "牛乳を更新")
+        changed_keys = {field["key"] for field in allergy_change["fields"]}
+        self.assertIn("severity", changed_keys)
+        self.assertIn("symptoms", changed_keys)
+        self.assertIn("action_plan", changed_keys)
+
+        history_page = self.client.get(f"/children/{self.child_id}/history")
+        self.assertEqual(history_page.status_code, 200)
+        self.assertIn("健康管理", history_page.text)
+        self.assertIn("更新: テスト職員", history_page.text)
+        self.assertIn("牛乳を更新", history_page.text)
+
+        detail_page = self.client.get(f"/children/{self.child_id}/history/{history.id}")
+        self.assertEqual(detail_page.status_code, 200)
+        self.assertIn("アレルギー詳細", detail_page.text)
+        self.assertIn("変更前: 軽度", detail_page.text)
+        self.assertIn("重度", detail_page.text)
 
     def test_allergy_deactivate_updates_legacy_extra_data(self):
         create_response = self.client.post(
@@ -272,9 +309,40 @@ class ChildHealthRouterTests(unittest.TestCase):
         with Session(self.engine) as session:
             child = session.get(Child, self.child_id)
             updated = session.get(ChildAllergy, allergy.id)
+            history = session.exec(
+                select(ChildProfileHistory)
+                .where(ChildProfileHistory.child_id == self.child_id)
+                .order_by(ChildProfileHistory.recorded_at.desc(), ChildProfileHistory.id.desc())
+            ).first()
 
         self.assertFalse(updated.is_active)
         self.assertNotIn("牛乳", child.extra_data["allergy"])
+        self.assertEqual(history.snapshot["_allergy_changes"][0]["title"], "牛乳を解除")
+
+        reactivate_response = self.client.post(
+            f"/children/{self.child_id}/health/allergies/{allergy.id}/reactivate",
+            follow_redirects=False,
+        )
+        self.assertEqual(reactivate_response.status_code, 303)
+        self.assertIn("notice=reactivated", reactivate_response.headers["location"])
+
+        with Session(self.engine) as session:
+            child = session.get(Child, self.child_id)
+            histories = session.exec(
+                select(ChildProfileHistory)
+                .where(ChildProfileHistory.child_id == self.child_id)
+                .order_by(ChildProfileHistory.recorded_at, ChildProfileHistory.id)
+            ).all()
+
+        allergy_event_titles = [
+            change["title"]
+            for item in histories
+            for change in (item.snapshot or {}).get("_allergy_changes", [])
+        ]
+        self.assertIn("牛乳を追加", allergy_event_titles)
+        self.assertIn("牛乳を解除", allergy_event_titles)
+        self.assertIn("牛乳を再有効化", allergy_event_titles)
+        self.assertIn("牛乳", child.extra_data["allergy"])
 
 
 if __name__ == "__main__":

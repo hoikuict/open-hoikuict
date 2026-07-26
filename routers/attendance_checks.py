@@ -7,7 +7,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -26,10 +25,12 @@ from models import (
     Classroom,
     DailyContactEntry,
 )
+from parent_notification_service import notify_attendance_confirmation_needed
 from time_utils import local_today, utc_now
+from template_utils import create_templates
 
 router = APIRouter(prefix="/attendance-checks", tags=["attendance_checks"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
 
 LAYOUT_OPTIONS = [
     {"value": "flat", "label": "全園児を一覧"},
@@ -121,6 +122,7 @@ def _build_redirect_url(
     selected_layout: str,
     selected_filter: str,
     selected_classroom_id: Optional[int],
+    notice: Optional[str] = None,
 ) -> str:
     params = {
         "date": target_day.isoformat(),
@@ -129,6 +131,8 @@ def _build_redirect_url(
     }
     if selected_classroom_id is not None:
         params["classroom_id"] = str(selected_classroom_id)
+    if notice:
+        params["notice"] = notice
     return f"/attendance-checks/?{urlencode(params)}"
 
 
@@ -303,6 +307,7 @@ def _build_page_context(
     selected_layout: str,
     selected_filter: str,
     selected_classroom_id: Optional[int],
+    notice: Optional[str] = None,
 ) -> dict[str, object]:
     classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
     scope_rows = _load_rows(
@@ -326,6 +331,10 @@ def _build_page_context(
         "counts": _build_counts(scope_rows),
         "rows": display_rows,
         "grouped_rows": _group_rows(display_rows) if selected_layout == "classroom" else [],
+        "action_message": {
+            "parent_notified": "園児に紐づく保護者へ出欠確認の通知を送りました。",
+            "parent_not_found": "通知先となる有効な保護者アカウントが見つかりませんでした。",
+        }.get(notice or "", ""),
     }
 
 
@@ -336,6 +345,7 @@ def attendance_checks_list(
     layout: Optional[str] = Query(default="flat"),
     status_filter: Optional[str] = Query(default="all", alias="filter"),
     classroom_id: Optional[str] = Query(default=None),
+    notice: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -351,6 +361,7 @@ def attendance_checks_list(
         selected_layout=selected_layout,
         selected_filter=selected_filter,
         selected_classroom_id=selected_classroom_id,
+        notice=notice,
     )
     template_name = "attendance_checks/_board.html" if _is_hx_request(request) else "attendance_checks/list.html"
     return templates.TemplateResponse(request, template_name, context)
@@ -365,6 +376,7 @@ def update_attendance_verification(
     layout: str = Form(default="flat"),
     status_filter: str = Form(default="all", alias="filter"),
     classroom_id: str = Form(default=""),
+    notify_parent: bool = Form(default=False),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -404,15 +416,27 @@ def update_attendance_verification(
         verification.updated_at = now
 
     session.add(verification)
-    session.add(
-        AttendanceVerificationHistory(
-            child_id=child_id,
-            target_date=target_day,
-            status=next_status,
-            updated_by_name=current_user.name,
-            created_at=now,
-        )
+    history = AttendanceVerificationHistory(
+        child_id=child_id,
+        target_date=target_day,
+        status=next_status,
+        updated_by_name=current_user.name,
+        created_at=now,
     )
+    session.add(history)
+    session.flush()
+
+    notice = None
+    if next_status == AttendanceVerificationStatus.unknown and notify_parent:
+        notifications = notify_attendance_confirmation_needed(
+            session,
+            child=child,
+            target_date=target_day,
+            source_id=str(history.id),
+            created_by_name=current_user.name,
+            now=now,
+        )
+        notice = "parent_notified" if notifications else "parent_not_found"
     sync_attendance_alarm(
         session,
         child_id=child_id,
@@ -431,6 +455,7 @@ def update_attendance_verification(
             selected_layout=selected_layout,
             selected_filter=selected_filter,
             selected_classroom_id=selected_classroom_id,
+            notice=notice,
         )
         return templates.TemplateResponse(request, "attendance_checks/_board.html", context)
 
@@ -440,6 +465,7 @@ def update_attendance_verification(
             selected_layout=selected_layout,
             selected_filter=selected_filter,
             selected_classroom_id=selected_classroom_id,
+            notice=notice,
         ),
         status_code=303,
     )

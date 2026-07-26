@@ -71,4 +71,43 @@
 
   {% include "attendance_checks/_board.html" %}
 </div>
+
+<dialog id="unknown-contact-dialog" class="w-[min(92vw,32rem)] rounded-2xl border-0 p-0 shadow-2xl backdrop:bg-slate-900/40">
+  <div class="space-y-5 p-6">
+    <div>
+      <h2 class="text-lg font-semibold text-slate-900">保護者に連絡を入れますか？</h2>
+      <p id="unknown-contact-child" class="mt-2 text-sm font-medium text-slate-700"></p>
+      <p class="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+        本日の連絡をいただいておりません。出席か欠席かお知らせください。
+      </p>
+    </div>
+    <div class="flex justify-end gap-3">
+      <button type="button" class="rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onclick="submitUnknownContact(false)">いいえ</button>
+      <button type="button" class="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-500" onclick="submitUnknownContact(true)">はい</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  let pendingUnknownContactForm = null;
+
+  function openUnknownContactDialog(form, childName) {
+    pendingUnknownContactForm = form;
+    const childLabel = document.getElementById("unknown-contact-child");
+    if (childLabel) childLabel.textContent = `${childName}さん`;
+    const dialog = document.getElementById("unknown-contact-dialog");
+    if (dialog && typeof dialog.showModal === "function") dialog.showModal();
+  }
+
+  function submitUnknownContact(shouldNotify) {
+    const form = pendingUnknownContactForm;
+    pendingUnknownContactForm = null;
+    const dialog = document.getElementById("unknown-contact-dialog");
+    if (dialog && dialog.open) dialog.close();
+    if (!form) return;
+    const notifyInput = form.querySelector("[data-notify-parent]");
+    if (notifyInput) notifyInput.value = shouldNotify ? "true" : "false";
+    form.requestSubmit();
+  }
+</script>
 {% endblock %}

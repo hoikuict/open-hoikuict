@@ -10,7 +10,6 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
@@ -30,7 +29,9 @@ from ninka_transfer_service import build_ninka_xlsx_content, default_fiscal_year
 from time_utils import utc_now
 
 router = APIRouter(prefix="/data-transfers", tags=["data_transfers"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 PREVIEW_DIR = Path("storage/data_transfer_previews")
 PREVIEW_TTL_SECONDS = 60 * 60 * 24

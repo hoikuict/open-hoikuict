@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -20,7 +19,9 @@ from models import Child, Family, ParentAccount
 from time_utils import utc_now
 
 router = APIRouter(prefix="/families", tags=["families"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 def _parse_ids(raw_values: list[str]) -> list[int]:
     values: list[int] = []
     for raw in raw_values:

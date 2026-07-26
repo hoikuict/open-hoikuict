@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from attendance_checks_service import sync_attendance_alarm
@@ -20,7 +19,9 @@ from kiosk_security import (
 )
 
 router = APIRouter(prefix="/guardian", tags=["guardian"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 PICKUP_HOUR_OPTIONS = [f"{hour:02d}" for hour in range(7, 22)]
 PICKUP_MINUTE_OPTIONS = ["00", "15", "30", "45"]

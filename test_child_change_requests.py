@@ -11,6 +11,7 @@ from models import (
     Child,
     ChildProfileChangeRequest,
     ChildProfileChangeRequestStatus,
+    ChildProfileHistory,
     ChildStatus,
     Classroom,
     Family,
@@ -234,6 +235,11 @@ class ChildChangeRequestTests(unittest.TestCase):
             ).all()
             family = session.get(Family, children[0].family_id)
             change_request = session.get(ChildProfileChangeRequest, change_request.id)
+            profile_history = session.exec(
+                select(ChildProfileHistory)
+                .where(ChildProfileHistory.child_id == self.child_id)
+                .order_by(ChildProfileHistory.recorded_at.desc(), ChildProfileHistory.id.desc())
+            ).first()
 
         self.assertEqual(children[0].home_address, "New Home")
         self.assertEqual(children[1].home_address, "New Home")
@@ -243,6 +249,79 @@ class ChildChangeRequestTests(unittest.TestCase):
         self.assertEqual(family.home_address, "New Home")
         self.assertEqual(change_request.status, ChildProfileChangeRequestStatus.approved)
         self.assertEqual(change_request.review_note, "Looks good")
+        self.assertEqual(profile_history.actor_name, "テスト職員")
+        self.assertEqual(profile_history.snapshot["_history_source"], "parent_request")
+        self.assertEqual(profile_history.snapshot["_requester_name"], "Ito Parent")
+
+    def test_legacy_demo_phone_request_is_displayed_and_can_be_approved(self):
+        with Session(self.engine) as session:
+            change_request = ChildProfileChangeRequest(
+                child_id=self.child_id,
+                parent_account_id=self.parent_account_id,
+                status=ChildProfileChangeRequestStatus.pending,
+                change_summary="緊急連絡先の更新",
+                request_data={"phone": "090-0099-0009"},
+                change_details={"before": "090-0000-0001", "after": "090-0099-0009"},
+            )
+            session.add(change_request)
+            session.commit()
+            session.refresh(change_request)
+            request_id = change_request.id
+
+        detail_response = self.client.get(f"/child-change-requests/{request_id}?as=admin")
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertIn("保護者1 電話番号", detail_response.text)
+        self.assertIn("090-0099-0009", detail_response.text)
+
+        approve_response = self.client.post(
+            f"/child-change-requests/{request_id}/approve?as=admin",
+            follow_redirects=False,
+        )
+        self.assertEqual(approve_response.status_code, 303)
+        self.assertIn("notice=approved", approve_response.headers["location"])
+
+        with Session(self.engine) as session:
+            child = session.exec(
+                select(Child).options(selectinload(Child.guardians)).where(Child.id == self.child_id)
+            ).first()
+            saved_request = session.get(ChildProfileChangeRequest, request_id)
+
+        self.assertEqual(child.guardians[0].phone, "090-0099-0009")
+        self.assertEqual(saved_request.status, ChildProfileChangeRequestStatus.approved)
+        self.assertIn("child_data", saved_request.request_data)
+
+    def test_empty_request_redirects_back_with_guidance_instead_of_error_page(self):
+        with Session(self.engine) as session:
+            change_request = ChildProfileChangeRequest(
+                child_id=self.child_id,
+                parent_account_id=self.parent_account_id,
+                status=ChildProfileChangeRequestStatus.pending,
+                change_summary="空の変更申請",
+                request_data={},
+                change_details={},
+            )
+            session.add(change_request)
+            session.commit()
+            session.refresh(change_request)
+            request_id = change_request.id
+
+        approve_response = self.client.post(
+            f"/child-change-requests/{request_id}/approve?as=admin",
+            follow_redirects=False,
+        )
+        self.assertEqual(approve_response.status_code, 303)
+        self.assertIn("notice=invalid", approve_response.headers["location"])
+
+        detail_response = self.client.get(
+            f"/child-change-requests/{request_id}?notice=invalid&as=admin"
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertIn("変更内容が空のため承認できません", detail_response.text)
+        self.assertIn("disabled", detail_response.text)
+
+        with Session(self.engine) as session:
+            saved_request = session.get(ChildProfileChangeRequest, request_id)
+        self.assertEqual(saved_request.status, ChildProfileChangeRequestStatus.pending)
 
 
 if __name__ == "__main__":

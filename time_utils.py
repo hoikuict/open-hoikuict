@@ -23,6 +23,45 @@ def local_today(timezone_name: str | None = None) -> date:
     return local_now(timezone_name).date()
 
 
+def parse_local_datetime_input(value: str | None, timezone_name: str | None = None) -> datetime | None:
+    """Parse a datetime-local value and normalize it to a naive local wall-clock time."""
+    cleaned = (value or "").strip()
+    if not cleaned:
+        return None
+    parsed = datetime.fromisoformat(cleaned)
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(_local_timezone(timezone_name))
+    return parsed.replace(tzinfo=None)
+
+
+def format_local_datetime(
+    value: datetime | None,
+    format_string: str = "%Y-%m-%d %H:%M",
+    timezone_name: str | None = None,
+) -> str:
+    """Format local wall-clock values as-is and convert aware values to local time."""
+    if value is None:
+        return ""
+    if value.tzinfo is not None:
+        value = value.astimezone(_local_timezone(timezone_name))
+    return value.strftime(format_string)
+
+
+def format_jst_datetime(
+    value: datetime | None,
+    format_string: str = "%Y-%m-%d %H:%M",
+) -> str:
+    """Format a UTC-backed timestamp in Japan Standard Time.
+
+    SQLite returns timezone-aware values without ``tzinfo``. Application audit
+    timestamps are stored in UTC, so a naive value must be interpreted as UTC
+    before converting it to JST.
+    """
+    if value is None:
+        return ""
+    return ensure_utc(value).astimezone(_local_timezone()).strftime(format_string)
+
+
 def ensure_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }}の変更履歴 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-800">{{ child.full_name }}の変更履歴</h1>
+      <p class="text-sm text-slate-500">変更した人、日時、変更項目を確認できます。</p>
+    </div>
+    <a href="/children/{{ child.id }}/edit" class="text-sm text-indigo-600 hover:underline">編集画面に戻る</a>
+  </div>
+
+  <div class="space-y-4">
+    {% for item in history_items %}
+    <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full px-3 py-1 text-xs font-semibold {% if item.history.action == 'created' %}bg-emerald-100 text-emerald-700{% elif item.is_parent_request %}bg-violet-100 text-violet-700{% elif item.is_health_management %}bg-orange-100 text-orange-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">{{ item.action_label }}</span>
+            {% if item.requester_label %}<span class="text-sm text-slate-600">{{ item.requester_label }}</span>{% endif %}
+            <span class="font-semibold text-slate-800">{{ item.actor_label }}</span>
+          </div>
+          <div class="text-sm text-slate-500">{{ item.recorded_at_label }}</div>
+          <div class="flex flex-wrap gap-2">
+            {% for label in item.changed_labels %}
+            <span class="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">{{ label }}</span>
+            {% else %}
+            <span class="text-xs text-slate-400">変更項目なし</span>
+            {% endfor %}
+          </div>
+        </div>
+        <a href="/children/{{ child.id }}/history/{{ item.history.id }}" class="shrink-0 rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50">この時点のプロフィールを見る</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

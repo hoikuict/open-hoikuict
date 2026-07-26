@@ -12,6 +12,7 @@ from models import (
     Child,
     Classroom,
     ParentAccount,
+    ParentAccountStatus,
     QuestionType,
     Survey,
     SurveyAnswer,
@@ -60,6 +61,31 @@ def survey_is_open(survey: Survey, now: datetime | None = None) -> bool:
     if closes_at and closes_at < current:
         return False
     return True
+
+
+def survey_effective_status_key(survey: Survey, now: datetime | None = None) -> str:
+    if survey.status == SurveyStatus.draft:
+        return SurveyStatus.draft.value
+    if survey.status == SurveyStatus.closed:
+        return SurveyStatus.closed.value
+
+    current = now or utc_now()
+    opens_at = ensure_utc_from_local(survey.opens_at)
+    closes_at = ensure_utc_from_local(survey.closes_at)
+    if opens_at and opens_at > current:
+        return "scheduled"
+    if closes_at and closes_at < current:
+        return SurveyStatus.closed.value
+    return SurveyStatus.published.value
+
+
+def survey_effective_status_label(survey: Survey, now: datetime | None = None) -> str:
+    return {
+        SurveyStatus.draft.value: "下書き",
+        "scheduled": "公開前",
+        SurveyStatus.published.value: "公開中",
+        SurveyStatus.closed.value: "公開終了",
+    }[survey_effective_status_key(survey, now)]
 
 
 def closes_soon(survey: Survey, now: datetime | None = None) -> bool:
@@ -183,6 +209,49 @@ def resolve_parent_answer_scope(
         if any(child.id == child_id for child in eligible):
             return SurveyAnswerScope(child_id=child_id)
     return None
+
+
+def eligible_parent_answer_scopes(session: Session, survey: Survey) -> list[SurveyAnswerScope]:
+    """Return unique family/child scopes that are expected to answer a parent survey."""
+    if survey.audience_type != SurveyAudienceType.parent:
+        return []
+
+    scopes: set[SurveyAnswerScope] = set()
+    parent_accounts = session.exec(
+        select(ParentAccount).where(ParentAccount.status == ParentAccountStatus.active)
+    ).all()
+    for parent_account in parent_accounts:
+        if not survey_matches_parent_targets(survey, parent_account):
+            continue
+        if survey.answer_unit == SurveyAnswerUnit.family:
+            scope = resolve_parent_answer_scope(survey, parent_account)
+            if scope and scope.is_valid:
+                scopes.add(scope)
+            continue
+        if survey.answer_unit == SurveyAnswerUnit.child:
+            for child in eligible_children_for_survey(survey, parent_account):
+                if child.id is not None:
+                    scopes.add(SurveyAnswerScope(child_id=child.id))
+
+    return sorted(
+        scopes,
+        key=lambda scope: (
+            scope.family_id is None,
+            scope.family_id or 0,
+            scope.child_id is None,
+            scope.child_id or 0,
+        ),
+    )
+
+
+def unanswered_parent_survey_count(session: Session, survey: Survey) -> int:
+    expected_scopes = set(eligible_parent_answer_scopes(session, survey))
+    answered_scopes = {
+        SurveyAnswerScope(family_id=answer.family_id, child_id=answer.child_id)
+        for answer in survey.answers
+        if answer.family_id is not None or answer.child_id is not None
+    }
+    return len(expected_scopes - answered_scopes)
 
 
 def survey_matches_staff_targets(

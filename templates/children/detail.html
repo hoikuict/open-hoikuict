@@ -11,6 +11,7 @@
     <div class="flex gap-3">
       <a href="/children/{{ child.id }}/health" class="rounded border border-emerald-300 px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50">健康管理</a>
       {% if current_user and current_user.can_manage_child_records %}
+      <a href="/children/{{ child.id }}/history" class="rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50">変更履歴</a>
       <a href="/children/{{ child.id }}/edit" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">編集</a>
       {% endif %}
       <a href="/children/" class="rounded border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">一覧に戻る</a>

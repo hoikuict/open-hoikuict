@@ -257,6 +257,43 @@ def merge_child_profile_form_data(child: Child, request_data: Optional[dict[str,
     return form_data
 
 
+def resolve_child_profile_change_payload(
+    child: Child,
+    payload: Optional[dict[str, Any]],
+) -> Optional[dict[str, Any]]:
+    """Return a complete current-format payload, including legacy demo requests."""
+    if not isinstance(payload, dict) or not payload:
+        return None
+
+    current_keys = {
+        *CHILD_DATA_FIELD_NAMES,
+        "child_data",
+        "home_address",
+        "home_phone",
+        "guardians_data",
+        *[key for key in FIELD_ORDER if key.startswith("g")],
+    }
+    if current_keys.intersection(payload):
+        return _structured_child_profile_payload(normalize_child_profile_payload(payload))
+
+    # Early demo data stored an emergency contact update as {"phone": "..."}.
+    # Rebuild the full payload from the current profile so approval only changes
+    # the intended phone number instead of blanking required child fields.
+    legacy_phone = normalized_text(payload.get("phone"))
+    if not legacy_phone:
+        return None
+
+    form_data = child_profile_form_data_from_child(child)
+    guardians_data = [dict(item) for item in form_data.get("guardians_data", [])]
+    if guardians_data:
+        guardians_data[0]["phone"] = legacy_phone
+        form_data["guardians_data"] = guardians_data
+    else:
+        form_data["home_phone"] = legacy_phone
+
+    return _structured_child_profile_payload(normalize_child_profile_payload(form_data))
+
+
 def validate_child_profile_payload(payload: dict[str, Any]) -> Optional[str]:
     normalized = normalize_child_profile_payload(payload)
     if not normalized["birth_date"] or not normalized["enrollment_date"]:

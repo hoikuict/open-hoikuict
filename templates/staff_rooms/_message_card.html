@@ -2,7 +2,7 @@
   <div class="flex items-center justify-between gap-3">
     <div class="flex min-w-0 items-baseline gap-2">
       <p class="shrink-0 text-sm font-semibold text-slate-900">{{ message.author_name }}</p>
-      <p class="truncate text-xs text-slate-500">{{ message.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+      <p class="truncate text-xs text-slate-500">{{ message.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
     </div>
     <div class="flex shrink-0 items-center gap-2">
       {% set parent_message = message %}

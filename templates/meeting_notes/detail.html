@@ -92,7 +92,7 @@
       {% if note.updated_by %}
       <span>更新者: {{ note.updated_by }}</span>
       {% endif %}
-      <span>更新: {{ note.updated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      <span>更新: {{ note.updated_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</span>
       <span id="sync-status" class="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
         {% if current_user.can_edit %}接続中...{% else %}閲覧専用{% endif %}
       </span>

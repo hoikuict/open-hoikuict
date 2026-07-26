@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block title %}アンケート編集 | open-hoikuict{% endblock %}
+{% block head %}
+<style>
+  #delivery-guide [hidden] { display: none !important; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-5xl">
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-800">{{ submit_label }}</h1>
-      <p class="text-sm text-gray-500">回答者区分、配信対象、質問を設定します。</p>
+      <p class="text-sm text-gray-500">案内に沿って配信対象を決め、質問を設定します。</p>
     </div>
     <a href="/surveys/" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
   </div>
@@ -31,7 +36,7 @@
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-600">状態</label>
-        {% set selected_status = form_data.get('status', survey.status.value if survey else 'draft') %}
+        {% set selected_status = form_data.get('status', effective_status_value) %}
         <select name="status" class="w-full rounded border border-gray-300 px-3 py-2">
           {% for option in status_options %}
           <option value="{{ option.value }}" {% if selected_status == option.value %}selected{% endif %}>{{ option.label }}</option>
@@ -39,89 +44,174 @@
         </select>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">回答者区分</label>
-        {% set selected_audience = form_data.get('audience_type', survey.audience_type.value if survey else 'parent') %}
-        <select name="audience_type" class="w-full rounded border border-gray-300 px-3 py-2" {% if survey %}disabled{% endif %}>
-          {% for option in audience_options %}
-          <option value="{{ option.value }}" {% if selected_audience == option.value %}selected{% endif %}>{{ option.label }}</option>
-          {% endfor %}
-        </select>
-        {% if survey %}<input type="hidden" name="audience_type" value="{{ selected_audience }}">{% endif %}
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">回答単位</label>
-        {% set selected_answer_unit = form_data.get('answer_unit', survey.answer_unit.value if survey else 'family') %}
-        <select name="answer_unit" class="w-full rounded border border-gray-300 px-3 py-2" {% if survey %}disabled{% endif %}>
-          {% for option in answer_unit_options %}
-          <option value="{{ option.value }}" {% if selected_answer_unit == option.value %}selected{% endif %}>{{ option.label }}</option>
-          {% endfor %}
-        </select>
-        {% if survey %}<input type="hidden" name="answer_unit" value="{{ selected_answer_unit }}">{% endif %}
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">公開開始</label>
+        <label class="mb-1 block text-sm font-medium text-gray-600">公開開始（JST）</label>
         <input type="datetime-local" name="opens_at"
-               value="{{ form_data.get('opens_at', survey.opens_at.strftime('%Y-%m-%dT%H:%M') if survey and survey.opens_at else '') }}"
+               value="{{ form_data.get('opens_at', survey.opens_at|local_datetime('%Y-%m-%dT%H:%M') if survey and survey.opens_at else '') }}"
                class="w-full rounded border border-gray-300 px-3 py-2">
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">公開終了</label>
+        <label class="mb-1 block text-sm font-medium text-gray-600">公開終了（JST）</label>
         <input type="datetime-local" name="closes_at"
-               value="{{ form_data.get('closes_at', survey.closes_at.strftime('%Y-%m-%dT%H:%M') if survey and survey.closes_at else '') }}"
+               value="{{ form_data.get('closes_at', survey.closes_at|local_datetime('%Y-%m-%dT%H:%M') if survey and survey.closes_at else '') }}"
                class="w-full rounded border border-gray-300 px-3 py-2">
       </div>
+      <p class="text-xs text-gray-500 md:col-span-2">公開期間は日本時間（JST）で入力してください。</p>
     </div>
 
-    <div class="border-t border-gray-200 pt-5">
-      <h2 class="mb-3 text-sm font-semibold text-gray-700">配信対象</h2>
-      <div class="grid grid-cols-1 gap-5 md:grid-cols-4">
+    {% set selected_audience = form_data.get('audience_type', survey.audience_type.value if survey else 'parent') %}
+    {% set selected_answer_unit = form_data.get('answer_unit', survey.answer_unit.value if survey else 'family') %}
+    <section id="delivery-guide"
+             data-editing="{{ 'true' if survey else 'false' }}"
+             data-has-errors="{{ 'true' if errors else 'false' }}"
+             class="border-t border-gray-200 pt-5">
+      <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">対象種別</label>
-          <select name="target_type" class="w-full rounded border border-gray-300 px-3 py-2" {% if survey %}disabled{% endif %}>
-            {% for value, label in [('all', '全保護者'), ('classroom', 'クラス'), ('child', '園児'), ('all_staff', '全職員'), ('staff_role', '職員ロール'), ('staff_user', '職員')] %}
-            <option value="{{ value }}" {% if selected_target_type == value %}selected{% endif %}>{{ label }}</option>
+          <h2 class="text-base font-semibold text-gray-800">配信対象を決める</h2>
+          <p class="mt-1 text-sm text-gray-500">質問に答えると、選択内容に合った候補だけが順番に表示されます。</p>
+        </div>
+        {% if not survey %}
+        <button type="button" id="delivery-reset" class="hidden rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+          最初からやり直す
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="space-y-4" aria-live="polite">
+        <fieldset id="delivery-step-audience" class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:p-5">
+          <legend class="px-1 text-sm font-semibold text-indigo-900">
+            <span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">1</span>
+            どなたに回答してもらいますか？
+          </legend>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2">
+            {% for value, label, description in [('parent', '保護者', '保護者ポータルへ配信します'), ('staff', '職員', '職員用アンケートへ配信します')] %}
+            <label class="group cursor-pointer">
+              <input type="radio" name="audience_type" value="{{ value }}" class="peer sr-only" required
+                     {% if (survey or errors) and selected_audience == value %}checked{% endif %} {% if survey %}disabled{% endif %}>
+              <span class="block rounded-xl border border-gray-200 bg-white p-4 transition peer-checked:border-indigo-600 peer-checked:ring-2 peer-checked:ring-indigo-100 group-hover:border-indigo-300">
+                <span class="block font-semibold text-gray-800">{{ label }}</span>
+                <span class="mt-1 block text-sm text-gray-500">{{ description }}</span>
+              </span>
+            </label>
             {% endfor %}
-          </select>
+          </div>
+          {% if survey %}<input type="hidden" name="audience_type" value="{{ selected_audience }}">{% endif %}
+        </fieldset>
+
+        <fieldset id="delivery-step-unit" class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:p-5">
+          <legend class="px-1 text-sm font-semibold text-indigo-900">
+            <span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">2</span>
+            <span data-unit-question>回答をどの単位で集めますか？</span>
+          </legend>
+          <div data-parent-units class="mt-3 grid gap-3 sm:grid-cols-2">
+            {% for value, label, description in [('family', '世帯ごと', 'きょうだいがいても1世帯につき1回答'), ('child', '園児ごと', '園児1人につき1回答')] %}
+            <label class="group cursor-pointer">
+              <input type="radio" name="answer_unit" value="{{ value }}" class="peer sr-only" required
+                     {% if (survey or errors) and selected_answer_unit == value %}checked{% endif %} {% if survey %}disabled{% endif %}>
+              <span class="block rounded-xl border border-gray-200 bg-white p-4 transition peer-checked:border-indigo-600 peer-checked:ring-2 peer-checked:ring-indigo-100 group-hover:border-indigo-300">
+                <span class="block font-semibold text-gray-800">{{ label }}</span>
+                <span class="mt-1 block text-sm text-gray-500">{{ description }}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          <label data-staff-unit class="mt-3 block rounded-xl border border-indigo-200 bg-white p-4">
+            <input type="radio" name="answer_unit" value="staff_user" class="sr-only" required
+                   {% if (survey or errors) and selected_answer_unit == 'staff_user' %}checked{% endif %} {% if survey %}disabled{% endif %}>
+            <span class="block font-semibold text-gray-800">職員ごと</span>
+            <span class="mt-1 block text-sm text-gray-500">職員1人につき1回答として集計します。</span>
+          </label>
+          {% if survey %}<input type="hidden" name="answer_unit" value="{{ selected_answer_unit }}">{% endif %}
+        </fieldset>
+
+        <fieldset id="delivery-step-scope" class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:p-5">
+          <legend class="px-1 text-sm font-semibold text-indigo-900">
+            <span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">3</span>
+            どの範囲に配信しますか？
+          </legend>
+          <div data-parent-targets class="mt-3 grid gap-3 sm:grid-cols-3">
+            {% for value, label, description in [('all', '全保護者', 'すべての保護者'), ('classroom', 'クラスを指定', '選んだクラスの保護者'), ('child', '園児を指定', '選んだ園児の保護者')] %}
+            <label class="group cursor-pointer">
+              <input type="radio" name="target_type" value="{{ value }}" class="peer sr-only" required
+                     {% if (survey or errors) and selected_target_type == value %}checked{% endif %} {% if survey %}disabled{% endif %}>
+              <span class="block h-full rounded-xl border border-gray-200 bg-white p-4 transition peer-checked:border-indigo-600 peer-checked:ring-2 peer-checked:ring-indigo-100 group-hover:border-indigo-300">
+                <span class="block font-semibold text-gray-800">{{ label }}</span>
+                <span class="mt-1 block text-sm text-gray-500">{{ description }}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          <div data-staff-targets class="mt-3 grid gap-3 sm:grid-cols-3">
+            {% for value, label, description in [('all_staff', '全職員', 'すべての職員'), ('staff_role', '権限を指定', '選んだ権限の職員'), ('staff_user', '職員を指定', '選んだ職員だけ')] %}
+            <label class="group cursor-pointer">
+              <input type="radio" name="target_type" value="{{ value }}" class="peer sr-only" required
+                     {% if (survey or errors) and selected_target_type == value %}checked{% endif %} {% if survey %}disabled{% endif %}>
+              <span class="block h-full rounded-xl border border-gray-200 bg-white p-4 transition peer-checked:border-indigo-600 peer-checked:ring-2 peer-checked:ring-indigo-100 group-hover:border-indigo-300">
+                <span class="block font-semibold text-gray-800">{{ label }}</span>
+                <span class="mt-1 block text-sm text-gray-500">{{ description }}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
           {% if survey %}<input type="hidden" name="target_type" value="{{ selected_target_type }}">{% endif %}
+        </fieldset>
+
+        <div id="delivery-step-detail" class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:p-5">
+          <div class="text-sm font-semibold text-indigo-900">
+            <span class="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-xs text-white">4</span>
+            <span data-detail-question>配信先を選んでください</span>
+          </div>
+          <div class="mt-3">
+            <label data-detail-field="classroom" class="block">
+              <span class="mb-1 block text-sm font-medium text-gray-700">クラス</span>
+              <select name="target_classroom_id" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5">
+                <option value="">クラスを選択してください</option>
+                {% for classroom in classrooms %}
+                <option value="{{ classroom.id }}" {% if selected_target_type == 'classroom' and selected_target_value == classroom.id|string %}selected{% endif %}>{{ classroom.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label data-detail-field="child" class="block">
+              <span class="mb-1 block text-sm font-medium text-gray-700">園児</span>
+              <select name="target_child_id" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5">
+                <option value="">園児を選択してください</option>
+                {% for child in children %}
+                <option value="{{ child.id }}" {% if selected_target_type == 'child' and selected_target_value == child.id|string %}selected{% endif %}>{{ child.full_name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label data-detail-field="staff_role" class="block">
+              <span class="mb-1 block text-sm font-medium text-gray-700">職員の権限</span>
+              <select name="target_staff_role" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5">
+                <option value="">権限を選択してください</option>
+                {% for value, label in [('admin', '管理者'), ('can_edit', '編集可'), ('view_only', '閲覧のみ')] %}
+                <option value="{{ value }}" {% if selected_target_type == 'staff_role' and selected_target_value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label data-detail-field="staff_user" class="block">
+              <span class="mb-1 block text-sm font-medium text-gray-700">職員</span>
+              <select name="target_staff_user_id" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5">
+                <option value="">職員を選択してください</option>
+                {% for staff_user in staff_users %}
+                <option value="{{ staff_user.id }}" {% if selected_target_type == 'staff_user' and selected_target_value == staff_user.id|string %}selected{% endif %}>{{ staff_user.display_name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
         </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">クラス</label>
-          <select name="target_classroom_id" class="w-full rounded border border-gray-300 px-3 py-2">
-            <option value="">選択しない</option>
-            {% for classroom in classrooms %}
-            <option value="{{ classroom.id }}" {% if selected_target_value == classroom.id|string %}selected{% endif %}>{{ classroom.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">園児</label>
-          <select name="target_child_id" class="w-full rounded border border-gray-300 px-3 py-2">
-            <option value="">選択しない</option>
-            {% for child in children %}
-            <option value="{{ child.id }}" {% if selected_target_value == child.id|string %}selected{% endif %}>{{ child.full_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">職員</label>
-          <select name="target_staff_user_id" class="w-full rounded border border-gray-300 px-3 py-2">
-            <option value="">選択しない</option>
-            {% for staff_user in staff_users %}
-            <option value="{{ staff_user.id }}" {% if selected_target_value == staff_user.id|string %}selected{% endif %}>{{ staff_user.display_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">職員ロール</label>
-          <select name="target_staff_role" class="w-full rounded border border-gray-300 px-3 py-2">
-            <option value="">選択しない</option>
-            {% for value, label in [('admin', '管理者'), ('can_edit', '編集可'), ('view_only', '閲覧のみ')] %}
-            <option value="{{ value }}" {% if selected_target_value == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
+
+        <div id="delivery-summary" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5">
+          <div class="flex items-start gap-3">
+            <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 font-bold text-white">✓</span>
+            <div>
+              <h3 class="font-semibold text-emerald-900">配信対象が決まりました</h3>
+              <p id="delivery-summary-text" class="mt-1 text-sm text-emerald-800"></p>
+              {% if survey %}<p class="mt-2 text-xs text-emerald-700">回答の整合性を保つため、作成後は配信対象を変更できません。</p>{% endif %}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
     <div class="border-t border-gray-200 pt-5">
       <h2 class="mb-3 text-sm font-semibold text-gray-700">質問</h2>
@@ -162,4 +252,167 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block body_end %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const guide = document.getElementById("delivery-guide");
+  if (!guide) return;
+
+  const editing = guide.dataset.editing === "true";
+  const hasErrors = guide.dataset.hasErrors === "true";
+  const audienceInputs = Array.from(guide.querySelectorAll('input[name="audience_type"]:not([type="hidden"])'));
+  const unitInputs = Array.from(guide.querySelectorAll('input[name="answer_unit"]:not([type="hidden"])'));
+  const targetInputs = Array.from(guide.querySelectorAll('input[name="target_type"]:not([type="hidden"])'));
+  const detailFields = Array.from(guide.querySelectorAll("[data-detail-field]"));
+  const detailTypes = ["classroom", "child", "staff_role", "staff_user"];
+  const stepUnit = document.getElementById("delivery-step-unit");
+  const stepScope = document.getElementById("delivery-step-scope");
+  const stepDetail = document.getElementById("delivery-step-detail");
+  const summary = document.getElementById("delivery-summary");
+  const summaryText = document.getElementById("delivery-summary-text");
+  const resetButton = document.getElementById("delivery-reset");
+  const parentUnits = guide.querySelector("[data-parent-units]");
+  const staffUnit = guide.querySelector("[data-staff-unit]");
+  const parentTargets = guide.querySelector("[data-parent-targets]");
+  const staffTargets = guide.querySelector("[data-staff-targets]");
+  const unitQuestion = guide.querySelector("[data-unit-question]");
+  let stage = 1;
+
+  function checkedValue(inputs) {
+    const checked = inputs.find(function (input) { return input.checked; });
+    return checked ? checked.value : "";
+  }
+
+  function checkValue(inputs, value) {
+    inputs.forEach(function (input) { input.checked = input.value === value; });
+  }
+
+  function clearDetails() {
+    detailFields.forEach(function (field) {
+      const select = field.querySelector("select");
+      if (select) select.value = "";
+    });
+  }
+
+  function selectedDetail(targetType) {
+    const field = detailFields.find(function (item) { return item.dataset.detailField === targetType; });
+    return field ? field.querySelector("select") : null;
+  }
+
+  function choiceLabel(inputs, value) {
+    const input = inputs.find(function (item) { return item.value === value; });
+    if (!input) return "";
+    const label = input.closest("label");
+    const text = label ? label.querySelector(".font-semibold") : null;
+    return text ? text.textContent.trim() : value;
+  }
+
+  function updateSummary() {
+    const audience = checkedValue(audienceInputs);
+    const unit = checkedValue(unitInputs);
+    const target = checkedValue(targetInputs);
+    const parts = [choiceLabel(audienceInputs, audience), choiceLabel(unitInputs, unit)];
+    let targetLabel = choiceLabel(targetInputs, target);
+    const detail = selectedDetail(target);
+    if (detail && detail.value) {
+      targetLabel += "（" + detail.options[detail.selectedIndex].text + "）";
+    }
+    parts.push(targetLabel);
+    summaryText.textContent = parts.filter(Boolean).join(" ／ ");
+  }
+
+  function render() {
+    const audience = checkedValue(audienceInputs);
+    const target = checkedValue(targetInputs);
+    const needsDetail = detailTypes.indexOf(target) !== -1;
+
+    stepUnit.hidden = stage < 2;
+    stepScope.hidden = stage < 3;
+    stepDetail.hidden = stage < 4 || !needsDetail;
+    summary.hidden = stage < 5;
+    parentUnits.hidden = audience !== "parent";
+    staffUnit.hidden = audience !== "staff";
+    parentTargets.hidden = audience !== "parent";
+    staffTargets.hidden = audience !== "staff";
+    unitQuestion.textContent = audience === "staff"
+      ? "職員ごとに回答を集めます"
+      : "回答をどの単位で集めますか？";
+
+    detailFields.forEach(function (field) {
+      const active = field.dataset.detailField === target;
+      const select = field.querySelector("select");
+      field.hidden = !active;
+      if (select) {
+        select.disabled = !active || editing;
+        select.required = active && !editing;
+      }
+    });
+
+    if (resetButton) resetButton.classList.toggle("hidden", stage === 1);
+    if (stage >= 5) updateSummary();
+  }
+
+  audienceInputs.forEach(function (input) {
+    input.addEventListener("change", function () {
+      const audience = input.value;
+      checkValue(unitInputs, audience === "staff" ? "staff_user" : "");
+      checkValue(targetInputs, "");
+      clearDetails();
+      stage = audience === "staff" ? 3 : 2;
+      render();
+      (audience === "staff" ? stepScope : stepUnit).scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+
+  unitInputs.forEach(function (input) {
+    input.addEventListener("change", function () {
+      if (input.value === "staff_user" && checkedValue(audienceInputs) !== "staff") return;
+      checkValue(targetInputs, "");
+      clearDetails();
+      stage = 3;
+      render();
+      stepScope.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+
+  targetInputs.forEach(function (input) {
+    input.addEventListener("change", function () {
+      clearDetails();
+      stage = detailTypes.indexOf(input.value) === -1 ? 5 : 4;
+      render();
+      (stage === 5 ? summary : stepDetail).scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+
+  detailFields.forEach(function (field) {
+    const select = field.querySelector("select");
+    select.addEventListener("change", function () {
+      stage = select.value ? 5 : 4;
+      render();
+      if (stage === 5) summary.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+
+  if (resetButton) {
+    resetButton.addEventListener("click", function () {
+      checkValue(audienceInputs, "");
+      checkValue(unitInputs, "");
+      checkValue(targetInputs, "");
+      clearDetails();
+      stage = 1;
+      render();
+      document.getElementById("delivery-step-audience").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  if (editing || hasErrors) {
+    const target = checkedValue(targetInputs);
+    const detail = selectedDetail(target);
+    stage = detailTypes.indexOf(target) === -1 || (detail && detail.value) ? 5 : 4;
+  }
+  render();
+});
+</script>
 {% endblock %}

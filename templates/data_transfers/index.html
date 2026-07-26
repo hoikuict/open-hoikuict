@@ -260,7 +260,7 @@
       <tbody class="divide-y divide-slate-100">
         {% for log in logs %}
         <tr>
-          <td class="px-3 py-2 text-slate-600">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="px-3 py-2 text-slate-600">{{ log.created_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</td>
           <td class="px-3 py-2">{{ log.dataset }}</td>
           <td class="px-3 py-2">{{ log.result }}</td>
           <td class="px-3 py-2">{{ log.created_count }}</td>

@@ -78,7 +78,7 @@
           <span>返信者: {{ item.reply.staff_name }}</span>
           {% endif %}
         {% if item.reply.published_at %}
-          <span>{{ item.reply.published_at.strftime("%Y-%m-%d %H:%M") }}</span>
+          <span>{{ item.reply.published_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
         {% endif %}
         </div>
       </div>

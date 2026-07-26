@@ -24,6 +24,8 @@ from models import (
     ParentAccount,
     ParentAccountStatus,
     ParentContactType,
+    ParentNotification,
+    ParentNotificationKind,
     ProfileChangeNotification,
 )
 from time_utils import utc_now
@@ -203,6 +205,39 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("田中 はると", response.text)
         self.assertIn("遠足のお知らせ", response.text)
         self.assertNotIn("限定連絡", response.text)
+
+    def test_parent_can_read_attendance_confirmation_notification(self):
+        with Session(self.engine) as session:
+            notification = ParentNotification(
+                parent_account_id=self.parent_account_id,
+                child_id=self.child_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="本日の出欠確認のお願い",
+                body="本日の連絡をいただいておりません。出席か欠席かお知らせください。",
+                action_url=f"/parent-portal/children/{self.child_id}/contact?date=2026-07-26",
+                target_date=date(2026, 7, 26),
+                source_type="attendance_verification_history",
+                source_id="test-history-1",
+                created_by_name="主任",
+            )
+            session.add(notification)
+            session.commit()
+            session.refresh(notification)
+            notification_id = notification.id
+
+        self._login_parent(self.parent_account_id)
+        home_response = self.client.get("/parent-portal/")
+        list_response = self.client.get("/parent-portal/notices")
+        detail_response = self.client.get(f"/parent-portal/notifications/{notification_id}")
+
+        self.assertIn("本日の出欠確認のお願い", home_response.text)
+        self.assertIn("本日の連絡をいただいておりません。出席か欠席かお知らせください。", home_response.text)
+        self.assertIn("出欠確認", list_response.text)
+        self.assertIn("出席・欠席を連絡する", detail_response.text)
+        with Session(self.engine) as session:
+            saved = session.get(ParentNotification, notification_id)
+            self.assertTrue(saved.is_read)
+            self.assertIsNotNone(saved.read_at)
 
     def test_parent_can_submit_present_contact_and_staff_can_review_it(self):
         self._login_parent(self.parent_account_id)

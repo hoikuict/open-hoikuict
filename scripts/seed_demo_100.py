@@ -12,13 +12,15 @@ from uuid import UUID
 from sqlalchemy import delete, text
 from sqlmodel import Session, select
 
+from child_profile_changes import build_child_profile_change_details, resolve_child_profile_change_payload
+from child_profile_history import ensure_initial_child_profile_history
 from database import create_db_and_tables, engine
 from extended_care_fee_service import recalculate_period
 from models import (
     AttendanceAlarmHistory, AttendanceAlarmState, AttendanceRecord,
     AttendanceVerification, AttendanceVerificationHistory, Calendar,
     CalendarMember, CalendarUserPreference, Child, ChildAllergy, DailyContactEntry,
-    ChildHealthProfile, ChildProfileChangeRequest, Classroom, Event,
+    ChildHealthProfile, ChildProfileChangeRequest, ChildProfileHistory, Classroom, Event,
     ExtendedCareCharge, ExtendedCareChargeStatus, ExtendedCareFeeRule,
     Family, Guardian, HealthCheckRecord, Message, Notice, NoticeRead,
     NoticeTarget, ParentAccount, ParentChildLink, ProfileChangeNotification,
@@ -66,6 +68,7 @@ MODEL_ORDER = [
 ]
 
 WIPE_ORDER = [
+    ChildProfileHistory,
     ExtendedCareCharge,
     ExtendedCareFeeRule,
     *list(reversed([model for _, model in MODEL_ORDER])),
@@ -237,12 +240,25 @@ def seed(wipe: bool = False) -> dict[str, int]:
             if table == "users":
                 for row in rows:
                     row.setdefault("provisioning_source", USER_SOURCE_WEB_DEMO)
+            if table == "child_profile_change_requests":
+                for row in rows:
+                    child = session.get(Child, row["child_id"])
+                    if not child:
+                        continue
+                    payload = resolve_child_profile_change_payload(child, row.get("request_data"))
+                    if payload:
+                        row["request_data"] = payload
+                        row["change_details"] = build_child_profile_change_details(child, payload)
             for row in rows:
                 session.add(model(**row))
             counts[table] = len(rows)
             session.flush()
             if table == "attendance_records":
                 counts.update(seed_extended_care_demo_data(session))
+        children = session.exec(select(Child).order_by(Child.id)).all()
+        for child in children:
+            ensure_initial_child_profile_history(session, child, actor_name="デモデータ")
+        counts["child_profile_histories"] = len(children)
         session.commit()
         session.exec(text("PRAGMA foreign_keys=ON"))
     return counts

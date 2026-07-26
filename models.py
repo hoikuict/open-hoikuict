@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 from sqlalchemy import JSON, CheckConstraint, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from time_utils import local_today, utc_now
+from time_utils import local_naive_now, local_today, utc_now
 
 
 class ChildStatus(str, Enum):
@@ -75,6 +75,21 @@ class ParentContactType(str, Enum):
             self.absent_private: "私用",
             self.absent_sick: "病欠",
         }[self]
+
+
+class ParentNotificationKind(str, Enum):
+    attendance_confirmation_request = "attendance_confirmation_request"
+
+
+class NotificationDeliveryChannel(str, Enum):
+    in_app = "in_app"
+    push = "push"
+
+
+class NotificationDeliveryStatus(str, Enum):
+    pending = "pending"
+    delivered = "delivered"
+    failed = "failed"
 
 
 class AttendanceVerificationStatus(str, Enum):
@@ -183,7 +198,7 @@ class SurveyStatus(str, Enum):
         return {
             self.draft: "下書き",
             self.published: "公開中",
-            self.closed: "締切済み",
+            self.closed: "公開終了",
         }[self]
 
 
@@ -470,6 +485,18 @@ class Child(SQLModel, table=True):
             return " / ".join(younger_names)
         value = getattr(self, key, None)
         return str(value) if value is not None else ""
+
+
+class ChildProfileHistory(SQLModel, table=True):
+    __tablename__ = "child_profile_histories"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    action: str = Field(default="updated", index=True)
+    actor_name: str = Field(default="システム")
+    snapshot: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    changes: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    recorded_at: datetime = Field(default_factory=local_naive_now, index=True)
 
 
 class AllergenCategory(str, Enum):
@@ -1359,6 +1386,45 @@ class ProfileChangeNotification(SQLModel, table=True):
     read_at: Optional[datetime] = None
 
     parent_account: Optional[ParentAccount] = Relationship(back_populates="profile_change_notifications")
+
+
+class ParentNotification(SQLModel, table=True):
+    __tablename__ = "parent_notifications"
+    __table_args__ = (
+        UniqueConstraint("parent_account_id", "source_type", "source_id", name="uq_parent_notification_source"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    kind: ParentNotificationKind = Field(index=True)
+    title: str
+    body: str
+    action_url: Optional[str] = None
+    target_date: Optional[date] = Field(default=None, index=True)
+    source_type: str = Field(index=True)
+    source_id: str = Field(index=True)
+    created_by_name: Optional[str] = None
+    is_read: bool = Field(default=False, index=True)
+    read_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class ParentNotificationDelivery(SQLModel, table=True):
+    __tablename__ = "parent_notification_deliveries"
+    __table_args__ = (
+        UniqueConstraint("notification_id", "channel", name="uq_parent_notification_delivery_channel"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    notification_id: int = Field(foreign_key="parent_notifications.id", index=True)
+    channel: NotificationDeliveryChannel = Field(default=NotificationDeliveryChannel.in_app, index=True)
+    status: NotificationDeliveryStatus = Field(default=NotificationDeliveryStatus.pending, index=True)
+    attempted_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class ChildProfileChangeRequest(SQLModel, table=True):

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}通知詳細 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl">
+  <div class="mb-5 flex items-center justify-between gap-4">
+    <div>
+      <div class="mb-2 flex items-center gap-2">
+        <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">出欠確認</span>
+        <span class="text-sm text-gray-500">{{ notification.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-800">{{ notification.title }}</h1>
+      {% if child %}<p class="mt-1 text-sm text-gray-500">{{ child.full_name }}さん</p>{% endif %}
+    </div>
+    <a href="/parent-portal/notices" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
+  </div>
+
+  <article class="rounded-xl border border-rose-200 bg-white p-6 shadow-sm">
+    <div class="whitespace-pre-wrap text-gray-700">{{ notification.body }}</div>
+    {% if notification.action_url %}
+    <a href="{{ notification.action_url }}" class="mt-6 inline-flex rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-500">
+      出席・欠席を連絡する
+    </a>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

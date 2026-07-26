@@ -33,7 +33,7 @@
     <p class="mt-2 text-2xl font-bold text-emerald-700">{{ entry_by_child_id|length }}</p>
   </div>
   <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-    <p class="text-sm text-gray-500">未読のお知らせ</p>
+    <p class="text-sm text-gray-500">未読・未回答</p>
     <p class="mt-2 text-2xl font-bold text-amber-600">{{ unread_notice_count }}</p>
   </div>
 </div>
@@ -60,7 +60,7 @@
           </div>
           <p class="text-sm text-gray-500">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</p>
           {% if pending_request %}
-          <p class="mt-2 text-xs text-amber-700">最終申請: {{ pending_request.submitted_at.strftime("%Y-%m-%d %H:%M") }}</p>
+          <p class="mt-2 text-xs text-amber-700">最終申請: {{ pending_request.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
           {% endif %}
         </div>
         <div class="flex flex-wrap items-center gap-3">
@@ -94,7 +94,7 @@
           {% if entry.contact_type.value == "absent_sick" %}
           症状: {{ entry.absence_symptoms or "-" }}
           {% else %}
-          更新: {{ entry.updated_at.strftime("%H:%M") if entry.updated_at else "-" }}
+          更新: {{ (entry.updated_at|jst_datetime("%H:%M") ~ " JST") if entry.updated_at else "-" }}
           {% endif %}
         </div>
         {% endif %}
@@ -111,7 +111,7 @@
             <span>返信者: {{ reply.staff_name }}</span>
             {% endif %}
           {% if reply.published_at %}
-            <span>{{ reply.published_at.strftime("%Y-%m-%d %H:%M") }}</span>
+            <span>{{ reply.published_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
           {% endif %}
           </div>
         </div>
@@ -136,21 +136,36 @@
   <section>
     <div class="mb-3 flex items-center justify-between">
       <h2 class="text-lg font-semibold text-gray-800">新着のお知らせ</h2>
-      <a href="/parent-portal/notices" class="text-sm text-indigo-600 hover:underline">一覧へ</a>
+      <div class="flex items-center gap-3 text-sm">
+        <a href="/parent-portal/notices" class="text-indigo-600 hover:underline">お知らせ一覧</a>
+        <a href="/parent-portal/surveys" class="text-indigo-600 hover:underline">アンケート一覧</a>
+      </div>
     </div>
     <div class="space-y-3">
-      {% for notice in latest_notices %}
-      <a href="/parent-portal/notices/{{ notice.id }}" class="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-300">
+      {% for update in latest_updates %}
+      <a href="{{ update.url }}" class="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-300">
         <div class="mb-2 flex items-center gap-2">
-          {% if notice.priority.value == "high" %}
+          {% if update.kind == "survey" %}
+          <span class="rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">アンケート</span>
+          <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未回答</span>
+          {% endif %}
+          {% if update.kind == "parent_notification" %}
+          <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">出欠確認</span>
+          {% if update.is_unread %}<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未読</span>{% endif %}
+          {% endif %}
+          {% if update.is_important %}
           <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">重要</span>
           {% endif %}
-          {% if notice.id not in read_notice_ids %}
+          {% if update.kind == "notice" and update.is_unread %}
           <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未読</span>
           {% endif %}
         </div>
-        <h3 class="font-semibold text-gray-800">{{ notice.title }}</h3>
-        <p class="mt-1 text-sm text-gray-500">{{ notice.publish_start_at.strftime("%Y-%m-%d %H:%M") if notice.publish_start_at else notice.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+        <h3 class="font-semibold text-gray-800">{{ update.title }}</h3>
+        {% if update.summary %}<p class="mt-2 text-sm leading-6 text-gray-700">{{ update.summary }}</p>{% endif %}
+        <p class="mt-1 text-sm text-gray-500">
+          {{ update.published_at_label }} JST
+          {% if update.closes_at_label %}<span class="ml-2 text-amber-700">期限 {{ update.closes_at_label }} JST</span>{% endif %}
+        </p>
       </a>
       {% else %}
       <div class="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-400">表示できるお知らせはありません。</div>

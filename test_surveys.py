@@ -26,7 +26,9 @@ from models import (
     User,
 )
 from survey_service import eligible_staff_users_for_survey
+from survey_service import survey_effective_status_label
 from survey_service import survey_is_open
+from survey_service import unanswered_parent_survey_count
 import routers.parent_portal as parent_portal_module
 import routers.staff_auth as staff_auth_module
 import routers.staff_surveys as staff_surveys_module
@@ -66,6 +68,7 @@ class SurveyFeatureTests(unittest.TestCase):
             classroom = Classroom(name="ひよこ組", display_order=1)
             session.add(classroom)
             session.flush()
+            self.classroom_id = classroom.id
             family = Family(family_name="田中家")
             session.add(family)
             session.flush()
@@ -204,10 +207,48 @@ class SurveyFeatureTests(unittest.TestCase):
         with Session(self.engine) as session:
             answers = session.exec(select(SurveyAnswer).where(SurveyAnswer.survey_id == self.parent_survey_id)).all()
             responses = session.exec(select(SurveyResponse)).all()
+            survey = session.get(Survey, self.parent_survey_id)
+            unanswered_count = unanswered_parent_survey_count(session, survey)
 
         self.assertEqual(len(answers), 1)
         self.assertEqual(answers[0].family_id, self.family_id)
         self.assertEqual(responses[0].value_text, "遠足")
+        self.assertEqual(unanswered_count, 0)
+
+    def test_parent_survey_appears_as_new_home_update_until_answered(self):
+        self._login_parent()
+
+        home_response = self.client.get("/parent-portal/")
+
+        self.assertEqual(home_response.status_code, 200)
+        self.assertIn("保護者アンケート", home_response.text)
+        self.assertIn("未回答", home_response.text)
+        self.assertIn(f'/parent-portal/surveys/{self.parent_survey_id}', home_response.text)
+
+        answer_response = self.client.post(
+            f"/parent-portal/surveys/{self.parent_survey_id}",
+            data={f"q{self.parent_question_id}": "夏祭り"},
+            follow_redirects=False,
+        )
+        self.assertEqual(answer_response.status_code, 303)
+
+        answered_home_response = self.client.get("/parent-portal/")
+        self.assertNotIn("保護者アンケート", answered_home_response.text)
+
+    def test_parent_unanswered_count_deduplicates_accounts_in_same_family(self):
+        with Session(self.engine) as session:
+            session.add(
+                ParentAccount(
+                    display_name="田中 太郎",
+                    email="tanaka-father@example.com",
+                    status=ParentAccountStatus.active,
+                    family_id=self.family_id,
+                )
+            )
+            session.commit()
+            survey = session.get(Survey, self.parent_survey_id)
+
+            self.assertEqual(unanswered_parent_survey_count(session, survey), 1)
 
     def test_staff_survey_requires_real_staff_user_id_and_can_be_answered(self):
         redirect_response = self.client.get("/staff-surveys/", follow_redirects=False)
@@ -278,6 +319,46 @@ class SurveyFeatureTests(unittest.TestCase):
         form_response = self.client.get("/surveys/new")
         self.assertEqual(form_response.status_code, 200)
         self.assertEqual(form_response.text.count("佐藤先生"), 1)
+
+    def test_management_form_uses_guided_delivery_target_picker(self):
+        response = self.client.get("/surveys/new")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('id="delivery-step-audience"', response.text)
+        self.assertIn('id="delivery-step-unit"', response.text)
+        self.assertIn('id="delivery-step-scope"', response.text)
+        self.assertIn('id="delivery-step-detail"', response.text)
+        self.assertIn('id="delivery-summary"', response.text)
+        self.assertIn("最初からやり直す", response.text)
+        self.assertIn('data-parent-targets', response.text)
+        self.assertIn('data-staff-targets', response.text)
+
+    def test_parent_survey_can_be_created_for_selected_classroom(self):
+        response = self.client.post(
+            "/surveys/",
+            data={
+                "title": "ひよこ組アンケート",
+                "audience_type": "parent",
+                "answer_unit": "child",
+                "target_type": "classroom",
+                "target_classroom_id": str(self.classroom_id),
+                "q1_label": "園で好きな遊び",
+                "q1_type": "text_short",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            survey = session.exec(select(Survey).where(Survey.title == "ひよこ組アンケート")).first()
+            target = session.exec(select(SurveyTarget).where(SurveyTarget.survey_id == survey.id)).first()
+            unanswered_count = unanswered_parent_survey_count(session, survey)
+
+        self.assertEqual(survey.audience_type, SurveyAudienceType.parent)
+        self.assertEqual(survey.answer_unit, SurveyAnswerUnit.child)
+        self.assertEqual(target.target_type, SurveyTargetType.classroom)
+        self.assertEqual(target.target_value, str(self.classroom_id))
+        self.assertEqual(unanswered_count, 1)
 
     def test_duplicate_staff_answer_counts_for_canonical_staff_user(self):
         self._login_staff(self.duplicate_staff_user_id)
@@ -430,13 +511,67 @@ class SurveyFeatureTests(unittest.TestCase):
             audience_type=SurveyAudienceType.staff,
             answer_unit=SurveyAnswerUnit.staff_user,
             opens_at=datetime(2026, 5, 18, 4, 23),
+            closes_at=datetime(2026, 5, 18, 5, 23),
         )
 
         before_local_start = datetime(2026, 5, 17, 19, 0, tzinfo=timezone.utc)
         after_local_start = datetime(2026, 5, 17, 20, 0, tzinfo=timezone.utc)
+        after_local_end = datetime(2026, 5, 17, 20, 24, tzinfo=timezone.utc)
 
         self.assertFalse(survey_is_open(survey, before_local_start))
         self.assertTrue(survey_is_open(survey, after_local_start))
+        self.assertFalse(survey_is_open(survey, after_local_end))
+        self.assertEqual(survey_effective_status_label(survey, before_local_start), "公開前")
+        self.assertEqual(survey_effective_status_label(survey, after_local_start), "公開中")
+        self.assertEqual(survey_effective_status_label(survey, after_local_end), "公開終了")
+
+    def test_expired_published_survey_is_displayed_and_filtered_as_closed(self):
+        with Session(self.engine) as session:
+            survey = session.get(Survey, self.parent_survey_id)
+            survey.opens_at = datetime(2020, 1, 1, 9, 0)
+            survey.closes_at = datetime(2020, 1, 1, 10, 0)
+            session.add(survey)
+            session.commit()
+
+        list_response = self.client.get("/surveys/")
+        closed_filter_response = self.client.get("/surveys/?status=closed")
+        published_filter_response = self.client.get("/surveys/?status=published")
+        detail_response = self.client.get(f"/surveys/{self.parent_survey_id}")
+        edit_response = self.client.get(f"/surveys/{self.parent_survey_id}/edit")
+
+        self.assertIn("保護者アンケート", list_response.text)
+        self.assertIn("公開終了", list_response.text)
+        self.assertIn("保護者アンケート", closed_filter_response.text)
+        self.assertNotIn("保護者アンケート", published_filter_response.text)
+        self.assertIn("公開終了", detail_response.text)
+        self.assertIn('value="closed" selected', edit_response.text)
+
+    def test_survey_form_normalizes_offset_datetime_to_jst(self):
+        response = self.client.post(
+            "/surveys/",
+            data={
+                "title": "JST公開期間テスト",
+                "status": "published",
+                "audience_type": "staff",
+                "answer_unit": "staff_user",
+                "target_type": "all_staff",
+                "opens_at": "2026-07-26T00:00:00+00:00",
+                "closes_at": "2026-07-26T01:00:00+00:00",
+                "q1_label": "確認しましたか",
+                "q1_type": "yes_no",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            survey = session.exec(select(Survey).where(Survey.title == "JST公開期間テスト")).first()
+
+        self.assertEqual(survey.opens_at, datetime(2026, 7, 26, 9, 0))
+        self.assertEqual(survey.closes_at, datetime(2026, 7, 26, 10, 0))
+        self.assertFalse(survey_is_open(survey, datetime(2026, 7, 25, 23, 59, tzinfo=timezone.utc)))
+        self.assertTrue(survey_is_open(survey, datetime(2026, 7, 26, 0, 30, tzinfo=timezone.utc)))
+        self.assertFalse(survey_is_open(survey, datetime(2026, 7, 26, 1, 1, tzinfo=timezone.utc)))
 
 
 if __name__ == "__main__":

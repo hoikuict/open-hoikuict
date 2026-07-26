@@ -4,7 +4,6 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -22,11 +21,12 @@ from survey_service import (
     survey_is_open,
     survey_matches_staff_targets,
 )
+from template_utils import create_templates
 from time_utils import utc_now
 
 
 router = APIRouter(prefix="/staff-surveys", tags=["staff_surveys"])
-templates = Jinja2Templates(directory="templates")
+templates = create_templates()
 
 
 @router.get("", include_in_schema=False)

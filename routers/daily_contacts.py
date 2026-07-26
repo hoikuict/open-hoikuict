@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -20,7 +19,9 @@ from models import Child, ChildStatus, Classroom, DailyContactEntry, DailyContac
 from time_utils import local_today, utc_now
 
 router = APIRouter(prefix="/daily-contacts", tags=["daily_contacts"])
-templates = Jinja2Templates(directory="templates")
+from template_utils import create_templates
+
+templates = create_templates()
 
 DAILY_CONTACT_SORT_OPTIONS = {
     "classroom": "クラス・園児順",
