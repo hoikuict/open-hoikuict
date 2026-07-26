@@ -16,6 +16,7 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 
 | 機能 | 入口 | 主な遷移 |
 | --- | --- | --- |
+| 職員ホーム（仕様策定済み・未実装） | `/staff/portal` | 当日カレンダー、職員アンケート回答、職員ルームの対象スレッド |
 | 園児一覧 | `/children/` | 新規 `/children/new`、詳細 `/children/{child_id}`、編集 `/children/{child_id}/edit`、兄弟追加 `/children/new?sibling_id={child_id}` |
 | 園児詳細 | `/children/{child_id}` | 編集、健康サマリー `/children/{child_id}/health` |
 | 家庭管理 | `/families/` | 新規 `/families/new`、編集 `/families/{family_id}/edit`、この家族に園児追加 `/children/new?family_id={family_id}` |
