@@ -13,12 +13,15 @@ from security_config import csrf_enforced, secure_cookie_enabled
 CSRF_COOKIE_NAME = "hoikuict_csrf"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 logger = logging.getLogger(__name__)
+_PUBLIC_DEMO_SECRET = secrets.token_bytes(32)
 
 
 def _secret_key() -> bytes:
     configured = os.getenv("HOIKUICT_SECRET_KEY")
     if configured:
         return configured.encode("utf-8")
+    if os.getenv("PUBLIC_DEMO_MODE") == "1":
+        return _PUBLIC_DEMO_SECRET
     return b"open-hoikuict-development-only-csrf-key"
 
 

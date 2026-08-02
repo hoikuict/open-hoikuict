@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
+import sqlite3
 from datetime import date, timedelta
+from pathlib import Path
 
 from sqlalchemy import event, inspect, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import Engine, make_url
+from starlette.requests import HTTPConnection
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
@@ -41,9 +44,48 @@ DEFAULT_CLASSROOMS = [
 ]
 
 
-def get_session():
-    with Session(engine) as session:
+def _request_engine(connection: HTTPConnection | None = None) -> Engine:
+    if connection is None:
+        return engine
+
+    from demo_runtime import (
+        DEMO_SESSION_COOKIE_NAME,
+        get_demo_session_manager,
+        is_public_demo_enabled,
+    )
+
+    if not is_public_demo_enabled():
+        return engine
+
+    session_id = (
+        getattr(connection.state, "demo_session_id", None)
+        or connection.cookies.get(DEMO_SESSION_COOKIE_NAME)
+        or connection.headers.get("x-demo-session-id")
+        or connection.query_params.get(DEMO_SESSION_COOKIE_NAME)
+    )
+    if not session_id:
+        return engine
+    return get_demo_session_manager().get_engine(session_id)
+
+
+def get_session(connection: HTTPConnection):
+    with Session(_request_engine(connection)) as session:
         yield session
+
+
+def export_sqlite_snapshot(db_path: Path) -> None:
+    """Create a consistent copy of the initialized SQLite database."""
+
+    if engine.dialect.name != "sqlite":
+        raise RuntimeError("公開デモモードはSQLiteでのみ利用できます")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    destination = sqlite3.connect(db_path)
+    try:
+        with engine.connect() as connection:
+            source = connection.connection.driver_connection
+            source.backup(destination)
+    finally:
+        destination.close()
 
 
 def create_db_and_tables() -> None:

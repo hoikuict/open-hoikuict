@@ -14,13 +14,14 @@ from dotenv import load_dotenv
 if (os.getenv("HOIKUICT_ENV") or "").strip().lower() != "production":
     load_dotenv()
 
-from fastapi import Depends, FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from database import (
     bootstrap_health_records,
     bootstrap_family_records,
     create_db_and_tables,
+    export_sqlite_snapshot,
     seed_calendar_data,
     seed_classroom_data,
     seed_debug_demo_data,
@@ -28,6 +29,14 @@ from database import (
     seed_parent_portal_data,
     seed_sample_data,
     seed_staff_classroom_assignments,
+)
+from demo_runtime import (
+    DEMO_SESSION_COOKIE_NAME,
+    MUTATING_METHODS,
+    get_demo_session_manager,
+    is_public_demo_enabled,
+    load_demo_settings,
+    should_use_secure_cookies,
 )
 from routers.attendance import router as attendance_router
 from routers.attendance_checks import router as attendance_checks_router
@@ -86,6 +95,8 @@ def initialize_application() -> None:
     seed_staff_classroom_assignments()
     if mock_auth_enabled():
         seed_debug_demo_data()
+    if is_public_demo_enabled():
+        get_demo_session_manager().prepare_base_database(export_sqlite_snapshot)
 
 
 @asynccontextmanager
@@ -114,6 +125,69 @@ app = FastAPI(
 )
 app.add_exception_handler(StarletteHTTPException, staff_auth_http_exception_handler)
 app.add_middleware(CsrfTokenMiddleware)
+
+
+def _content_length(header_value: str | None) -> int:
+    if not header_value:
+        return 0
+    try:
+        return max(int(header_value), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _incoming_demo_session_id(request: Request) -> str | None:
+    return (
+        request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+        or request.headers.get("x-demo-session-id")
+        or request.query_params.get(DEMO_SESSION_COOKIE_NAME)
+    )
+
+
+def _limit_response(status_code: int, title: str, message: str) -> HTMLResponse:
+    return HTMLResponse(
+        f"<h1>{title}</h1><p>{message}</p><p><a href='/'>デモに戻る</a></p>",
+        status_code=status_code,
+    )
+
+
+@app.middleware("http")
+async def public_demo_middleware(request: Request, call_next):
+    if not is_public_demo_enabled():
+        return await call_next(request)
+
+    settings = load_demo_settings()
+    manager = get_demo_session_manager()
+    manager.cleanup_expired_sessions()
+
+    cookie_session_id = request.cookies.get(DEMO_SESSION_COOKIE_NAME)
+    session_id, should_set_cookie = manager.ensure_session_id(_incoming_demo_session_id(request))
+    should_set_cookie = should_set_cookie or cookie_session_id != session_id
+    request.state.demo_session_id = session_id
+    manager.ensure_session_database(session_id)
+    manager.touch_session(session_id)
+
+    if request.method in MUTATING_METHODS:
+        body_bytes = _content_length(request.headers.get("content-length"))
+        if body_bytes > settings.max_request_body_bytes:
+            return _limit_response(413, "Request too large", "1回の送信サイズが上限を超えました。")
+        allowed, _ = manager.reserve_input_budget(session_id, body_bytes)
+        if not allowed:
+            return _limit_response(413, "Session input limit reached", "このデモセッションの書込み上限に達しました。")
+
+    response = await call_next(request)
+    response.headers["X-Demo-Session-Id"] = session_id
+    if should_set_cookie:
+        response.set_cookie(
+            DEMO_SESSION_COOKIE_NAME,
+            session_id,
+            httponly=True,
+            samesite="lax",
+            secure=should_use_secure_cookies(request, settings),
+            path="/",
+        )
+    return response
+
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)

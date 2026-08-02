@@ -12,6 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable
 
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlmodel import create_engine
 
@@ -149,8 +150,20 @@ class DemoSessionManager:
             engine = create_engine(
                 f"sqlite:///{db_path.resolve().as_posix()}",
                 echo=False,
-                connect_args={"check_same_thread": False},
+                connect_args={"check_same_thread": False, "timeout": 15},
             )
+
+            @event.listens_for(engine, "connect")
+            def _set_sqlite_connection_pragmas(dbapi_connection, connection_record) -> None:
+                del connection_record
+                cursor = dbapi_connection.cursor()
+                try:
+                    cursor.execute("PRAGMA busy_timeout=15000")
+                    cursor.execute("PRAGMA synchronous=NORMAL")
+                    cursor.execute("PRAGMA foreign_keys=ON")
+                finally:
+                    cursor.close()
+
             self._engines[session_id] = engine
             return engine
 

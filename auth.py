@@ -45,7 +45,7 @@ def _auth_cookie_kwargs() -> dict[str, object]:
 
 
 def mock_auth_enabled() -> bool:
-    return os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1"
+    return os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1" or os.getenv("PUBLIC_DEMO_MODE") == "1"
 
 
 @dataclass(slots=True)

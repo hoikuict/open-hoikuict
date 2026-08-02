@@ -13,6 +13,10 @@ def is_production() -> bool:
     return deployment_environment() == "production"
 
 
+def is_public_demo() -> bool:
+    return os.getenv("PUBLIC_DEMO_MODE") == "1"
+
+
 def _boolean_setting(name: str, *, production_default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -66,6 +70,8 @@ def validate_runtime_security() -> None:
         raise RuntimeError("HOIKUICT_KIOSK_ACCESS_MODE が不正です")
     if mode == "token" and not os.getenv("HOIKUICT_KIOSK_TOKEN"):
         raise RuntimeError("tokenモードでは HOIKUICT_KIOSK_TOKEN が必要です")
+    if is_public_demo():
+        return
     if not is_production():
         return
 
