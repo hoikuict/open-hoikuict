@@ -17,12 +17,13 @@ from child_profile_history import (
     ensure_initial_child_profile_history,
     record_child_profile_history,
 )
-from database import get_session
+from database import get_session, seed_classroom_data
 from models import (
     Child,
     ChildProfileChangeRequest,
     ChildProfileChangeRequestStatus,
     Family,
+    ParentAccount,
 )
 from time_utils import utc_now
 
@@ -242,6 +243,7 @@ def approve_child_change_request(
         ),
     )
     session.commit()
+    seed_classroom_data(session.get_bind())
 
     return RedirectResponse(url=f"/child-change-requests/{request_id}?notice=approved", status_code=303)
 

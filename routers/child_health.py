@@ -22,8 +22,8 @@ from child_health_service import (
     latest_measurement_summary,
     load_child_allergies,
     load_allergies_for_children,
-    load_health_checks_for_children,
     load_health_check_records,
+    load_health_checks_for_children,
     load_health_profiles_for_children,
     sync_child_extra_data_from_health_records,
     sync_health_records_from_legacy_extra_data,
@@ -46,7 +46,7 @@ from models import (
     HealthCheckRecord,
     HealthCheckType,
 )
-from time_utils import local_today, utc_now
+from time_utils import utc_now
 
 router = APIRouter(tags=["child_health"])
 child_router = APIRouter(prefix="/children/{child_id}/health", tags=["child_health"])
@@ -198,7 +198,7 @@ def health_overview(
     profiles_by_child_id = load_health_profiles_for_children(session, child_ids)
     allergies_by_child_id = load_allergies_for_children(session, child_ids, include_inactive=False)
     checks_by_child_id = load_health_checks_for_children(session, child_ids)
-    today_date = local_today()
+    today_date = date.today()
 
     rows: list[dict[str, object]] = []
     for child in children:
@@ -338,7 +338,7 @@ def _check_form_data(form_data: Optional[dict[str, object]] = None) -> dict[str,
         return form_data
     return {
         "check_type": HealthCheckType.periodic.value,
-        "checked_at": local_today().isoformat(),
+        "checked_at": date.today().isoformat(),
         "height_cm": "",
         "weight_kg": "",
         "temperature": "",
@@ -369,7 +369,7 @@ def health_summary(
     chart_records = build_health_check_chart_records(check_records, range_key="all")
     latest_record = latest_health_check(check_records)
     expired_allergies = [
-        allergy for allergy in allergies if allergy.valid_until is not None and allergy.valid_until < local_today()
+        allergy for allergy in allergies if allergy.valid_until is not None and allergy.valid_until < date.today()
     ]
 
     return templates.TemplateResponse(
@@ -386,7 +386,7 @@ def health_summary(
             "latest_height": latest_measurement_summary(chart_records, "height_cm"),
             "latest_weight": latest_measurement_summary(chart_records, "weight_kg"),
             "health_check_stale": health_check_is_stale(check_records),
-            "today_date": local_today(),
+            "today_date": date.today(),
             "notice": {
                 "profile_updated": "健康プロフィールを更新しました。",
                 "allergy_created": "アレルギー情報を追加しました。",
@@ -836,7 +836,7 @@ def create_health_check_record(
                     }
                 ),
                 "notice": "",
-                "form_error": "測定日は YYYY-MM-DD 形式で入力してください。",
+                "form_error": "記録日は YYYY-MM-DD 形式で入力してください。",
             },
             status_code=400,
         )

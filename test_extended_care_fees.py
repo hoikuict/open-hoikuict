@@ -124,11 +124,12 @@ class ExtendedCareFeeTests(unittest.TestCase):
             )
             session.commit()
 
-        with patch.object(
-            attendance_module,
-            "local_naive_now",
-            return_value=datetime(2026, 3, 2, 18, 6),
-        ):
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls(2026, 3, 2, 18, 6)
+
+        with patch.object(attendance_module, "datetime", FixedDateTime):
             response = self.client.post(
                 f"/attendance/{self.child_id}/check-out",
                 data={"date": "2026-03-02"},

@@ -11,7 +11,9 @@ from sqlmodel import Session, select
 from models import (
     Child,
     Classroom,
+    Family,
     ParentAccount,
+    ParentChildLink,
     ParentAccountStatus,
     QuestionType,
     Survey,

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import base64
-import binascii
 import json
-import os
-import time
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -25,7 +22,6 @@ from data_transfer_service import (
 )
 from database import get_session
 from models import ChildStatus, Classroom, DataTransferLog, ParentAccountStatus
-from ninka_transfer_service import build_ninka_xlsx_content, default_fiscal_year
 from time_utils import utc_now
 
 router = APIRouter(prefix="/data-transfers", tags=["data_transfers"])
@@ -34,29 +30,6 @@ from template_utils import create_templates
 templates = create_templates()
 
 PREVIEW_DIR = Path("storage/data_transfer_previews")
-PREVIEW_TTL_SECONDS = 60 * 60 * 24
-
-
-def _preview_dir() -> Path:
-    configured = os.getenv("HOIKUICT_PREVIEW_DIR")
-    return Path(configured) if configured else PREVIEW_DIR
-
-
-def _cleanup_stale_previews(*, now: float | None = None) -> int:
-    directory = _preview_dir()
-    if not directory.exists():
-        return 0
-    threshold = (time.time() if now is None else now) - PREVIEW_TTL_SECONDS
-    removed = 0
-    for path in directory.glob("*.json"):
-        try:
-            if path.stat().st_mtime < threshold:
-                path.unlink()
-                removed += 1
-        except FileNotFoundError:
-            # Multiple workers may clean the same expired file.
-            continue
-    return removed
 
 
 def _split_file_name(file_name: str) -> tuple[str, str]:
@@ -115,12 +88,10 @@ def _render_index(
     current_user,
     *,
     preview_result=None,
-    ninka_error: str = "",
     notice: str = "",
     status_code: int = 200,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
-        request,
         "data_transfers/index.html",
         {
             "request": request,
@@ -131,8 +102,6 @@ def _render_index(
             "parent_status_options": list(ParentAccountStatus),
             "logs": _recent_logs(session),
             "preview_result": preview_result,
-            "ninka_default_fiscal_year": default_fiscal_year(),
-            "ninka_error": ninka_error,
             "notice": notice,
         },
         status_code=status_code,
@@ -140,64 +109,34 @@ def _render_index(
 
 
 def _save_preview_file(dataset: str, filename: str, content: bytes) -> str:
-    _cleanup_stale_previews()
-    directory = _preview_dir()
-    directory.mkdir(parents=True, exist_ok=True)
+    PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     token = uuid4().hex
     payload = {
         "dataset": dataset,
         "filename": filename,
         "content": base64.b64encode(content).decode("ascii"),
     }
-    final_path = directory / f"{token}.json"
-    temporary_path = directory / f".{token}.{uuid4().hex}.tmp"
-    descriptor = os.open(temporary_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as file_object:
-            json.dump(payload, file_object, ensure_ascii=False)
-            file_object.flush()
-            os.fsync(file_object.fileno())
-        os.replace(temporary_path, final_path)
-        final_path.chmod(0o600)
-    except Exception:
-        try:
-            temporary_path.unlink()
-        except FileNotFoundError:
-            pass
-        raise
+    (PREVIEW_DIR / f"{token}.json").write_text(json.dumps(payload), encoding="utf-8")
     return token
 
 
 def _load_preview_file(token: str, expected_dataset: str) -> tuple[str, bytes]:
-    _cleanup_stale_previews()
-    try:
-        if UUID(str(token)).hex != token:
-            raise ValueError
-    except (TypeError, ValueError):
+    if not token or not token.replace("-", "").isalnum():
         raise HTTPException(status_code=400, detail="インポート確認データが見つかりません")
-    path = _preview_dir() / f"{token}.json"
+    path = PREVIEW_DIR / f"{token}.json"
     if not path.exists():
         raise HTTPException(status_code=400, detail="インポート確認データが見つかりません")
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        content = base64.b64decode(payload["content"], validate=True)
-    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError, binascii.Error) as exc:
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
-        raise HTTPException(status_code=400, detail="インポート確認データが壊れています") from exc
+    payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("dataset") != expected_dataset:
         raise HTTPException(status_code=400, detail="インポート確認データの種類が一致しません")
+    content = base64.b64decode(payload["content"])
     return str(payload.get("filename") or f"{expected_dataset}.csv"), content
 
 
 def _delete_preview_file(token: str) -> None:
-    path = _preview_dir() / f"{token}.json"
-    try:
+    path = PREVIEW_DIR / f"{token}.json"
+    if path.exists():
         path.unlink()
-    except FileNotFoundError:
-        pass
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -297,46 +236,4 @@ async def commit_import_file(
     return RedirectResponse(
         url=f"/data-transfers/?notice=imported-{dataset}-{result.create_count}-{result.update_count}",
         status_code=303,
-    )
-
-
-@router.post("/ninka/export")
-async def export_ninka_input(
-    request: Request,
-    template_file: UploadFile = File(...),
-    fiscal_year: int | None = Form(None),
-    session: Session = Depends(get_session),
-    current_user=Depends(get_current_staff_user),
-):
-    require_child_record_manager(current_user)
-    filename = template_file.filename or "ninka_input.xlsx"
-    if not filename.lower().endswith(".xlsx"):
-        return _render_index(
-            request,
-            session,
-            current_user,
-            ninka_error="認可施設帳票の Excel ファイル（.xlsx）を選択してください。",
-            status_code=400,
-        )
-
-    content = await template_file.read()
-    if not content:
-        return _render_index(
-            request,
-            session,
-            current_user,
-            ninka_error="認可施設帳票ファイルが空です。",
-            status_code=400,
-        )
-
-    try:
-        output, summary = build_ninka_xlsx_content(session, content, fiscal_year=fiscal_year)
-    except ValueError as exc:
-        return _render_index(request, session, current_user, ninka_error=str(exc), status_code=400)
-
-    export_filename = f"hoikuict-ninka-input-{summary.fiscal_year}-{utc_now().strftime('%Y%m%d-%H%M')}.xlsx"
-    return Response(
-        content=output,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{export_filename}"'},
     )

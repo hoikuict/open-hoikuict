@@ -83,7 +83,6 @@ def _render_form(
     session: Session,
 ):
     return templates.TemplateResponse(
-        request,
         "families/form.html",
         {
             "request": request,
@@ -166,7 +165,6 @@ def family_list(
         .order_by(Family.family_name, Family.id)
     ).all()
     return templates.TemplateResponse(
-        request,
         "families/list.html",
         {
             "request": request,

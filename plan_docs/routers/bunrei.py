@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import shutil
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 
+from demo_runtime import get_demo_session_manager, is_public_demo_enabled
 from ..auth_adapter import DEFAULT_CLASSROOM_REFS, CurrentUser, require_can_edit, require_classroom_access
 from ..contracts import DocumentType, annual_section_definitions
+from ..runtime import FACILITY_SEED_PATH
 from ..services.bunrei import (
     add_facility_example,
     age_class_options,
@@ -19,13 +22,45 @@ from ..services.bunrei import (
     import_facility_examples,
     is_bunrei_available,
     monthly_candidate_groups,
+    reset_facility_db_path_override,
     selected_examples,
+    set_facility_db_path_override,
 )
 from ..store import document_store
 from ..templating import render_template
 
 
-router = APIRouter(prefix="/bunrei", tags=["bunrei"])
+def _demo_facility_db_path(request: Request):
+    if not is_public_demo_enabled():
+        return None
+
+    session_id = getattr(request.state, "demo_session_id", None)
+    if not session_id:
+        return None
+
+    manager = get_demo_session_manager()
+    manager.ensure_session_database(session_id)
+    facility_path = manager.settings.sessions_dir / session_id / "facility.sqlite"
+    facility_path.parent.mkdir(parents=True, exist_ok=True)
+    if not facility_path.exists() and FACILITY_SEED_PATH.exists():
+        shutil.copyfile(FACILITY_SEED_PATH, facility_path)
+    return facility_path
+
+
+async def use_demo_facility_db(request: Request):
+    facility_path = _demo_facility_db_path(request)
+    if facility_path is None:
+        yield
+        return
+
+    token = set_facility_db_path_override(facility_path)
+    try:
+        yield
+    finally:
+        reset_facility_db_path_override(token)
+
+
+router = APIRouter(prefix="/bunrei", tags=["bunrei"], dependencies=[Depends(use_demo_facility_db)])
 
 
 @router.get("/facility/new")

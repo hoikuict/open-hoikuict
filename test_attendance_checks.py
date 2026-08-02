@@ -42,7 +42,12 @@ class AttendanceChecksTests(unittest.TestCase):
             with Session(self.engine) as session:
                 yield session
 
-        self.current_user = StaffUser(role=Role.CAN_EDIT, name="確認担当")
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="Checker",
+            staff_id=1,
+            employment_type="regular",
+        )
 
         def override_get_current_staff_user():
             return self.current_user
@@ -54,25 +59,36 @@ class AttendanceChecksTests(unittest.TestCase):
         self.day = date(2026, 3, 22)
 
         with Session(self.engine) as session:
-            classroom = Classroom(name="ひまわり組", display_order=1)
+            classroom = Classroom(name="Blue", display_order=1)
             session.add(classroom)
             session.flush()
 
             child = Child(
-                last_name="田中",
-                first_name="太郎",
-                last_name_kana="タナカ",
-                first_name_kana="タロウ",
+                last_name="Tanaka",
+                first_name="Taro",
+                last_name_kana="tanaka",
+                first_name_kana="taro",
                 birth_date=date(2021, 4, 1),
                 enrollment_date=date(2024, 4, 1),
                 status=ChildStatus.enrolled,
                 classroom_id=classroom.id,
             )
+            second_child = Child(
+                last_name="Suzuki",
+                first_name="Hana",
+                last_name_kana="suzuki",
+                first_name_kana="hana",
+                birth_date=date(2021, 5, 1),
+                enrollment_date=date(2024, 4, 1),
+                status=ChildStatus.enrolled,
+                classroom_id=classroom.id,
+            )
             parent = ParentAccount(
-                display_name="田中 保護者",
+                display_name="Tanaka Parent",
                 email="tanaka-parent@example.com",
             )
             session.add(child)
+            session.add(second_child)
             session.add(parent)
             session.flush()
             session.add(
@@ -86,6 +102,7 @@ class AttendanceChecksTests(unittest.TestCase):
             session.commit()
 
             self.child_id = child.id
+            self.second_child_id = second_child.id
             self.parent_id = parent.id
 
     def tearDown(self):
@@ -112,8 +129,10 @@ class AttendanceChecksTests(unittest.TestCase):
 
         self.assertIsNotNone(verification)
         self.assertEqual(verification.status.value, "present")
-        self.assertEqual(verification.updated_by_name, "確認担当")
+        self.assertEqual(verification.updated_by_name, "Checker")
+        self.assertEqual(verification.updated_by_staff_id, 1)
         self.assertEqual(len(history), 1)
+        self.assertEqual(history[0].updated_by_staff_id, 1)
 
     def test_htmx_update_returns_partial_and_keeps_operator_history(self):
         first_response = self.client.post(
@@ -142,7 +161,7 @@ class AttendanceChecksTests(unittest.TestCase):
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 200)
         self.assertIn('id="attendance-checks-board"', second_response.text)
-        self.assertIn("確認担当", second_response.text)
+        self.assertIn("Checker", second_response.text)
         self.assertIn("data-history-status=", second_response.text)
 
         with Session(self.engine) as session:
@@ -152,9 +171,49 @@ class AttendanceChecksTests(unittest.TestCase):
             ).all()
 
         self.assertIsNotNone(verification)
-        self.assertEqual(verification.updated_by_name, "確認担当")
+        self.assertEqual(verification.updated_by_name, "Checker")
         self.assertEqual(len(histories), 2)
-        self.assertTrue(all(history.updated_by_name == "確認担当" for history in histories))
+        self.assertTrue(all(history.updated_by_name == "Checker" for history in histories))
+        self.assertTrue(all(history.updated_by_staff_id == 1 for history in histories))
+
+    def test_htmx_update_keeps_other_children_verifications(self):
+        first_response = self.client.post(
+            f"/attendance-checks/{self.child_id}/verification",
+            headers={"HX-Request": "true"},
+            data={
+                "date": self.day.isoformat(),
+                "status": "present",
+                "layout": "flat",
+                "filter": "all",
+                "classroom_id": "",
+            },
+        )
+        second_response = self.client.post(
+            f"/attendance-checks/{self.second_child_id}/verification",
+            headers={"HX-Request": "true"},
+            data={
+                "date": self.day.isoformat(),
+                "status": "sick_absent",
+                "layout": "flat",
+                "filter": "all",
+                "classroom_id": "",
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+
+        with Session(self.engine) as session:
+            verifications = session.exec(
+                select(AttendanceVerification).order_by(AttendanceVerification.child_id)
+            ).all()
+
+        self.assertEqual(len(verifications), 2)
+        status_by_child_id = {verification.child_id: verification.status.value for verification in verifications}
+        self.assertEqual(status_by_child_id[self.child_id], "present")
+        self.assertEqual(status_by_child_id[self.second_child_id], "sick_absent")
+        self.assertIn("目視確認: 出席", second_response.text)
+        self.assertIn("目視確認: 病気休み", second_response.text)
 
     def test_list_shows_compact_summary_row_and_detail_toggle(self):
         with Session(self.engine) as session:
@@ -165,8 +224,8 @@ class AttendanceChecksTests(unittest.TestCase):
                     target_date=self.day,
                     contact_type=ParentContactType.absent_sick,
                     absence_temperature="38.2",
-                    absence_symptoms="発熱",
-                    absence_note="受診予定",
+                    absence_symptoms="cough",
+                    absence_note="resting at home",
                 )
             )
             session.commit()
@@ -174,12 +233,12 @@ class AttendanceChecksTests(unittest.TestCase):
         response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("詳細表示", response.text)
         self.assertIn(f'aria-controls="attendance-check-detail-{self.child_id}"', response.text)
         self.assertIn('data-status-key="present"', response.text)
         self.assertIn('data-status-key="private_absent"', response.text)
         self.assertIn('data-status-key="sick_absent"', response.text)
         self.assertIn('data-status-key="unknown"', response.text)
+        self.assertIn("38.2", response.text)
         self.assertRegex(
             response.text,
             r'data-status-key="unknown"[\s\S]*?aria-pressed="false"',
@@ -269,7 +328,12 @@ class AttendanceChecksTests(unittest.TestCase):
         )
 
     def test_view_only_staff_cannot_update_attendance_check(self):
-        self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+        self.current_user = StaffUser(
+            role=Role.VIEW_ONLY,
+            name="Viewer",
+            staff_id=2,
+            employment_type="part_time",
+        )
 
         response = self.client.post(
             f"/attendance-checks/{self.child_id}/verification",
@@ -286,7 +350,12 @@ class AttendanceChecksTests(unittest.TestCase):
 
     def test_view_only_staff_can_see_present_and_absent_results(self):
         for status, expected_label in (("present", "出席"), ("sick_absent", "病欠")):
-            self.current_user = StaffUser(role=Role.CAN_EDIT, name="確認担当")
+            self.current_user = StaffUser(
+                role=Role.CAN_EDIT,
+                name="確認担当",
+                staff_id=1,
+                employment_type="regular",
+            )
             update_response = self.client.post(
                 f"/attendance-checks/{self.child_id}/verification",
                 data={
@@ -358,7 +427,7 @@ class AttendanceChecksTests(unittest.TestCase):
                     parent_account_id=self.parent_id,
                     target_date=self.day,
                     contact_type=ParentContactType.absent_private,
-                    absence_note="私用のため欠席",
+                    absence_note="family trip",
                 )
             )
             session.commit()

@@ -61,7 +61,6 @@ def format_jst_datetime(
         return ""
     return ensure_utc(value).astimezone(_local_timezone()).strftime(format_string)
 
-
 def ensure_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None

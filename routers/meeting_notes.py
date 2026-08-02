@@ -1,8 +1,8 @@
 import base64
 import binascii
-import logging
 from collections import defaultdict
 from typing import DefaultDict
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -10,22 +10,24 @@ from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_can_edit, resolve_staff_principal
-from database import get_session
-from institutional_record_service import (
-    fiscal_year_for_datetime,
-    highlights_for_source,
-    list_event_series,
+from auth import (
+    MOCK_ROLE_COOKIE,
+    MOCK_STAFF_CLASSROOM_COOKIE,
+    MOCK_STAFF_ID_COOKIE,
+    MOCK_STAFF_NAME_COOKIE,
+    Role,
+    StaffUser,
+    get_current_staff_user,
+    require_can_edit,
 )
-from models import HighlightSourceType, InstitutionalRecordOrigin, MeetingNote
+from database import get_session
+from demo_runtime import DEMO_SESSION_COOKIE_NAME
+from models import MeetingNote
+from template_utils import create_templates
 from time_utils import utc_now
-from security_config import websocket_origin_allowed
 
 router = APIRouter(prefix="/meeting-notes", tags=["meeting_notes"])
-from template_utils import create_templates
-
 templates = create_templates()
-logger = logging.getLogger(__name__)
 
 
 class SaveMeetingNotePayload(BaseModel):
@@ -36,24 +38,24 @@ class SaveMeetingNotePayload(BaseModel):
 
 class MeetingNoteConnectionManager:
     def __init__(self) -> None:
-        self._connections: DefaultDict[int, list[WebSocket]] = defaultdict(list)
+        self._connections: DefaultDict[str, list[WebSocket]] = defaultdict(list)
 
-    async def connect(self, note_id: int, websocket: WebSocket) -> None:
+    async def connect(self, room_id: str, websocket: WebSocket) -> None:
         await websocket.accept()
-        self._connections[note_id].append(websocket)
+        self._connections[room_id].append(websocket)
 
-    def disconnect(self, note_id: int, websocket: WebSocket) -> None:
-        connections = self._connections.get(note_id)
+    def disconnect(self, room_id: str, websocket: WebSocket) -> None:
+        connections = self._connections.get(room_id)
         if not connections:
             return
         if websocket in connections:
             connections.remove(websocket)
-        if not connections and note_id in self._connections:
-            del self._connections[note_id]
+        if not connections and room_id in self._connections:
+            del self._connections[room_id]
 
-    async def broadcast(self, note_id: int, message: bytes, exclude: WebSocket | None = None) -> None:
+    async def broadcast(self, room_id: str, message: bytes, exclude: WebSocket | None = None) -> None:
         stale_connections: list[WebSocket] = []
-        for connection in list(self._connections.get(note_id, [])):
+        for connection in list(self._connections.get(room_id, [])):
             if connection is exclude:
                 continue
             try:
@@ -61,10 +63,38 @@ class MeetingNoteConnectionManager:
             except Exception:
                 stale_connections.append(connection)
         for connection in stale_connections:
-            self.disconnect(note_id, connection)
+            self.disconnect(room_id, connection)
 
 
 manager = MeetingNoteConnectionManager()
+
+
+def _staff_user_from_websocket(websocket: WebSocket) -> StaffUser:
+    role = Role.CAN_EDIT
+    as_param = websocket.query_params.get("as")
+    valid_roles = {item.value for item in Role}
+    staff_id = _parse_optional_int(websocket.cookies.get(MOCK_STAFF_ID_COOKIE))
+    primary_classroom_id = _parse_optional_int(websocket.cookies.get(MOCK_STAFF_CLASSROOM_COOKIE))
+    name = unquote((websocket.cookies.get(MOCK_STAFF_NAME_COOKIE) or "").strip()) or "モック職員"
+    if as_param and as_param in valid_roles:
+        role = Role(as_param)
+    else:
+        cookie_role = websocket.cookies.get(MOCK_ROLE_COOKIE)
+        if cookie_role and cookie_role in valid_roles:
+            role = Role(cookie_role)
+    return StaffUser(
+        role=role,
+        name=name,
+        staff_id=staff_id,
+        primary_classroom_id=primary_classroom_id,
+    )
+
+
+def _meeting_note_room_id(websocket: WebSocket, note_id: int) -> str:
+    demo_session_id = websocket.query_params.get(DEMO_SESSION_COOKIE_NAME) or websocket.cookies.get(DEMO_SESSION_COOKIE_NAME)
+    if demo_session_id:
+        return f"{demo_session_id}:{note_id}"
+    return f"shared:{note_id}"
 
 
 def _display_name(current_user) -> str:
@@ -75,6 +105,15 @@ def _display_name(current_user) -> str:
     if role_label.strip():
         return role_label.strip()
     return "スタッフ"
+
+
+def _parse_optional_int(raw_value: str | None) -> int | None:
+    if raw_value in (None, ""):
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _load_meeting_note(session: Session, note_id: int) -> MeetingNote:
@@ -142,13 +181,6 @@ def meeting_note_detail(
     current_user=Depends(get_current_staff_user),
 ):
     note = _load_meeting_note(session, note_id)
-    highlights = highlights_for_source(
-        session,
-        current_user,
-        HighlightSourceType.meeting_note,
-        note_id,
-    )
-    event_series_list = list_event_series(session)
     return templates.TemplateResponse(
         request,
         "meeting_notes/detail.html",
@@ -156,11 +188,7 @@ def meeting_note_detail(
             "note": note,
             "current_user": current_user,
             "editor_user_name": _display_name(current_user),
-            "highlights": highlights,
-            "event_series_list": event_series_list,
-            "event_series_by_id": {item.id: item for item in event_series_list},
-            "record_origin_options": list(InstitutionalRecordOrigin),
-            "suggested_fiscal_year": fiscal_year_for_datetime(note.created_at),
+            "demo_session_id": getattr(request.state, "demo_session_id", None) or request.cookies.get(DEMO_SESSION_COOKIE_NAME),
         },
     )
 
@@ -208,36 +236,23 @@ async def meeting_note_websocket(
     note_id: int,
     session: Session = Depends(get_session),
 ):
-    principal = resolve_staff_principal(websocket)
-    if principal is None:
-        logger.warning("Meeting note WebSocket rejected: unauthenticated note_id=%s", note_id)
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-    if not principal.can_edit:
-        logger.warning("Meeting note WebSocket rejected: insufficient permission note_id=%s", note_id)
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-    if not websocket_origin_allowed(websocket):
-        logger.warning("Meeting note WebSocket rejected: origin policy note_id=%s", note_id)
+    note = session.get(MeetingNote, note_id)
+    if not note:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    try:
-        note_exists = session.get(MeetingNote, note_id) is not None
-    finally:
-        # Release the DB connection before entering the long-lived receive loop.
-        session.close()
-    if not note_exists:
-        logger.warning("Meeting note WebSocket rejected: unknown note_id=%s", note_id)
+    current_user = _staff_user_from_websocket(websocket)
+    if not current_user.can_edit:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await manager.connect(note_id, websocket)
+    room_id = _meeting_note_room_id(websocket, note_id)
+    await manager.connect(room_id, websocket)
     try:
         while True:
             data = await websocket.receive_bytes()
-            await manager.broadcast(note_id, data, exclude=websocket)
+            await manager.broadcast(room_id, data, exclude=websocket)
     except WebSocketDisconnect:
-        pass
-    finally:
-        manager.disconnect(note_id, websocket)
+        manager.disconnect(room_id, websocket)
+    except Exception:
+        manager.disconnect(room_id, websocket)

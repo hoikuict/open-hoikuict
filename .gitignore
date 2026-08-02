@@ -28,8 +28,10 @@ env/
 # Database
 *.db
 *.sqlite3
-hoikuict.db
 data/
+runtime/
+tmp*/
+_demo_runtime_test_*/
 
 # Environment / secrets
 .env
@@ -58,4 +60,3 @@ site
 storage/
 tmp*/
 test_uploads/
-.demo-port/

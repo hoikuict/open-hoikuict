@@ -11,7 +11,6 @@ from auth import (
     clear_parent_account_cookie,
     get_current_parent_account_id,
     set_parent_account_cookie,
-    require_mock_parent_auth,
 )
 from child_profile_changes import (
     RELATIONSHIP_OPTIONS,
@@ -69,7 +68,6 @@ from time_utils import (
 )
 
 router = APIRouter(prefix="/parent-portal", tags=["parent_portal"])
-mock_login_router = APIRouter(prefix="/parent-portal", tags=["parent-portal-mock"])
 templates = create_templates()
 
 PROFILE_FIELD_LABELS = {
@@ -381,11 +379,7 @@ def _profile_change_details(account: ParentAccount, updated_values: dict[str, Op
     return details
 
 
-@mock_login_router.get(
-    "/login",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_mock_parent_auth)],
-)
+@router.get("/login", response_class=HTMLResponse)
 def parent_login_page(
     request: Request,
     parent_account_id: Optional[int] = Query(default=None),
@@ -408,7 +402,7 @@ def parent_login_page(
     )
 
 
-@mock_login_router.post("/login", dependencies=[Depends(require_mock_parent_auth)])
+@router.post("/login")
 def parent_login(
     parent_account_id: int = Form(...),
     session: Session = Depends(get_session),
@@ -427,10 +421,7 @@ def parent_login(
     return response
 
 
-@mock_login_router.get(
-    "/mock-login/{parent_account_id}",
-    dependencies=[Depends(require_mock_parent_auth)],
-)
+@router.get("/mock-login/{parent_account_id}")
 def parent_mock_login(
     parent_account_id: int,
     session: Session = Depends(get_session),

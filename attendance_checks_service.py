@@ -19,14 +19,22 @@ from time_utils import utc_now
 ALARM_REASON_LABELS = {
     "punched_but_not_present": "打刻があるのに欠席になっています",
     "absence_contact_but_present": "欠席連絡があるのに出席になっています",
-    "no_contact_and_not_present": "欠席扱いですが保護者連絡がありません",
+    "no_contact_and_not_present": "欠席打刻なのに保護者連絡がありません",
 }
 
 
 def verification_label(verification: Optional[AttendanceVerification]) -> str:
     if not verification:
-        return "未確認"
+        return "-"
     return verification.status.label
+
+
+def parent_contact_label(entry: Optional[DailyContactEntry]) -> str:
+    if not entry:
+        return "-"
+    if entry.contact_type == ParentContactType.present:
+        return entry.contact_type.label
+    return entry.absence_reason_label or entry.contact_type.short_label
 
 
 def alarm_reason_labels(reasons: Optional[list[str]]) -> list[str]:

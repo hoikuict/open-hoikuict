@@ -117,120 +117,6 @@
   <section class="meeting-editor rounded-2xl bg-white shadow">
     <div id="editor"></div>
   </section>
-
-  <section id="markings" class="space-y-5 rounded-2xl bg-white p-5 shadow">
-    <div>
-      <h2 class="text-xl font-bold text-slate-900">この議事録のマーキング</h2>
-      <p class="mt-1 text-sm text-slate-500">反省や重要な判断を抜き書きし、必要なものだけ経緯レコードへ昇格できます。</p>
-    </div>
-
-    {% if current_user.can_edit %}
-    <form method="post" action="/highlights/" class="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-      <input type="hidden" name="source_type" value="meeting_note">
-      <input type="hidden" name="source_id" value="{{ note.id }}">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <label for="highlight-excerpt" class="text-sm font-semibold text-slate-700">抜き書き <span class="text-red-600">必須</span></label>
-        <button id="mark-selection-btn" type="button" disabled class="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">選択中の文章を取り込む</button>
-      </div>
-      <textarea id="highlight-excerpt" name="excerpt" required maxlength="4000" rows="4" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" placeholder="本文を選択して取り込むか、ここへ直接入力・貼り付けできます"></textarea>
-      <div class="grid gap-4 md:grid-cols-3">
-        <div>
-          <label class="mb-1 block text-xs font-semibold text-slate-600">由来</label>
-          <select name="origin" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-            {% for option in record_origin_options %}
-            <option value="{{ option.value }}" {% if option.value == 'retrospective' %}selected{% endif %}>{{ option.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-xs font-semibold text-slate-600">行事シリーズ</label>
-          <select id="highlight-series-id" name="series_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-            <option value="">指定しない</option>
-            {% for series in event_series_list %}<option value="{{ series.id }}">{{ series.name }}</option>{% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-xs font-semibold text-slate-600">対象年度</label>
-          <input id="highlight-fiscal-year" type="number" name="fiscal_year" min="1900" max="2100" data-suggested-year="{{ suggested_fiscal_year }}" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2" placeholder="シリーズ選択時は必須">
-        </div>
-      </div>
-      <div>
-        <label class="mb-1 block text-xs font-semibold text-slate-600">一言コメント</label>
-        <input type="text" name="comment" maxlength="2000" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
-      </div>
-      <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">マーキングを保存</button>
-    </form>
-    {% endif %}
-
-    <div class="space-y-4">
-      {% for highlight in highlights %}
-      <article class="rounded-xl border border-slate-200 p-4 {% if highlight.status.value == 'archived' %}bg-slate-50 opacity-70{% endif %}">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{{ highlight.origin.label }}</span>
-          {% if highlight.series_id and event_series_by_id.get(highlight.series_id) %}<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">{{ event_series_by_id.get(highlight.series_id).name }} / {{ highlight.fiscal_year }}年度</span>{% endif %}
-          {% if highlight.status.value == 'promoted' %}<span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">昇格済み</span>{% elif highlight.status.value == 'archived' %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">対応済み</span>{% endif %}
-        </div>
-        <blockquote class="mt-3 whitespace-pre-wrap border-l-4 border-indigo-300 pl-4 text-slate-800">{{ highlight.excerpt }}</blockquote>
-        <p class="mt-2 text-xs text-slate-500">{{ highlight.created_by or '不明' }} / {{ highlight.created_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</p>
-
-        {% if highlight.comments %}
-        <div class="mt-3 space-y-2">
-          {% for comment in highlight.comments %}
-          <div class="rounded-lg bg-slate-50 px-3 py-2 text-sm"><span class="font-semibold text-slate-700">{{ comment.author or '不明' }}:</span> {{ comment.body }}</div>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if current_user.can_edit and highlight.status.value != 'archived' %}
-        <form method="post" action="/highlights/{{ highlight.id }}/comments" class="mt-3 flex gap-2">
-          <input type="hidden" name="source_id" value="{{ note.id }}">
-          <input type="text" name="body" required maxlength="2000" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="コメントを追加">
-          <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">追加</button>
-        </form>
-        {% endif %}
-
-        {% if highlight.status.value == 'promoted' and highlight.promoted_record_id %}
-        <a href="/records/{{ highlight.promoted_record_id }}" class="mt-4 inline-flex text-sm font-semibold text-indigo-600 hover:underline">昇格先の経緯レコードを開く</a>
-        {% elif current_user.can_edit and highlight.status.value == 'active' %}
-        <details class="mt-4 rounded-lg border border-slate-200 p-3">
-          <summary class="cursor-pointer text-sm font-semibold text-indigo-700">経緯レコードへ昇格</summary>
-          <form method="post" action="/highlights/{{ highlight.id }}/promote" class="mt-3 grid gap-3 md:grid-cols-2">
-            <input type="hidden" name="source_id" value="{{ note.id }}">
-            <input type="hidden" name="visibility" value="staff">
-            <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">タイトル</label>
-              <input type="text" name="title" required maxlength="200" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">対象年度</label>
-              <input type="number" name="fiscal_year" min="1900" max="2100" value="{{ highlight.fiscal_year or '' }}" {% if highlight.origin.value == 'retrospective' %}required{% endif %} class="w-full rounded-lg border border-slate-300 px-3 py-2">
-            </div>
-            <div class="md:col-span-2">
-              <label class="mb-1 block text-xs font-semibold text-slate-600">何を防ぐ・実現するためか</label>
-              <textarea name="purpose" required maxlength="4000" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">見直し条件</label>
-              <input type="text" name="revisit_condition" maxlength="4000" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-semibold text-slate-600">次回確認日</label>
-              <input type="date" name="review_due_on" class="w-full rounded-lg border border-slate-300 px-3 py-2">
-            </div>
-            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white md:col-span-2">昇格する</button>
-          </form>
-        </details>
-        <form method="post" action="/highlights/{{ highlight.id }}/archive" class="mt-3" onsubmit="return confirm('このマーキングを対応済みにしますか？')">
-          <input type="hidden" name="source_id" value="{{ note.id }}">
-          <button type="submit" class="text-sm font-semibold text-slate-500 hover:underline">対応済みにする</button>
-        </form>
-        {% endif %}
-      </article>
-      {% else %}
-      <p class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">まだマーキングはありません。</p>
-      {% endfor %}
-    </div>
-  </section>
 </div>
 {% endblock %}
 
@@ -248,10 +134,6 @@
   const statusEl = document.getElementById('sync-status');
   const titleInput = document.getElementById('note-title');
   const saveBtn = document.getElementById('save-btn');
-  const markSelectionBtn = document.getElementById('mark-selection-btn');
-  const highlightExcerpt = document.getElementById('highlight-excerpt');
-  const highlightSeriesId = document.getElementById('highlight-series-id');
-  const highlightFiscalYear = document.getElementById('highlight-fiscal-year');
 
   Quill.register('modules/cursors', QuillCursors);
 
@@ -273,39 +155,6 @@
     },
     placeholder: canEdit ? '議事録を入力...（クリックすると書式オプションを表示）' : '閲覧専用',
   });
-
-  let selectedExcerpt = '';
-  editor.on('selection-change', (range) => {
-    if (!canEdit || !markSelectionBtn) {
-      return;
-    }
-    selectedExcerpt = range && range.length > 0
-      ? editor.getText(range.index, range.length).trim()
-      : selectedExcerpt;
-    markSelectionBtn.disabled = !selectedExcerpt;
-  });
-
-  if (markSelectionBtn && highlightExcerpt) {
-    markSelectionBtn.addEventListener('click', () => {
-      if (selectedExcerpt) {
-        highlightExcerpt.value = selectedExcerpt;
-        highlightExcerpt.focus();
-      }
-    });
-  }
-
-  if (highlightSeriesId && highlightFiscalYear) {
-    highlightSeriesId.addEventListener('change', () => {
-      const hasSeries = Boolean(highlightSeriesId.value);
-      highlightFiscalYear.required = hasSeries;
-      if (hasSeries && !highlightFiscalYear.value) {
-        highlightFiscalYear.value = highlightFiscalYear.dataset.suggestedYear || '';
-      }
-      if (!hasSeries) {
-        highlightFiscalYear.value = '';
-      }
-    });
-  }
 
   if (canEdit) {
     const floatingToolbar = editor.getModule('toolbar').container;
@@ -445,7 +294,12 @@
 
   if (canEdit) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    const websocketUrl = new URL(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    const demoSessionId = {{ demo_session_id|tojson }};
+    if (demoSessionId) {
+      websocketUrl.searchParams.set('demo_session_id', demoSessionId);
+    }
+    const socket = new WebSocket(websocketUrl);
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = () => {

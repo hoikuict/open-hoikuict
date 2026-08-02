@@ -8,6 +8,7 @@ import re
 import sqlite3
 import zipfile
 from contextlib import closing
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +37,7 @@ DEFAULT_FACILITY_DB_PATHS = (
     REPO_ROOT / "gen_bunrei" / "facility.sqlite",
     REPO_ROOT / "gen_bunnrei" / "facility.sqlite",
 )
+_FACILITY_DB_PATH_OVERRIDE: ContextVar[Path | None] = ContextVar("facility_db_path_override", default=None)
 
 MONTHLY_SECTION_ITEMS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("monthly_goal", "今月のねらい", ("教育のねらい", "養護のねらい")),
@@ -190,6 +192,9 @@ def bunrei_db_path() -> Path | None:
 
 
 def facility_db_path() -> Path | None:
+    override_path = _FACILITY_DB_PATH_OVERRIDE.get()
+    if override_path is not None:
+        return override_path if override_path.exists() else None
     env_path = os.getenv("HOIKU_FACILITY_BUNREI_DB_PATH")
     if env_path:
         path = Path(env_path)
@@ -238,6 +243,9 @@ def _connect_facility() -> sqlite3.Connection | None:
 
 
 def _facility_db_write_path() -> Path:
+    override_path = _FACILITY_DB_PATH_OVERRIDE.get()
+    if override_path is not None:
+        return override_path
     env_path = os.getenv("HOIKU_FACILITY_BUNREI_DB_PATH")
     if env_path:
         return Path(env_path)
@@ -245,6 +253,14 @@ def _facility_db_write_path() -> Path:
     if existing_path is not None:
         return existing_path
     return DEFAULT_FACILITY_DB_PATHS[-1]
+
+
+def set_facility_db_path_override(path: Path) -> Token[Path | None]:
+    return _FACILITY_DB_PATH_OVERRIDE.set(path)
+
+
+def reset_facility_db_path_override(token: Token[Path | None]) -> None:
+    _FACILITY_DB_PATH_OVERRIDE.reset(token)
 
 
 def _ensure_facility_table(con: sqlite3.Connection) -> None:
@@ -658,7 +674,7 @@ def _fetch_examples(
         return []
     placeholders = ",".join("?" for _ in items)
     params: list[object] = [plan_type, age_class, *items]
-    where = ["plan_type = ?", "age_class = ?", f"item in ({placeholders})"]
+    where = [f"plan_type = ?", "age_class = ?", f"item in ({placeholders})"]
     if month is not None:
         where.append("(month = ? or month is null)")
         params.append(month)

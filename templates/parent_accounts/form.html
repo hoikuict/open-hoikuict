@@ -55,7 +55,7 @@
           <option value="">未設定</option>
           {% for family in families %}
           <option value="{{ family.id }}" {% if selected_family_id == family.id %}selected{% endif %}>
-            {{ family.family_name }}{% if family.children %} / {{ family.children|map(attribute='full_name')|join('、') }}{% endif %}
+            {{ family.selection_label }}{% if family.children %} / {{ family.children|map(attribute='full_name')|join('、') }}{% endif %}
           </option>
           {% endfor %}
         </select>

@@ -26,69 +26,6 @@
     {% endif %}
   </div>
 
-  {% if event_series and series_member %}
-  <section class="mt-5 space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">行事シリーズ</p>
-        <h3 class="mt-1 font-bold text-emerald-950">{{ event_series.name }}・{{ series_member.fiscal_year }}年度</h3>
-      </div>
-      <a href="/event-series/{{ event_series.id }}" class="text-xs font-semibold text-emerald-700 hover:underline">シリーズ詳細</a>
-    </div>
-
-    {% if prior_record_views %}
-    <div class="space-y-3">
-      <p class="text-sm font-bold text-slate-800">過年度から引き継ぐ経緯</p>
-      {% for item in prior_record_views %}
-      <article class="rounded-xl border border-emerald-200 bg-white p-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <a href="/records/{{ item.record.id }}" class="font-bold text-indigo-700 hover:underline">{{ item.record.title }}</a>
-          <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{{ item.series_link.fiscal_year }}年度</span>
-        </div>
-        <p class="mt-2 whitespace-pre-wrap text-sm text-slate-700">{{ item.record.background }}</p>
-        <p class="mt-2 text-sm"><span class="font-semibold text-slate-800">目的:</span> {{ item.record.purpose }}</p>
-        <div id="record-review-{{ item.record.id }}" class="mt-3">
-          {% if item.review %}
-          <div class="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">今年度の確認済み</div>
-          {% elif occurrence.can_edit %}
-          <form
-            method="post"
-            action="/records/{{ item.record.id }}/reviews"
-            hx-post="/records/{{ item.record.id }}/reviews"
-            hx-target="#record-review-{{ item.record.id }}"
-            hx-swap="innerHTML"
-          >
-            <input type="hidden" name="series_member_id" value="{{ series_member.id }}">
-            <input type="hidden" name="review_cycle_fiscal_year" value="{{ series_member.fiscal_year }}">
-            <input type="hidden" name="decision" value="keep">
-            <input type="hidden" name="redirect_to" value="/calendar">
-            <button type="submit" class="rounded-lg border border-emerald-300 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">今年度も確認した</button>
-          </form>
-          {% endif %}
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if prior_highlights %}
-    <div class="space-y-2 border-t border-emerald-200 pt-3">
-      <p class="text-sm font-bold text-slate-800">過年度のマーキング</p>
-      {% for highlight in prior_highlights %}
-      <blockquote class="rounded-lg border-l-4 border-amber-300 bg-white px-3 py-2 text-sm text-slate-700">
-        {{ highlight.excerpt }}
-        <footer class="mt-1 text-xs text-slate-500">{{ highlight.fiscal_year }}年度</footer>
-      </blockquote>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if not prior_record_views and not prior_highlights %}
-    <p class="text-sm text-emerald-800">過年度から引き継ぐ経緯・マーキングはまだありません。</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
   <div class="mt-6 flex flex-wrap gap-3">
     {% if occurrence.can_view_details and occurrence.can_edit %}
     <button

@@ -15,8 +15,8 @@ from daily_contact_reply_fields import (
     reply_values_from_mapping,
 )
 from database import get_session
-from models import Child, ChildStatus, Classroom, DailyContactEntry, DailyContactReply, DailyContactReplyStatus
-from time_utils import local_today, utc_now
+from models import Child, ChildStatus, Classroom, DailyContactEntry, DailyContactReply, DailyContactReplyStatus, ParentAccount
+from time_utils import utc_now
 
 router = APIRouter(prefix="/daily-contacts", tags=["daily_contacts"])
 from template_utils import create_templates
@@ -37,11 +37,11 @@ DAILY_CONTACT_REPLY_NOTICE_MESSAGES = {
 
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
-        return local_today()
+        return date.today()
     try:
         return date.fromisoformat(raw)
     except ValueError:
-        return local_today()
+        return date.today()
 
 
 def _normalize_sort(raw: Optional[str]) -> str:

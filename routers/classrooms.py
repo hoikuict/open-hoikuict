@@ -51,7 +51,6 @@ def _render_form(
         "display_order": classroom.display_order if classroom else 1,
     }
     return templates.TemplateResponse(
-        request,
         "classrooms/form.html",
         {
             "request": request,
@@ -92,7 +91,6 @@ def classroom_list(
     current_user=Depends(get_current_staff_user),
 ):
     return templates.TemplateResponse(
-        request,
         "classrooms/list.html",
         {
             "request": request,

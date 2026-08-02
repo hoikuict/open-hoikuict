@@ -106,8 +106,8 @@ class ChildHealthRouterTests(unittest.TestCase):
                 "height_cm": "98.4",
                 "weight_kg": "14.8",
                 "temperature": "36.7",
-                "general_condition": "元気",
-                "overall_result": "良好",
+                "general_condition": "良好",
+                "overall_result": "異常なし",
                 "doctor_name": "園医",
                 "range_key": "all",
             },
@@ -211,7 +211,7 @@ class ChildHealthRouterTests(unittest.TestCase):
             session.add(
                 ChildAllergy(
                     child_id=self.child_id,
-                    allergen_name="牛乳",
+                    allergen_name="小麦",
                     severity="mild",
                     is_active=True,
                 )
@@ -219,25 +219,25 @@ class ChildHealthRouterTests(unittest.TestCase):
             session.commit()
             allergy = session.exec(
                 select(ChildAllergy)
-                .where(ChildAllergy.child_id == self.child_id, ChildAllergy.allergen_name == "牛乳")
+                .where(ChildAllergy.child_id == self.child_id, ChildAllergy.allergen_name == "小麦")
             ).first()
 
         edit_page = self.client.get(f"/children/{self.child_id}/health/allergies?edit={allergy.id}")
         self.assertEqual(edit_page.status_code, 200)
         self.assertIn("アレルギーを編集", edit_page.text)
-        self.assertIn('value="牛乳"', edit_page.text)
+        self.assertIn('value="小麦"', edit_page.text)
 
         update_response = self.client.post(
             f"/children/{self.child_id}/health/allergies",
             data={
                 "allergy_id": str(allergy.id),
                 "allergen_category": "other_food",
-                "allergen_name": "牛乳",
+                "allergen_name": "小麦",
                 "severity": "severe",
-                "symptoms": "発疹",
+                "symptoms": "じんましん",
                 "diagnosis_confirmed": "on",
                 "removal_required": "on",
-                "action_plan": "救急対応",
+                "action_plan": "要救急対応",
             },
             follow_redirects=False,
         )
@@ -253,11 +253,11 @@ class ChildHealthRouterTests(unittest.TestCase):
             ).first()
 
         self.assertEqual(updated.severity.value, "severe")
-        self.assertEqual(updated.symptoms, "発疹")
-        self.assertEqual(updated.action_plan, "救急対応")
+        self.assertEqual(updated.symptoms, "じんましん")
+        self.assertEqual(updated.action_plan, "要救急対応")
         self.assertEqual(history.snapshot["_history_source"], "health_management")
         allergy_change = history.snapshot["_allergy_changes"][0]
-        self.assertEqual(allergy_change["title"], "牛乳を更新")
+        self.assertEqual(allergy_change["title"], "小麦を更新")
         changed_keys = {field["key"] for field in allergy_change["fields"]}
         self.assertIn("severity", changed_keys)
         self.assertIn("symptoms", changed_keys)
@@ -267,7 +267,7 @@ class ChildHealthRouterTests(unittest.TestCase):
         self.assertEqual(history_page.status_code, 200)
         self.assertIn("健康管理", history_page.text)
         self.assertIn("更新: テスト職員", history_page.text)
-        self.assertIn("牛乳を更新", history_page.text)
+        self.assertIn("小麦を更新", history_page.text)
 
         detail_page = self.client.get(f"/children/{self.child_id}/history/{history.id}")
         self.assertEqual(detail_page.status_code, 200)
@@ -280,7 +280,7 @@ class ChildHealthRouterTests(unittest.TestCase):
             f"/children/{self.child_id}/health/allergies",
             data={
                 "allergen_category": "other_food",
-                "allergen_name": "牛乳",
+                "allergen_name": "小麦",
                 "severity": "moderate",
                 "diagnosis_confirmed": "on",
                 "removal_required": "on",
@@ -293,10 +293,10 @@ class ChildHealthRouterTests(unittest.TestCase):
             child = session.get(Child, self.child_id)
             allergy = session.exec(
                 select(ChildAllergy)
-                .where(ChildAllergy.child_id == self.child_id, ChildAllergy.allergen_name == "牛乳")
+                .where(ChildAllergy.child_id == self.child_id, ChildAllergy.allergen_name == "小麦")
             ).first()
 
-        self.assertIn("牛乳", child.extra_data["allergy"])
+        self.assertIn("小麦", child.extra_data["allergy"])
         self.assertIsNotNone(allergy)
 
         deactivate_response = self.client.post(
@@ -316,8 +316,8 @@ class ChildHealthRouterTests(unittest.TestCase):
             ).first()
 
         self.assertFalse(updated.is_active)
-        self.assertNotIn("牛乳", child.extra_data["allergy"])
-        self.assertEqual(history.snapshot["_allergy_changes"][0]["title"], "牛乳を解除")
+        self.assertNotIn("小麦", child.extra_data["allergy"])
+        self.assertEqual(history.snapshot["_allergy_changes"][0]["title"], "小麦を解除")
 
         reactivate_response = self.client.post(
             f"/children/{self.child_id}/health/allergies/{allergy.id}/reactivate",
@@ -339,10 +339,10 @@ class ChildHealthRouterTests(unittest.TestCase):
             for item in histories
             for change in (item.snapshot or {}).get("_allergy_changes", [])
         ]
-        self.assertIn("牛乳を追加", allergy_event_titles)
-        self.assertIn("牛乳を解除", allergy_event_titles)
-        self.assertIn("牛乳を再有効化", allergy_event_titles)
-        self.assertIn("牛乳", child.extra_data["allergy"])
+        self.assertIn("小麦を追加", allergy_event_titles)
+        self.assertIn("小麦を解除", allergy_event_titles)
+        self.assertIn("小麦を再有効化", allergy_event_titles)
+        self.assertIn("小麦", child.extra_data["allergy"])
 
 
 if __name__ == "__main__":

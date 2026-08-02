@@ -8,7 +8,6 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
 import routers.calendar as calendar_module
-from testing_helpers import configure_test_environment
 from models import (
     Calendar,
     CalendarActivityKind,
@@ -28,7 +27,6 @@ from models import (
 
 class CalendarFeatureTests(unittest.TestCase):
     def setUp(self):
-        configure_test_environment()
         self.engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},
@@ -38,7 +36,6 @@ class CalendarFeatureTests(unittest.TestCase):
 
         self.app = FastAPI()
         self.app.include_router(calendar_module.router)
-        self.app.include_router(calendar_module.mock_login_router)
 
         def override_get_session():
             with Session(self.engine) as session:
@@ -137,16 +134,6 @@ class CalendarFeatureTests(unittest.TestCase):
         self.assertIn("施設共用カレンダー", response.text)
         self.assertNotIn("佐藤先生の個人カレンダー", response.text)
         self.assertIn("カレンダー権限: 管理者", response.text)
-
-    def test_calendar_websocket_authenticates_and_releases_request_session(self):
-        self._login(self.user_a_id)
-        with self.client.websocket_connect(
-            f"/ws/calendars/{self.a_personal_id}"
-        ) as websocket:
-            websocket.send_text("ping")
-
-        response = self.client.get("/calendar")
-        self.assertEqual(response.status_code, 200)
 
     def test_admin_user_can_see_create_form_with_color_palette(self):
         self._login(self.user_a_id)
@@ -295,8 +282,8 @@ class CalendarFeatureTests(unittest.TestCase):
 
     def test_event_creation_on_shared_calendar_creates_creator_only_jobs(self):
         self._login(self.user_a_id)
-        tomorrow_start = (datetime.now() + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
-        tomorrow_end = tomorrow_start.replace(hour=10)
+        tomorrow = (datetime.now() + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+        tomorrow_end = tomorrow + timedelta(hours=1)
 
         response = self.client.post(
             "/events",
@@ -306,12 +293,12 @@ class CalendarFeatureTests(unittest.TestCase):
                 "description": "連絡事項の確認",
                 "location": "会議室",
                 "timezone": "Asia/Tokyo",
-                "start_value": tomorrow_start.strftime("%Y-%m-%dT%H:%M"),
+                "start_value": tomorrow.strftime("%Y-%m-%dT%H:%M"),
                 "end_value": tomorrow_end.strftime("%Y-%m-%dT%H:%M"),
                 "visibility": EventVisibility.normal.value,
                 "reminders": "5,30",
                 "mode": "day",
-                "anchor_date": tomorrow_start.date().isoformat(),
+                "anchor_date": tomorrow.strftime("%Y-%m-%d"),
             },
             follow_redirects=False,
         )

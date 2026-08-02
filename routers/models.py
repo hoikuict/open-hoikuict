@@ -4,7 +4,7 @@ from typing import Any, Optional
 from sqlmodel import Field, SQLModel, Column, Relationship
 from sqlalchemy import JSON
 
-from time_utils import local_today, utc_now
+from time_utils import utc_now
 
 
 class ChildStatus(str, Enum):
@@ -86,7 +86,7 @@ class Child(SQLModel, table=True):
 
     @property
     def age(self):
-        today = local_today()
+        today = date.today()
         bd = self.birth_date
         return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
 
