@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import HTTPConnection
 
 from csrf import rotate_csrf_token
+from security_config import secure_cookie_enabled
 from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 
 
@@ -37,7 +38,7 @@ MOCK_CHILD_RECORDS_PERMISSION_COOKIE = "mock_can_manage_child_records"
 def _auth_cookie_kwargs() -> dict[str, object]:
     return {
         "httponly": True,
-        "secure": os.getenv("HOIKUICT_COOKIE_SECURE") == "1",
+        "secure": secure_cookie_enabled(),
         "samesite": "lax",
         "path": "/",
     }

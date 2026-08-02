@@ -13,6 +13,21 @@ def is_production() -> bool:
     return deployment_environment() == "production"
 
 
+def _boolean_setting(name: str, *, production_default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return production_default if is_production() else False
+    return raw == "1"
+
+
+def secure_cookie_enabled() -> bool:
+    return _boolean_setting("HOIKUICT_COOKIE_SECURE", production_default=True)
+
+
+def csrf_enforced() -> bool:
+    return _boolean_setting("HOIKUICT_CSRF_ENFORCE", production_default=True)
+
+
 def allowed_origins() -> set[str]:
     raw = os.getenv("HOIKUICT_ALLOWED_ORIGINS", "")
     return {item.strip().rstrip("/") for item in raw.split(",") if item.strip()}
@@ -23,10 +38,8 @@ def websocket_origin_allowed(websocket: WebSocket) -> bool:
     configured = allowed_origins()
     if configured:
         return origin in configured
-    if is_production():
-        return False
     if not origin:
-        return True
+        return not is_production()
     parsed = urlsplit(origin)
     return bool(parsed.scheme in {"http", "https"} and parsed.netloc == websocket.headers.get("host"))
 
@@ -61,14 +74,12 @@ def validate_runtime_security() -> None:
         errors.append("モック認証を無効にしてください")
     if os.getenv("HOIKUICT_ENABLE_MOCK_ROLE_OVERRIDE") == "1":
         errors.append("モックrole上書きを無効にしてください")
-    if os.getenv("HOIKUICT_COOKIE_SECURE") != "1":
+    if not secure_cookie_enabled():
         errors.append("HOIKUICT_COOKIE_SECURE=1 が必要です")
-    if os.getenv("HOIKUICT_CSRF_ENFORCE") != "1":
+    if not csrf_enforced():
         errors.append("HOIKUICT_CSRF_ENFORCE=1 が必要です")
     if len(os.getenv("HOIKUICT_SECRET_KEY", "")) < 32:
         errors.append("32文字以上の HOIKUICT_SECRET_KEY が必要です")
-    if not allowed_origins():
-        errors.append("HOIKUICT_ALLOWED_ORIGINS が必要です")
     if mode == "open":
         errors.append("productionではguardian openモードを使用できません")
     if errors:

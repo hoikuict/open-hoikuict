@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from contextlib import suppress
 from urllib.parse import urlencode
@@ -7,7 +8,11 @@ from dotenv import load_dotenv
 
 # Load local development settings before importing modules that inspect the
 # environment. Existing process environment variables always take precedence.
-load_dotenv()
+# A development .env may exist beside the application. Never merge it into an
+# explicitly production process, because development-only values (mock auth,
+# open kiosk mode, disabled CSRF) must not leak into the production runtime.
+if (os.getenv("HOIKUICT_ENV") or "").strip().lower() != "production":
+    load_dotenv()
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import RedirectResponse

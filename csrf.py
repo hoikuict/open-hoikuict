@@ -8,6 +8,8 @@ from fastapi import HTTPException, Request, WebSocket
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
+from security_config import csrf_enforced, secure_cookie_enabled
+
 CSRF_COOKIE_NAME = "hoikuict_csrf"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 logger = logging.getLogger(__name__)
@@ -45,7 +47,7 @@ def csrf_token_is_valid(token: str | None) -> bool:
 def _cookie_kwargs() -> dict[str, object]:
     return {
         "httponly": True,
-        "secure": os.getenv("HOIKUICT_COOKIE_SECURE") == "1",
+        "secure": secure_cookie_enabled(),
         "samesite": "lax",
         "path": "/",
     }
@@ -96,7 +98,7 @@ async def verify_csrf(request: Request = None, websocket: WebSocket = None) -> N
     if valid:
         return
 
-    if os.getenv("HOIKUICT_CSRF_ENFORCE", "0") == "1":
+    if csrf_enforced():
         raise HTTPException(status_code=403, detail="CSRFトークンが不正です")
     logger.warning("CSRF validation failed for %s %s", request.method, request.url.path)
 

@@ -20,7 +20,12 @@ from csrf import CSRF_COOKIE_NAME, CsrfTokenMiddleware, verify_csrf
 from kiosk_security import KIOSK_DEVICE_COOKIE, kiosk_device_cookie_is_valid
 from routers.guardian import router as guardian_router
 import routers.staff_auth as staff_auth_module
-from security_config import validate_runtime_security, websocket_runtime_available
+from security_config import (
+    csrf_enforced,
+    secure_cookie_enabled,
+    validate_runtime_security,
+    websocket_runtime_available,
+)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from testing_helpers import authenticate_mock_staff, configure_test_environment
 
@@ -129,6 +134,27 @@ class SecurityControlTests(unittest.TestCase):
     def test_production_configuration_fails_closed(self):
         with patch.dict(os.environ, {"HOIKUICT_ENV": "production"}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "productionセキュリティ設定"):
+                validate_runtime_security()
+
+    def test_production_uses_safe_defaults_for_cookie_and_csrf(self):
+        settings = {
+            "HOIKUICT_ENV": "production",
+            "HOIKUICT_SECRET_KEY": "s" * 40,
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            self.assertTrue(secure_cookie_enabled())
+            self.assertTrue(csrf_enforced())
+            validate_runtime_security()
+
+    def test_production_rejects_explicitly_disabled_cookie_or_csrf(self):
+        settings = {
+            "HOIKUICT_ENV": "production",
+            "HOIKUICT_SECRET_KEY": "s" * 40,
+            "HOIKUICT_COOKIE_SECURE": "0",
+            "HOIKUICT_CSRF_ENFORCE": "0",
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "HOIKUICT_COOKIE_SECURE=1"):
                 validate_runtime_security()
 
     def test_missing_websocket_driver_fails_at_startup(self):
