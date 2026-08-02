@@ -1,20 +1,38 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import date, timedelta
-from pathlib import Path
-from typing import Optional
 
-from sqlalchemy import text
-from sqlalchemy.engine import Engine
-from starlette.requests import HTTPConnection
+from sqlalchemy import event, inspect, text
+from sqlalchemy.engine import make_url
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
-from time_utils import utc_now
+from time_utils import local_today, utc_now
 
 DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
-engine = create_engine(DATABASE_URL, echo=False)
+_database_url = make_url(DATABASE_URL)
+_is_sqlite_url = _database_url.get_backend_name() == "sqlite"
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"timeout": 15} if _is_sqlite_url else {},
+)
+logger = logging.getLogger(__name__)
+
+
+if _is_sqlite_url:
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_connection_pragmas(dbapi_connection, connection_record) -> None:
+        del connection_record
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA busy_timeout=15000")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+        finally:
+            cursor.close()
 
 DEFAULT_CLASSROOMS = [
     ("ひよこ組", 1),
@@ -23,60 +41,92 @@ DEFAULT_CLASSROOMS = [
 ]
 
 
-def _resolve_engine(db_engine: Optional[Engine] = None) -> Engine:
-    return db_engine or engine
-
-
-def get_session(connection: HTTPConnection):
-    resolved_engine = engine
-    if connection is not None:
-        from demo_runtime import DEMO_SESSION_COOKIE_NAME, get_demo_session_manager, is_public_demo_enabled
-
-        if is_public_demo_enabled():
-            session_id = (
-                getattr(connection.state, "demo_session_id", None)
-                or connection.cookies.get(DEMO_SESSION_COOKIE_NAME)
-                or connection.headers.get("x-demo-session-id")
-                or connection.query_params.get(DEMO_SESSION_COOKIE_NAME)
-            )
-            if session_id:
-                resolved_engine = get_demo_session_manager().get_engine(session_id)
-
-    with Session(resolved_engine) as session:
+def get_session():
+    with Session(engine) as session:
         yield session
 
 
-def create_db_and_tables(db_engine: Optional[Engine] = None) -> None:
+def create_db_and_tables() -> None:
+    import models  # noqa: F401
     import plan_docs.db_models  # noqa: F401
 
-    resolved_engine = _resolve_engine(db_engine)
-    SQLModel.metadata.create_all(resolved_engine)
-    _migrate_add_child_columns(resolved_engine)
-    _migrate_add_child_health_profile_columns(resolved_engine)
-    _migrate_add_attendance_columns(resolved_engine)
-    _migrate_add_user_columns(resolved_engine)
-    _migrate_add_staff_columns(resolved_engine)
-    _migrate_add_daily_contact_columns(resolved_engine)
-    _migrate_add_parent_account_columns(resolved_engine)
-    _migrate_add_family_columns(resolved_engine)
-    _migrate_add_message_columns(resolved_engine)
-    _migrate_add_meeting_note_columns(resolved_engine)
-    _migrate_survey_tables(resolved_engine)
-    _migrate_billing_fee_labels(resolved_engine)
+    if engine.dialect.name != "sqlite":
+        if os.getenv("HOIKUICT_ALLOW_UNMANAGED_SCHEMA") != "1":
+            raise RuntimeError(
+                "組み込みマイグレーションはSQLite専用です。"
+                "他DBではHOIKUICT_ALLOW_UNMANAGED_SCHEMA=1と外部管理済みスキーマが必要です。"
+            )
+        _validate_unmanaged_schema()
+        return
+
+    _enable_sqlite_wal()
+    SQLModel.metadata.create_all(engine)
+    _migrate_add_child_columns()
+    _migrate_add_child_health_profile_columns()
+    _migrate_add_attendance_columns()
+    _migrate_add_daily_contact_columns()
+    _migrate_add_parent_account_columns()
+    _migrate_add_family_columns()
+    _migrate_add_message_columns()
+    _migrate_add_meeting_note_columns()
+    _migrate_add_calendar_columns()
+    _migrate_survey_tables()
+    _migrate_billing_fee_labels()
+    _migrate_zengin_workflow()
+    _validate_sqlite_foreign_keys()
 
 
-def _table_columns(table_name: str, db_engine: Optional[Engine] = None) -> list[str]:
-    resolved_engine = _resolve_engine(db_engine)
-    with resolved_engine.connect() as conn:
+def _enable_sqlite_wal() -> None:
+    database_name = engine.url.database
+    if not database_name or database_name == ":memory:":
+        return
+    with engine.connect() as conn:
+        mode = str(conn.execute(text("PRAGMA journal_mode=WAL")).scalar_one()).lower()
+    if mode != "wal":
+        raise RuntimeError(f"SQLite WALを有効化できませんでした: journal_mode={mode}")
+
+
+def _validate_sqlite_foreign_keys() -> None:
+    with engine.connect() as conn:
+        violations = conn.execute(text("PRAGMA foreign_key_check")).fetchall()
+    if violations:
+        sample = ", ".join(str(tuple(row)) for row in violations[:5])
+        raise RuntimeError(f"SQLite外部キー違反があります: {sample}")
+
+
+def _validate_unmanaged_schema() -> None:
+    db_inspector = inspect(engine)
+    existing_tables = set(db_inspector.get_table_names())
+    missing_tables = sorted(set(SQLModel.metadata.tables) - existing_tables)
+    missing_columns: list[str] = []
+    for table_name, table in SQLModel.metadata.tables.items():
+        if table_name not in existing_tables:
+            continue
+        existing_columns = {item["name"] for item in db_inspector.get_columns(table_name)}
+        for column_name in table.columns.keys():
+            if column_name not in existing_columns:
+                missing_columns.append(f"{table_name}.{column_name}")
+    if missing_tables or missing_columns:
+        raise RuntimeError(
+            "外部管理スキーマが不足しています: "
+            f"tables={missing_tables[:10]}, columns={missing_columns[:20]}"
+        )
+
+
+def _table_columns(table_name: str) -> list[str]:
+    with engine.connect() as conn:
         result = conn.execute(text(f"PRAGMA table_info({table_name})"))
         return [row[1] for row in result]
 
 
-def _migrate_add_child_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
+def _log_migration_skip(migration_name: str, exc: Exception) -> None:
+    raise RuntimeError(f"{migration_name} migration failed") from exc
+
+
+def _migrate_add_child_columns() -> None:
     try:
-        with resolved_engine.connect() as conn:
-            cols = _table_columns("children", resolved_engine)
+        with engine.connect() as conn:
+            cols = _table_columns("children")
             if not cols:
                 return
             if "home_address" not in cols:
@@ -88,15 +138,14 @@ def _migrate_add_child_columns(db_engine: Optional[Engine] = None) -> None:
             if "classroom_id" not in cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN classroom_id INTEGER REFERENCES classrooms(id)"))
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_migration_skip("children column", exc)
 
 
-def _migrate_add_child_health_profile_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
+def _migrate_add_child_health_profile_columns() -> None:
     try:
-        with resolved_engine.connect() as conn:
-            cols = _table_columns("child_health_profiles", resolved_engine)
+        with engine.connect() as conn:
+            cols = _table_columns("child_health_profiles")
             if not cols:
                 return
             boolean_columns = (
@@ -128,7 +177,7 @@ def _migrate_add_child_health_profile_columns(db_engine: Optional[Engine] = None
                         "WHERE epipen_required = 1"
                     )
                 )
-            allergy_cols = _table_columns("child_allergies", resolved_engine)
+            allergy_cols = _table_columns("child_allergies")
             if {"child_id", "is_active"}.issubset(allergy_cols):
                 conn.execute(
                     text(
@@ -141,15 +190,14 @@ def _migrate_add_child_health_profile_columns(db_engine: Optional[Engine] = None
                     )
                 )
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_migration_skip("child health profile column", exc)
 
 
-def _migrate_add_attendance_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
+def _migrate_add_attendance_columns() -> None:
     try:
-        with resolved_engine.connect() as conn:
-            cols = _table_columns("attendance_records", resolved_engine)
+        with engine.connect() as conn:
+            cols = _table_columns("attendance_records")
             if not cols:
                 return
             if "planned_pickup_time" not in cols:
@@ -158,105 +206,112 @@ def _migrate_add_attendance_columns(db_engine: Optional[Engine] = None) -> None:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN pickup_person VARCHAR"))
             if "snack_required" not in cols:
                 conn.execute(text("ALTER TABLE attendance_records ADD COLUMN snack_required BOOLEAN DEFAULT 0 NOT NULL"))
-            verification_cols = _table_columns("attendance_verifications", resolved_engine)
-            if verification_cols and "updated_by_staff_id" not in verification_cols:
-                conn.execute(text("ALTER TABLE attendance_verifications ADD COLUMN updated_by_staff_id INTEGER"))
-            history_cols = _table_columns("attendance_verification_histories", resolved_engine)
-            if history_cols and "updated_by_staff_id" not in history_cols:
-                conn.execute(text("ALTER TABLE attendance_verification_histories ADD COLUMN updated_by_staff_id INTEGER"))
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_migration_skip("attendance column", exc)
 
 
-def _migrate_add_staff_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
+def _migrate_add_daily_contact_columns() -> None:
     try:
-        with resolved_engine.connect() as conn:
-            cols = _table_columns("staff", resolved_engine)
+        with engine.connect() as conn:
+            cols = _table_columns("daily_contact_entries")
             if not cols:
                 return
-            if "employment_type" not in cols:
-                conn.execute(text("ALTER TABLE staff ADD COLUMN employment_type VARCHAR DEFAULT 'regular'"))
-            if "can_manage_child_records" not in cols:
-                conn.execute(text("ALTER TABLE staff ADD COLUMN can_manage_child_records BOOLEAN DEFAULT 0"))
-                cols.append("can_manage_child_records")
-            if "provisioning_source" not in cols:
-                conn.execute(text("ALTER TABLE staff ADD COLUMN provisioning_source VARCHAR DEFAULT 'manual'"))
-                cols.append("provisioning_source")
-            if "can_manage_child_records" in cols:
-                conn.execute(
-                    text(
-                        """
-                        UPDATE staff
-                        SET can_manage_child_records = 1
-                        WHERE role = 'admin'
-                        """
-                    )
-                )
-            if "provisioning_source" in cols:
-                conn.execute(
-                    text(
-                        """
-                        UPDATE staff
-                        SET provisioning_source = COALESCE(
-                            (
-                                SELECT users.provisioning_source
-                                FROM users
-                                WHERE users.display_name = staff.display_name
-                                  AND users.provisioning_source IS NOT NULL
-                                  AND users.provisioning_source != ''
-                                ORDER BY users.staff_sort_order, users.email
-                                LIMIT 1
-                            ),
-                            provisioning_source
-                        )
-                        WHERE provisioning_source IS NULL
-                           OR provisioning_source = ''
-                           OR provisioning_source = 'manual'
-                        """
-                    )
-                )
-                conn.execute(
-                    text(
-                        """
-                        UPDATE staff
-                        SET provisioning_source = 'local_sample'
-                        WHERE display_name IN (
-                            '園長',
-                            '主任',
-                            'ひよこぐみ担任',
-                            'たけのこぐみ担任',
-                            'きのこぐみ担任',
-                            'パート職員',
-                            'アルバイト職員'
-                        )
-                          AND (
-                            provisioning_source IS NULL
-                            OR provisioning_source = ''
-                            OR provisioning_source = 'manual'
-                          )
-                        """
-                    )
-                )
+            if "contact_type" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN contact_type VARCHAR DEFAULT 'present'"))
+            if "absence_temperature" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_temperature VARCHAR"))
+            if "absence_symptoms" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_symptoms VARCHAR"))
+            if "absence_diagnosis" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_diagnosis VARCHAR"))
+            if "absence_note" not in cols:
+                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_note VARCHAR"))
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_migration_skip("daily contact column", exc)
 
 
-def _migrate_add_user_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
+def _migrate_add_parent_account_columns() -> None:
     try:
-        with resolved_engine.connect() as conn:
-            user_cols = _table_columns("users", resolved_engine)
-            if not user_cols:
+        with engine.connect() as conn:
+            cols = _table_columns("parent_accounts")
+            if not cols:
                 return
-            if "can_manage_child_records" not in user_cols:
+            if "home_address" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN home_address VARCHAR"))
+            if "workplace" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace VARCHAR"))
+            if "workplace_address" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_address VARCHAR"))
+            if "workplace_phone" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_phone VARCHAR"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("parent account column", exc)
+
+
+def _migrate_add_family_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            child_cols = _table_columns("children")
+            if child_cols and "family_id" not in child_cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN family_id INTEGER REFERENCES families(id)"))
+
+            parent_cols = _table_columns("parent_accounts")
+            if parent_cols and "family_id" not in parent_cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN family_id INTEGER REFERENCES families(id)"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("family column", exc)
+
+
+def _migrate_add_message_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            message_cols = _table_columns("messages")
+            if message_cols:
+                if "parent_message_id" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN parent_message_id INTEGER REFERENCES messages(id)"))
+                if "deleted_at" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
+                if "deleted_by" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("message column", exc)
+
+
+def _migrate_add_meeting_note_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("meeting_notes")
+            if columns and "search_text" not in columns:
+                conn.execute(text("ALTER TABLE meeting_notes ADD COLUMN search_text VARCHAR"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("meeting note column", exc)
+
+
+def _migrate_add_calendar_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            calendar_cols = _table_columns("calendars")
+            if calendar_cols and "calendar_type" not in calendar_cols:
+                conn.execute(text("ALTER TABLE calendars ADD COLUMN calendar_type VARCHAR DEFAULT 'staff_personal'"))
+            user_cols = _table_columns("users")
+            if user_cols and "is_calendar_admin" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_calendar_admin BOOLEAN DEFAULT 0"))
+            if user_cols and "staff_role" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN staff_role VARCHAR DEFAULT 'can_edit'"))
+            if user_cols and "staff_sort_order" not in user_cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN staff_sort_order INTEGER DEFAULT 100"))
+            if user_cols and "can_manage_child_records" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN can_manage_child_records BOOLEAN DEFAULT 0"))
-            if "provisioning_source" not in user_cols:
+            if user_cols and "provisioning_source" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN provisioning_source VARCHAR DEFAULT 'manual'"))
                 user_cols.append("provisioning_source")
-            if "provisioning_source" in user_cols:
+            if user_cols and "provisioning_source" in user_cols:
                 conn.execute(
                     text(
                         """
@@ -265,9 +320,21 @@ def _migrate_add_user_columns(db_engine: Optional[Engine] = None) -> None:
                         WHERE email IN (
                             'principal@example.com',
                             'chief@example.com',
+                            'nurse@example.com',
+                            'nutritionist@example.com',
+                            'office@example.com',
                             'hiyoko@example.com',
+                            'hiyoko-b@example.com',
                             'takenoko@example.com',
+                            'risu-b@example.com',
                             'kinoko@example.com',
+                            'usagi-b@example.com',
+                            'panda-a@example.com',
+                            'panda-b@example.com',
+                            'kirin-a@example.com',
+                            'kirin-b@example.com',
+                            'zou-a@example.com',
+                            'zou-b@example.com',
                             'part@example.com',
                             'arbeit@example.com'
                         )
@@ -294,110 +361,21 @@ def _migrate_add_user_columns(db_engine: Optional[Engine] = None) -> None:
                     )
                 )
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_migration_skip("calendar column", exc)
 
 
-def _migrate_add_daily_contact_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
-    try:
-        with resolved_engine.connect() as conn:
-            cols = _table_columns("daily_contact_entries", resolved_engine)
-            if not cols:
-                return
-            if "contact_type" not in cols:
-                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN contact_type VARCHAR DEFAULT 'present'"))
-            if "absence_temperature" not in cols:
-                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_temperature VARCHAR"))
-            if "absence_symptoms" not in cols:
-                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_symptoms VARCHAR"))
-            if "absence_diagnosis" not in cols:
-                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_diagnosis VARCHAR"))
-            if "absence_note" not in cols:
-                conn.execute(text("ALTER TABLE daily_contact_entries ADD COLUMN absence_note VARCHAR"))
-            conn.commit()
-    except Exception:
-        pass
-
-def _migrate_add_parent_account_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
-    try:
-        with resolved_engine.connect() as conn:
-            cols = _table_columns("parent_accounts", resolved_engine)
-            if not cols:
-                return
-            if "home_address" not in cols:
-                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN home_address VARCHAR"))
-            if "workplace" not in cols:
-                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace VARCHAR"))
-            if "workplace_address" not in cols:
-                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_address VARCHAR"))
-            if "workplace_phone" not in cols:
-                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_phone VARCHAR"))
-            conn.commit()
-    except Exception:
-        pass
-
-
-def _migrate_add_family_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
-    try:
-        with resolved_engine.connect() as conn:
-            child_cols = _table_columns("children", resolved_engine)
-            if child_cols and "family_id" not in child_cols:
-                conn.execute(text("ALTER TABLE children ADD COLUMN family_id INTEGER REFERENCES families(id)"))
-
-            parent_cols = _table_columns("parent_accounts", resolved_engine)
-            if parent_cols and "family_id" not in parent_cols:
-                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN family_id INTEGER REFERENCES families(id)"))
-            conn.commit()
-    except Exception:
-        pass
-
-
-def _migrate_add_message_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
-    try:
-        with resolved_engine.connect() as conn:
-            message_cols = _table_columns("messages", resolved_engine)
-            if message_cols:
-                if "parent_message_id" not in message_cols:
-                    conn.execute(
-                        text("ALTER TABLE messages ADD COLUMN parent_message_id INTEGER REFERENCES messages(id)")
-                    )
-                if "deleted_at" not in message_cols:
-                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
-                if "deleted_by" not in message_cols:
-                    conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
-            conn.commit()
-    except Exception:
-        pass
-
-
-def _migrate_add_meeting_note_columns(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
-    try:
-        with resolved_engine.connect() as conn:
-            columns = _table_columns("meeting_notes", resolved_engine)
-            if columns and "search_text" not in columns:
-                conn.execute(text("ALTER TABLE meeting_notes ADD COLUMN search_text VARCHAR"))
-            conn.commit()
-    except Exception:
-        pass
-
-
-def _migrate_survey_tables(db_engine: Optional[Engine] = None) -> None:
+def _migrate_survey_tables() -> None:
     # New survey tables are created by SQLModel.metadata.create_all().
     # Keep this hook explicit for future additive indexes or backfills.
     return
 
 
-def _migrate_billing_fee_labels(db_engine: Optional[Engine] = None) -> None:
-    resolved_engine = _resolve_engine(db_engine)
+def _migrate_billing_fee_labels() -> None:
     try:
-        with resolved_engine.connect() as conn:
-            fee_cols = _table_columns("fee_items", resolved_engine)
-            line_cols = _table_columns("billing_charge_lines", resolved_engine)
+        with engine.connect() as conn:
+            fee_cols = _table_columns("fee_items")
+            line_cols = _table_columns("billing_charge_lines")
             if not fee_cols:
                 return
 
@@ -425,14 +403,58 @@ def _migrate_billing_fee_labels(db_engine: Optional[Engine] = None) -> None:
                     )
                 )
             conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_migration_skip("billing fee label", exc)
 
 
-def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
+def _migrate_zengin_workflow() -> None:
+    with engine.begin() as conn:
+        profile_cols = _table_columns("family_billing_profiles")
+        export_cols = _table_columns("zengin_exports")
+        if profile_cols and "new_code_consumed_by_export_id" not in profile_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE family_billing_profiles "
+                    "ADD COLUMN new_code_consumed_by_export_id INTEGER "
+                    "REFERENCES zengin_exports(id)"
+                )
+            )
+        if profile_cols:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_family_billing_profiles_new_code_consumed_by_export_id "
+                    "ON family_billing_profiles (new_code_consumed_by_export_id)"
+                )
+            )
+        if export_cols and "submitted_at" not in export_cols:
+            conn.execute(text("ALTER TABLE zengin_exports ADD COLUMN submitted_at DATETIME"))
+            if "downloaded_at" in export_cols:
+                conn.execute(
+                    text(
+                        "UPDATE zengin_exports SET submitted_at = downloaded_at "
+                        "WHERE submitted_at IS NULL"
+                    )
+                )
+        if export_cols:
+            conn.execute(
+                text(
+                    "UPDATE zengin_exports SET status = 'submitted' "
+                    "WHERE status = 'downloaded'"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE zengin_exports SET status = 'superseded' "
+                    "WHERE status = 'reissued'"
+                )
+            )
+
+
+def seed_classroom_data() -> None:
     from models import Classroom
 
-    with Session(_resolve_engine(db_engine)) as session:
+    with Session(engine) as session:
         classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
         if classrooms:
             return
@@ -443,178 +465,32 @@ def seed_classroom_data(db_engine: Optional[Engine] = None) -> None:
         session.commit()
 
 
-def seed_extended_care_fee_rules(db_engine: Optional[Engine] = None) -> None:
+def seed_extended_care_fee_rules() -> None:
     from models import ExtendedCareFeeRule
 
-    with Session(_resolve_engine(db_engine)) as session:
+    with Session(engine) as session:
         if session.exec(select(ExtendedCareFeeRule)).first():
             return
 
         session.add(
             ExtendedCareFeeRule(
                 name="標準延長保育料",
-                effective_from=date(2025, 4, 1),
+                effective_from=date(2020, 1, 1),
                 start_time="18:00",
                 grace_minutes=5,
                 rounding_minutes=15,
                 unit_price=100,
-                daily_cap_amount=1200,
+                daily_cap_amount=None,
+                is_active=True,
             )
         )
         session.commit()
 
 
-def seed_staff_data(db_engine: Optional[Engine] = None) -> None:
-    from auth import Role
-    from models import (
-        Classroom,
-        Staff,
-        StaffEmploymentType,
-        StaffStatus,
-        USER_SOURCE_LOCAL_SAMPLE,
-        User,
-    )
-
-    with Session(_resolve_engine(db_engine)) as session:
-        if session.exec(select(Staff)).first():
-            return
-
-        classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
-        classroom_ids = [classroom.id for classroom in classrooms if classroom.id is not None]
-        classroom_id_by_prefix = {
-            classroom.name.split("（", 1)[0]: classroom.id
-            for classroom in classrooms
-            if classroom.id is not None
-        }
-
-        def classroom_id_at(index: int) -> int | None:
-            if not classroom_ids:
-                return None
-            return classroom_ids[min(index, len(classroom_ids) - 1)]
-
-        def primary_classroom_id_for(display_name: str) -> int | None:
-            for prefix, classroom_id in classroom_id_by_prefix.items():
-                if display_name.startswith(prefix):
-                    return classroom_id
-            return None
-
-        def role_for(staff_role: str) -> Role:
-            try:
-                return Role(staff_role)
-            except ValueError:
-                return Role.CAN_EDIT
-
-        staff_users = session.exec(
-            select(User)
-            .where(User.is_active.is_(True))
-            .order_by(User.staff_sort_order, User.display_name)
-        ).all()
-        if staff_users:
-            for user in staff_users:
-                role = role_for(user.staff_role)
-                employment_type = (
-                    StaffEmploymentType.part_time
-                    if role == Role.VIEW_ONLY or "パート" in user.display_name
-                    else StaffEmploymentType.regular
-                )
-                session.add(
-                    Staff(
-                        full_name=user.display_name,
-                        display_name=user.display_name,
-                        role=role,
-                        status=StaffStatus.active,
-                        employment_type=employment_type,
-                        primary_classroom_id=primary_classroom_id_for(user.display_name),
-                        can_manage_child_records=user.can_manage_child_records_effective,
-                        provisioning_source=user.provisioning_source or USER_SOURCE_LOCAL_SAMPLE,
-                    )
-                )
-
-            session.commit()
-            return
-
-        staff_members = [
-            Staff(
-                full_name="園長",
-                display_name="園長",
-                role=Role.ADMIN,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=None,
-                can_manage_child_records=True,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-            Staff(
-                full_name="主任",
-                display_name="主任",
-                role=Role.ADMIN,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=None,
-                can_manage_child_records=True,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-            Staff(
-                full_name="ひよこぐみ担任",
-                display_name="ひよこぐみ担任",
-                role=Role.CAN_EDIT,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=classroom_id_at(0),
-                can_manage_child_records=False,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-            Staff(
-                full_name="たけのこぐみ担任",
-                display_name="たけのこぐみ担任",
-                role=Role.CAN_EDIT,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=classroom_id_at(1),
-                can_manage_child_records=False,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-            Staff(
-                full_name="きのこぐみ担任",
-                display_name="きのこぐみ担任",
-                role=Role.CAN_EDIT,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.regular,
-                primary_classroom_id=classroom_id_at(2),
-                can_manage_child_records=False,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-            Staff(
-                full_name="パート職員",
-                display_name="パート職員",
-                role=Role.VIEW_ONLY,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.part_time,
-                primary_classroom_id=None,
-                can_manage_child_records=False,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-            Staff(
-                full_name="アルバイト職員",
-                display_name="アルバイト職員",
-                role=Role.VIEW_ONLY,
-                status=StaffStatus.active,
-                employment_type=StaffEmploymentType.part_time,
-                primary_classroom_id=None,
-                can_manage_child_records=False,
-                provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
-            ),
-        ]
-
-        for staff in staff_members:
-            session.add(staff)
-
-        session.commit()
-
-def seed_sample_data(db_engine: Optional[Engine] = None) -> None:
+def seed_sample_data() -> None:
     from models import Child, ChildStatus, Classroom, Family, Guardian
 
-    with Session(_resolve_engine(db_engine)) as session:
+    with Session(engine) as session:
         if session.exec(select(Child)).first():
             return
 
@@ -794,7 +670,18 @@ def seed_sample_data(db_engine: Optional[Engine] = None) -> None:
         session.commit()
 
 
-def seed_parent_portal_data(db_engine: Optional[Engine] = None) -> None:
+def seed_debug_demo_data() -> dict[str, int]:
+    """Create rolling operational data for local mock-auth development."""
+
+    from demo_data_generation import seed_dynamic_demo_data
+
+    with Session(engine) as session:
+        counts = seed_dynamic_demo_data(session)
+        session.commit()
+        return counts
+
+
+def seed_parent_portal_data() -> None:
     from models import (
         Child,
         ChildStatus,
@@ -810,7 +697,7 @@ def seed_parent_portal_data(db_engine: Optional[Engine] = None) -> None:
         ParentAccountStatus,
     )
 
-    with Session(_resolve_engine(db_engine)) as session:
+    with Session(engine) as session:
         if session.exec(select(ParentAccount)).first():
             return
 
@@ -865,7 +752,7 @@ def seed_parent_portal_data(db_engine: Optional[Engine] = None) -> None:
             session.refresh(family)
             sync_parent_child_links(session, family)
 
-        today = date.today()
+        today = local_today()
         enrolled_children = session.exec(
             select(Child)
             .where(Child.status == ChildStatus.enrolled)
@@ -974,37 +861,17 @@ def seed_parent_portal_data(db_engine: Optional[Engine] = None) -> None:
         session.commit()
 
 
-def seed_meeting_note_data(db_engine: Optional[Engine] = None) -> None:
-    from models import MeetingNote
-
-    with Session(_resolve_engine(db_engine)) as session:
-        if session.exec(select(MeetingNote)).first():
-            return
-
-        now = utc_now()
-        session.add(
-            MeetingNote(
-                title="議事録",
-                created_by="管理者",
-                updated_by="管理者",
-                created_at=now,
-                updated_at=now,
-            )
-        )
-        session.commit()
-
-
-def bootstrap_family_records(db_engine: Optional[Engine] = None) -> None:
-    with Session(_resolve_engine(db_engine)) as session:
+def bootstrap_family_records() -> None:
+    with Session(engine) as session:
         bootstrap_family_data(session)
         session.commit()
 
 
-def bootstrap_health_records(db_engine: Optional[Engine] = None) -> None:
+def bootstrap_health_records() -> None:
     from child_health_service import sync_health_records_from_legacy_extra_data
     from models import Child
 
-    with Session(_resolve_engine(db_engine)) as session:
+    with Session(engine) as session:
         children = session.exec(select(Child)).all()
         changed = False
         for child in children:
@@ -1013,75 +880,101 @@ def bootstrap_health_records(db_engine: Optional[Engine] = None) -> None:
             session.commit()
 
 
-def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
+def seed_calendar_data() -> None:
     from models import (
         Calendar,
         CalendarMember,
         CalendarMemberRole,
         CalendarType,
         CalendarUserPreference,
-        Staff,
-        StaffStatus,
         USER_SOURCE_LOCAL_SAMPLE,
         USER_SOURCE_WEB_DEMO,
         User,
     )
 
-    with Session(_resolve_engine(db_engine)) as session:
-        if session.exec(select(User).where(User.provisioning_source == USER_SOURCE_WEB_DEMO)).first():
-            return
-
-        active_staff = session.exec(
-            select(Staff)
-            .where(Staff.status == StaffStatus.active)
-            .order_by(Staff.id)
+    with Session(engine) as session:
+        web_demo_users = session.exec(
+            select(User).where(
+                User.provisioning_source == USER_SOURCE_WEB_DEMO,
+                User.is_active.is_(True),
+            )
         ).all()
-        if not active_staff:
+        if web_demo_users:
+            web_demo_identities = {
+                (user.display_name.strip(), user.staff_role)
+                for user in web_demo_users
+            }
+            local_duplicates = session.exec(
+                select(User).where(
+                    User.provisioning_source == USER_SOURCE_LOCAL_SAMPLE,
+                    User.is_active.is_(True),
+                )
+            ).all()
+            changed = False
+            for user in local_duplicates:
+                if (user.display_name.strip(), user.staff_role) not in web_demo_identities:
+                    continue
+                user.is_active = False
+                user.updated_at = utc_now()
+                session.add(user)
+                changed = True
+            if changed:
+                session.commit()
             return
 
-        staff_defaults = {
-            "園長": {"email": "principal@example.com", "sort_order": 10, "color": "#2563EB"},
-            "主任": {"email": "chief@example.com", "sort_order": 20, "color": "#7C3AED"},
-            "ひよこぐみ担任": {"email": "hiyoko@example.com", "sort_order": 30, "color": "#F59E0B"},
-            "たけのこぐみ担任": {"email": "takenoko@example.com", "sort_order": 40, "color": "#10B981"},
-            "きのこぐみ担任": {"email": "kinoko@example.com", "sort_order": 50, "color": "#EC4899"},
-            "パート職員": {"email": "part@example.com", "sort_order": 60, "color": "#64748B"},
-            "アルバイト職員": {"email": "arbeit@example.com", "sort_order": 70, "color": "#0EA5E9"},
-        }
+        staff_specs = [
+            {"email": "principal@example.com", "display_name": "園長", "staff_role": "admin", "staff_sort_order": 10, "color": "#2563EB", "can_manage_child_records": True},
+            {"email": "chief@example.com", "display_name": "主任", "staff_role": "admin", "staff_sort_order": 20, "color": "#7C3AED", "can_manage_child_records": True},
+            {"email": "nurse@example.com", "display_name": "看護師", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#0891B2", "can_manage_child_records": False},
+            {"email": "nutritionist@example.com", "display_name": "栄養士", "staff_role": "can_edit", "staff_sort_order": 35, "color": "#65A30D", "can_manage_child_records": False},
+            {"email": "office@example.com", "display_name": "事務", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#9333EA", "can_manage_child_records": True},
+            {"email": "hiyoko@example.com", "display_name": "ひよこ組担任A", "staff_role": "can_edit", "staff_sort_order": 60, "color": "#F59E0B", "can_manage_child_records": False},
+            {"email": "hiyoko-b@example.com", "display_name": "ひよこ組担任B", "staff_role": "can_edit", "staff_sort_order": 61, "color": "#F97316", "can_manage_child_records": False},
+            {"email": "takenoko@example.com", "display_name": "りす組担任A", "staff_role": "can_edit", "staff_sort_order": 70, "color": "#10B981", "can_manage_child_records": False},
+            {"email": "risu-b@example.com", "display_name": "りす組担任B", "staff_role": "can_edit", "staff_sort_order": 71, "color": "#14B8A6", "can_manage_child_records": False},
+            {"email": "kinoko@example.com", "display_name": "うさぎ組担任A", "staff_role": "can_edit", "staff_sort_order": 80, "color": "#EC4899", "can_manage_child_records": False},
+            {"email": "usagi-b@example.com", "display_name": "うさぎ組担任B", "staff_role": "can_edit", "staff_sort_order": 81, "color": "#F43F5E", "can_manage_child_records": False},
+            {"email": "panda-a@example.com", "display_name": "ぱんだ組担任A", "staff_role": "can_edit", "staff_sort_order": 90, "color": "#8B5CF6", "can_manage_child_records": False},
+            {"email": "panda-b@example.com", "display_name": "ぱんだ組担任B", "staff_role": "can_edit", "staff_sort_order": 91, "color": "#A855F7", "can_manage_child_records": False},
+            {"email": "kirin-a@example.com", "display_name": "きりん組担任A", "staff_role": "can_edit", "staff_sort_order": 100, "color": "#0EA5E9", "can_manage_child_records": False},
+            {"email": "kirin-b@example.com", "display_name": "きりん組担任B", "staff_role": "can_edit", "staff_sort_order": 101, "color": "#38BDF8", "can_manage_child_records": False},
+            {"email": "zou-a@example.com", "display_name": "ぞう組担任A", "staff_role": "can_edit", "staff_sort_order": 110, "color": "#2563EB", "can_manage_child_records": False},
+            {"email": "zou-b@example.com", "display_name": "ぞう組担任B", "staff_role": "can_edit", "staff_sort_order": 111, "color": "#1D4ED8", "can_manage_child_records": False},
+            {"email": "part@example.com", "display_name": "早番パート", "staff_role": "view_only", "staff_sort_order": 150, "color": "#64748B", "can_manage_child_records": False},
+            {"email": "arbeit@example.com", "display_name": "遅番パート", "staff_role": "view_only", "staff_sort_order": 151, "color": "#475569", "can_manage_child_records": False},
+        ]
 
-        def staff_profile(staff: Staff, index: int) -> dict[str, object]:
-            fallback_id = staff.id if staff.id is not None else index + 1
-            defaults = staff_defaults.get(staff.display_name, {})
-            return {
-                "email": defaults.get("email", f"demo-staff-{fallback_id}@example.com"),
-                "sort_order": defaults.get("sort_order", (index + 1) * 10),
-                "color": defaults.get("color", "#2563EB"),
-            }
-
-        def ensure_user(staff: Staff, *, email: str, sort_order: int) -> User:
+        def ensure_user(
+            *,
+            email: str,
+            display_name: str,
+            staff_role: str,
+            staff_sort_order: int,
+            can_manage_child_records: bool,
+        ) -> User:
+            is_calendar_admin = staff_role == "admin"
             user = session.exec(select(User).where(User.email == email)).first()
             if user is None:
                 user = User(
                     email=email,
-                    display_name=staff.display_name,
+                    display_name=display_name,
                     timezone="Asia/Tokyo",
                     locale="ja-JP",
-                    staff_role=staff.role.value,
-                    staff_sort_order=sort_order,
-                    is_calendar_admin=staff.role.value == "admin",
-                    can_manage_child_records=staff.can_manage_child_records_effective,
-                    provisioning_source=staff.provisioning_source or USER_SOURCE_LOCAL_SAMPLE,
-                    is_active=True,
+                    staff_role=staff_role,
+                    staff_sort_order=staff_sort_order,
+                    is_calendar_admin=is_calendar_admin,
+                    can_manage_child_records=can_manage_child_records,
+                    provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
                 )
             else:
-                user.display_name = staff.display_name
+                user.display_name = display_name
                 user.timezone = user.timezone or "Asia/Tokyo"
                 user.locale = user.locale or "ja-JP"
-                user.staff_role = staff.role.value
-                user.staff_sort_order = sort_order
-                user.is_calendar_admin = staff.role.value == "admin"
-                user.can_manage_child_records = staff.can_manage_child_records_effective
-                user.provisioning_source = staff.provisioning_source or USER_SOURCE_LOCAL_SAMPLE
+                user.staff_role = staff_role
+                user.staff_sort_order = staff_sort_order
+                user.is_calendar_admin = is_calendar_admin
+                user.can_manage_child_records = can_manage_child_records
+                user.provisioning_source = USER_SOURCE_LOCAL_SAMPLE
                 user.is_active = True
                 user.updated_at = utc_now()
             session.add(user)
@@ -1124,17 +1017,29 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
             session.add(preference)
             session.flush()
 
-        calendar_users: list[tuple[Staff, User, dict[str, object]]] = []
-        for index, staff in enumerate(active_staff):
-            profile = staff_profile(staff, index)
-            user = ensure_user(
-                staff,
-                email=str(profile["email"]),
-                sort_order=int(profile["sort_order"]),
+        def membership_count(calendar_id) -> int:
+            return len(
+                session.exec(select(CalendarMember).where(CalendarMember.calendar_id == calendar_id)).all()
             )
-            calendar_users.append((staff, user, profile))
 
-        for _, user, profile in calendar_users:
+        def shared_role_for_user(calendar: Calendar, user: User) -> CalendarMemberRole:
+            if user.id == calendar.owner_user_id:
+                return CalendarMemberRole.owner
+            return CalendarMemberRole.editor if user.can_edit_calendar else CalendarMemberRole.viewer
+
+        active_users = [
+            ensure_user(
+                email=spec["email"],
+                display_name=spec["display_name"],
+                staff_role=spec["staff_role"],
+                staff_sort_order=spec["staff_sort_order"],
+                can_manage_child_records=spec["can_manage_child_records"],
+            )
+            for spec in staff_specs
+        ]
+        lead_user = active_users[0]
+
+        for spec, user in zip(staff_specs, active_users):
             personal_calendar = session.exec(
                 select(Calendar).where(
                     Calendar.owner_user_id == user.id,
@@ -1152,7 +1057,7 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
                 personal_calendar = Calendar(owner_user_id=user.id)
             personal_calendar.name = f"{user.display_name}の個人カレンダー"
             personal_calendar.calendar_type = CalendarType.staff_personal
-            personal_calendar.color = str(profile["color"])
+            personal_calendar.color = spec["color"]
             personal_calendar.description = "職員ごとの個人用カレンダー"
             personal_calendar.is_primary = True
             personal_calendar.is_archived = False
@@ -1167,54 +1072,117 @@ def seed_calendar_data(db_engine: Optional[Engine] = None) -> None:
             user.updated_at = utc_now()
             session.add(user)
 
-        lead_user = calendar_users[0][1]
-        shared_calendar = session.exec(
-            select(Calendar).where(
-                Calendar.calendar_type == CalendarType.facility_shared,
-                Calendar.name == "施設共用カレンダー",
-            )
-        ).first()
-        if shared_calendar is None:
-            shared_calendar = session.exec(
-                select(Calendar).where(Calendar.calendar_type == CalendarType.facility_shared)
-            ).first()
-        if shared_calendar is None:
-            shared_calendar = Calendar(owner_user_id=lead_user.id)
-        shared_calendar.owner_user_id = lead_user.id
-        shared_calendar.name = "施設共用カレンダー"
-        shared_calendar.calendar_type = CalendarType.facility_shared
-        shared_calendar.color = "#059669"
-        shared_calendar.description = "施設全体で共有するカレンダー"
-        shared_calendar.is_primary = False
-        shared_calendar.is_archived = False
-        shared_calendar.updated_at = utc_now()
-        session.add(shared_calendar)
-        session.flush()
+        rename_map = {
+            "A Shared Team": "施設共用カレンダー",
+            "B Shared Review": "行事共有カレンダー",
+        }
+        facility_calendars = []
+        for calendar in session.exec(select(Calendar)).all():
+            if calendar.name in rename_map:
+                calendar.name = rename_map[calendar.name]
+            if calendar.is_primary:
+                calendar.calendar_type = CalendarType.staff_personal
+            elif membership_count(calendar.id) > 1:
+                calendar.calendar_type = CalendarType.facility_shared
+            if calendar.calendar_type == CalendarType.facility_shared and not calendar.is_archived:
+                facility_calendars.append(calendar)
+            session.add(calendar)
 
-        for _, user, profile in calendar_users:
-            role = (
-                CalendarMemberRole.owner
-                if user.id == shared_calendar.owner_user_id
-                else CalendarMemberRole.editor if user.can_edit_calendar else CalendarMemberRole.viewer
+        if not facility_calendars:
+            shared_calendar = Calendar(
+                owner_user_id=lead_user.id,
+                name="施設共用カレンダー",
+                calendar_type=CalendarType.facility_shared,
+                color="#059669",
+                description="施設全体で共有するカレンダー",
+                is_primary=False,
+                is_archived=False,
             )
-            ensure_member(shared_calendar, user, role)
-            ensure_preference(shared_calendar, user, display_order=20 + int(profile["sort_order"]))
+            session.add(shared_calendar)
+            session.flush()
+            facility_calendars.append(shared_calendar)
+
+        for index, calendar in enumerate(facility_calendars, start=1):
+            calendar.calendar_type = CalendarType.facility_shared
+            calendar.is_primary = False
+            if not calendar.description:
+                calendar.description = "施設全体で共有するカレンダー"
+            calendar.updated_at = utc_now()
+            session.add(calendar)
+            owner_user = next((item for item in active_users if item.id == calendar.owner_user_id), lead_user)
+            if calendar.owner_user_id != owner_user.id:
+                calendar.owner_user_id = owner_user.id
+            ensure_member(calendar, owner_user, CalendarMemberRole.owner)
+            for user in active_users:
+                ensure_member(calendar, user, shared_role_for_user(calendar, user))
+                ensure_preference(calendar, user, display_order=20 + index * 10)
 
         session.commit()
 
 
-def initialize_demo_template_database(db_path: Path) -> None:
-    from scripts.seed_demo_100 import seed as seed_demo_100
-
-    demo_engine = create_engine(
-        f"sqlite:///{db_path.resolve().as_posix()}",
-        echo=False,
-        connect_args={"check_same_thread": False},
+def seed_staff_classroom_assignments() -> None:
+    """Give bundled demo homeroom users an explicit current classroom assignment."""
+    from models import (
+        Classroom,
+        StaffClassroomAssignment,
+        StaffClassroomAssignmentRole,
+        USER_SOURCE_LOCAL_SAMPLE,
+        USER_SOURCE_WEB_DEMO,
+        User,
     )
-    try:
-        seed_demo_100(wipe=True, db_engine=demo_engine)
-        seed_extended_care_fee_rules(demo_engine)
-        seed_staff_data(demo_engine)
-        seed_meeting_note_data(demo_engine)
-    finally:
-        demo_engine.dispose()
+
+    today = local_today()
+    fiscal_year_start = date(today.year if today.month >= 4 else today.year - 1, 4, 1)
+    with Session(engine) as session:
+        classrooms = session.exec(
+            select(Classroom).order_by(Classroom.display_order, Classroom.id)
+        ).all()
+        users = session.exec(
+            select(User).where(
+                User.is_active.is_(True),
+                User.provisioning_source.in_(
+                    {USER_SOURCE_LOCAL_SAMPLE, USER_SOURCE_WEB_DEMO}
+                ),
+            )
+        ).all()
+        changed = False
+        for user in users:
+            classroom = next(
+                (
+                    item
+                    for item in classrooms
+                    if user.display_name.strip().startswith(
+                        item.name.split("（", 1)[0].strip()
+                    )
+                    and "担任" in user.display_name
+                ),
+                None,
+            )
+            if classroom is None or classroom.id is None:
+                continue
+            existing = session.exec(
+                select(StaffClassroomAssignment).where(
+                    StaffClassroomAssignment.staff_user_id == user.id,
+                    StaffClassroomAssignment.classroom_id == classroom.id,
+                    StaffClassroomAssignment.starts_on <= today,
+                    (
+                        StaffClassroomAssignment.ends_on.is_(None)
+                        | (StaffClassroomAssignment.ends_on >= today)
+                    ),
+                )
+            ).first()
+            if existing is not None:
+                continue
+            session.add(
+                StaffClassroomAssignment(
+                    staff_user_id=user.id,
+                    classroom_id=classroom.id,
+                    assignment_role=StaffClassroomAssignmentRole.primary,
+                    starts_on=fiscal_year_start,
+                    is_primary=True,
+                    display_order=classroom.display_order,
+                )
+            )
+            changed = True
+        if changed:
+            session.commit()

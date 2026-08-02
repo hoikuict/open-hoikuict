@@ -12,7 +12,15 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Web
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session, select
 
-from auth import Role, clear_staff_cookies, get_calendar_user_cookie, set_staff_cookies
+from auth import (
+    Role,
+    StaffUser,
+    clear_staff_cookies,
+    get_current_staff_user_id,
+    require_mock_staff_auth,
+    resolve_staff_principal,
+    set_staff_cookies,
+)
 from calendar_service import (
     CalendarContext,
     EventOccurrence,
@@ -42,6 +50,12 @@ from calendar_service import (
     get_calendar_context,
 )
 from database import get_session
+from institutional_record_service import (
+    highlights_for_series,
+    load_event_series,
+    records_for_series_of,
+    series_member_for_target,
+)
 from models import (
     Calendar,
     CalendarActivityKind,
@@ -55,6 +69,7 @@ from models import (
     EventLifecycleStatus,
     EventOverride,
     EventVisibility,
+    EventSeriesMemberTargetType,
     NotificationJob,
     RecurrenceFrequency,
     RecurrenceRule,
@@ -62,8 +77,11 @@ from models import (
     User,
 )
 from time_utils import utc_now
+from url_utils import safe_internal_redirect
+from security_config import websocket_origin_allowed
 
 router = APIRouter(tags=["calendar"])
+mock_login_router = APIRouter(tags=["calendar-mock"])
 from template_utils import create_templates
 
 templates = create_templates()
@@ -86,6 +104,22 @@ CALENDAR_COLOR_OPTIONS = [
     {"value": "#4B5563", "label": "グレー"},
 ]
 CALENDAR_COLOR_VALUES = {item["value"] for item in CALENDAR_COLOR_OPTIONS}
+
+
+def _staff_principal_for_calendar_user(user: User) -> StaffUser:
+    role = (
+        Role.ADMIN
+        if user.staff_role == Role.ADMIN.value
+        else Role.CAN_EDIT
+        if user.staff_role == Role.CAN_EDIT.value
+        else Role.VIEW_ONLY
+    )
+    return StaffUser(
+        role=role,
+        name=user.display_name,
+        user_id=user.id,
+        can_manage_child_records=user.can_manage_child_records_effective,
+    )
 
 
 class CalendarSocketManager:
@@ -144,7 +178,7 @@ def _coerce_uuid(raw_value: str | None) -> UUID | None:
 
 
 def _current_calendar_user(session: Session, request: Request) -> User | None:
-    user_id = _coerce_uuid(get_calendar_user_cookie(request))
+    user_id = get_current_staff_user_id(request)
     if user_id is None:
         return None
     user = session.get(User, user_id)
@@ -225,7 +259,7 @@ def _ensure_calendar_member(
 def _ensure_facility_shared_memberships(session: Session, calendar: Calendar) -> set[UUID]:
     active_users = session.exec(
         select(User)
-        .where(User.is_active.is_(True), User.staff_sort_order < 100)
+        .where(User.is_active.is_(True), User.staff_sort_order < 200)
         .order_by(User.staff_sort_order, User.display_name, User.email)
     ).all()
     broadcast_ids = {calendar.id}
@@ -809,38 +843,39 @@ def _broadcast_payload(user: User, *, mode: str, anchor: date) -> dict[str, Any]
     }
 
 
-@router.get("/mock-login", response_class=HTMLResponse)
+@mock_login_router.get(
+    "/mock-login",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_mock_staff_auth)],
+)
 def mock_login_page(
     request: Request,
     redirect: str = "/calendar",
     session: Session = Depends(get_session),
 ):
-    target = redirect if redirect.startswith("/") else "/calendar"
+    target = safe_internal_redirect(redirect, "/calendar")
     return RedirectResponse(url=f"/staff/login?redirect={quote(target, safe='/?:=&')}", status_code=303)
 
 
-@router.post("/session/mock-login")
+@mock_login_router.post(
+    "/session/mock-login",
+    dependencies=[Depends(require_mock_staff_auth)],
+)
 def mock_login(
     user_id: str = Form(...),
     redirect_to: str = Form("/calendar"),
     session: Session = Depends(get_session),
 ):
     user = session.get(User, _coerce_uuid(user_id) or UUID(int=0))
-    if user is None or not user.is_active or user.staff_sort_order >= 100:
+    if user is None or not user.is_active or user.staff_sort_order >= 200:
         return RedirectResponse(url="/staff/login", status_code=303)
-    response = RedirectResponse(url=redirect_to if redirect_to.startswith("/") else "/calendar", status_code=303)
+    response = RedirectResponse(url=safe_internal_redirect(redirect_to, "/calendar"), status_code=303)
     role = Role.ADMIN if user.staff_role == "admin" else Role.CAN_EDIT if user.staff_role == "can_edit" else Role.VIEW_ONLY
-    set_staff_cookies(
-        response,
-        role=role,
-        name=user.display_name,
-        user_id=str(user.id),
-        can_manage_child_records=user.can_manage_child_records_effective,
-    )
+    set_staff_cookies(response, role=role, name=user.display_name, user_id=str(user.id))
     return response
 
 
-@router.post("/session/logout")
+@mock_login_router.post("/session/logout")
 def mock_logout():
     response = RedirectResponse(url="/staff/login", status_code=303)
     clear_staff_cookies(response)
@@ -1297,6 +1332,31 @@ def event_detail(
     occurrence = find_occurrence(session, context, user, event, parse_iso_datetime(original_start_at))
     if occurrence is None:
         raise HTTPException(status_code=404, detail="対象の予定が見つかりません。")
+    series = None
+    series_member = None
+    prior_record_views = []
+    prior_highlights = []
+    if occurrence.can_view_details:
+        series_member = series_member_for_target(
+            session,
+            EventSeriesMemberTargetType.event,
+            event.id,
+        )
+        if series_member is not None:
+            principal = _staff_principal_for_calendar_user(user)
+            series = load_event_series(session, series_member.series_id)
+            prior_record_views = records_for_series_of(
+                session,
+                principal,
+                EventSeriesMemberTargetType.event,
+                event.id,
+            )
+            prior_highlights = highlights_for_series(
+                session,
+                principal,
+                series_member.series_id,
+                before_fiscal_year=series_member.fiscal_year,
+            )
     return templates.TemplateResponse(
         request,
         "calendar/_event_detail.html",
@@ -1307,6 +1367,10 @@ def event_detail(
             "event": event,
             "user_timezone": user.timezone,
             "format_datetime_local": format_datetime_local,
+            "event_series": series,
+            "series_member": series_member,
+            "prior_record_views": prior_record_views,
+            "prior_highlights": prior_highlights,
         },
     )
 
@@ -2043,17 +2107,27 @@ def search_events(
 
 @router.websocket("/ws/calendars/{calendar_id}")
 async def calendar_updates(websocket: WebSocket, calendar_id: str, session: Session = Depends(get_session)):
-    user_id = _coerce_uuid(websocket.cookies.get("mock_calendar_user_id"))
     calendar_uuid = _coerce_uuid(calendar_id)
-    if user_id is None or calendar_uuid is None:
+    principal = resolve_staff_principal(websocket)
+    if principal is None or principal.user_id is None or calendar_uuid is None:
         await websocket.close(code=1008)
         return
-    user = session.get(User, user_id)
-    if user is None or not user.is_active:
+    if not websocket_origin_allowed(websocket):
         await websocket.close(code=1008)
         return
-    context = get_calendar_context(session, user.id, calendar_uuid, include_archived=True)
-    if context is None:
+
+    try:
+        user = session.get(User, principal.user_id)
+        context = (
+            get_calendar_context(session, user.id, calendar_uuid, include_archived=True)
+            if user is not None and user.is_active
+            else None
+        )
+    finally:
+        # A WebSocket may live for hours. Release its checked-out connection before accept.
+        session.close()
+
+    if user is None or not user.is_active or context is None:
         await websocket.close(code=1008)
         return
     await socket_manager.connect(calendar_uuid, websocket)
@@ -2061,4 +2135,6 @@ async def calendar_updates(websocket: WebSocket, calendar_id: str, session: Sess
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
+        pass
+    finally:
         await socket_manager.disconnect(calendar_uuid, websocket)

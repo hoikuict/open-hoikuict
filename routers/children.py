@@ -78,7 +78,9 @@ def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
 
 def _all_children(session: Session) -> list[Child]:
     return session.exec(
-        select(Child).order_by(Child.last_name_kana, Child.first_name_kana)
+        select(Child)
+        .options(selectinload(Child.family))
+        .order_by(Child.last_name_kana, Child.first_name_kana)
     ).all()
 
 
@@ -219,6 +221,7 @@ def _base_form_context(
             if family_child.id != excluded_id
         ]
     return templates.TemplateResponse(
+        request,
         "children/form.html",
         {
             "request": request,
@@ -271,6 +274,7 @@ def list_children(
         fields = [field["key"] for field in CHILD_FIELDS if field["default"]]
 
     return templates.TemplateResponse(
+        request,
         "children/list.html",
         {
             "request": request,
@@ -315,6 +319,7 @@ def children_table(
 
     field_labels = {field["key"]: field["label"] for field in CHILD_FIELDS}
     return templates.TemplateResponse(
+        request,
         "children/_table.html",
         {
             "request": request,

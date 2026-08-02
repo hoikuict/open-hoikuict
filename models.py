@@ -3,10 +3,9 @@ from enum import Enum
 import uuid
 from typing import Any, List, Optional
 
-from sqlalchemy import JSON, CheckConstraint, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Index, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
-from auth import Role
 from time_utils import local_naive_now, local_today, utc_now
 
 
@@ -163,30 +162,6 @@ class NoticeStatus(str, Enum):
         }[self]
 
 
-class StaffStatus(str, Enum):
-    active = "active"
-    retired = "retired"
-
-    @property
-    def label(self) -> str:
-        return {
-            self.active: "在籍中",
-            self.retired: "退職",
-        }[self]
-
-
-class StaffEmploymentType(str, Enum):
-    regular = "regular"
-    part_time = "part_time"
-
-    @property
-    def label(self) -> str:
-        return {
-            self.regular: "常勤",
-            self.part_time: "パート",
-        }[self]
-
-
 class NoticePriority(str, Enum):
     normal = "normal"
     high = "high"
@@ -271,6 +246,113 @@ class SurveyAnswerUnit(str, Enum):
             self.child: "子ども単位",
             self.staff_user: "職員単位",
         }[self]
+
+
+class InstitutionalRecordOrigin(str, Enum):
+    safety_incident = "safety_incident"
+    administrative = "administrative"
+    retrospective = "retrospective"
+    operational = "operational"
+    other = "other"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.safety_incident: "安全（事故・ヒヤリハット）",
+            self.administrative: "行政・監査",
+            self.retrospective: "行事反省",
+            self.operational: "運用改善",
+            self.other: "その他",
+        }[self]
+
+    @property
+    def is_persistent(self) -> bool:
+        return self in (self.safety_incident, self.administrative)
+
+
+class InstitutionalRecordStatus(str, Enum):
+    active = "active"
+    retired = "retired"
+
+    @property
+    def label(self) -> str:
+        return {self.active: "有効", self.retired: "退役"}[self]
+
+
+class InstitutionalRecordVisibility(str, Enum):
+    staff = "staff"
+    linked_targets = "linked_targets"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.staff: "全職員",
+            self.linked_targets: "リンク先を閲覧できる職員",
+        }[self]
+
+
+class RecordReviewDecision(str, Enum):
+    keep = "keep"
+    revise = "revise"
+    retire = "retire"
+
+
+class RecordRevisionKind(str, Enum):
+    created = "created"
+    revised = "revised"
+    retired = "retired"
+    visibility_changed = "visibility_changed"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.created: "作成",
+            self.revised: "改訂",
+            self.retired: "退役",
+            self.visibility_changed: "可視性変更",
+        }[self]
+
+
+class RecordLinkTargetType(str, Enum):
+    survey = "survey"
+    notice = "notice"
+    meeting_note = "meeting_note"
+    event = "event"
+    event_series = "event_series"
+    external = "external"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.survey: "アンケート",
+            self.notice: "お知らせ",
+            self.meeting_note: "議事録",
+            self.event: "カレンダー予定",
+            self.event_series: "行事シリーズ",
+            self.external: "外部資料",
+        }[self]
+
+
+class EventSeriesMemberTargetType(str, Enum):
+    event = "event"
+    survey = "survey"
+    meeting_note = "meeting_note"
+
+
+class HighlightSourceType(str, Enum):
+    meeting_note = "meeting_note"
+
+
+class HighlightStatus(str, Enum):
+    suggested = "suggested"
+    active = "active"
+    promoted = "promoted"
+    archived = "archived"
+
+
+class HighlightCreatedVia(str, Enum):
+    manual = "manual"
+    ai = "ai"
 
 
 class QuestionType(str, Enum):
@@ -366,39 +448,6 @@ class Classroom(SQLModel, table=True):
     messages: List["Message"] = Relationship(back_populates="room")
 
 
-class Staff(SQLModel, table=True):
-    __tablename__ = "staff"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    full_name: str
-    display_name: str = Field(index=True)
-    role: Role = Field(default=Role.CAN_EDIT, index=True)
-    status: StaffStatus = Field(default=StaffStatus.active, index=True)
-    employment_type: StaffEmploymentType = Field(default=StaffEmploymentType.regular)
-    primary_classroom_id: Optional[int] = Field(default=None, foreign_key="classrooms.id", index=True)
-    can_manage_child_records: bool = Field(default=False)
-    provisioning_source: str = Field(default="manual", max_length=32, index=True)
-    created_at: datetime = Field(default_factory=utc_now)
-    updated_at: datetime = Field(default_factory=utc_now)
-
-    primary_classroom: Optional[Classroom] = Relationship()
-
-    @property
-    def can_manage_child_records_effective(self) -> bool:
-        return self.role == Role.ADMIN or self.can_manage_child_records
-
-    @property
-    def primary_classroom_name(self) -> str:
-        return self.primary_classroom.name if self.primary_classroom else ""
-
-    @property
-    def provisioning_source_label(self) -> str:
-        return USER_PROVISIONING_SOURCE_LABELS.get(
-            self.provisioning_source,
-            self.provisioning_source or "未分類",
-        )
-
-
 class Child(SQLModel, table=True):
     __tablename__ = "children"
 
@@ -447,7 +496,7 @@ class Child(SQLModel, table=True):
 
     @property
     def age(self) -> int:
-        today = date.today()
+        today = local_today()
         return today.year - self.birth_date.year - (
             (today.month, today.day) < (self.birth_date.month, self.birth_date.day)
         )
@@ -933,7 +982,6 @@ class AttendanceVerification(SQLModel, table=True):
     child_id: int = Field(foreign_key="children.id", index=True)
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
-    updated_by_staff_id: Optional[int] = Field(default=None, index=True)
     updated_by_name: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -946,7 +994,6 @@ class AttendanceVerificationHistory(SQLModel, table=True):
     child_id: int = Field(foreign_key="children.id", index=True)
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
-    updated_by_staff_id: Optional[int] = Field(default=None, index=True)
     updated_by_name: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -1046,8 +1093,9 @@ class ProrationRounding(str, Enum):
 
 class ZenginExportStatus(str, Enum):
     created = "created"
-    downloaded = "downloaded"
-    reissued = "reissued"
+    submitted = "submitted"
+    result_imported = "result_imported"
+    superseded = "superseded"
     canceled = "canceled"
 
 
@@ -1097,6 +1145,11 @@ class FamilyBillingProfile(SQLModel, table=True):
     account_holder_kana: Optional[str] = None
     customer_number: str = Field(index=True)
     new_code: str = Field(default="0", max_length=1)
+    new_code_consumed_by_export_id: Optional[int] = Field(
+        default=None,
+        foreign_key="zengin_exports.id",
+        index=True,
+    )
     mandate_received_on: Optional[date] = None
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
@@ -1226,7 +1279,7 @@ class ZenginExport(SQLModel, table=True):
     superseded_by_export_id: Optional[int] = Field(default=None, foreign_key="zengin_exports.id")
     reissue_reason: Optional[str] = None
     canceled_reason: Optional[str] = None
-    downloaded_at: Optional[datetime] = None
+    submitted_at: Optional[datetime] = None
     result_imported_at: Optional[datetime] = None
     content_hash: str
     settings_snapshot: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -1649,6 +1702,278 @@ USER_PROVISIONING_SOURCE_LABELS = {
 }
 
 
+class InstitutionalRecord(SQLModel, table=True):
+    """園の決まりや手順の背景を残す、監査ログとは独立した記録。"""
+
+    __tablename__ = "institutional_records"
+    __table_args__ = (
+        CheckConstraint("trim(title) <> ''", name="ck_record_title_nonempty"),
+        CheckConstraint("trim(background) <> ''", name="ck_record_background_nonempty"),
+        CheckConstraint("trim(purpose) <> ''", name="ck_record_purpose_nonempty"),
+        CheckConstraint(
+            "fiscal_year IS NULL OR fiscal_year BETWEEN 1900 AND 2100",
+            name="ck_record_fiscal_year",
+        ),
+        CheckConstraint(
+            "origin <> 'retrospective' OR fiscal_year IS NOT NULL",
+            name="ck_retrospective_fiscal_year",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(max_length=200)
+    origin: InstitutionalRecordOrigin = Field(index=True)
+    status: InstitutionalRecordStatus = Field(default=InstitutionalRecordStatus.active, index=True)
+    visibility: InstitutionalRecordVisibility = Field(
+        default=InstitutionalRecordVisibility.staff,
+        index=True,
+    )
+    background: str = Field(max_length=10000)
+    purpose: str = Field(max_length=4000)
+    revisit_condition: Optional[str] = Field(default=None, max_length=4000)
+    occurred_on: Optional[date] = None
+    fiscal_year: Optional[int] = None
+    review_due_on: Optional[date] = Field(default=None, index=True)
+    revision_no: int = Field(default=1)
+    source_highlight_id: Optional[int] = Field(
+        default=None,
+        foreign_key="record_highlights.id",
+        unique=True,
+        index=True,
+    )
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    links: List["InstitutionalRecordLink"] = Relationship(back_populates="record")
+    reviews: List["InstitutionalRecordReview"] = Relationship(back_populates="record")
+    revisions: List["InstitutionalRecordRevision"] = Relationship(back_populates="record")
+    series_links: List["InstitutionalRecordSeriesLink"] = Relationship(back_populates="record")
+
+
+class InstitutionalRecordRevision(SQLModel, table=True):
+    __tablename__ = "institutional_record_revisions"
+    __table_args__ = (
+        UniqueConstraint("record_id", "revision_no", name="uq_record_revision_no"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: int = Field(foreign_key="institutional_records.id", index=True)
+    revision_no: int
+    kind: RecordRevisionKind
+    title: str = Field(max_length=200)
+    origin: InstitutionalRecordOrigin
+    status: InstitutionalRecordStatus
+    visibility: InstitutionalRecordVisibility
+    background: str = Field(max_length=10000)
+    purpose: str = Field(max_length=4000)
+    revisit_condition: Optional[str] = Field(default=None, max_length=4000)
+    occurred_on: Optional[date] = None
+    fiscal_year: Optional[int] = None
+    change_note: Optional[str] = Field(default=None, max_length=1000)
+    edited_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    edited_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    record: Optional[InstitutionalRecord] = Relationship(back_populates="revisions")
+
+
+class InstitutionalRecordLink(SQLModel, table=True):
+    __tablename__ = "institutional_record_links"
+    __table_args__ = (
+        UniqueConstraint("record_id", "target_type", "target_id", name="uq_record_link_target"),
+        Index("ix_record_links_target", "target_type", "target_id"),
+        CheckConstraint(
+            "(target_type = 'external' AND target_id IS NULL "
+            "AND target_label IS NOT NULL AND trim(target_label) <> '') OR "
+            "(target_type <> 'external' AND target_id IS NOT NULL "
+            "AND target_label IS NOT NULL AND trim(target_label) <> '')",
+            name="ck_record_link_target_shape",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: int = Field(foreign_key="institutional_records.id", index=True)
+    target_type: RecordLinkTargetType = Field(index=True)
+    target_id: Optional[str] = Field(default=None, index=True)
+    target_label: str = Field(max_length=255)
+    target_deleted_at: Optional[datetime] = Field(default=None, index=True)
+    removed_at: Optional[datetime] = Field(default=None, index=True)
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by: Optional[str] = None
+    removed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    removed_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    record: Optional[InstitutionalRecord] = Relationship(back_populates="links")
+
+
+class InstitutionalRecordReview(SQLModel, table=True):
+    __tablename__ = "institutional_record_reviews"
+    __table_args__ = (
+        UniqueConstraint("record_id", "series_member_id", name="uq_record_series_member_review"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: int = Field(foreign_key="institutional_records.id", index=True)
+    series_member_id: Optional[int] = Field(
+        default=None,
+        foreign_key="event_series_members.id",
+        index=True,
+    )
+    review_cycle_fiscal_year: Optional[int] = Field(default=None, index=True)
+    decision: RecordReviewDecision = Field(default=RecordReviewDecision.keep)
+    note: Optional[str] = Field(default=None, max_length=4000)
+    next_review_due_on: Optional[date] = None
+    resulting_revision_id: Optional[int] = Field(
+        default=None,
+        foreign_key="institutional_record_revisions.id",
+    )
+    reviewed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    reviewed_by: Optional[str] = None
+    reviewed_at: datetime = Field(default_factory=utc_now)
+
+    record: Optional[InstitutionalRecord] = Relationship(back_populates="reviews")
+
+
+class EventSeries(SQLModel, table=True):
+    __tablename__ = "event_series"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=100, index=True)
+    description: Optional[str] = None
+    is_active: bool = Field(default=True, index=True)
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class EventSeriesMember(SQLModel, table=True):
+    __tablename__ = "event_series_members"
+    __table_args__ = (
+        UniqueConstraint("target_type", "target_id", name="uq_series_member_target"),
+        Index("ix_series_members_series_year", "series_id", "fiscal_year"),
+        CheckConstraint(
+            "fiscal_year BETWEEN 1900 AND 2100",
+            name="ck_series_member_fiscal_year",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    series_id: int = Field(foreign_key="event_series.id", index=True)
+    target_type: EventSeriesMemberTargetType = Field(index=True)
+    target_id: str = Field(index=True)
+    fiscal_year: int = Field(index=True)
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class InstitutionalRecordSeriesLink(SQLModel, table=True):
+    __tablename__ = "institutional_record_series_links"
+    __table_args__ = (
+        UniqueConstraint("record_id", "series_id", name="uq_record_series_link"),
+        Index("ix_record_series_links_series_year", "series_id", "fiscal_year"),
+        CheckConstraint(
+            "fiscal_year IS NULL OR fiscal_year BETWEEN 1900 AND 2100",
+            name="ck_record_series_link_fiscal_year",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: int = Field(foreign_key="institutional_records.id", index=True)
+    series_id: int = Field(foreign_key="event_series.id", index=True)
+    fiscal_year: Optional[int] = Field(default=None, index=True)
+    source_member_id: Optional[int] = Field(
+        default=None,
+        foreign_key="event_series_members.id",
+        index=True,
+    )
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    record: Optional[InstitutionalRecord] = Relationship(back_populates="series_links")
+
+
+class RecordHighlight(SQLModel, table=True):
+    __tablename__ = "record_highlights"
+    __table_args__ = (
+        Index("ix_record_highlights_source", "source_type", "source_id"),
+        CheckConstraint("trim(excerpt) <> ''", name="ck_record_highlight_excerpt_nonempty"),
+        CheckConstraint(
+            "(status = 'promoted' AND promoted_record_id IS NOT NULL) OR "
+            "(status <> 'promoted' AND promoted_record_id IS NULL)",
+            name="ck_record_highlight_promoted_target",
+        ),
+        CheckConstraint(
+            "(status = 'suggested' AND created_via = 'ai') OR status <> 'suggested'",
+            name="ck_record_highlight_suggested_via",
+        ),
+        CheckConstraint(
+            "(series_id IS NULL AND fiscal_year IS NULL) OR "
+            "(series_id IS NOT NULL AND fiscal_year BETWEEN 1900 AND 2100)",
+            name="ck_record_highlight_series_year",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_type: HighlightSourceType = Field(default=HighlightSourceType.meeting_note, index=True)
+    source_id: str = Field(index=True)
+    excerpt: str = Field(max_length=4000)
+    origin: InstitutionalRecordOrigin = Field(
+        default=InstitutionalRecordOrigin.retrospective,
+        index=True,
+    )
+    series_id: Optional[int] = Field(default=None, foreign_key="event_series.id", index=True)
+    fiscal_year: Optional[int] = Field(default=None, index=True)
+    status: HighlightStatus = Field(default=HighlightStatus.active, index=True)
+    created_via: HighlightCreatedVia = Field(default=HighlightCreatedVia.manual)
+    promoted_record_id: Optional[int] = Field(
+        default=None,
+        foreign_key="institutional_records.id",
+    )
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    comments: List["RecordHighlightComment"] = Relationship(back_populates="highlight")
+
+
+class RecordHighlightComment(SQLModel, table=True):
+    __tablename__ = "record_highlight_comments"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    highlight_id: int = Field(foreign_key="record_highlights.id", index=True)
+    body: str = Field(max_length=2000)
+    author_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    author: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    highlight: Optional[RecordHighlight] = Relationship(back_populates="comments")
+
+
+class StaffClassroomAssignmentRole(str, Enum):
+    primary = "primary"
+    support = "support"
+    temporary = "temporary"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.primary: "主担当",
+            self.support: "補助",
+            self.temporary: "臨時",
+        }[self]
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -1693,6 +2018,45 @@ class User(SQLModel, table=True):
             self.provisioning_source,
             self.provisioning_source or "未分類",
         )
+
+
+class StaffClassroomAssignment(SQLModel, table=True):
+    __tablename__ = "staff_classroom_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "staff_user_id",
+            "classroom_id",
+            "starts_on",
+            name="uq_staff_classroom_assignment_start",
+        ),
+        Index(
+            "ix_staff_classroom_assignments_active",
+            "staff_user_id",
+            "starts_on",
+            "ends_on",
+        ),
+        CheckConstraint(
+            "ends_on IS NULL OR starts_on <= ends_on",
+            name="ck_staff_classroom_assignment_period",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    classroom_id: int = Field(foreign_key="classrooms.id", index=True)
+    assignment_role: StaffClassroomAssignmentRole = Field(
+        default=StaffClassroomAssignmentRole.primary,
+        index=True,
+    )
+    starts_on: date = Field(index=True)
+    ends_on: Optional[date] = Field(default=None, index=True)
+    is_primary: bool = Field(default=False)
+    display_order: int = Field(default=100)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    staff_user: Optional[User] = Relationship()
+    classroom: Optional[Classroom] = Relationship()
 
 
 class Calendar(SQLModel, table=True):

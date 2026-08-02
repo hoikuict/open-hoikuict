@@ -10,12 +10,11 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, text
-from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
 from child_profile_changes import build_child_profile_change_details, resolve_child_profile_change_payload
 from child_profile_history import ensure_initial_child_profile_history
-from database import create_db_and_tables, engine as default_engine
+from database import create_db_and_tables, engine
 from demo_data_generation import demo_attendance_range, seed_dynamic_demo_data
 from extended_care_fee_service import recalculate_period
 from models import (
@@ -77,6 +76,8 @@ WIPE_ORDER = [
     *list(reversed([model for _, model in MODEL_ORDER])),
 ]
 
+# These tables are generated relative to the seed execution date instead of
+# loading the fixed dates kept in the reference CSV set.
 DYNAMIC_DEMO_TABLES = {
     "events",
     "daily_contact_entries",
@@ -90,11 +91,13 @@ DYNAMIC_DEMO_TABLES = {
 DATE_FIELDS = {
     "birth_date", "enrollment_date", "withdrawal_date", "target_date", "attendance_date",
     "diagnosis_date", "source_document_date", "valid_until", "checked_at", "value_date",
+    "effective_from", "effective_to",
 }
 DATETIME_FIELDS = {
     "created_at", "updated_at", "invited_at", "last_login_at", "submitted_at", "reviewed_at",
     "read_at", "publish_start_at", "publish_end_at", "check_in_at", "check_out_at", "evaluated_at",
     "opens_at", "closes_at", "start_at", "end_at", "submitted_at", "split_from_original_start_at",
+    "charge_start_at", "actual_check_out_at", "confirmed_at",
 }
 UUID_FIELDS = {
     "id", "default_calendar_id", "owner_user_id", "calendar_id", "user_id", "actor_user_id",
@@ -110,14 +113,16 @@ BOOL_FIELDS = {
     "has_febrile_seizure", "has_nursemaids_elbow", "has_medication", "breastfed",
     "requires_followup", "is_calendar_admin",
     "is_primary", "is_archived", "is_visible", "is_all_day", "is_deleted", "is_read",
-    "is_required", "value_bool", "can_manage_child_records",
+    "is_required", "value_bool",
 }
 INT_FIELDS = {
     "id", "display_order", "child_id", "classroom_id", "family_id", "older_sibling_id", "order",
     "parent_account_id", "parent_child_link_id", "notice_id", "survey_id", "question_id", "answer_id",
     "created_by_parent_account_id", "submitted_by_parent_account_id", "staff_sort_order", "heart_rate",
     "respiratory_rate", "created_count", "updated_count", "skipped_count", "error_count", "room_id",
-    "parent_message_id", "value_scale", "display_order",
+    "parent_message_id", "value_scale", "display_order", "attendance_record_id", "rule_id",
+    "grace_minutes", "rounding_minutes", "unit_price", "daily_cap_amount", "extended_minutes",
+    "billable_units", "auto_amount", "adjustment_amount", "final_amount",
 }
 FLOAT_FIELDS = {"height_cm", "weight_kg", "head_circumference_cm", "chest_circumference_cm"}
 
@@ -233,11 +238,11 @@ def seed_extended_care_demo_data(
         "extended_care_charges": len(charges),
     }
 
-def seed(wipe: bool = False, db_engine: Engine | None = None) -> dict[str, int]:
-    resolved_engine = db_engine or default_engine
-    create_db_and_tables(resolved_engine)
+
+def seed(wipe: bool = False) -> dict[str, int]:
+    create_db_and_tables()
     counts: dict[str, int] = {}
-    with Session(resolved_engine) as session:
+    with Session(engine) as session:
         if wipe:
             wipe_all(session)
         else:
@@ -256,11 +261,6 @@ def seed(wipe: bool = False, db_engine: Engine | None = None) -> dict[str, int]:
             if table == "users":
                 for row in rows:
                     row.setdefault("provisioning_source", USER_SOURCE_WEB_DEMO)
-                    row.setdefault(
-                        "can_manage_child_records",
-                        row.get("staff_role") == "admin"
-                        or str(row.get("email", "")).startswith("office@"),
-                    )
             if table == "child_profile_change_requests":
                 for row in rows:
                     child = session.get(Child, row["child_id"])

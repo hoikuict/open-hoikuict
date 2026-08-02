@@ -10,7 +10,6 @@ from auth import (
     Role,
 )
 
-
 DEFAULT_TEST_STAFF_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 

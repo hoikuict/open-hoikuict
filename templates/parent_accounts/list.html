@@ -40,12 +40,14 @@
           </div>
           {% endif %}
         </div>
+        {% if current_user and current_user.can_manage_child_records %}
         <div class="flex flex-wrap gap-2">
           <a href="/parent-accounts/{{ notification.parent_account_id }}/edit" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">アカウントを見る</a>
           <form method="post" action="/parent-accounts/notifications/{{ notification.id }}/read">
             <button type="submit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">確認済みにする</button>
           </form>
         </div>
+        {% endif %}
       </div>
     </div>
     {% endfor %}
@@ -85,7 +87,7 @@
         </td>
         <td class="px-4 py-3 text-slate-700">
           {% if account.family %}
-          {{ account.family.identity_label }}
+          {{ account.family.family_name }}
           {% else %}
           -
           {% endif %}
