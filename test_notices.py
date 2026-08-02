@@ -17,6 +17,7 @@ from models import (
     NoticeTargetType,
 )
 import routers.notices as notices_module
+from testing_helpers import authenticate_mock_staff
 from time_utils import utc_now
 
 
@@ -38,6 +39,7 @@ class NoticeRouterTests(unittest.TestCase):
 
         self.app.dependency_overrides[notices_module.get_session] = override_get_session
         self.client = TestClient(self.app)
+        authenticate_mock_staff(self.client)
 
     def tearDown(self):
         self.client.close()
@@ -163,13 +165,8 @@ class NoticeRouterTests(unittest.TestCase):
         self.assertIn("避難訓練のお知らせ", high_only.text)
         self.assertIn("緊急連絡網", high_only.text)
         self.assertNotIn("来月の予定", high_only.text)
-        self.assertLess(
-            priority_sorted.text.index("緊急連絡網"), priority_sorted.text.index("来月の予定")
-        )
-        self.assertLess(
-            status_sorted.text.index("避難訓練のお知らせ"),
-            status_sorted.text.index("来月の予定"),
-        )
+        self.assertLess(priority_sorted.text.index("緊急連絡網"), priority_sorted.text.index("来月の予定"))
+        self.assertLess(status_sorted.text.index("避難訓練のお知らせ"), status_sorted.text.index("来月の予定"))
 
 
 if __name__ == "__main__":

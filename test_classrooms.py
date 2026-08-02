@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from auth import Role, StaffUser
 from models import Child, ChildStatus, Classroom, Family
 import routers.children as children_module
 import routers.classrooms as classrooms_module
@@ -23,6 +24,11 @@ class ClassroomManagementTests(unittest.TestCase):
         self.app = FastAPI()
         self.app.include_router(classrooms_module.router)
         self.app.include_router(children_module.router)
+        self.child_record_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="台帳担当",
+            can_manage_child_records=True,
+        )
 
         def override_get_session():
             with Session(self.engine) as session:
@@ -30,6 +36,7 @@ class ClassroomManagementTests(unittest.TestCase):
 
         self.app.dependency_overrides[classrooms_module.get_session] = override_get_session
         self.app.dependency_overrides[children_module.get_session] = override_get_session
+        self.app.dependency_overrides[children_module.get_current_staff_user] = lambda: self.child_record_user
         self.client = TestClient(self.app)
 
         with Session(self.engine) as session:
@@ -95,7 +102,7 @@ class ClassroomManagementTests(unittest.TestCase):
         self.assertEqual(updated.display_order, 3)
 
     def test_child_edit_form_can_change_classroom_from_list(self):
-        form_response = self.client.get(f"/children/{self.child_id}/edit?as=admin")
+        form_response = self.client.get(f"/children/{self.child_id}/edit")
 
         self.assertEqual(form_response.status_code, 200)
         self.assertIn('name="classroom_id"', form_response.text)
@@ -103,7 +110,7 @@ class ClassroomManagementTests(unittest.TestCase):
         self.assertIn("うさぎ組", form_response.text)
 
         update_response = self.client.post(
-            f"/children/{self.child_id}/edit?as=admin",
+            f"/children/{self.child_id}/edit",
             data={
                 "last_name": "田中",
                 "first_name": "さくら",

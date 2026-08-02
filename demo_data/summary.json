@@ -56,7 +56,9 @@
     "survey_answers": 68,
     "survey_responses": 144,
     "profile_change_notifications": 10,
-    "child_profile_change_requests": 10
+    "child_profile_change_requests": 10,
+    "extended_care_fee_rules": 1,
+    "extended_care_charges": 1986
   },
   "import_compatible_files": [
     "demo_data/import_compatible/classrooms.csv",
@@ -68,6 +70,7 @@
   "notes": [
     "氏名、住所、電話番号、メールアドレスはすべて架空です。",
     "保護者メールアドレスには demo.open-hoikuict.example ドメインを使用しています。",
-    "登降園・日次連絡の対象期間は 2026-04-13 から 2026-05-15 までです。土日と一部の祝日を除いています。"
+    "登降園・日次連絡の対象期間は 2026-04-13 から 2026-05-15 までです。土日と一部の祝日を除いています。",
+    "延長保育料金は seed 時に登降園記録から生成され、18:00 開始、5分猶予、15分単位、100円単価のデモルールで計算済みです。"
   ]
 }

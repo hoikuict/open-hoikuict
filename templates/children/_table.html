@@ -49,6 +49,13 @@
               {% else %}
               <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">退園</span>
               {% endif %}
+            {% elif key == "family_name" %}
+              {% if child.family %}
+              <span>{{ child.family.family_name }}</span>
+              <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ child.family.display_code }}</span>
+              {% else %}
+              <span class="text-slate-300">-</span>
+              {% endif %}
             {% elif key == "allergy" %}
               {% set allergies = child.extra_data.allergy if child.extra_data and child.extra_data.allergy else [] %}
               {% if allergies %}
@@ -63,11 +70,6 @@
               {{ notes if notes else "-" }}
             {% elif key == "age" %}
               {{ child.age }}歳
-            {% elif key == "family_name" %}
-              {{ child.family.family_name if child.family else "-" }}
-              {% if child.family %}
-              <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{{ child.family.display_code }}</span>
-              {% endif %}
             {% else %}
               {{ child.get_field(key) or "-" }}
             {% endif %}

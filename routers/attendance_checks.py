@@ -78,7 +78,7 @@ class AttendanceCheckRow:
 
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
-        return date.today()
+        return local_today()
     try:
         return date.fromisoformat(raw)
     except ValueError as exc:
@@ -406,14 +406,12 @@ def update_attendance_verification(
             child_id=child_id,
             target_date=target_day,
             status=next_status,
-            updated_by_staff_id=current_user.staff_id,
             updated_by_name=current_user.name,
             created_at=now,
             updated_at=now,
         )
     else:
         verification.status = next_status
-        verification.updated_by_staff_id = current_user.staff_id
         verification.updated_by_name = current_user.name
         verification.updated_at = now
 
@@ -422,7 +420,6 @@ def update_attendance_verification(
         child_id=child_id,
         target_date=target_day,
         status=next_status,
-        updated_by_staff_id=current_user.staff_id,
         updated_by_name=current_user.name,
         created_at=now,
     )

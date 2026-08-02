@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}職員ホーム | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6">
+  <section class="overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 text-white shadow-xl sm:p-8">
+    <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+      <div>
+        <p class="text-sm font-medium text-indigo-200">{{ portal_date }}</p>
+        <h1 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{{ greeting }}、{{ staff_record.display_name }}さん</h1>
+        <div class="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-300">
+          <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1">{{ staff_record.calendar_role_label }}</span>
+          {% if assignment_names %}
+            <span>担当: {{ assignment_names | join('、') }}{% if assignment_remaining_count %}、ほか{{ assignment_remaining_count }}クラス{% endif %}</span>
+          {% elif staff_record.staff_role == 'admin' %}
+            <span>担当クラス未設定</span>
+          {% else %}
+            <span class="text-amber-200">担当クラスが設定されていません</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <a href="{{ attention_url }}" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
+          <span class="block text-xs text-slate-300">要確認</span>
+          <strong class="mt-1 block text-2xl">{{ attention_count }}件</strong>
+        </a>
+        <a href="#attendance" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
+          <span class="block text-xs text-slate-300">在園中</span>
+          <strong class="mt-1 block text-2xl">{{ present_count }}名</strong>
+        </a>
+        <a href="#schedule" class="col-span-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15 sm:col-span-1">
+          <span class="block text-xs text-slate-300">次の予定</span>
+          {% if next_schedule %}
+          <strong class="mt-1 block truncate text-sm">{{ next_schedule.time_label }} {{ next_schedule.title }}</strong>
+          {% else %}
+          <strong class="mt-1 block text-sm">予定なし</strong>
+          {% endif %}
+        </a>
+      </div>
+    </div>
+    <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-slate-400">
+      <span>最終更新 {{ updated_time }}</span>
+      <a href="/" class="rounded-lg border border-white/15 px-3 py-2 text-slate-200 hover:bg-white/10">更新</a>
+    </div>
+  </section>
+
+  <div class="grid gap-6 lg:grid-cols-12">
+    <section id="attendance" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-7 sm:p-6">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Attendance</p>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">担当クラスの出席</h2>
+        </div>
+        {% if can_show_all %}
+        <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+          <a href="/?scope=assigned" class="rounded-lg px-3 py-2 {% if not show_all %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600{% endif %}">担当</a>
+          <a href="/?scope=all" class="rounded-lg px-3 py-2 {% if show_all %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600{% endif %}">全クラス</a>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if attendance_error %}
+      <p class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ attendance_error }}</p>
+      {% elif attendance_summaries %}
+      <div class="mt-5 space-y-4">
+        {% for summary in attendance_summaries %}
+        <article class="rounded-2xl border {% if summary.attention_count %}border-amber-200 bg-amber-50/40{% else %}border-slate-200{% endif %} p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-slate-900">{{ summary.classroom_name }}</h3>
+              {% if summary.attention_count %}<span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">要確認 {{ summary.attention_count }}</span>{% endif %}
+            </div>
+            <a href="{{ summary.attendance_url }}" class="text-sm font-semibold text-indigo-600 hover:underline">出席一覧を開く</a>
+          </div>
+          <dl class="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {% for label, value, tone in [('在籍', summary.enrolled_count, 'slate'), ('登園', summary.checked_in_count, 'sky'), ('在園中', summary.present_count, 'emerald'), ('降園', summary.checked_out_count, 'indigo'), ('欠席', summary.absent_count, 'rose'), ('未登園', summary.not_checked_in_count, 'amber')] %}
+            <div class="rounded-xl bg-{{ tone }}-50 px-2 py-3 text-center">
+              <dt class="text-xs text-slate-500">{{ label }}</dt>
+              <dd class="mt-1 text-xl font-bold text-slate-900">{{ value }}</dd>
+            </div>
+            {% endfor %}
+          </dl>
+        </article>
+        {% endfor %}
+        {% if classroom_remaining_count %}<p class="text-sm text-slate-500">ほか{{ classroom_remaining_count }}クラス</p>{% endif %}
+      </div>
+      {% else %}
+      <div class="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+        <p class="font-medium text-slate-700">担当クラスが設定されていません</p>
+        {% if current_user.is_admin %}<a href="/staff/users" class="mt-2 inline-block text-sm font-semibold text-indigo-600 hover:underline">職員管理で設定する</a>{% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section id="schedule" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-5 sm:p-6">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Today</p>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">今日の予定</h2>
+        </div>
+        <a href="/calendar?mode=day&date={{ target_date.isoformat() }}" class="text-sm font-semibold text-indigo-600 hover:underline">カレンダーへ</a>
+      </div>
+      {% if schedule_error %}
+      <p class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ schedule_error }}</p>
+      {% elif schedule_items %}
+      <ol class="mt-5 space-y-3">
+        {% for item in schedule_items %}
+        <li class="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 {% if item.state == 'finished' %}opacity-60{% endif %}">
+          <span class="mt-1 h-3 w-3 shrink-0 rounded-full" style="background-color: {{ item.calendar_color }}"></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <time class="font-bold tabular-nums text-slate-900">{{ item.time_label }}</time>
+              {% if item.state == 'current' %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">進行中</span>{% endif %}
+            </div>
+            <p class="mt-1 truncate font-medium text-slate-800">{{ item.title }}</p>
+            <p class="mt-1 truncate text-xs text-slate-500">{{ item.calendar_name }}{% if item.location %}・{{ item.location }}{% endif %}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% if schedule_remaining_count %}<p class="mt-3 text-sm text-slate-500">ほか{{ schedule_remaining_count }}件</p>{% endif %}
+      {% else %}
+      <p class="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">今日の予定はありません</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-12">
+    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-8 sm:p-6">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Timeline</p>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">連絡タイムライン</h2>
+        </div>
+        <a href="/staff-rooms/" class="text-sm font-semibold text-indigo-600 hover:underline">すべて見る</a>
+      </div>
+      {% if timeline_error %}
+      <p class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ timeline_error }}</p>
+      {% elif timeline_messages %}
+      <div class="mt-5 divide-y divide-slate-100">
+        {% for message in timeline_messages %}
+        <a href="/staff-rooms/threads/{{ message.id }}" class="block py-4 first:pt-0 last:pb-0 hover:bg-slate-50 sm:px-2">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <strong class="text-sm text-slate-900">{{ message.author_name }}</strong>
+            {% if message.room %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ message.room.name }}</span>{% endif %}
+            <time class="text-xs text-slate-400">{{ message.created_at|jst_datetime("%m-%d %H:%M") }}</time>
+          </div>
+          <p class="mt-2 line-clamp-2 whitespace-pre-line text-sm leading-6 text-slate-600">{{ message.display_body }}</p>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">タイムラインへの投稿はまだありません</p>
+      {% endif %}
+    </section>
+
+    <section id="attention" class="rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm lg:col-span-4 sm:p-6">
+      <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-600">Attention</p>
+      <h2 class="mt-1 text-xl font-bold text-slate-900">要確認</h2>
+      {% if attention_error %}
+      <p class="mt-5 text-sm text-rose-700">{{ attention_error }}</p>
+      {% else %}
+      <p class="mt-6 text-center"><strong class="text-5xl font-bold text-amber-800">{{ attention_count }}</strong><span class="ml-1 text-lg font-semibold text-amber-800">件</span></p>
+      <a href="{{ attention_url }}" class="mt-6 block rounded-2xl bg-amber-500 px-4 py-3 text-center text-sm font-bold text-white hover:bg-amber-600">要確認一覧を開く</a>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Quick access</p>
+      <h2 class="mt-1 text-xl font-bold text-slate-900">よく使う機能</h2>
+    </div>
+    <nav class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6" aria-label="よく使う機能">
+      {% set links = [
+        ('要確認一覧', '/staff/attention'),
+        ('出欠一覧', '/attendance'),
+        ('出欠確認', '/attendance-checks/'),
+        ('日次連絡', '/daily-contacts'),
+        ('カレンダー', '/calendar'),
+        ('職員ルーム', '/staff-rooms/'),
+        ('指導計画', '/plans/')
+      ] %}
+      {% for label, url in links %}
+      <a href="{{ url }}" class="flex min-h-24 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-center text-sm font-bold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700">{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </section>
+</div>
+{% endblock %}

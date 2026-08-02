@@ -12,19 +12,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from attendance_checks_service import parent_contact_label, sync_attendance_alarm
 from auth import Role, get_current_staff_user, require_can_edit
+from attendance_checks_service import sync_attendance_alarm
 from database import get_session
 from extended_care_fee_service import charge_status_label, recalculate_attendance_charge
-from models import (
-    AttendanceRecord,
-    Child,
-    ChildStatus,
-    Classroom,
-    DailyContactEntry,
-    ExtendedCareCharge,
-    ExtendedCareChargeStatus,
-)
+from models import AttendanceRecord, Child, ChildStatus, Classroom, ExtendedCareCharge, ExtendedCareChargeStatus
+from time_utils import local_naive_now, local_today, utc_now
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 from template_utils import create_templates
@@ -72,7 +65,7 @@ class AttendanceFilterParams:
 
     @property
     def has_search_filters(self) -> bool:
-        today = date.today()
+        today = local_today()
         return any(
             [
                 self.start_date != today,
@@ -123,17 +116,14 @@ class AttendanceReportRow:
     pickup_person: str
     note: str
     status: str
-    parent_contact_status: str
     extended_care_charge_id: Optional[int]
     extended_care_minutes: Optional[int]
     extended_care_amount: Optional[int]
     extended_care_status_label: str
     extended_care_requires_attention: bool
-
-
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
-        return date.today()
+        return local_today()
     try:
         return date.fromisoformat(raw)
     except ValueError as exc:
@@ -186,7 +176,7 @@ def _build_filters(
     parsed_end = _parse_optional_date(end_date)
 
     if parsed_start or parsed_end:
-        start = parsed_start or parsed_end or date.today()
+        start = parsed_start or parsed_end or local_today()
         end = parsed_end or parsed_start or start
     else:
         day = _parse_target_date(target_date)
@@ -239,7 +229,6 @@ def _build_row(
     target_day: date,
     child: Child,
     record: Optional[AttendanceRecord],
-    entry: Optional[DailyContactEntry],
     charge: Optional[ExtendedCareCharge] = None,
 ) -> AttendanceReportRow:
     extended_care_status_label = "—"
@@ -275,7 +264,6 @@ def _build_row(
         pickup_person=record.pickup_person if record and record.pickup_person else "",
         note=record.note if record and record.note else "",
         status=_attendance_status(record),
-        parent_contact_status=parent_contact_label(entry),
         extended_care_charge_id=extended_care_charge_id,
         extended_care_minutes=extended_care_minutes,
         extended_care_amount=extended_care_amount,
@@ -421,16 +409,6 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
             AttendanceRecord.attendance_date <= filters.end_date,
         )
     ).all()
-    entries = session.exec(
-        select(DailyContactEntry).where(
-            DailyContactEntry.target_date >= filters.start_date,
-            DailyContactEntry.target_date <= filters.end_date,
-        )
-    ).all()
-    entry_by_child_and_date = {
-        (entry.child_id, entry.target_date): entry
-        for entry in entries
-    }
     charges_by_record_id = _load_charges_by_record_id(session, records)
 
     if filters.is_single_day:
@@ -449,30 +427,14 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
                 continue
             record = records_by_child.get(child.id)
             charge = charges_by_record_id.get(record.id) if record and record.id is not None else None
-            rows.append(
-                _build_row(
-                    filters.start_date,
-                    child,
-                    record,
-                    entry_by_child_and_date.get((child.id or 0, filters.start_date)),
-                    charge,
-                )
-            )
+            rows.append(_build_row(filters.start_date, child, record, charge))
     else:
         rows = []
         for record in records:
             child = children_by_id.get(record.child_id)
             if child is None:
                 continue
-            rows.append(
-                _build_row(
-                    record.attendance_date,
-                    child,
-                    record,
-                    entry_by_child_and_date.get((record.child_id, record.attendance_date)),
-                    charges_by_record_id.get(record.id) if record.id is not None else None,
-                )
-            )
+            rows.append(_build_row(record.attendance_date, child, record, charges_by_record_id.get(record.id)))
 
     filtered_rows = [
         row
@@ -510,7 +472,6 @@ def _export_headers() -> list[str]:
         "状態",
         "お迎え予定時刻",
         "お迎え予定者",
-        "保護者連絡",
         "備考",
         "延長分数",
         "延長料金",
@@ -531,7 +492,6 @@ def _export_rows(rows: list[AttendanceReportRow]) -> list[list[str]]:
             row.status,
             row.planned_pickup_time,
             row.pickup_person,
-            row.parent_contact_status,
             row.note,
             str(row.extended_care_minutes) if row.extended_care_minutes is not None else "",
             str(row.extended_care_amount) if row.extended_care_amount is not None else "",
@@ -836,16 +796,17 @@ def check_in(
         )
     ).first()
 
-    now = datetime.now()
+    now = local_naive_now()
+    audit_now = utc_now()
     if not record:
         record = AttendanceRecord(child_id=child_id, attendance_date=day, check_in_at=now)
     elif record.check_in_at is None:
         record.check_in_at = now
 
-    record.updated_at = now
+    record.updated_at = audit_now
     session.add(record)
     session.flush()
-    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=now)
+    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=audit_now)
     session.commit()
 
     return RedirectResponse(url=_build_redirect_url(day, return_query), status_code=303)
@@ -878,15 +839,16 @@ def check_out(
     if not record or record.check_in_at is None:
         raise HTTPException(status_code=400, detail="先に登園打刻を行ってください")
 
-    now = datetime.now()
+    now = local_naive_now()
+    audit_now = utc_now()
     if record.check_out_at is None:
         record.check_out_at = now
-    record.updated_at = now
+    record.updated_at = audit_now
 
     session.add(record)
     session.flush()
     recalculate_attendance_charge(session, record)
-    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=now)
+    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=audit_now)
     session.commit()
 
     return RedirectResponse(url=_build_redirect_url(day, return_query), status_code=303)

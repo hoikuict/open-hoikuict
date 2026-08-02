@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}要確認一覧 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-6">
+  <section class="rounded-3xl bg-slate-950 p-6 text-white shadow-xl sm:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="text-sm font-medium text-amber-300">{{ portal_date }}</p>
+        <h1 class="mt-2 text-2xl font-bold sm:text-3xl">{{ staff_record.display_name }}さんの要確認</h1>
+        <p class="mt-2 text-sm text-slate-300">担当クラスの出欠と、本人宛ての未回答アンケートを一覧にしています。</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-center">
+        <span class="block text-xs text-slate-300">要確認</span>
+        <strong class="mt-1 block text-3xl">{{ attention_count }}件</strong>
+      </div>
+    </div>
+    <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+      <div class="flex gap-2 text-xs">
+        <span class="rounded-full bg-white/10 px-3 py-1">出欠 {{ attendance_attention_count }}件</span>
+        <span class="rounded-full bg-white/10 px-3 py-1">アンケート {{ survey_attention_count }}件</span>
+      </div>
+      <a href="/" class="text-sm font-semibold text-indigo-200 hover:underline">ポータルへ戻る</a>
+    </div>
+  </section>
+
+  {% if can_show_all %}
+  <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+    <a href="/staff/attention?scope=assigned" class="rounded-lg px-3 py-2 {% if not show_all %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600{% endif %}">担当</a>
+    <a href="/staff/attention?scope=all" class="rounded-lg px-3 py-2 {% if show_all %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600{% endif %}">全クラス</a>
+  </div>
+  {% endif %}
+
+  {% if attention_error %}
+  <p class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ attention_error }}</p>
+  {% elif attention_items %}
+  <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div class="divide-y divide-slate-100">
+      {% for item in attention_items %}
+      <a href="{{ item.url }}" class="flex items-start gap-4 p-5 hover:bg-slate-50 sm:px-6">
+        <span class="rounded-lg {% if item.severity == 'high' %}bg-rose-100 text-rose-700{% else %}bg-indigo-100 text-indigo-700{% endif %} px-2 py-1 text-xs font-bold">{{ item.kind_label }}</span>
+        <span class="min-w-0 flex-1">
+          <strong class="block text-slate-900">{{ item.title }}</strong>
+          <span class="mt-1 block text-sm text-slate-500">{{ item.detail }}</span>
+        </span>
+        <span class="shrink-0 text-sm font-semibold text-indigo-600">確認する</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <p class="rounded-3xl bg-emerald-50 p-8 text-center font-medium text-emerald-700">現在、確認が必要な項目はありません。</p>
+  {% endif %}
+</div>
+{% endblock %}

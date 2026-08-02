@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
@@ -68,6 +66,7 @@ def parent_account_list(
         .order_by(ProfileChangeNotification.created_at.desc())
     ).all()
     return templates.TemplateResponse(
+        request,
         "parent_accounts/list.html",
         {
             "request": request,
@@ -86,6 +85,7 @@ def new_parent_account_form(
 ):
     require_child_record_manager(current_user)
     return templates.TemplateResponse(
+        request,
         "parent_accounts/form.html",
         {
             "request": request,
@@ -153,6 +153,7 @@ def edit_parent_account_form(
     require_child_record_manager(current_user)
     account = _load_account(session, account_id)
     return templates.TemplateResponse(
+        request,
         "parent_accounts/form.html",
         {
             "request": request,

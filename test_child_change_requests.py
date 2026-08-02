@@ -20,6 +20,7 @@ from models import (
     ParentAccountStatus,
 )
 import routers.child_change_requests as child_change_requests_module
+from testing_helpers import authenticate_mock_staff
 import routers.parent_portal as parent_portal_module
 
 
@@ -34,6 +35,7 @@ class ChildChangeRequestTests(unittest.TestCase):
 
         self.app = FastAPI()
         self.app.include_router(parent_portal_module.router)
+        self.app.include_router(parent_portal_module.mock_login_router)
         self.app.include_router(child_change_requests_module.router)
 
         def override_get_session():
@@ -44,6 +46,7 @@ class ChildChangeRequestTests(unittest.TestCase):
         self.app.dependency_overrides[child_change_requests_module.get_session] = override_get_session
 
         self.client = TestClient(self.app)
+        authenticate_mock_staff(self.client)
 
         with Session(self.engine) as session:
             classroom = Classroom(name="Class A", display_order=1)
@@ -246,7 +249,7 @@ class ChildChangeRequestTests(unittest.TestCase):
         self.assertEqual(family.home_address, "New Home")
         self.assertEqual(change_request.status, ChildProfileChangeRequestStatus.approved)
         self.assertEqual(change_request.review_note, "Looks good")
-        self.assertEqual(profile_history.actor_name, "モック職員")
+        self.assertEqual(profile_history.actor_name, "テスト職員")
         self.assertEqual(profile_history.snapshot["_history_source"], "parent_request")
         self.assertEqual(profile_history.snapshot["_requester_name"], "Ito Parent")
 
