@@ -12,7 +12,15 @@ from auth import (
     MOCK_STAFF_NAME_COOKIE,
 )
 import database
-from models import USER_SOURCE_LOCAL_SAMPLE, USER_SOURCE_MANUAL, USER_SOURCE_WEB_DEMO, User
+from models import (
+    USER_SOURCE_LOCAL_SAMPLE,
+    USER_SOURCE_MANUAL,
+    USER_SOURCE_WEB_DEMO,
+    Classroom,
+    StaffClassroomAssignment,
+    StaffClassroomAssignmentRole,
+    User,
+)
 import routers.staff_auth as staff_auth_module
 from testing_helpers import configure_test_environment
 
@@ -83,7 +91,7 @@ class StaffAuthRouterTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('action="/staff/login"', response.text)
-        self.assertIn('name="redirect_to" value="/children"', response.text)
+        self.assertIn('name="redirect_to" value="/staff-rooms/"', response.text)
         self.assertEqual(response.text.count('name="user_id"'), 2)
         self.assertIn("職員ログイン", response.text)
         self.assertIn("未ログイン", response.text)
@@ -104,12 +112,36 @@ class StaffAuthRouterTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers["location"], "/children")
+        self.assertEqual(response.headers["location"], "/staff-rooms/")
         set_cookie = response.headers.get("set-cookie", "")
         self.assertIn(f"{MOCK_ROLE_COOKIE}=admin", set_cookie)
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CALENDAR_USER_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CHILD_RECORDS_PERMISSION_COOKIE}=1", set_cookie)
+
+    def test_non_admin_login_from_staff_management_redirects_to_portal_home(self):
+        with Session(self.engine) as session:
+            teacher = User(
+                email="teacher@example.com",
+                display_name="ひよこ組担任",
+                staff_role="can_edit",
+                staff_sort_order=60,
+            )
+            session.add(teacher)
+            session.commit()
+            teacher_id = teacher.id
+
+        response = self.client.post(
+            "/staff/login",
+            data={
+                "user_id": str(teacher_id),
+                "redirect_to": f"/staff/users/{teacher_id}/classrooms",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/")
 
     def test_logout_clears_staff_and_calendar_cookies(self):
         self.client.post(
@@ -136,6 +168,23 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertEqual(login_page.status_code, 200)
         self.assertIn("未ログイン", login_page.text)
         self.assertNotIn("ログイン中</p>\n          <p class=\"mt-2 text-base font-semibold\">園長", login_page.text)
+
+    def test_default_login_and_logout_return_to_portal_home(self):
+        login_response = self.client.post(
+            "/staff/login",
+            data={"user_id": str(self.principal_id), "redirect_to": "/"},
+            follow_redirects=False,
+        )
+        self.assertEqual(login_response.status_code, 303)
+        self.assertEqual(login_response.headers["location"], "/")
+
+        logout_response = self.client.post(
+            "/staff/logout",
+            data={"redirect_to": "/"},
+            follow_redirects=False,
+        )
+        self.assertEqual(logout_response.status_code, 303)
+        self.assertEqual(logout_response.headers["location"], "/")
 
     def test_seed_calendar_data_restores_full_staff_users(self):
         original_engine = database.engine
@@ -275,6 +324,156 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertEqual(filtered_response.status_code, 200)
         self.assertIn("デモ園長", filtered_response.text)
         self.assertNotIn("早番パート", filtered_response.text)
+
+    def test_admin_can_add_staff_classroom_assignment(self):
+        with Session(self.engine) as session:
+            classroom = Classroom(name="ひよこ組", display_order=1)
+            session.add(classroom)
+            session.commit()
+            classroom_id = classroom.id
+
+        self._login_admin()
+        response = self.client.post(
+            f"/staff/users/{self.principal_id}/classrooms",
+            data={
+                "classroom_id": str(classroom_id),
+                "assignment_role": "primary",
+                "starts_on": "2026-04-01",
+                "ends_on": "",
+                "is_primary": "1",
+                "display_order": "10",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            f"/staff/users/{self.principal_id}/classrooms",
+        )
+        with Session(self.engine) as session:
+            assignment = session.exec(
+                select(StaffClassroomAssignment).where(
+                    StaffClassroomAssignment.staff_user_id == self.principal_id
+                )
+            ).one()
+        self.assertEqual(assignment.classroom_id, classroom_id)
+        self.assertEqual(assignment.assignment_role, StaffClassroomAssignmentRole.primary)
+        self.assertTrue(assignment.is_primary)
+
+        page = self.client.get(f"/staff/users/{self.principal_id}/classrooms")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("ひよこ組", page.text)
+        self.assertIn("主担当", page.text)
+
+    def test_assignment_period_overlap_is_rejected(self):
+        with Session(self.engine) as session:
+            classroom = Classroom(name="ひよこ組", display_order=1)
+            session.add(classroom)
+            session.flush()
+            session.add(
+                StaffClassroomAssignment(
+                    staff_user_id=self.principal_id,
+                    classroom_id=classroom.id,
+                    starts_on=staff_auth_module.local_today(),
+                )
+            )
+            session.commit()
+            classroom_id = classroom.id
+
+        self._login_admin()
+        response = self.client.post(
+            f"/staff/users/{self.principal_id}/classrooms",
+            data={
+                "classroom_id": str(classroom_id),
+                "assignment_role": "support",
+                "starts_on": staff_auth_module.local_today().isoformat(),
+                "ends_on": "",
+                "display_order": "20",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("担当期間が重複しています", response.text)
+        self.assertIn("別の職員を選んで追加してください", response.text)
+
+    def test_same_class_can_be_assigned_to_multiple_staff(self):
+        with Session(self.engine) as session:
+            classroom = Classroom(name="りす組（1歳児）", display_order=2)
+            second_staff = User(
+                email="second-teacher@example.com",
+                display_name="りす組担任B",
+                staff_role="can_edit",
+                staff_sort_order=71,
+            )
+            session.add_all([classroom, second_staff])
+            session.commit()
+            classroom_id = classroom.id
+            second_staff_id = second_staff.id
+
+        self._login_admin()
+        for staff_user_id in (self.principal_id, second_staff_id):
+            response = self.client.post(
+                f"/staff/users/{staff_user_id}/classrooms",
+                data={
+                    "classroom_id": str(classroom_id),
+                    "assignment_role": "primary",
+                    "starts_on": "2026-04-01",
+                    "ends_on": "",
+                    "display_order": "10",
+                },
+                follow_redirects=False,
+            )
+            self.assertEqual(response.status_code, 303)
+
+        with Session(self.engine) as session:
+            assignments = session.exec(
+                select(StaffClassroomAssignment).where(
+                    StaffClassroomAssignment.classroom_id == classroom_id
+                )
+            ).all()
+
+        self.assertEqual(len(assignments), 2)
+        self.assertEqual(
+            {item.staff_user_id for item in assignments},
+            {self.principal_id, second_staff_id},
+        )
+
+    def test_seed_assigns_multiple_homeroom_staff_with_age_labelled_class_name(self):
+        with Session(self.engine) as session:
+            classroom = Classroom(name="りす組（1歳児）", display_order=2)
+            teachers = [
+                User(
+                    email=f"risu-{suffix}@demo.example.com",
+                    display_name=f"りす組担任{suffix}",
+                    staff_role="can_edit",
+                    staff_sort_order=70 + index,
+                    provisioning_source=USER_SOURCE_WEB_DEMO,
+                )
+                for index, suffix in enumerate(("A", "B"))
+            ]
+            session.add(classroom)
+            session.add_all(teachers)
+            session.commit()
+            classroom_id = classroom.id
+            teacher_ids = {item.id for item in teachers}
+
+        original_engine = database.engine
+        database.engine = self.engine
+        try:
+            database.seed_staff_classroom_assignments()
+        finally:
+            database.engine = original_engine
+
+        with Session(self.engine) as session:
+            assignments = session.exec(
+                select(StaffClassroomAssignment).where(
+                    StaffClassroomAssignment.classroom_id == classroom_id
+                )
+            ).all()
+
+        self.assertEqual(len(assignments), 2)
+        self.assertEqual({item.staff_user_id for item in assignments}, teacher_ids)
 
     def test_admin_cannot_remove_own_last_admin_permission(self):
         self._login_admin()

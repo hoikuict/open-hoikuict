@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 
 from auth import (
     Role,
+    StaffUser,
     clear_staff_cookies,
     get_current_staff_user_id,
     require_mock_staff_auth,
@@ -49,6 +50,12 @@ from calendar_service import (
     get_calendar_context,
 )
 from database import get_session
+from institutional_record_service import (
+    highlights_for_series,
+    load_event_series,
+    records_for_series_of,
+    series_member_for_target,
+)
 from models import (
     Calendar,
     CalendarActivityKind,
@@ -62,6 +69,7 @@ from models import (
     EventLifecycleStatus,
     EventOverride,
     EventVisibility,
+    EventSeriesMemberTargetType,
     NotificationJob,
     RecurrenceFrequency,
     RecurrenceRule,
@@ -96,6 +104,22 @@ CALENDAR_COLOR_OPTIONS = [
     {"value": "#4B5563", "label": "グレー"},
 ]
 CALENDAR_COLOR_VALUES = {item["value"] for item in CALENDAR_COLOR_OPTIONS}
+
+
+def _staff_principal_for_calendar_user(user: User) -> StaffUser:
+    role = (
+        Role.ADMIN
+        if user.staff_role == Role.ADMIN.value
+        else Role.CAN_EDIT
+        if user.staff_role == Role.CAN_EDIT.value
+        else Role.VIEW_ONLY
+    )
+    return StaffUser(
+        role=role,
+        name=user.display_name,
+        user_id=user.id,
+        can_manage_child_records=user.can_manage_child_records_effective,
+    )
 
 
 class CalendarSocketManager:
@@ -1308,6 +1332,31 @@ def event_detail(
     occurrence = find_occurrence(session, context, user, event, parse_iso_datetime(original_start_at))
     if occurrence is None:
         raise HTTPException(status_code=404, detail="対象の予定が見つかりません。")
+    series = None
+    series_member = None
+    prior_record_views = []
+    prior_highlights = []
+    if occurrence.can_view_details:
+        series_member = series_member_for_target(
+            session,
+            EventSeriesMemberTargetType.event,
+            event.id,
+        )
+        if series_member is not None:
+            principal = _staff_principal_for_calendar_user(user)
+            series = load_event_series(session, series_member.series_id)
+            prior_record_views = records_for_series_of(
+                session,
+                principal,
+                EventSeriesMemberTargetType.event,
+                event.id,
+            )
+            prior_highlights = highlights_for_series(
+                session,
+                principal,
+                series_member.series_id,
+                before_fiscal_year=series_member.fiscal_year,
+            )
     return templates.TemplateResponse(
         request,
         "calendar/_event_detail.html",
@@ -1318,6 +1367,10 @@ def event_detail(
             "event": event,
             "user_timezone": user.timezone,
             "format_datetime_local": format_datetime_local,
+            "event_series": series,
+            "series_member": series_member,
+            "prior_record_views": prior_record_views,
+            "prior_highlights": prior_highlights,
         },
     )
 

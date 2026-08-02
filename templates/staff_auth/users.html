@@ -69,7 +69,10 @@
           {% endif %}
         </td>
         <td class="px-4 py-3">
-          <a href="/staff/users/{{ user.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
+          <div class="flex flex-wrap gap-2">
+            <a href="/staff/users/{{ user.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
+            <a href="/staff/users/{{ user.id }}/classrooms" class="rounded border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-100">担当クラス</a>
+          </div>
         </td>
       </tr>
       {% else %}

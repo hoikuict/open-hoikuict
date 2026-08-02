@@ -670,6 +670,17 @@ def seed_sample_data() -> None:
         session.commit()
 
 
+def seed_debug_demo_data() -> dict[str, int]:
+    """Create rolling operational data for local mock-auth development."""
+
+    from demo_data_generation import seed_dynamic_demo_data
+
+    with Session(engine) as session:
+        counts = seed_dynamic_demo_data(session)
+        session.commit()
+        return counts
+
+
 def seed_parent_portal_data() -> None:
     from models import (
         Child,
@@ -1107,3 +1118,71 @@ def seed_calendar_data() -> None:
                 ensure_preference(calendar, user, display_order=20 + index * 10)
 
         session.commit()
+
+
+def seed_staff_classroom_assignments() -> None:
+    """Give bundled demo homeroom users an explicit current classroom assignment."""
+    from models import (
+        Classroom,
+        StaffClassroomAssignment,
+        StaffClassroomAssignmentRole,
+        USER_SOURCE_LOCAL_SAMPLE,
+        USER_SOURCE_WEB_DEMO,
+        User,
+    )
+
+    today = local_today()
+    fiscal_year_start = date(today.year if today.month >= 4 else today.year - 1, 4, 1)
+    with Session(engine) as session:
+        classrooms = session.exec(
+            select(Classroom).order_by(Classroom.display_order, Classroom.id)
+        ).all()
+        users = session.exec(
+            select(User).where(
+                User.is_active.is_(True),
+                User.provisioning_source.in_(
+                    {USER_SOURCE_LOCAL_SAMPLE, USER_SOURCE_WEB_DEMO}
+                ),
+            )
+        ).all()
+        changed = False
+        for user in users:
+            classroom = next(
+                (
+                    item
+                    for item in classrooms
+                    if user.display_name.strip().startswith(
+                        item.name.split("（", 1)[0].strip()
+                    )
+                    and "担任" in user.display_name
+                ),
+                None,
+            )
+            if classroom is None or classroom.id is None:
+                continue
+            existing = session.exec(
+                select(StaffClassroomAssignment).where(
+                    StaffClassroomAssignment.staff_user_id == user.id,
+                    StaffClassroomAssignment.classroom_id == classroom.id,
+                    StaffClassroomAssignment.starts_on <= today,
+                    (
+                        StaffClassroomAssignment.ends_on.is_(None)
+                        | (StaffClassroomAssignment.ends_on >= today)
+                    ),
+                )
+            ).first()
+            if existing is not None:
+                continue
+            session.add(
+                StaffClassroomAssignment(
+                    staff_user_id=user.id,
+                    classroom_id=classroom.id,
+                    assignment_role=StaffClassroomAssignmentRole.primary,
+                    starts_on=fiscal_year_start,
+                    is_primary=True,
+                    display_order=classroom.display_order,
+                )
+            )
+            changed = True
+        if changed:
+            session.commit()

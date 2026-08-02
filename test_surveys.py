@@ -259,6 +259,7 @@ class SurveyFeatureTests(unittest.TestCase):
         list_response = self.client.get("/staff-surveys/")
         self.assertEqual(list_response.status_code, 200)
         self.assertIn("職員アンケート", list_response.text)
+        self.assertIn("佐藤先生 さん宛てのアンケートです。", list_response.text)
 
         response = self.client.post(
             f"/staff-surveys/{self.staff_survey_id}",

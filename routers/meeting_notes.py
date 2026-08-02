@@ -12,7 +12,12 @@ from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit, resolve_staff_principal
 from database import get_session
-from models import MeetingNote
+from institutional_record_service import (
+    fiscal_year_for_datetime,
+    highlights_for_source,
+    list_event_series,
+)
+from models import HighlightSourceType, InstitutionalRecordOrigin, MeetingNote
 from time_utils import utc_now
 from security_config import websocket_origin_allowed
 
@@ -137,6 +142,13 @@ def meeting_note_detail(
     current_user=Depends(get_current_staff_user),
 ):
     note = _load_meeting_note(session, note_id)
+    highlights = highlights_for_source(
+        session,
+        current_user,
+        HighlightSourceType.meeting_note,
+        note_id,
+    )
+    event_series_list = list_event_series(session)
     return templates.TemplateResponse(
         request,
         "meeting_notes/detail.html",
@@ -144,6 +156,11 @@ def meeting_note_detail(
             "note": note,
             "current_user": current_user,
             "editor_user_name": _display_name(current_user),
+            "highlights": highlights,
+            "event_series_list": event_series_list,
+            "event_series_by_id": {item.id: item for item in event_series_list},
+            "record_origin_options": list(InstitutionalRecordOrigin),
+            "suggested_fiscal_year": fiscal_year_for_datetime(note.created_at),
         },
     )
 

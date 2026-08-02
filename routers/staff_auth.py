@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -21,10 +22,13 @@ from models import (
     USER_SOURCE_MANUAL,
     USER_SOURCE_SYSTEM,
     USER_SOURCE_WEB_DEMO,
+    Classroom,
+    StaffClassroomAssignment,
+    StaffClassroomAssignmentRole,
     User,
 )
 from staff_user_service import list_active_staff_users
-from time_utils import utc_now
+from time_utils import local_today, utc_now
 from url_utils import safe_internal_redirect
 
 
@@ -34,8 +38,8 @@ from template_utils import create_templates
 
 templates = create_templates()
 
-DEFAULT_STAFF_REDIRECT = "/children"
-DEFAULT_LOGOUT_REDIRECT = "/staff/login"
+DEFAULT_STAFF_REDIRECT = "/"
+DEFAULT_LOGOUT_REDIRECT = "/"
 STAFF_ROLE_OPTIONS = [
     ("admin", "管理者"),
     ("can_edit", "編集可"),
@@ -59,6 +63,14 @@ def _role_from_user(user: User) -> Role:
     if user.staff_role == "view_only":
         return Role.VIEW_ONLY
     return Role.CAN_EDIT
+
+
+def _login_redirect_for_user(user: User, requested_redirect: str) -> str:
+    """Return a page the selected staff member is allowed to open."""
+    target = safe_internal_redirect(requested_redirect, DEFAULT_STAFF_REDIRECT)
+    if user.staff_role != "admin" and target.startswith("/staff/users"):
+        return DEFAULT_STAFF_REDIRECT
+    return target
 
 
 def _normalize_staff_role(raw_role: str) -> str:
@@ -187,7 +199,7 @@ def staff_login_page(
     current_user=Depends(get_optional_current_staff_user),
     session: Session = Depends(get_session),
 ):
-    del redirect
+    target = safe_internal_redirect(redirect, DEFAULT_STAFF_REDIRECT)
     users = list_active_staff_users(session)
     return templates.TemplateResponse(
         request,
@@ -195,7 +207,7 @@ def staff_login_page(
         {
             "request": request,
             "current_user": current_user,
-            "redirect_to": DEFAULT_STAFF_REDIRECT,
+            "redirect_to": target,
             "users": users,
         },
     )
@@ -207,8 +219,6 @@ def staff_login(
     redirect_to: str = Form(DEFAULT_STAFF_REDIRECT),
     session: Session = Depends(get_session),
 ):
-    del redirect_to
-    target = DEFAULT_STAFF_REDIRECT
     try:
         user_uuid = UUID(str(user_id).strip())
     except (TypeError, ValueError):
@@ -217,6 +227,7 @@ def staff_login(
     if user is None or not user.is_active:
         return RedirectResponse(url="/staff/login", status_code=303)
 
+    target = _login_redirect_for_user(user, redirect_to)
     response = RedirectResponse(url=target, status_code=303)
     set_staff_cookies(
         response,
@@ -420,3 +431,201 @@ def update_staff_user(
     session.add(user)
     session.commit()
     return RedirectResponse(url="/staff/users", status_code=303)
+
+
+def _parse_assignment_date(raw: str, *, required: bool) -> date | None:
+    value = raw.strip()
+    if not value:
+        if required:
+            raise ValueError("日付を入力してください。")
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("日付は YYYY-MM-DD 形式で入力してください。") from exc
+
+
+def _assignment_form_context(
+    request: Request,
+    *,
+    current_user,
+    user: User,
+    session: Session,
+    form_error: str = "",
+    form_data: dict[str, object] | None = None,
+):
+    assignments = session.exec(
+        select(StaffClassroomAssignment)
+        .where(StaffClassroomAssignment.staff_user_id == user.id)
+        .order_by(
+            StaffClassroomAssignment.starts_on.desc(),
+            StaffClassroomAssignment.display_order,
+            StaffClassroomAssignment.id.desc(),
+        )
+    ).all()
+    classrooms = session.exec(
+        select(Classroom).order_by(Classroom.display_order, Classroom.id)
+    ).all()
+    classroom_by_id = {item.id: item for item in classrooms}
+    assignment_rows = [
+        {"assignment": item, "classroom": classroom_by_id.get(item.classroom_id)}
+        for item in assignments
+    ]
+    default_data = {
+        "classroom_id": "",
+        "assignment_role": StaffClassroomAssignmentRole.primary.value,
+        "starts_on": local_today().isoformat(),
+        "ends_on": "",
+        "is_primary": False,
+        "display_order": 100,
+    }
+    return templates.TemplateResponse(
+        request,
+        "staff_auth/classroom_assignments.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "user": user,
+            "classrooms": classrooms,
+            "assignment_rows": assignment_rows,
+            "assignment_role_options": [
+                (item.value, item.label) for item in StaffClassroomAssignmentRole
+            ],
+            "today": local_today(),
+            "form_error": form_error,
+            "form_data": {**default_data, **(form_data or {})},
+        },
+        status_code=400 if form_error else 200,
+    )
+
+
+@router.get("/users/{user_id}/classrooms", response_class=HTMLResponse)
+def staff_classroom_assignments(
+    request: Request,
+    user_id: UUID,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_admin(current_user)
+    user = session.get(User, user_id)
+    if user is None:
+        return RedirectResponse(url="/staff/users", status_code=303)
+    return _assignment_form_context(
+        request,
+        current_user=current_user,
+        user=user,
+        session=session,
+    )
+
+
+@router.post("/users/{user_id}/classrooms")
+def add_staff_classroom_assignment(
+    request: Request,
+    user_id: UUID,
+    classroom_id: int = Form(...),
+    assignment_role: str = Form(StaffClassroomAssignmentRole.primary.value),
+    starts_on: str = Form(...),
+    ends_on: str = Form(""),
+    is_primary: str = Form(""),
+    display_order: int = Form(100),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_admin(current_user)
+    user = session.get(User, user_id)
+    classroom = session.get(Classroom, classroom_id)
+    if user is None or classroom is None:
+        return RedirectResponse(url="/staff/users", status_code=303)
+
+    form_data = {
+        "classroom_id": str(classroom_id),
+        "assignment_role": assignment_role,
+        "starts_on": starts_on,
+        "ends_on": ends_on,
+        "is_primary": _checked(is_primary),
+        "display_order": display_order,
+    }
+    try:
+        start_date = _parse_assignment_date(starts_on, required=True)
+        end_date = _parse_assignment_date(ends_on, required=False)
+        role = StaffClassroomAssignmentRole(assignment_role)
+        if end_date is not None and start_date is not None and end_date < start_date:
+            raise ValueError("終了日は開始日以降にしてください。")
+    except (ValueError, TypeError) as exc:
+        message = str(exc) if str(exc) else "担当区分が不正です。"
+        return _assignment_form_context(
+            request,
+            current_user=current_user,
+            user=user,
+            session=session,
+            form_error=message,
+            form_data=form_data,
+        )
+
+    existing_items = session.exec(
+        select(StaffClassroomAssignment).where(
+            StaffClassroomAssignment.staff_user_id == user.id,
+            StaffClassroomAssignment.classroom_id == classroom_id,
+        )
+    ).all()
+    for item in existing_items:
+        existing_end = item.ends_on or date.max
+        new_end = end_date or date.max
+        if start_date <= existing_end and item.starts_on <= new_end:
+            return _assignment_form_context(
+                request,
+                current_user=current_user,
+                user=user,
+                session=session,
+                form_error=(
+                    "この職員には、同じクラスで担当期間が重複しています。"
+                    "同じクラスへ複数の職員を置く場合は、職員一覧から別の職員を選んで追加してください。"
+                ),
+                form_data=form_data,
+            )
+
+    assignment = StaffClassroomAssignment(
+        staff_user_id=user.id,
+        classroom_id=classroom_id,
+        assignment_role=role,
+        starts_on=start_date,
+        ends_on=end_date,
+        is_primary=_checked(is_primary),
+        display_order=display_order,
+    )
+    session.add(assignment)
+    session.commit()
+    return RedirectResponse(url=f"/staff/users/{user.id}/classrooms", status_code=303)
+
+
+@router.post("/users/{user_id}/classrooms/{assignment_id}/end")
+def end_staff_classroom_assignment(
+    request: Request,
+    user_id: UUID,
+    assignment_id: int,
+    ends_on: str = Form(...),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_admin(current_user)
+    user = session.get(User, user_id)
+    assignment = session.get(StaffClassroomAssignment, assignment_id)
+    if user is None or assignment is None or assignment.staff_user_id != user.id:
+        return RedirectResponse(url="/staff/users", status_code=303)
+    try:
+        end_date = _parse_assignment_date(ends_on, required=True)
+        if end_date is None or end_date < assignment.starts_on:
+            raise ValueError("終了日は開始日以降にしてください。")
+    except ValueError as exc:
+        return _assignment_form_context(
+            request,
+            current_user=current_user,
+            user=user,
+            session=session,
+            form_error=str(exc),
+        )
+    assignment.ends_on = end_date
+    assignment.updated_at = utc_now()
+    session.add(assignment)
+    session.commit()
+    return RedirectResponse(url=f"/staff/users/{user.id}/classrooms", status_code=303)

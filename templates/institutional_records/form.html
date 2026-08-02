@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ submit_label }} | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-5">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">{{ submit_label }}</h1>
+      <p class="mt-1 text-sm text-slate-500">個人を特定できる園児・家庭・健康情報は本文へ転記しないでください。</p>
+    </div>
+    <a href="{{ '/records/' ~ record.id if record else '/records/' }}" class="text-sm text-indigo-600 hover:underline">戻る</a>
+  </div>
+
+  <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    {% if record %}
+    <input type="hidden" name="expected_revision_no" value="{{ record.revision_no }}">
+    {% endif %}
+    <div>
+      <label class="mb-1 block text-sm font-semibold text-slate-700">タイトル <span class="text-red-600">必須</span></label>
+      <input type="text" name="title" required maxlength="200" value="{{ record.title if record else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+    </div>
+
+    <div class="grid gap-5 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-semibold text-slate-700">由来 <span class="text-red-600">必須</span></label>
+        <select name="origin" required class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="" {% if not record %}selected{% endif %} disabled>明示的に選択してください</option>
+          {% for option in origin_options %}
+          <option value="{{ option.value }}" {% if record and record.origin.value == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-semibold text-slate-700">対象年度</label>
+        <input type="number" name="fiscal_year" min="1900" max="2100" value="{{ record.fiscal_year if record and record.fiscal_year is not none else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">「行事反省」を選ぶ場合は必須です。</p>
+      </div>
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold text-slate-700">きっかけ・背景 <span class="text-red-600">必須</span></label>
+      <textarea name="background" rows="7" required maxlength="10000" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ record.background if record else '' }}</textarea>
+      <p class="mt-1 text-xs text-slate-500">いつ、何が起きたかを個人が特定されない形で記録します。</p>
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold text-slate-700">何を防ぐ・実現するためか <span class="text-red-600">必須</span></label>
+      <textarea name="purpose" rows="4" required maxlength="4000" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ record.purpose if record else '' }}</textarea>
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-semibold text-slate-700">見直してよくなる条件</label>
+      <textarea name="revisit_condition" rows="3" maxlength="4000" class="w-full rounded-lg border border-slate-300 px-3 py-2">{{ record.revisit_condition if record and record.revisit_condition else '' }}</textarea>
+    </div>
+
+    <div class="grid gap-5 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-semibold text-slate-700">出来事の発生日</label>
+        <input type="date" name="occurred_on" value="{{ record.occurred_on.isoformat() if record and record.occurred_on else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-semibold text-slate-700">次回確認日</label>
+        <input type="date" name="review_due_on" value="{{ record.review_due_on.isoformat() if record and record.review_due_on else '' }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+      </div>
+    </div>
+
+    {% if not record %}
+    <fieldset class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <legend class="px-2 text-sm font-semibold text-slate-700">公開範囲と最初のリンク</legend>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">本文の公開範囲</label>
+        <select name="visibility" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+          {% for option in visibility_options %}
+          <option value="{{ option.value }}" {% if selected_visibility == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-slate-500">限定公開を選ぶ場合は、下でリンク先を1件指定してください。</p>
+      </div>
+      <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <input type="checkbox" name="include_initial_link" value="yes" {% if initial_link_enabled %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-indigo-600">
+        作成時にリンク先を指定する
+      </label>
+      <div class="grid gap-4 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">リンク種別</label>
+          <select name="initial_target_type" autocomplete="off" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            <option value="" {% if not initial_target_type %}selected{% endif %}>選択してください</option>
+            {% for option in target_type_options %}
+            <option value="{{ option.value }}" {% if initial_target_type == option.value %}selected{% endif %}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">対象ID</label>
+          <input type="text" name="initial_target_id" autocomplete="off" value="{{ initial_target_id }}" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="外部資料では空欄">
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">外部資料名</label>
+          <input type="text" name="initial_target_label" autocomplete="off" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="紙の園規程など">
+        </div>
+      </div>
+    </fieldset>
+    {% else %}
+    <div>
+      <label class="mb-1 block text-sm font-semibold text-slate-700">変更理由 <span class="text-red-600">必須</span></label>
+      <textarea name="change_note" rows="2" required maxlength="1000" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+      <p class="mt-1 text-xs text-slate-500">旧本文は改訂履歴に残ります。</p>
+    </div>
+    {% endif %}
+
+    <div class="flex gap-3">
+      <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700">{{ submit_label }}</button>
+      <a href="{{ '/records/' ~ record.id if record else '/records/' }}" class="rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-50">キャンセル</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
