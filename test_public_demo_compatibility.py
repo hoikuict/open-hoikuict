@@ -57,9 +57,10 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
         self.assertTrue(mock_auth_enabled())
 
     def test_http_clients_receive_isolated_demo_sessions(self):
-        with TestClient(main.app) as first_client, TestClient(main.app) as second_client:
-            first_response = first_client.get("/healthz")
-            second_response = second_client.get("/healthz")
+        with TestClient(main.app) as client:
+            first_response = client.get("/healthz")
+            client.cookies.clear()
+            second_response = client.get("/healthz")
 
             self.assertEqual(first_response.status_code, 200)
             self.assertEqual(second_response.status_code, 200)
@@ -69,7 +70,9 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
 
             manager = get_demo_session_manager()
             with Session(manager.get_engine(first_id)) as first_session:
-                child = first_session.exec(select(Child).order_by(Child.id)).first()
+                children = first_session.exec(select(Child).order_by(Child.id)).all()
+                self.assertEqual(len(children), 100)
+                child = children[0]
                 self.assertIsNotNone(child)
                 child.last_name = "SessionOne"
                 first_session.add(child)

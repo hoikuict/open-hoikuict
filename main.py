@@ -84,6 +84,14 @@ def initialize_application() -> None:
     validate_runtime_security()
     _cleanup_stale_previews()
     ensure_runtime_files()
+    if is_public_demo_enabled():
+        from scripts.seed_demo_100 import seed as seed_demo_100
+
+        seed_demo_100(wipe=True)
+        seed_staff_classroom_assignments()
+        get_demo_session_manager().prepare_base_database(export_sqlite_snapshot)
+        return
+
     create_db_and_tables()
     seed_classroom_data()
     seed_extended_care_fee_rules()
@@ -95,8 +103,6 @@ def initialize_application() -> None:
     seed_staff_classroom_assignments()
     if mock_auth_enabled():
         seed_debug_demo_data()
-    if is_public_demo_enabled():
-        get_demo_session_manager().prepare_base_database(export_sqlite_snapshot)
 
 
 @asynccontextmanager
