@@ -389,6 +389,41 @@ class ChildRecordFeatureTests(unittest.TestCase):
         self.assertIn("田中 花", draft.text)
         self.assertNotIn("佐藤 空", draft.text)
 
+    def test_view_only_user_cannot_follow_progress_record_create_link(self):
+        self.current_user = StaffUser(
+            role=Role.VIEW_ONLY,
+            name="閲覧担当",
+            user_id=uuid4(),
+            can_manage_child_records=True,
+        )
+
+        dashboard = self.client.get("/child-records/progress")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertNotIn(
+            f'/children/{self.child_id}/progress-records/new',
+            dashboard.text,
+        )
+        self.assertIn(
+            f'/children/{self.child_id}/progress-records',
+            dashboard.text,
+        )
+        self.assertIn("履歴を見る", dashboard.text)
+
+        direct = self.client.get(
+            f"/children/{self.child_id}/progress-records/new",
+            follow_redirects=False,
+        )
+        self.assertEqual(direct.status_code, 303)
+        self.assertEqual(
+            direct.headers["location"],
+            f"/children/{self.child_id}/progress-records?permission_denied=1",
+        )
+
+        redirected = self.client.get(direct.headers["location"])
+        self.assertEqual(redirected.status_code, 200)
+        self.assertIn("児童票を作成できる権限がありません", redirected.text)
+        self.assertIn("閲覧のみ", redirected.text)
+
 
 if __name__ == "__main__":
     unittest.main()

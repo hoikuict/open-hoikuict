@@ -8,10 +8,14 @@
     <div class="flex flex-wrap gap-2"><a href="/children/{{ child.id }}/records" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">記録タイムライン</a><a href="/children/{{ child.id }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">園児詳細</a></div>
   </div>
 
+  {% if permission_denied %}
+  <div role="alert" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">児童票を作成できる権限がありません。作成済みの児童票は下の履歴から確認できます。</div>
+  {% endif %}
+
   <section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div><p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">現在の対象期間</p><p class="mt-1 font-semibold text-indigo-950">{{ current_cycle.period_start.strftime('%Y/%m/%d') }}〜{{ current_cycle.period_end.strftime('%Y/%m/%d') }}</p><p class="mt-1 text-sm text-indigo-700">{{ current_cycle.interval_months }}か月周期</p></div>
-      {% if current_record %}<a href="/plans/documents/{{ current_record.id }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm">現在の児童票を開く</a>{% elif current_user.can_edit %}<a href="/children/{{ child.id }}/progress-records/new" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">児童票を入力</a>{% endif %}
+      {% if current_record %}<a href="/plans/documents/{{ current_record.id }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm">現在の児童票を開く</a>{% elif current_user.can_edit %}<a href="/children/{{ child.id }}/progress-records/new" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">児童票を入力</a>{% else %}<span class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm">閲覧のみ</span>{% endif %}
     </div>
   </section>
 
