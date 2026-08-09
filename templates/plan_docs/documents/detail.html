@@ -46,7 +46,7 @@
       <h1>{{ document.title }}</h1>
       <p class="lead">園: {{ document.nursery_label }} / クラス: {{ document.classroom_label }} / 作成者: {{ document.owner_name }}</p>
     </div>
-    <div class="document-header__actions">
+    <div class="document-header__actions no-print">
       <span class="status status--{{ document.status.value }}">{{ document.status_label }}</span>
       {% if user.can_edit and document.can_edit_body %}
         <a class="button button--primary" href="/plans/documents/{{ document.id }}/edit">修正</a>
@@ -62,15 +62,24 @@
     </section>
   {% endif %}
 
-  <section class="status-panel">
+  <section class="status-panel no-print">
     <form method="post" action="/plans/documents/{{ document.id }}/status" class="status-form">
-      {% if user.can_edit %}
-        <button class="button button--secondary" name="status" value="draft">下書きへ戻す</button>
+      <input name="lock_version" type="hidden" value="{{ lock_version }}">
+      {% if user.can_edit and document.status.value in ["draft", "rejected"] %}
         <button class="button button--primary" name="status" value="in_review">レビュー依頼</button>
       {% endif %}
-      {% if user.is_admin %}
+      {% if user.can_edit and document.status.value == "in_review" %}
+        <button class="button button--secondary" name="status" value="draft">レビューを取り下げる</button>
+      {% endif %}
+      {% if user.is_admin and document.status.value == "in_review" %}
+        <label>
+          <span>承認コメント・差戻し理由</span>
+          <input name="comment" type="text" placeholder="差戻し時は必須">
+        </label>
         <button class="button button--success" name="status" value="approved">承認</button>
         <button class="button button--danger" name="status" value="rejected">差戻し</button>
+      {% endif %}
+      {% if user.is_admin and document.status.value in ["draft", "rejected", "approved"] %}
         <button class="button button--ghost" name="status" value="archived">アーカイブ</button>
       {% endif %}
     </form>
@@ -112,5 +121,162 @@
       {{ render_schedule(document.schedule) }}
     {% endif %}
   </article>
+
+  {% if document.document_type.value == "daily_plan" %}
+    <section class="form-panel execution-change-panel">
+      <h2>当日の実施変更</h2>
+      <p class="lead">雨天等で計画を変更した場合、承認版を上書きせず、変更前後を実績として記録します。</p>
+
+      {% if execution_changes %}
+        <div class="edit-section-list">
+          {% for change in execution_changes %}
+            <article class="edit-section">
+              <div class="report-section__heading">
+                <h3>
+                  {{ reason_labels.get(change.reason_code, change.reason_code) }}による変更
+                  <span class="status">{{ impact_labels.get(change.impact_level, change.impact_level) }}</span>
+                </h3>
+              </div>
+              <p>
+                変更時刻: {{ change.changed_at }} / 記録者: {{ change.recorded_by }}
+                {% if change.approval_state_at_change == "in_review" %} / レビュー中の即時変更{% endif %}
+              </p>
+              {% if change.reason_note %}<p>理由: {{ change.reason_note }}</p>{% endif %}
+              <div class="field-grid">
+                <div>
+                  <strong>変更前</strong>
+                  {% if change.before_snapshot.get("row_key") %}
+                    <p>{{ change.before_snapshot.get("start_time", "") }} {{ change.before_snapshot.get("label", "") }}</p>
+                    {% for column_key, cell in change.before_snapshot.get("cells", {}).items() %}
+                      {% if cell.get("body") %}<p>{{ cell.get("body") }}</p>{% endif %}
+                    {% endfor %}
+                  {% else %}
+                    <p>文書全体の計画から変更</p>
+                  {% endif %}
+                </div>
+                <div>
+                  <strong>変更後</strong>
+                  <p>{{ change.after_snapshot.get("time_label", "") }} {{ change.after_snapshot.get("heading", "") }}</p>
+                  <p>{{ change.after_snapshot.get("details", "") }}</p>
+                </div>
+              </div>
+              {% if change.confirmation_status == "pending" %}
+                <div class="notice"><strong>事後確認待ち</strong></div>
+                {% if user.is_admin %}
+                  <form method="post" action="/plans/documents/{{ document.id }}/execution-changes/{{ change.id }}/confirm">
+                    <label>
+                      <span>確認コメント</span>
+                      <input name="confirmation_comment" type="text">
+                    </label>
+                    <button class="button button--success" type="submit">実施変更を確認</button>
+                  </form>
+                {% endif %}
+              {% elif change.confirmation_status == "confirmed" %}
+                <p class="inline-note">確認済み: {{ change.confirmed_by }} / {{ change.confirmed_at }}{% if change.confirmation_comment %} / {{ change.confirmation_comment }}{% endif %}</p>
+              {% else %}
+                <p class="inline-note">軽微な変更（事後確認不要）</p>
+              {% endif %}
+              {% if change.corrects_change_id %}
+                <p class="inline-note">実施変更 #{{ change.corrects_change_id }} の訂正</p>
+              {% endif %}
+              {% if user.can_edit %}
+                <details class="no-print">
+                  <summary>この記録を訂正する</summary>
+                  <form method="post" action="/plans/documents/{{ document.id }}/execution-changes/{{ change.id }}/corrections">
+                    <input name="changed_at" type="hidden" value="{{ changed_at_default }}">
+                    <label>
+                      <span>訂正理由</span>
+                      <input name="correction_note" type="text" required>
+                    </label>
+                    <div class="field-grid">
+                      <label>
+                        <span>訂正後の活動</span>
+                        <input name="after_heading" type="text" value="{{ change.after_snapshot.get('heading', '') }}" required>
+                      </label>
+                      <label>
+                        <span>訂正後の時刻</span>
+                        <input name="after_time_label" type="text" value="{{ change.after_snapshot.get('time_label', '') }}">
+                      </label>
+                    </div>
+                    <label>
+                      <span>訂正後の内容</span>
+                      <textarea name="after_details" rows="3" required>{{ change.after_snapshot.get("details", "") }}</textarea>
+                    </label>
+                    <button class="button button--secondary" type="submit">訂正記録を追加</button>
+                  </form>
+                </details>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>実施変更はありません。</p>
+      {% endif %}
+
+      {% if user.can_edit and document.status.value in ["in_review", "approved"] %}
+        <form method="post" action="/plans/documents/{{ document.id }}/execution-changes" class="form-layout no-print">
+          <h3>実施変更を記録</h3>
+          <div class="field-grid">
+            <label>
+              <span>対象活動</span>
+              <select name="affected_block_key">
+                <option value="">文書全体</option>
+                {% if document.schedule %}
+                  {% for row in document.schedule.rows|sort(attribute="order") %}
+                    <option value="{{ row.row_key }}">{{ row.start_time or "" }} {{ row.label }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+            </label>
+            <label>
+              <span>変更時刻</span>
+              <input name="changed_at" type="datetime-local" value="{{ changed_at_default }}" required>
+            </label>
+            <label>
+              <span>理由</span>
+              <select name="reason_code">
+                {% for value, label in reason_labels.items() %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>重要度</span>
+              <select name="impact_level">
+                {% for value, label in impact_labels.items() %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>変更理由の補足</span>
+            <input name="reason_note" type="text" placeholder="例: 午前から雨が続いたため">
+          </label>
+          <div class="field-grid">
+            <label>
+              <span>変更後の活動</span>
+              <input name="after_heading" type="text" required placeholder="例: 遊戯室で運動遊び">
+            </label>
+            <label>
+              <span>変更後の時刻</span>
+              <input name="after_time_label" type="text" placeholder="例: 10:00〜10:45 / 随時">
+            </label>
+          </div>
+          <label>
+            <span>変更後の環境・援助・安全上の対応</span>
+            <textarea name="after_details" rows="4" required></textarea>
+          </label>
+          <p class="inline-note">重大な変更は、事故報告・健康記録・災害対応等の既存記録も別途作成してください。</p>
+          <button class="button button--primary" type="submit">実施変更を記録</button>
+        </form>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="report-section no-print">
+    <div class="report-section__heading"><h2>版履歴</h2></div>
+    <p>現在のロック版: {{ lock_version }} / リビジョン数: {{ revisions | length }}</p>
+  </section>
 {% endblock %}
 

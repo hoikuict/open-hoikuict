@@ -5,7 +5,7 @@
     <div>
       <p class="eyebrow">daily_plan</p>
       <h1>日案を作成</h1>
-      <p class="lead">週案と子どもの姿を受けて、1日の流れ、環境、援助を見通します。</p>
+      <p class="lead">過去の日案例を探し、「時間・子どもの様子・保育士の援助・配慮事項」の4列を下書きへコピーして編集できます。</p>
     </div>
   </section>
 
@@ -16,9 +16,87 @@
     </section>
   {% endif %}
 
-  <form class="form-layout" method="post" action="/plans/daily-plans">
+  <section class="form-panel">
+    <h2>匿名化された過去の日案例から選ぶ</h2>
+    <p class="field-note">候補DBは読み取り専用です。選択した内容は独立した下書きになるため、その後は自由に書き換えられます。</p>
+    {% if corpus_info.get("development_review_data") == "1" %}
+      <div class="notice">
+        <strong>開発用の匿名化レビューDBを使用中</strong>
+        <span>人手レビュー前の候補を含みます。この表示は development 環境だけで有効です。</span>
+      </div>
+    {% endif %}
+    {% if corpus_error %}
+      <div class="notice"><strong>文例DBを読み込めません</strong><span>{{ corpus_error }}</span></div>
+    {% endif %}
+    <form method="get" action="/plans/daily-plans/new" class="form-layout compact">
+      <div class="field-grid">
+        <label>
+          <span>年齢</span>
+          <select name="age_class">
+            <option value="">すべて</option>
+            {% for option in age_class_options %}
+              <option value="{{ option }}" {% if form_values.get('age_class') == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>月</span>
+          <select name="month">
+            {% for value in range(1, 13) %}
+              <option value="{{ value }}" {% if selected_month == value %}selected{% endif %}>{{ value }}月</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>キーワード</span>
+          <input name="q" type="search" value="{{ search_query }}" placeholder="活動、時間、援助、配慮など">
+        </label>
+      </div>
+      <button class="button button--secondary" type="submit">日案例を検索</button>
+    </form>
+
+    {% if examples %}
+      <div class="reference-list">
+        {% for example in examples %}
+          <article class="section-block">
+            <h3>{{ example.title }} <small>{{ example.age_class }} / {{ example.month }}月</small></h3>
+            <p><strong>主な活動:</strong> {{ example.main_activity or "記載なし" }}</p>
+            <p class="field-note">時系列 {{ example.activity_blocks|length }}行{% if example.review_pending %} / 開発レビュー中{% endif %}</p>
+            <div class="daily-plan-grid-scroll daily-plan-grid-preview">
+              <table class="daily-plan-edit-grid">
+                <thead>
+                  <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
+                </thead>
+                <tbody>
+                  {% for block in example.activity_blocks %}
+                    <tr>
+                      <td>{{ block.time_and_activity }}</td>
+                      <td>{{ block.child_state }}</td>
+                      <td>{{ block.support }}</td>
+                      <td>{{ block.considerations }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <a class="button button--secondary" href="/plans/daily-plans/new?age_class={{ example.age_class|urlencode }}&month={{ selected_month }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}#daily-draft">この候補を下書きへコピー</a>
+          </article>
+        {% endfor %}
+      </div>
+      {% if corpus_info %}
+        <p class="field-note">コーパス版: {{ corpus_info.get("corpus_version", corpus_info.get("generated_at", "不明")) }} / スキーマ: {{ corpus_info.get("schema_version", "不明") }}</p>
+      {% endif %}
+    {% elif not corpus_error %}
+      <p class="field-note">条件に合う日案例がありません。下の表へ手入力して作成できます。</p>
+    {% endif %}
+  </section>
+
+  <form class="form-layout" method="post" action="/plans/daily-plans" id="daily-draft">
+    <input name="example_id" type="hidden" value="{{ form_values.get('example_id', '') }}">
+    <input name="example_source_ref" type="hidden" value="{{ form_values.get('example_source_ref', '') }}">
+
     <section class="form-panel">
-      <h2>基本情報</h2>
+      <h2>下書きの基本情報</h2>
       <div class="field-grid">
         <label>
           <span>対象日</span>
@@ -29,7 +107,7 @@
           {% set selected_classroom_ref = form_values.get('classroom_ref', default_classroom_ref) %}
           <select name="classroom_ref">
             {% for classroom_ref in user.classroom_refs %}
-            <option value="{{ classroom_ref }}" {% if classroom_ref == selected_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
+              <option value="{{ classroom_ref }}" {% if classroom_ref == selected_classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
             {% endfor %}
           </select>
         </label>
@@ -50,59 +128,107 @@
     </section>
 
     <section class="form-panel">
-      <h2>週案との接続</h2>
-      {% if weekly_documents %}
-        <div class="reference-list">
-          {% for document in weekly_documents %}
-            <a href="/plans/documents/{{ document.id }}">{{ document.title }} / {{ document.status_label }}</a>
-          {% endfor %}
-        </div>
-      {% endif %}
-      <label>
-        <span>接続する週案</span>
-        <select name="parent_document_id">
-          <option value="">接続しない</option>
-          {% for document in weekly_documents %}
-            <option value="{{ document.id }}" {% if form_values.get('parent_document_id') == document.id|string %}selected{% endif %}>{{ document.title }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>
-        <span>週案から本日へつなぐ文脈</span>
-        <textarea name="related_weekly_summary" rows="4" placeholder="週案のねらい、活動、環境や援助のうち本日に効くことを短く記入">{{ form_values.get('related_weekly_summary', '') }}</textarea>
-      </label>
+      <h2>ねらい・内容</h2>
+      <div class="daily-plan-purpose-grid">
+        <label>
+          <span>ねらい</span>
+          <textarea name="daily_aims" rows="4" placeholder="この日に大切にしたい育ちや経験">{{ form_values.get('daily_aims', '') }}</textarea>
+        </label>
+        <label>
+          <span>内容</span>
+          <textarea name="daily_content" rows="4" placeholder="ねらいにつながる活動や経験の内容">{{ form_values.get('daily_content', '') }}</textarea>
+        </label>
+      </div>
     </section>
 
     <section class="form-panel">
-      <h2>本日の入力</h2>
-      <label>
-        <span>前日までの子どもの姿</span>
-        <textarea name="current_children_snapshot" rows="4" placeholder="登園時や前日の記録から、本日の環境や援助につながる姿を書く">{{ form_values.get('current_children_snapshot', '') }}</textarea>
-      </label>
-      <label>
-        <span>本日の主な活動</span>
-        <textarea name="daily_main_activity_note" rows="4" placeholder="中心となる活動や経験。詳細な時系列は作成後に調整できます">{{ form_values.get('daily_main_activity_note', '') }}</textarea>
-      </label>
-      <div class="field-grid">
-        <label>
-          <span>季節・行事・食に関する文脈</span>
-          <textarea name="seasonal_context" rows="3">{{ form_values.get('seasonal_context', '') }}</textarea>
-        </label>
-        <label>
-          <span>健康・安全メモ</span>
-          <textarea name="health_notes" rows="3">{{ form_values.get('health_notes', '') }}</textarea>
-        </label>
-        <label>
-          <span>家庭からの情報</span>
-          <textarea name="family_context" rows="3">{{ form_values.get('family_context', '') }}</textarea>
-        </label>
+      <div class="report-section__heading">
+        <div>
+          <h2>1日の流れ</h2>
+          <p class="field-note">候補からコピーした各セルは、この下書き専用の値です。追加・削除・書き換えができます。</p>
+        </div>
+        <button class="button button--secondary" id="add-daily-row" type="button">行を追加</button>
+      </div>
+      <div class="daily-plan-grid-scroll">
+        <table class="daily-plan-edit-grid">
+          <colgroup><col class="daily-plan-time-column"><col><col><col></colgroup>
+          <thead>
+            <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
+          </thead>
+          <tbody id="daily-timeline-rows">
+            {% for row in form_values.get('timeline_rows', []) %}
+              <tr class="daily-timeline-row">
+                <td>
+                  <input name="timeline_row_key" type="hidden" value="{{ row.get('row_key', 'row_' ~ loop.index) }}">
+                  <input name="timeline_activity" type="hidden" value="{{ row.get('activity_name', '') }}">
+                  <input aria-label="時刻" name="timeline_time" type="text" value="{{ row.get('time_label', '') }}" placeholder="10:00〜10:45 / 随時">
+                  <div class="daily-row-actions">
+                    <button class="button button--secondary insert-daily-row" type="button">下に行を追加</button>
+                    <button class="button button--ghost remove-daily-row" type="button">削除</button>
+                  </div>
+                </td>
+                <td><label><span class="visually-hidden">子どもの様子</span><textarea name="timeline_children" rows="4">{{ row.get('child_state', '') }}</textarea></label></td>
+                <td><label><span class="visually-hidden">保育士の援助</span><textarea name="timeline_support" rows="4">{{ row.get('support', '') }}</textarea></label></td>
+                <td><label><span class="visually-hidden">配慮事項</span><textarea name="timeline_considerations" rows="4">{{ row.get('considerations', '') }}</textarea></label></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </section>
 
     <div class="form-actions">
       <a class="button button--ghost" href="/plans/">戻る</a>
-      <button class="button button--primary" type="submit" {% if not user.can_edit %}disabled{% endif %}>日案帳票を作成</button>
+      <button class="button button--primary" type="submit" {% if not user.can_edit %}disabled{% endif %}>下書きを保存</button>
     </div>
   </form>
-{% endblock %}
 
+  <template id="daily-row-template">
+    <tr class="daily-timeline-row">
+      <td>
+        <input name="timeline_row_key" type="hidden" value="">
+        <input name="timeline_activity" type="hidden" value="">
+        <input aria-label="時刻" name="timeline_time" type="text" value="" placeholder="10:00〜10:45 / 随時">
+        <div class="daily-row-actions">
+          <button class="button button--secondary insert-daily-row" type="button">下に行を追加</button>
+          <button class="button button--ghost remove-daily-row" type="button">削除</button>
+        </div>
+      </td>
+      <td><label><span class="visually-hidden">子どもの様子</span><textarea name="timeline_children" rows="4"></textarea></label></td>
+      <td><label><span class="visually-hidden">保育士の援助</span><textarea name="timeline_support" rows="4"></textarea></label></td>
+      <td><label><span class="visually-hidden">配慮事項</span><textarea name="timeline_considerations" rows="4"></textarea></label></td>
+    </tr>
+  </template>
+  <script>
+    (() => {
+      const body = document.getElementById("daily-timeline-rows");
+      const template = document.getElementById("daily-row-template");
+      const addButton = document.getElementById("add-daily-row");
+      const assignKey = (row) => {
+        const key = row.querySelector('[name="timeline_row_key"]');
+        if (key && !key.value) key.value = `row_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      };
+      addButton?.addEventListener("click", () => {
+        const row = template.content.firstElementChild.cloneNode(true);
+        assignKey(row);
+        body.appendChild(row);
+        row.querySelector('[name="timeline_time"]')?.focus();
+      });
+      body?.addEventListener("click", (event) => {
+        const insertButton = event.target.closest(".insert-daily-row");
+        if (insertButton) {
+          const currentRow = insertButton.closest(".daily-timeline-row");
+          const row = template.content.firstElementChild.cloneNode(true);
+          assignKey(row);
+          currentRow.after(row);
+          row.querySelector('[name="timeline_time"]')?.focus();
+          return;
+        }
+        const removeButton = event.target.closest(".remove-daily-row");
+        if (!removeButton) return;
+        removeButton.closest(".daily-timeline-row")?.remove();
+        if (!body.querySelector(".daily-timeline-row")) addButton.click();
+      });
+    })();
+  </script>
+{% endblock %}

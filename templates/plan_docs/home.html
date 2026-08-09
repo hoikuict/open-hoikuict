@@ -9,6 +9,44 @@
     </div>
   </section>
 
+  {% if user.is_admin %}
+    <section class="section-block" aria-labelledby="review-notification-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">承認待ち</p>
+          <h2 id="review-notification-heading">レビュー通知</h2>
+        </div>
+        {% if unread_review_notification_count %}
+          <span class="status status--in_review">未読 {{ unread_review_notification_count }}件</span>
+        {% endif %}
+      </div>
+      {% if review_notifications %}
+        <div class="review-notification-list">
+          {% for notification in review_notifications %}
+            <article class="review-notification{% if notification.read_at is none %} review-notification--unread{% endif %}">
+              <div>
+                <div class="review-notification__meta">
+                  {% if notification.read_at is none %}<strong>未読</strong>{% else %}<span>確認済み</span>{% endif %}
+                  <span>{{ notification.created_at|jst_datetime("%Y-%m-%d %H:%M") }}</span>
+                </div>
+                <h3>{{ notification.document_title }}</h3>
+                <p>{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
+              </div>
+              <form method="post" action="/plans/notifications/{{ notification.id }}/open">
+                <button class="button button--primary" type="submit">帳票を確認</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <strong>新しいレビュー依頼はありません</strong>
+          <span>依頼が届くと、この欄に表示されます。</span>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+
   <section class="work-grid">
     {% if user.can_edit %}
       <a class="action-panel" href="/plans/annual-plans/new">

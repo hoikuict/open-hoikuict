@@ -10,6 +10,7 @@
   </section>
 
   <form class="form-layout" method="post" action="/plans/documents/{{ document.id }}">
+    <input name="lock_version" type="hidden" value="{{ lock_version }}">
     <section class="form-panel">
       <h2>基本情報</h2>
       <div class="field-grid">
@@ -58,39 +59,59 @@
     {% if document.schedule %}
       <section class="form-panel">
         <h2>{{ "1日の流れ" if document.schedule.layout == "daily_timeline" else "週の活動" }}</h2>
-        <div class="schedule-edit-list">
-          {% for row in document.schedule.rows|sort(attribute="order") %}
-            <div class="schedule-edit-row">
-              <div class="field-grid">
-                <label>
-                  <span>{{ "時間帯" if document.schedule.layout == "daily_timeline" else "曜日" }}</span>
-                  <input name="rowlabel__{{ row.row_key }}" type="text" value="{{ row.label }}">
-                </label>
-                {% if document.schedule.layout == "daily_timeline" %}
-                  <label>
-                    <span>開始時刻</span>
-                    <input name="rowtime__{{ row.row_key }}" type="time" value="{{ row.start_time or '' }}">
-                  </label>
-                {% endif %}
-              </div>
-              <div class="field-grid">
-                {% for column in document.schedule.columns %}
-                  {% set cell = row.cells.get(column.key) %}
-                  <label>
-                    <span>{{ column.title }}</span>
-                    <textarea name="cell__{{ row.row_key }}__{{ column.key }}" rows="4">{{ cell.body if cell else "" }}</textarea>
-                  </label>
+        {% if document.schedule.layout == "daily_timeline" %}
+          <p class="field-note">4列の内容は保存済み下書きのコピーです。コーパスの原文には影響せず、各セルを自由に編集できます。</p>
+          <div class="daily-plan-grid-scroll">
+            <table class="daily-plan-edit-grid">
+              <colgroup><col class="daily-plan-time-column"><col><col><col></colgroup>
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  {% for column in document.schedule.columns %}<th>{{ column.title }}</th>{% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in document.schedule.rows|sort(attribute="order") %}
+                  <tr>
+                    <td>
+                      <label>
+                        <span class="visually-hidden">時刻</span>
+                        <input name="rowtime__{{ row.row_key }}" type="text" value="{{ row.start_time or '' }}" placeholder="10:00〜10:45 / 随時">
+                      </label>
+                      <input name="rowlabel__{{ row.row_key }}" type="hidden" value="{{ row.label }}">
+                    </td>
+                    {% for column in document.schedule.columns %}
+                      {% set cell = row.cells.get(column.key) %}
+                      <td>
+                        <label>
+                          <span class="visually-hidden">{{ column.title }}</span>
+                          <textarea name="cell__{{ row.row_key }}__{{ column.key }}" rows="4">{{ cell.body if cell else "" }}</textarea>
+                        </label>
+                        {% if cell and cell.needs_confirmation %}
+                          <div class="inline-note">{{ cell.editor_note or "確認が必要です。" }}</div>
+                        {% endif %}
+                      </td>
+                    {% endfor %}
+                  </tr>
                 {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="schedule-edit-list">
+            {% for row in document.schedule.rows|sort(attribute="order") %}
+              <div class="schedule-edit-row">
+                <div class="field-grid">
+                  <label><span>曜日</span><input name="rowlabel__{{ row.row_key }}" type="text" value="{{ row.label }}"></label>
+                  {% for column in document.schedule.columns %}
+                    {% set cell = row.cells.get(column.key) %}
+                    <label><span>{{ column.title }}</span><textarea name="cell__{{ row.row_key }}__{{ column.key }}" rows="4">{{ cell.body if cell else "" }}</textarea></label>
+                  {% endfor %}
+                </div>
               </div>
-              {% for column in document.schedule.columns %}
-                {% set cell = row.cells.get(column.key) %}
-                {% if cell and cell.needs_confirmation %}
-                  <div class="inline-note">{{ cell.editor_note or "確認が必要です。" }}</div>
-                {% endif %}
-              {% endfor %}
-            </div>
-          {% endfor %}
-        </div>
+            {% endfor %}
+          </div>
+        {% endif %}
       </section>
     {% endif %}
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from fastapi import Request
-from fastapi.templating import Jinja2Templates
+from template_utils import create_templates
 
 
-templates = Jinja2Templates(directory="templates")
+templates = create_templates(directory="templates")
 
 
 def render_template(request: Request, template_name: str, **context):

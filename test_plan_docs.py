@@ -1,13 +1,25 @@
+import os
+import sqlite3
+import tempfile
 import unittest
+from contextlib import closing
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import MOCK_CALENDAR_USER_COOKIE, MOCK_ROLE_COOKIE, MOCK_STAFF_NAME_COOKIE
-from models import Classroom
+from models import Classroom, User
+from plan_docs.db_models import (
+    PlanDocumentHeadRow,
+    PlanDocumentRow,
+    PlanExecutionChangeRow,
+    PlanReviewNotificationRow,
+    PlanRevisionRow,
+)
 from plan_docs.routers.bunrei import router as bunrei_router
 from plan_docs.routers.documents import router as documents_router
 from plan_docs.routers.home import router as home_router
@@ -19,6 +31,13 @@ from testing_helpers import configure_test_environment
 class PlanDocsIntegrationTests(unittest.TestCase):
     def setUp(self):
         configure_test_environment()
+        self.corpus_directory = tempfile.TemporaryDirectory()
+        self.corpus_path = Path(self.corpus_directory.name) / "daily_plan_examples.sqlite"
+        self._create_example_corpus()
+        self.original_corpus_path = os.environ.get(
+            "HOIKU_DAILY_PLAN_EXAMPLES_DB_PATH"
+        )
+        os.environ["HOIKU_DAILY_PLAN_EXAMPLES_DB_PATH"] = str(self.corpus_path)
         self.engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},
@@ -51,13 +70,196 @@ class PlanDocsIntegrationTests(unittest.TestCase):
     def tearDown(self):
         self.client.close()
         self.engine.dispose()
+        if self.original_corpus_path is None:
+            os.environ.pop("HOIKU_DAILY_PLAN_EXAMPLES_DB_PATH", None)
+        else:
+            os.environ["HOIKU_DAILY_PLAN_EXAMPLES_DB_PATH"] = self.original_corpus_path
+        self.corpus_directory.cleanup()
 
-    def staff_cookies(self):
+    def _create_example_corpus(self):
+        with closing(sqlite3.connect(self.corpus_path)) as connection:
+            connection.executescript(
+                """
+                create table corpus_metadata (
+                    key text primary key,
+                    value text not null
+                );
+                create table daily_plan_examples (
+                    id text primary key,
+                    target_date text not null,
+                    month integer not null,
+                    school_year integer not null,
+                    age_class integer not null,
+                    class_label text not null,
+                    title text not null,
+                    main_activity_raw text not null,
+                    main_activity_normalized text not null,
+                    content_text text,
+                    timeline_text text,
+                    child_state_text text,
+                    support_text text,
+                    considerations_text text,
+                    reflection_text text,
+                    source_ref text not null,
+                    content_hash text not null,
+                    quality_score real not null,
+                    review_status text not null,
+                    pii_review_status text not null
+                );
+                create table daily_plan_activity_blocks (
+                    id integer primary key,
+                    daily_plan_id text not null,
+                    position integer not null,
+                    time_label text,
+                    activity_name text,
+                    activity_text text,
+                    child_state_text text,
+                    support_text text,
+                    considerations_text text
+                );
+                create table daily_plan_aims (
+                    daily_plan_id text not null,
+                    position integer not null,
+                    aim_text text not null
+                );
+                """
+            )
+            connection.executemany(
+                "insert into corpus_metadata(key, value) values (?, ?)",
+                [("schema_version", "2-runtime"), ("corpus_version", "test-v2")],
+            )
+            connection.executemany(
+                """
+                insert into daily_plan_examples(
+                    id, target_date, month, school_year, age_class, class_label,
+                    title, main_activity_raw, main_activity_normalized, content_text,
+                    timeline_text, child_state_text, support_text, considerations_text,
+                    reflection_text, source_ref, content_hash, quality_score,
+                    review_status, pii_review_status
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        "daily-001",
+                        "2025-08-10",
+                        8,
+                        2025,
+                        3,
+                        "旧3歳児クラス",
+                        "粘土遊びの日案",
+                        "粘土遊び",
+                        "粘土遊び",
+                        "粘土で興味のあるものを制作する",
+                        "10:00",
+                        "粘土に興味を持ち、手にする",
+                        "興味を持たない子どもに声をかける",
+                        "用具の置き場所と誤飲に配慮する",
+                        "",
+                        "legacy:001",
+                        "hash-001",
+                        0.9,
+                        "approved",
+                        "approved",
+                    ),
+                    (
+                        "daily-draft",
+                        "2025-08-11",
+                        8,
+                        2025,
+                        3,
+                        "旧3歳児クラス",
+                        "未確認の日案",
+                        "未確認",
+                        "未確認",
+                        "未確認",
+                        "未確認",
+                        "未確認",
+                        "未確認",
+                        "未確認",
+                        "",
+                        "legacy:draft",
+                        "hash-draft",
+                        0.5,
+                        "pending",
+                        "approved",
+                    ),
+                    (
+                        "daily-unmasked",
+                        "2025-08-12",
+                        8,
+                        2025,
+                        3,
+                        "旧3歳児クラス",
+                        "匿名化未確認の日案",
+                        "匿名化未確認",
+                        "匿名化未確認",
+                        "匿名化未確認",
+                        "匿名化未確認",
+                        "匿名化未確認",
+                        "匿名化未確認",
+                        "匿名化未確認",
+                        "",
+                        "legacy:unmasked",
+                        "hash-unmasked",
+                        0.4,
+                        "approved",
+                        "pending",
+                    ),
+                ],
+            )
+            connection.execute(
+                """
+                insert into daily_plan_activity_blocks(
+                    daily_plan_id, position, time_label, activity_name, activity_text,
+                    child_state_text, support_text, considerations_text
+                ) values (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "daily-001",
+                    0,
+                    "10:00〜10:45",
+                    "粘土遊び",
+                    "粘土で制作する",
+                    "粘土に興味を持ち、手にする",
+                    "興味を持たない子どもに声をかける",
+                    "用具の置き場所と誤飲に配慮する",
+                ),
+            )
+            connection.execute(
+                "insert into daily_plan_aims(daily_plan_id, position, aim_text) values (?, ?, ?)",
+                ("daily-001", 0, "粘土の感触を味わい、形の変化を楽しむ"),
+            )
+            connection.commit()
+
+    def staff_cookies(self, *, role="admin", staff_id=None, name="Test%20Staff"):
         return {
-            MOCK_ROLE_COOKIE: "admin",
-            MOCK_STAFF_NAME_COOKIE: "Test%20Staff",
-            MOCK_CALENDAR_USER_COOKIE: str(uuid4()),
+            MOCK_ROLE_COOKIE: role,
+            MOCK_STAFF_NAME_COOKIE: name,
+            MOCK_CALENDAR_USER_COOKIE: str(staff_id or uuid4()),
         }
+
+    def create_daily_plan(self, *, cookies=None):
+        self.client.cookies.update(cookies or self.staff_cookies())
+        response = self.client.post(
+            "/plans/daily-plans",
+            data={
+                "target_date": "2026-08-10",
+                "classroom_ref": "ひよこ組",
+                "age_class": "3歳児",
+                "owner_name": "Test Staff",
+                "daily_aims": "水の冷たさや感触を味わう",
+                "daily_content": "園庭で水遊びをする",
+                "timeline_row_key": "row_1",
+                "timeline_time": "10:00〜10:45",
+                "timeline_activity": "水遊び",
+                "timeline_children": "水に触れ、遊び方を試している",
+                "timeline_support": "遊び方を見守り、必要に応じて声をかける",
+                "timeline_considerations": "滑りやすい場所を確認し安全を見守る",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        return int(response.headers["location"].rstrip("/").split("/")[-1])
 
     def test_plan_docs_home_uses_main_mock_staff_session(self):
         self.client.cookies.update(self.staff_cookies())
@@ -85,6 +287,522 @@ class PlanDocsIntegrationTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_daily_plan_is_persisted_with_head_and_immutable_revision(self):
+        document_id = self.create_daily_plan()
+
+        with Session(self.engine) as session:
+            row = session.get(PlanDocumentRow, document_id)
+            head = session.exec(
+                select(PlanDocumentHeadRow).where(
+                    PlanDocumentHeadRow.document_id == document_id
+                )
+            ).one()
+            revisions = session.exec(
+                select(PlanRevisionRow).where(PlanRevisionRow.document_id == document_id)
+            ).all()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(head.lock_version, 1)
+        self.assertEqual(len(revisions), 1)
+        self.assertEqual(head.current_revision_id, revisions[0].id)
+
+        response = self.client.get(f"/plans/api/documents/{document_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["target_date"], "2026-08-10")
+        self.assertEqual(response.json()["lock_version"], 1)
+        self.assertEqual(
+            [section["section_key"] for section in response.json()["sections"]],
+            [
+                "daily_goal",
+                "daily_content",
+            ],
+        )
+        section_bodies = {
+            section["section_key"]: section["body"]
+            for section in response.json()["sections"]
+        }
+        self.assertEqual(
+            section_bodies["daily_goal"], "水の冷たさや感触を味わう"
+        )
+        self.assertEqual(section_bodies["daily_content"], "園庭で水遊びをする")
+        self.assertEqual(
+            [column["key"] for column in response.json()["schedule"]["columns"]],
+            ["children", "support", "considerations"],
+        )
+        self.assertEqual(
+            response.json()["schedule"]["rows"][0]["cells"]["considerations"]["body"],
+            "滑りやすい場所を確認し安全を見守る",
+        )
+
+    def test_daily_plan_form_can_choose_only_approved_corpus_example(self):
+        self.client.cookies.update(self.staff_cookies())
+
+        listed = self.client.get(
+            "/plans/daily-plans/new?age_class=3%E6%AD%B3%E5%85%90&month=8"
+        )
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertIn("粘土遊びの日案", listed.text)
+        self.assertNotIn("未確認の日案", listed.text)
+        self.assertNotIn("匿名化未確認の日案", listed.text)
+        self.assertIn("test-v2", listed.text)
+
+        selected = self.client.get(
+            "/plans/daily-plans/new?age_class=3%E6%AD%B3%E5%85%90&month=8&example_id=daily-001"
+        )
+        self.assertEqual(selected.status_code, 200, selected.text)
+        self.assertIn("10:00〜10:45", selected.text)
+        self.assertIn("粘土の感触を味わい、形の変化を楽しむ", selected.text)
+        self.assertIn("粘土で興味のあるものを制作する", selected.text)
+        self.assertIn("興味を持たない子どもに声をかける", selected.text)
+        self.assertIn("用具の置き場所と誤飲に配慮する", selected.text)
+        self.assertIn('name="timeline_activity" type="hidden"', selected.text)
+        self.assertNotIn('textarea name="timeline_activity"', selected.text)
+
+    def test_selected_corpus_timeline_is_copied_then_freely_editable(self):
+        self.client.cookies.update(self.staff_cookies())
+
+        created = self.client.post(
+            "/plans/daily-plans",
+            data={
+                "target_date": "2026-08-13",
+                "classroom_ref": "ひよこ組",
+                "age_class": "3歳児",
+                "owner_name": "Test Staff",
+                "example_id": "daily-001",
+                "example_source_ref": "client値は信用しない",
+                "timeline_row_key": "corpus_1",
+                "timeline_time": "10:15〜11:00",
+                "timeline_activity": "粘土と自然物で制作する",
+                "timeline_children": "木の実を粘土へ押し込み、模様を比べる",
+                "timeline_support": "素材の違いに気づける言葉を添える",
+                "timeline_considerations": "木の実の大きさと誤飲に配慮する",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(created.status_code, 303, created.text)
+        document_id = int(created.headers["location"].rstrip("/").split("/")[-1])
+
+        copied = self.client.get(f"/plans/api/documents/{document_id}").json()
+        row = copied["schedule"]["rows"][0]
+        self.assertEqual(row["start_time"], "10:15〜11:00")
+        self.assertEqual(row["label"], "粘土と自然物で制作する")
+        self.assertEqual(
+            row["cells"]["children"]["body"],
+            "木の実を粘土へ押し込み、模様を比べる",
+        )
+        self.assertIn("legacy:001", row["cells"]["children"]["source_refs"])
+
+        edited = self.client.post(
+            f"/plans/documents/{document_id}",
+            data={
+                "lock_version": "1",
+                "cell__corpus_1__children": "友だちの模様にも関心を向ける",
+                "cell__corpus_1__support": "子ども同士の気づきをつなぐ",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(edited.status_code, 303, edited.text)
+        after_edit = self.client.get(f"/plans/api/documents/{document_id}").json()
+        self.assertEqual(
+            after_edit["schedule"]["rows"][0]["cells"]["children"]["body"],
+            "友だちの模様にも関心を向ける",
+        )
+
+        with closing(sqlite3.connect(self.corpus_path)) as connection:
+            source_text = connection.execute(
+                "select child_state_text from daily_plan_activity_blocks where daily_plan_id = ?",
+                ("daily-001",),
+            ).fetchone()[0]
+        self.assertEqual(source_text, "粘土に興味を持ち、手にする")
+
+    def test_edit_uses_optimistic_lock_and_creates_revision(self):
+        document_id = self.create_daily_plan()
+
+        first = self.client.post(
+            f"/plans/documents/{document_id}",
+            data={"lock_version": "1", "title": "雨天候補を含む日案"},
+            follow_redirects=False,
+        )
+        self.assertEqual(first.status_code, 303)
+
+        stale = self.client.post(
+            f"/plans/documents/{document_id}",
+            data={"lock_version": "1", "title": "古い画面からの更新"},
+            follow_redirects=False,
+        )
+        self.assertEqual(stale.status_code, 409)
+
+        with Session(self.engine) as session:
+            row = session.get(PlanDocumentRow, document_id)
+            head = session.exec(
+                select(PlanDocumentHeadRow).where(
+                    PlanDocumentHeadRow.document_id == document_id
+                )
+            ).one()
+            revisions = session.exec(
+                select(PlanRevisionRow).where(PlanRevisionRow.document_id == document_id)
+            ).all()
+        self.assertEqual(row.title, "雨天候補を含む日案")
+        self.assertEqual(head.lock_version, 2)
+        self.assertEqual(len(revisions), 2)
+
+    def test_existing_row_without_head_is_migrated_on_first_access(self):
+        with Session(self.engine) as session:
+            row = PlanDocumentRow(
+                document_type="daily_plan",
+                status="approved",
+                title="既存の日案",
+                nursery_ref="ひかり保育園",
+                classroom_ref="ひよこ組",
+                actor_ref="staff:legacy",
+                owner_name="旧担当",
+                target_date="2026-08-09",
+                age_class="3歳児",
+                sections=[],
+                schedule=None,
+                confirmation_items=[],
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            document_id = row.id
+
+        self.client.cookies.update(self.staff_cookies())
+        response = self.client.get(f"/plans/api/documents/{document_id}")
+        self.assertEqual(response.status_code, 200)
+
+        with Session(self.engine) as session:
+            head = session.exec(
+                select(PlanDocumentHeadRow).where(
+                    PlanDocumentHeadRow.document_id == document_id
+                )
+            ).one()
+            revision = session.get(PlanRevisionRow, head.current_revision_id)
+        self.assertEqual(head.approved_revision_id, revision.id)
+        self.assertEqual(head.review_revision_id, revision.id)
+        self.assertEqual(revision.reason, "migrated")
+
+    def test_approved_plan_execution_change_preserves_approved_revision(self):
+        document_id = self.create_daily_plan()
+
+        submit = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+        self.assertEqual(submit.status_code, 303)
+        approve = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "approved", "lock_version": "2"},
+            follow_redirects=False,
+        )
+        self.assertEqual(approve.status_code, 303)
+
+        with Session(self.engine) as session:
+            head_before = session.exec(
+                select(PlanDocumentHeadRow).where(
+                    PlanDocumentHeadRow.document_id == document_id
+                )
+            ).one()
+            approved_revision_id = head_before.approved_revision_id
+
+        changed = self.client.post(
+            f"/plans/documents/{document_id}/execution-changes",
+            data={
+                "affected_block_key": "",
+                "reason_code": "weather",
+                "reason_note": "雨天のため",
+                "impact_level": "significant",
+                "changed_at": "2026-08-10T09:30",
+                "after_heading": "遊戯室で運動遊び",
+                "after_time_label": "10:00〜10:45",
+                "after_details": "滑りやすい場所を避け、間隔を確保する",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(changed.status_code, 303, changed.text)
+
+        with Session(self.engine) as session:
+            head_after = session.exec(
+                select(PlanDocumentHeadRow).where(
+                    PlanDocumentHeadRow.document_id == document_id
+                )
+            ).one()
+            change = session.exec(
+                select(PlanExecutionChangeRow).where(
+                    PlanExecutionChangeRow.document_id == document_id
+                )
+            ).one()
+        self.assertEqual(head_after.approved_revision_id, approved_revision_id)
+        self.assertEqual(change.base_revision_id, approved_revision_id)
+        self.assertEqual(change.before_snapshot["document_type"], "daily_plan")
+        self.assertEqual(change.after_snapshot["heading"], "遊戯室で運動遊び")
+        self.assertEqual(change.confirmation_status, "pending")
+
+        confirmed = self.client.post(
+            f"/plans/documents/{document_id}/execution-changes/{change.id}/confirm",
+            data={"confirmation_comment": "安全面を確認済み"},
+            follow_redirects=False,
+        )
+        self.assertEqual(confirmed.status_code, 303)
+        payload = self.client.get(
+            f"/plans/api/daily/{document_id}/execution-changes"
+        ).json()["items"]
+        self.assertEqual(payload[0]["confirmation_status"], "confirmed")
+        self.assertEqual(payload[0]["confirmation_comment"], "安全面を確認済み")
+
+        corrected = self.client.post(
+            f"/plans/documents/{document_id}/execution-changes/{change.id}/corrections",
+            data={
+                "changed_at": "2026-08-10T09:35",
+                "correction_note": "終了時刻の訂正",
+                "after_heading": "遊戯室で運動遊び",
+                "after_time_label": "10:00〜10:30",
+                "after_details": "滑りやすい場所を避け、間隔を確保する",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(corrected.status_code, 303, corrected.text)
+        corrected_payload = self.client.get(
+            f"/plans/api/daily/{document_id}/execution-changes"
+        ).json()["items"]
+        self.assertEqual(len(corrected_payload), 2)
+        self.assertEqual(corrected_payload[1]["corrects_change_id"], change.id)
+        self.assertEqual(corrected_payload[1]["after_snapshot"]["time_label"], "10:00〜10:30")
+
+        detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("当日の実施変更", detail.text)
+        self.assertIn("遊戯室で運動遊び", detail.text)
+        self.assertIn("終了時刻の訂正", detail.text)
+
+    def test_execution_change_json_api_accepts_public_id(self):
+        document_id = self.create_daily_plan()
+        self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+        self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "approved", "lock_version": "2"},
+            follow_redirects=False,
+        )
+        public_id = self.client.get(
+            f"/plans/api/documents/{document_id}"
+        ).json()["public_id"]
+
+        created = self.client.post(
+            f"/plans/api/daily/{public_id}/execution-changes",
+            json={
+                "affected_block_key": None,
+                "reason_code": "weather",
+                "reason_note": "小雨が続いたため",
+                "impact_level": "minor",
+                "changed_at": "2026-08-10T09:40:00+09:00",
+                "after_heading": "室内で表現遊び",
+                "after_time_label": "10:00〜10:30",
+                "after_details": "換気しながら十分な間隔を確保する",
+            },
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertEqual(created.json()["confirmation_status"], "not_required")
+
+        listed = self.client.get(
+            f"/plans/api/daily/{public_id}/execution-changes"
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json()["items"][0]["after_snapshot"]["heading"], "室内で表現遊び")
+
+    def test_return_requires_reason(self):
+        document_id = self.create_daily_plan()
+        self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+
+        missing = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "rejected", "lock_version": "2"},
+            follow_redirects=False,
+        )
+        self.assertEqual(missing.status_code, 409)
+
+        returned = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={
+                "status": "rejected",
+                "lock_version": "2",
+                "comment": "雨天時の安全配慮を追記してください",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(returned.status_code, 303)
+
+    def test_review_request_notifies_only_active_admins_and_resolves_after_review(self):
+        principal_id = uuid4()
+        chief_id = uuid4()
+        editor_id = uuid4()
+        inactive_admin_id = uuid4()
+        with Session(self.engine) as session:
+            session.add_all(
+                [
+                    User(
+                        id=principal_id,
+                        email="principal@example.test",
+                        display_name="園長",
+                        staff_role="admin",
+                        staff_sort_order=1,
+                    ),
+                    User(
+                        id=chief_id,
+                        email="chief@example.test",
+                        display_name="主任",
+                        staff_role="admin",
+                        staff_sort_order=2,
+                    ),
+                    User(
+                        id=editor_id,
+                        email="editor@example.test",
+                        display_name="担任",
+                        staff_role="can_edit",
+                    ),
+                    User(
+                        id=inactive_admin_id,
+                        email="inactive@example.test",
+                        display_name="退職済み管理者",
+                        staff_role="admin",
+                        is_active=False,
+                    ),
+                ]
+            )
+            session.commit()
+
+        editor_cookies = self.staff_cookies(
+            role="can_edit",
+            staff_id=editor_id,
+            name="Review%20Applicant",
+        )
+        document_id = self.create_daily_plan(cookies=editor_cookies)
+        submitted = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+        self.assertEqual(submitted.status_code, 303, submitted.text)
+
+        with Session(self.engine) as session:
+            notifications = session.exec(
+                select(PlanReviewNotificationRow).where(
+                    PlanReviewNotificationRow.document_id == document_id
+                )
+            ).all()
+        self.assertEqual(
+            {item.recipient_user_id for item in notifications},
+            {principal_id, chief_id},
+        )
+        self.assertTrue(all(item.requested_by_name == "Review Applicant" for item in notifications))
+
+        principal_notification = next(
+            item for item in notifications if item.recipient_user_id == principal_id
+        )
+        self.client.cookies.update(
+            self.staff_cookies(
+                role="admin",
+                staff_id=principal_id,
+                name="Principal",
+            )
+        )
+        home = self.client.get("/plans/")
+        self.assertEqual(home.status_code, 200, home.text)
+        self.assertIn("未読 1件", home.text)
+        self.assertIn("Review Applicantさんからレビュー依頼", home.text)
+
+        opened = self.client.post(
+            f"/plans/notifications/{principal_notification.id}/open",
+            follow_redirects=False,
+        )
+        self.assertEqual(opened.status_code, 303, opened.text)
+        self.assertEqual(opened.headers["location"], f"/plans/documents/{document_id}")
+        with Session(self.engine) as session:
+            self.assertIsNotNone(
+                session.get(PlanReviewNotificationRow, principal_notification.id).read_at
+            )
+
+        approved = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "approved", "lock_version": "2"},
+            follow_redirects=False,
+        )
+        self.assertEqual(approved.status_code, 303, approved.text)
+        with Session(self.engine) as session:
+            resolved = session.exec(
+                select(PlanReviewNotificationRow).where(
+                    PlanReviewNotificationRow.document_id == document_id
+                )
+            ).all()
+        self.assertTrue(all(item.resolved_at is not None for item in resolved))
+        self.assertIn("新しいレビュー依頼はありません", self.client.get("/plans/").text)
+
+    def test_review_notification_is_hidden_across_nurseries(self):
+        principal_id = uuid4()
+        editor_id = uuid4()
+        with Session(self.engine) as session:
+            session.add(
+                User(
+                    id=principal_id,
+                    email="tenant-principal@example.test",
+                    display_name="園長",
+                    staff_role="admin",
+                )
+            )
+            session.add(
+                User(
+                    id=editor_id,
+                    email="tenant-editor@example.test",
+                    display_name="担任",
+                    staff_role="can_edit",
+                )
+            )
+            session.commit()
+        document_id = self.create_daily_plan(
+            cookies=self.staff_cookies(
+                role="can_edit",
+                staff_id=editor_id,
+                name="Tenant%20Editor",
+            )
+        )
+        self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+        with Session(self.engine) as session:
+            notification = session.exec(
+                select(PlanReviewNotificationRow).where(
+                    PlanReviewNotificationRow.document_id == document_id
+                )
+            ).one()
+            notification.nursery_ref = "別の保育園"
+            session.add(notification)
+            session.commit()
+            notification_id = notification.id
+
+        self.client.cookies.update(
+            self.staff_cookies(
+                role="admin",
+                staff_id=principal_id,
+                name="Principal",
+            )
+        )
+        self.assertIn("新しいレビュー依頼はありません", self.client.get("/plans/").text)
+        denied = self.client.post(
+            f"/plans/notifications/{notification_id}/open",
+            follow_redirects=False,
+        )
+        self.assertEqual(denied.status_code, 404)
 
 
 if __name__ == "__main__":

@@ -89,9 +89,9 @@ def _cell(
 
 def _daily_columns() -> list[ScheduleColumn]:
     return [
-        ScheduleColumn("env", "環境構成"),
-        ScheduleColumn("children", "予想される子どもの姿"),
-        ScheduleColumn("support", "保育者の援助・配慮"),
+        ScheduleColumn("children", "子どもの様子"),
+        ScheduleColumn("support", "保育士の援助"),
+        ScheduleColumn("considerations", "配慮事項"),
     ]
 
 
@@ -142,7 +142,7 @@ def attach_daily_schedule(document: PlanDocument, age_class: str, main_activity_
     rows: list[ScheduleRow] = []
     for row_key, order, start_time, label, children_body in row_specs:
         support_body = ""
-        env_body = "安全に動ける動線と、子どもが選べる素材・場を整える。"
+        considerations_body = "安全に動ける動線と、子どもが選べる素材・場を整える。"
         needs_confirmation = False
         editor_note = None
         if row_key == "t_main":
@@ -151,7 +151,7 @@ def attach_daily_schedule(document: PlanDocument, age_class: str, main_activity_
             editor_note = main_note
         elif row_key in {"t_care_am", "t_care_pm"}:
             support_body = care_support
-            env_body = "個別の生活リズムに合わせて、落ち着いて関われる場を整える。"
+            considerations_body = "個別の生活リズムに合わせて、落ち着いて関われる場を整える。"
         elif row_key == "t_lunch":
             support_body = "手洗い、姿勢、食具、食材への関心を一人ひとりのペースに合わせて支える。"
         elif row_key == "t_departure":
@@ -163,9 +163,9 @@ def attach_daily_schedule(document: PlanDocument, age_class: str, main_activity_
                 order=order,
                 start_time=start_time,
                 cells={
-                    "env": _cell(env_body),
                     "children": _cell(children_body, needs_confirmation=needs_confirmation, editor_note=editor_note),
                     "support": _cell(support_body, needs_confirmation=needs_confirmation, editor_note=editor_note),
+                    "considerations": _cell(considerations_body),
                 },
             )
         )
@@ -679,3 +679,98 @@ def generate_daily_plan(data: dict[str, str], user: StaffUser) -> PlanDocument:
         parent_document_id=parent_document_id,
     )
     return attach_daily_schedule(document, age_class, daily_main_activity_note)
+
+
+def generate_simple_daily_plan(data: dict[str, object], user: StaffUser) -> PlanDocument:
+    """匿名化コーパスの時系列を、独立した編集可能な下書きとして作る。"""
+    target_date = clean_text(data.get("target_date"))
+    if not target_date:
+        raise ValueError("target_date is required")
+    try:
+        date.fromisoformat(target_date)
+    except ValueError as exc:
+        raise ValueError("target_date must be formatted as YYYY-MM-DD") from exc
+    classroom_ref = clean_text(data.get("classroom_ref")) or user.classroom_refs[0]
+    class_name = clean_text(data.get("class_name")) or classroom_ref or "クラス未設定"
+    age_class = clean_text(data.get("age_class"))
+    owner_name = clean_text(data.get("owner_name")) or user.name
+    aim = clean_text(str(data.get("daily_aims") or ""))
+    content = clean_text(str(data.get("daily_content") or ""))
+    example_id = clean_text(str(data.get("example_id") or ""))
+    example_source_ref = clean_text(str(data.get("example_source_ref") or ""))
+    base_source_refs = (
+        [example_source_ref or f"corpus.{example_id}", "form.daily_simple"]
+        if example_id
+        else ["form.daily_simple"]
+    )
+    raw_rows = data.get("timeline_rows")
+    timeline_rows = raw_rows if isinstance(raw_rows, list) else []
+    required = [] if timeline_rows else ["1日の流れ"]
+    sections = [
+        _section(
+            SectionDefinition("daily_goal", "ねらい", "本日のねらい"),
+            aim,
+            list(base_source_refs),
+            needs_confirmation=False,
+        ),
+        _section(
+            SectionDefinition("daily_content", "内容（活動）", "本日の内容・活動"),
+            content,
+            list(base_source_refs),
+            needs_confirmation=False,
+        ),
+    ]
+    document = PlanDocument(
+        id=0,
+        document_type=DocumentType.DAILY_PLAN,
+        title=f"{target_date} 日案（{class_name}）",
+        status=DocumentStatus.DRAFT,
+        nursery_ref=user.nursery_ref,
+        classroom_ref=classroom_ref,
+        actor_ref=user.actor_ref,
+        owner_name=owner_name,
+        sections=sections,
+        confirmation_items=required,
+        target_date=target_date,
+        age_class=age_class or None,
+    )
+    rows: list[ScheduleRow] = []
+    for position, raw_row in enumerate(timeline_rows):
+        if not isinstance(raw_row, dict):
+            continue
+        row_key = clean_text(str(raw_row.get("row_key") or "")) or f"row_{position + 1}"
+        activity_name = clean_text(str(raw_row.get("activity_name") or ""))
+        time_label = clean_text(str(raw_row.get("time_label") or ""))
+        children = clean_text(str(raw_row.get("child_state") or ""))
+        support = clean_text(str(raw_row.get("support") or ""))
+        considerations = clean_text(str(raw_row.get("considerations") or ""))
+        if not any((activity_name, time_label, children, support, considerations)):
+            continue
+        rows.append(
+            ScheduleRow(
+                row_key=row_key,
+                label=activity_name,
+                order=(position + 1) * 10,
+                start_time=time_label or None,
+                cells={
+                    "children": _cell(children, source_refs=list(base_source_refs)),
+                    "support": _cell(support, source_refs=list(base_source_refs)),
+                    "considerations": _cell(
+                        considerations, source_refs=list(base_source_refs)
+                    ),
+                },
+            )
+        )
+    if not rows:
+        rows.append(
+            ScheduleRow(
+                row_key="row_1",
+                label="",
+                order=10,
+                cells={column.key: _cell("") for column in _daily_columns()},
+            )
+        )
+    document.schedule = PlanSchedule(
+        layout="daily_timeline", columns=_daily_columns(), rows=rows
+    )
+    return document
