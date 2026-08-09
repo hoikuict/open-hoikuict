@@ -5,6 +5,7 @@ This repository now supports a public demo mode for Dockge deployments.
 ## What public demo mode does
 
 - Creates a fresh SQLite database per browser session.
+- Uses the packaged anonymized `demo_data/demo-template.sqlite3` as the initial state.
 - Resets the demo data by issuing a new session cookie.
 - Cleans up expired session databases after the configured TTL.
 - Rejects oversized write requests.
@@ -42,3 +43,4 @@ If you use the bundled `cloudflared` service:
 
 - Public demo mode keeps runtime session data under `./runtime`, which is ignored by git.
 - No persistent volume is configured on purpose, so demo sessions disappear on redeploy or container recreation.
+- Regenerate the packaged template with SQLite's backup API. Do not copy a live `hoikuict.db` together with `-wal` or `-shm` sidecar files.

@@ -9,6 +9,71 @@
     </div>
   </section>
 
+  {% if reflection_reminders %}
+    <section class="section-block reflection-reminder-panel" aria-labelledby="reflection-reminder-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">提出忘れ防止</p>
+          <h2 id="reflection-reminder-heading">振り返りが未提出です</h2>
+        </div>
+        <span class="reflection-status reflection-status--missing">{{ reflection_reminders|length }}件</span>
+      </div>
+      <div class="review-notification-list">
+        {% for reminder in reflection_reminders %}
+          <a class="review-notification review-notification--unread" href="/plans/documents/{{ reminder.document_id }}#daily-reflection-heading">
+            <div>
+              <div class="review-notification__meta">
+                <strong>{{ reminder.target_date }}</strong>
+                <span>{{ reminder.classroom_ref }}</span>
+              </div>
+              <h3>{{ reminder.document_title }}</h3>
+              <p>{{ reminder.message }}</p>
+            </div>
+            <span class="button button--primary">入力する</span>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if user.is_admin %}
+    <section class="section-block" aria-labelledby="review-notification-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">承認待ち</p>
+          <h2 id="review-notification-heading">レビュー通知</h2>
+        </div>
+        {% if unread_review_notification_count %}
+          <span class="status status--in_review">未読 {{ unread_review_notification_count }}件</span>
+        {% endif %}
+      </div>
+      {% if review_notifications %}
+        <div class="review-notification-list">
+          {% for notification in review_notifications %}
+            <article class="review-notification{% if notification.read_at is none %} review-notification--unread{% endif %}">
+              <div>
+                <div class="review-notification__meta">
+                  {% if notification.read_at is none %}<strong>未読</strong>{% else %}<span>確認済み</span>{% endif %}
+                  <span>{{ notification.created_at|jst_datetime("%Y-%m-%d %H:%M") }}</span>
+                </div>
+                <h3>{{ notification.document_title }}</h3>
+                <p>{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
+              </div>
+              <form method="post" action="/plans/notifications/{{ notification.id }}/open">
+                <button class="button button--primary" type="submit">帳票を確認</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <strong>新しいレビュー依頼はありません</strong>
+          <span>依頼が届くと、この欄に表示されます。</span>
+        </div>
+      {% endif %}
+    </section>
+  {% endif %}
+
   <section class="work-grid">
     {% if user.can_edit %}
       <a class="action-panel" href="/plans/annual-plans/new">
@@ -26,10 +91,10 @@
         <strong>週案</strong>
         <span>月案と前週の振り返りを受けて、1週間の環境と援助を見通します。</span>
       </a>
-      <a class="action-panel action-panel--accent" href="/plans/daily-plans/new">
+      <a class="action-panel action-panel--accent" href="/plans/daily-plans/">
         <span class="action-panel__label">日間計画</span>
-        <strong>日案</strong>
-        <span>週案と子どもの姿を受けて、1日の流れと援助を組み立てます。</span>
+        <strong>日案カレンダー</strong>
+        <span>クラスごとの活動内容と未作成の日を確認し、日案を作成します。</span>
       </a>
       <a class="action-panel" href="/plans/bunrei/annual">
         <span class="action-panel__label">文例選択</span>

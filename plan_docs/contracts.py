@@ -23,6 +23,7 @@ class DocumentType(StrEnum):
     WEEKLY_PLAN = "weekly_plan"
     DAILY_PLAN = "daily_plan"
     INDIVIDUAL_PLAN = "individual_plan"
+    CHILD_PROGRESS_RECORD = "child_progress_record"
 
 
 DOCUMENT_TYPE_LABELS: dict[DocumentType, str] = {
@@ -31,6 +32,7 @@ DOCUMENT_TYPE_LABELS: dict[DocumentType, str] = {
     DocumentType.WEEKLY_PLAN: "週案",
     DocumentType.DAILY_PLAN: "日案",
     DocumentType.INDIVIDUAL_PLAN: "個別指導計画",
+    DocumentType.CHILD_PROGRESS_RECORD: "児童票・発達経過記録",
 }
 
 
@@ -40,6 +42,7 @@ DOCUMENT_TYPE_ALIASES = {
     "weekly": DocumentType.WEEKLY_PLAN,
     "daily": DocumentType.DAILY_PLAN,
     "individual": DocumentType.INDIVIDUAL_PLAN,
+    "child_progress": DocumentType.CHILD_PROGRESS_RECORD,
 }
 
 
@@ -79,6 +82,7 @@ SOURCE_REF_PREFIX_TAGS = {
     "record.daily_contact": "記録",
     "record.attendance": "記録",
     "record.health_check": "記録",
+    "record.child_observation_log": "子どもの記録",
     "outline.": "AI構成",
     "linking.": "AI構成",
 }
@@ -164,6 +168,14 @@ INDIVIDUAL_SECTIONS: tuple[SectionDefinition, ...] = (
     SectionDefinition("individual_reflection_viewpoint", "評価・反省", "次月へつなぐ観点"),
 )
 
+CHILD_PROGRESS_SECTIONS: tuple[SectionDefinition, ...] = (
+    SectionDefinition("progress_children_overview", "対象期間の子どもの姿", "具体的な姿の要約"),
+    SectionDefinition("progress_growth_changes", "育ちと変化", "前回からの育ちや変化"),
+    SectionDefinition("progress_support_reflection", "保育者の援助と振り返り", "有効だった援助と振り返り"),
+    SectionDefinition("progress_family_collaboration", "家庭との連携", "家庭との共有や連携"),
+    SectionDefinition("progress_next_focus", "次の期間に大切にしたいこと", "次の計画につなぐ視点"),
+)
+
 
 def annual_section_definitions() -> list[SectionDefinition]:
     definitions = list(ANNUAL_BASE_SECTIONS)
@@ -190,6 +202,8 @@ def section_definitions(document_type: DocumentType) -> list[SectionDefinition]:
         return list(DAILY_SECTIONS)
     if document_type == DocumentType.INDIVIDUAL_PLAN:
         return list(INDIVIDUAL_SECTIONS)
+    if document_type == DocumentType.CHILD_PROGRESS_RECORD:
+        return list(CHILD_PROGRESS_SECTIONS)
     raise ValueError(f"Unsupported document_type: {document_type}")
 
 

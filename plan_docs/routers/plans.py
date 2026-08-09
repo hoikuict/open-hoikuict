@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import calendar
+from datetime import date
+import re
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
@@ -10,21 +14,33 @@ from ..auth_adapter import DEFAULT_CLASSROOM_REFS
 from ..contracts import AGE_CLASS_OPTIONS, DocumentStatus, DocumentType
 from ..services.generators import (
     generate_annual_plan,
-    generate_daily_plan,
     generate_monthly_plan,
+    generate_simple_daily_plan,
     generate_weekly_plan,
     week_start_date_from_target_week,
 )
-from ..store import document_store
+from ..services.daily_examples import (
+    DailyExampleCorpusError,
+    corpus_metadata,
+    get_daily_plan_example,
+    list_daily_plan_examples,
+)
+from ..services.daily_reflections import (
+    reflection_state,
+    reflection_state_label,
+    reflections_by_document_id,
+)
+from ..store import DocumentRepositoryDep, SqlModelDocumentRepository
 from ..templating import render_template
+from time_utils import local_today
 
 
 router = APIRouter(tags=["plans"])
 
 
-def _annual_documents_for_user(user: CurrentUser):
+def _annual_documents_for_user(user: CurrentUser, repository: SqlModelDocumentRepository):
     classroom_refs = None if user.is_admin else user.classroom_refs
-    return document_store.list(
+    return repository.list(
         nursery_ref=user.nursery_ref,
         classroom_refs=classroom_refs,
         document_type=DocumentType.ANNUAL_PLAN,
@@ -33,13 +49,14 @@ def _annual_documents_for_user(user: CurrentUser):
 
 def _documents_for_user(
     user: CurrentUser,
+    repository: SqlModelDocumentRepository,
     document_type: DocumentType,
     *,
     classroom_ref: str | None = None,
     limit: int = 8,
 ):
     classroom_refs = None if user.is_admin else user.classroom_refs
-    documents = document_store.list(
+    documents = repository.list(
         nursery_ref=user.nursery_ref,
         classroom_refs=classroom_refs,
         document_type=document_type,
@@ -50,18 +67,19 @@ def _documents_for_user(
     return documents[:limit]
 
 
-def _monthly_documents_for_user(user: CurrentUser, *, classroom_ref: str | None = None, limit: int = 8):
-    return _documents_for_user(user, DocumentType.MONTHLY_PLAN, classroom_ref=classroom_ref, limit=limit)
+def _monthly_documents_for_user(user: CurrentUser, repository: SqlModelDocumentRepository, *, classroom_ref: str | None = None, limit: int = 8):
+    return _documents_for_user(user, repository, DocumentType.MONTHLY_PLAN, classroom_ref=classroom_ref, limit=limit)
 
 
-def _weekly_documents_for_user(user: CurrentUser, *, classroom_ref: str | None = None, limit: int = 8):
-    return _documents_for_user(user, DocumentType.WEEKLY_PLAN, classroom_ref=classroom_ref, limit=limit)
+def _weekly_documents_for_user(user: CurrentUser, repository: SqlModelDocumentRepository, *, classroom_ref: str | None = None, limit: int = 8):
+    return _documents_for_user(user, repository, DocumentType.WEEKLY_PLAN, classroom_ref=classroom_ref, limit=limit)
 
 
 def _resolve_parent_document_id(
     raw_value: str,
     *,
     user: CurrentUser,
+    repository: SqlModelDocumentRepository,
     classroom_ref: str,
     expected_type: DocumentType,
 ) -> tuple[str, str]:
@@ -72,7 +90,7 @@ def _resolve_parent_document_id(
         document_id = int(value)
     except ValueError:
         return "", "上位計画の接続未確認"
-    document = document_store.get(document_id)
+    document = repository.get(document_id)
     if (
         document is None
         or document.nursery_ref != user.nursery_ref
@@ -85,6 +103,143 @@ def _resolve_parent_document_id(
 
 def _form_values(**values: str) -> dict[str, str]:
     return {key: value for key, value in values.items()}
+
+
+def _list_value(values: list[str], index: int) -> str:
+    return values[index] if index < len(values) else ""
+
+
+def _daily_activity_text(document) -> str:
+    activities: list[str] = []
+    if document.schedule:
+        for row in sorted(document.schedule.rows, key=lambda item: item.order):
+            activity = (row.label or "").strip()
+            if activity and activity not in activities:
+                activities.append(activity)
+    if activities:
+        return " / ".join(activities)
+    for section in document.sections:
+        if section.section_key == "daily_content" and section.body.strip():
+            return section.body.strip()
+    return "活動内容未入力"
+
+
+def _adjacent_month(year: int, month: int, offset: int) -> tuple[int, int]:
+    month_index = year * 12 + month - 1 + offset
+    return month_index // 12, month_index % 12 + 1
+
+
+def _age_class_from_classroom_ref(classroom_ref: str) -> str:
+    match = re.search(r"([0-5])\s*歳児", classroom_ref or "")
+    return f"{match.group(1)}歳児" if match else ""
+
+
+@router.get("/daily-plans/")
+def daily_plan_calendar(
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+    year: int | None = None,
+    month: int | None = None,
+    classroom_ref: str = "",
+):
+    today = local_today()
+    selected_year = year if year is not None and 2000 <= year <= 2100 else today.year
+    selected_month = month if month is not None and 1 <= month <= 12 else today.month
+    accessible_classrooms = list(user.classroom_refs or DEFAULT_CLASSROOM_REFS)
+    selected_classroom_ref = (
+        classroom_ref if classroom_ref in accessible_classrooms else ""
+    )
+    displayed_classrooms = (
+        [selected_classroom_ref] if selected_classroom_ref else accessible_classrooms
+    )
+    documents = repository.list(
+        nursery_ref=user.nursery_ref,
+        classroom_refs=None if user.is_admin else user.classroom_refs,
+        document_type=DocumentType.DAILY_PLAN,
+    )
+    documents_by_date_and_classroom = {}
+    month_prefix = f"{selected_year:04d}-{selected_month:02d}-"
+    for document in documents:
+        if (
+            not document.target_date
+            or not document.target_date.startswith(month_prefix)
+            or document.classroom_ref not in displayed_classrooms
+        ):
+            continue
+        documents_by_date_and_classroom.setdefault(
+            (document.target_date, document.classroom_ref), document
+        )
+    reflections = reflections_by_document_id(
+        repository.session,
+        [document.id for document in documents if document.id is not None],
+    )
+
+    weeks = []
+    for week in calendar.Calendar(firstweekday=calendar.MONDAY).monthdatescalendar(
+        selected_year, selected_month
+    ):
+        days = []
+        for day in week[:5]:
+            in_month = day.month == selected_month
+            entries = []
+            if in_month:
+                day_key = day.isoformat()
+                for classroom in displayed_classrooms:
+                    document = documents_by_date_and_classroom.get((day_key, classroom))
+                    age_class = _age_class_from_classroom_ref(classroom)
+                    reflection = reflections.get(document.id) if document else None
+                    entries.append(
+                        {
+                            "classroom_ref": classroom,
+                            "activity": _daily_activity_text(document) if document else "未作成",
+                            "is_created": document is not None,
+                            "reflection_state": reflection_state(reflection) if document else "",
+                            "reflection_label": reflection_state_label(reflection) if document else "",
+                            "url": (
+                                f"/plans/documents/{document.id}"
+                                if document
+                                else "/plans/daily-plans/new?"
+                                f"target_date={day_key}&classroom_ref={quote(classroom)}"
+                                f"&age_class={quote(age_class)}&month={selected_month}"
+                            ),
+                        }
+                    )
+            days.append(
+                {
+                    "date": day,
+                    "in_month": in_month,
+                    "is_today": day == today,
+                    "entries": entries,
+                }
+            )
+        if any(day["in_month"] for day in days):
+            weeks.append(days)
+
+    previous_year, previous_month = _adjacent_month(selected_year, selected_month, -1)
+    next_year, next_month = _adjacent_month(selected_year, selected_month, 1)
+    classroom_query = (
+        f"&classroom_ref={quote(selected_classroom_ref)}"
+        if selected_classroom_ref
+        else ""
+    )
+    return render_template(
+        request,
+        "daily_plans/calendar.html",
+        user=user,
+        calendar_year=selected_year,
+        calendar_month=selected_month,
+        weeks=weeks,
+        weekday_labels=("月", "火", "水", "木", "金"),
+        classroom_refs=accessible_classrooms,
+        selected_classroom_ref=selected_classroom_ref,
+        previous_month_url=(
+            f"/plans/daily-plans/?year={previous_year}&month={previous_month}{classroom_query}"
+        ),
+        next_month_url=(
+            f"/plans/daily-plans/?year={next_year}&month={next_month}{classroom_query}"
+        ),
+    )
 
 
 @router.get("/annual-plans/new")
@@ -101,6 +256,7 @@ def new_annual_plan(request: Request, user: CurrentUser):
 def create_annual_plan(
     request: Request,
     user: CurrentUser,
+    repository: DocumentRepositoryDep,
     school_year: Annotated[str, Form()] = "2026",
     class_name: Annotated[str, Form()] = "",
     classroom_ref: Annotated[str, Form()] = "",
@@ -143,17 +299,17 @@ def create_annual_plan(
         },
         user,
     )
-    created = document_store.create(document)
+    created = repository.create(document)
     return RedirectResponse(url=f"/plans/documents/{created.id}", status_code=303)
 
 
 @router.get("/monthly-plans/new")
-def new_monthly_plan(request: Request, user: CurrentUser):
+def new_monthly_plan(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     return render_template(
         request,
         "monthly_plans/form.html",
         user=user,
-        annual_documents=_annual_documents_for_user(user),
+        annual_documents=_annual_documents_for_user(user, repository),
         default_classroom_ref=user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0],
     )
 
@@ -162,6 +318,7 @@ def new_monthly_plan(request: Request, user: CurrentUser):
 def create_monthly_plan(
     request: Request,
     user: CurrentUser,
+    repository: DocumentRepositoryDep,
     target_month: Annotated[str, Form()] = "",
     class_name: Annotated[str, Form()] = "",
     classroom_ref: Annotated[str, Form()] = "",
@@ -194,12 +351,12 @@ def create_monthly_plan(
         },
         user,
     )
-    created = document_store.create(document)
+    created = repository.create(document)
     return RedirectResponse(url=f"/plans/documents/{created.id}", status_code=303)
 
 
 @router.get("/weekly-plans/new")
-def new_weekly_plan(request: Request, user: CurrentUser):
+def new_weekly_plan(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     default_classroom_ref = user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0]
     return render_template(
         request,
@@ -207,7 +364,7 @@ def new_weekly_plan(request: Request, user: CurrentUser):
         user=user,
         default_classroom_ref=default_classroom_ref,
         age_class_options=AGE_CLASS_OPTIONS,
-        monthly_documents=_monthly_documents_for_user(user, classroom_ref=default_classroom_ref),
+        monthly_documents=_monthly_documents_for_user(user, repository, classroom_ref=default_classroom_ref),
         errors=[],
         form_values={},
     )
@@ -217,6 +374,7 @@ def new_weekly_plan(request: Request, user: CurrentUser):
 def create_weekly_plan(
     request: Request,
     user: CurrentUser,
+    repository: DocumentRepositoryDep,
     target_week: Annotated[str, Form()] = "",
     classroom_ref: Annotated[str, Form()] = "",
     age_class: Annotated[str, Form()] = "",
@@ -248,6 +406,7 @@ def create_weekly_plan(
     resolved_parent_id, connection_warning = _resolve_parent_document_id(
         parent_document_id,
         user=user,
+        repository=repository,
         classroom_ref=selected_classroom_ref,
         expected_type=DocumentType.MONTHLY_PLAN,
     )
@@ -275,7 +434,7 @@ def create_weekly_plan(
             user=user,
             default_classroom_ref=selected_classroom_ref,
             age_class_options=AGE_CLASS_OPTIONS,
-            monthly_documents=_monthly_documents_for_user(user, classroom_ref=selected_classroom_ref),
+            monthly_documents=_monthly_documents_for_user(user, repository, classroom_ref=selected_classroom_ref),
             errors=errors,
             form_values=values,
         )
@@ -288,22 +447,106 @@ def create_weekly_plan(
         },
         user,
     )
-    created = document_store.create(document)
+    created = repository.create(document)
     return RedirectResponse(url=f"/plans/documents/{created.id}", status_code=303)
 
 
 @router.get("/daily-plans/new")
-def new_daily_plan(request: Request, user: CurrentUser):
-    default_classroom_ref = user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0]
+def new_daily_plan(
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+    age_class: str = "",
+    month: int | None = None,
+    q: str = "",
+    example_id: str = "",
+    target_date: str = "",
+    classroom_ref: str = "",
+):
+    default_classroom_ref = (
+        classroom_ref
+        if classroom_ref in user.classroom_refs
+        else (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
+    )
+    inferred_month = None
+    if target_date:
+        try:
+            inferred_month = date.fromisoformat(target_date).month
+        except ValueError:
+            inferred_month = None
+    selected_month = (
+        month
+        if month is not None and 1 <= month <= 12
+        else (inferred_month or local_today().month)
+    )
+    selected_age_class = (
+        age_class
+        if age_class in AGE_CLASS_OPTIONS
+        else _age_class_from_classroom_ref(default_classroom_ref)
+    )
+    selected_example = None
+    examples = []
+    corpus_info: dict[str, str] = {}
+    corpus_error = ""
+    try:
+        examples = list_daily_plan_examples(
+            age_class=selected_age_class or None,
+            month=selected_month,
+            query=q,
+        )
+        selected_example = get_daily_plan_example(example_id) if example_id else None
+        corpus_info = corpus_metadata()
+    except DailyExampleCorpusError as exc:
+        corpus_error = str(exc)
+    values = {
+        "target_date": target_date,
+        "classroom_ref": default_classroom_ref,
+        "age_class": selected_age_class,
+        "daily_aims": "\n".join(selected_example.aims) if selected_example else "",
+        "daily_content": selected_example.content if selected_example else "",
+        "example_id": selected_example.id if selected_example else "",
+        "example_source_ref": selected_example.source_ref if selected_example else "",
+        "timeline_rows": [
+            {
+                "row_key": f"corpus_{block.position + 1}",
+                "time_label": block.time_label,
+                "activity_name": " / ".join(
+                    value
+                    for value in (block.activity_name, block.activity_text)
+                    if value
+                ),
+                "child_state": block.child_state,
+                "support": block.support,
+                "considerations": block.considerations,
+            }
+            for block in selected_example.activity_blocks
+        ]
+        if selected_example
+        else [
+            {
+                "row_key": "row_1",
+                "time_label": "",
+                "activity_name": "",
+                "child_state": "",
+                "support": "",
+                "considerations": "",
+            }
+        ],
+    }
     return render_template(
         request,
         "daily_plans/form.html",
         user=user,
         default_classroom_ref=default_classroom_ref,
         age_class_options=AGE_CLASS_OPTIONS,
-        weekly_documents=_weekly_documents_for_user(user, classroom_ref=default_classroom_ref),
+        weekly_documents=[],
         errors=[],
-        form_values={},
+        form_values=values,
+        examples=examples,
+        selected_month=selected_month,
+        search_query=q,
+        corpus_info=corpus_info,
+        corpus_error=corpus_error,
     )
 
 
@@ -311,17 +554,21 @@ def new_daily_plan(request: Request, user: CurrentUser):
 def create_daily_plan(
     request: Request,
     user: CurrentUser,
+    repository: DocumentRepositoryDep,
     target_date: Annotated[str, Form()] = "",
     classroom_ref: Annotated[str, Form()] = "",
     age_class: Annotated[str, Form()] = "",
     owner_name: Annotated[str, Form()] = "",
-    parent_document_id: Annotated[str, Form()] = "",
-    related_weekly_summary: Annotated[str, Form()] = "",
-    current_children_snapshot: Annotated[str, Form()] = "",
-    daily_main_activity_note: Annotated[str, Form()] = "",
-    seasonal_context: Annotated[str, Form()] = "",
-    health_notes: Annotated[str, Form()] = "",
-    family_context: Annotated[str, Form()] = "",
+    daily_aims: Annotated[str, Form()] = "",
+    daily_content: Annotated[str, Form()] = "",
+    timeline_row_key: Annotated[list[str], Form()] = [],
+    timeline_time: Annotated[list[str], Form()] = [],
+    timeline_activity: Annotated[list[str], Form()] = [],
+    timeline_children: Annotated[list[str], Form()] = [],
+    timeline_support: Annotated[list[str], Form()] = [],
+    timeline_considerations: Annotated[list[str], Form()] = [],
+    example_id: Annotated[str, Form()] = "",
+    example_source_ref: Annotated[str, Form()] = "",
 ):
     require_can_edit(user, request)
     selected_classroom_ref = classroom_ref or (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
@@ -332,34 +579,61 @@ def create_daily_plan(
         errors.append("対象日を選択してください。")
     else:
         try:
-            from datetime import date
-
             date.fromisoformat(target_date)
         except ValueError:
             errors.append("対象日を正しい形式で選択してください。")
     if not age_class:
         errors.append("年齢を選択してください。")
-    resolved_parent_id, connection_warning = _resolve_parent_document_id(
-        parent_document_id,
-        user=user,
-        classroom_ref=selected_classroom_ref,
-        expected_type=DocumentType.WEEKLY_PLAN,
+    row_count = max(
+        len(timeline_row_key),
+        len(timeline_time),
+        len(timeline_activity),
+        len(timeline_children),
+        len(timeline_support),
+        len(timeline_considerations),
     )
-    if not parent_document_id and related_weekly_summary.strip():
-        connection_warning = ""
+    timeline_rows = [
+        {
+            "row_key": _list_value(timeline_row_key, index) or f"row_{index + 1}",
+            "time_label": _list_value(timeline_time, index),
+            "activity_name": _list_value(timeline_activity, index),
+            "child_state": _list_value(timeline_children, index),
+            "support": _list_value(timeline_support, index),
+            "considerations": _list_value(timeline_considerations, index),
+        }
+        for index in range(row_count)
+    ]
+    if not any(
+        any(str(row[key]).strip() for key in ("time_label", "activity_name", "child_state", "support", "considerations"))
+        for row in timeline_rows
+    ):
+        errors.append("1日の流れを1行以上入力してください。")
+    selected_example = None
+    if example_id:
+        try:
+            selected_example = get_daily_plan_example(example_id)
+        except DailyExampleCorpusError:
+            selected_example = None
     values = _form_values(
         target_date=target_date,
         classroom_ref=selected_classroom_ref,
         age_class=age_class,
         owner_name=owner_name,
-        parent_document_id=parent_document_id,
-        related_weekly_summary=related_weekly_summary,
-        current_children_snapshot=current_children_snapshot,
-        daily_main_activity_note=daily_main_activity_note,
-        seasonal_context=seasonal_context,
-        health_notes=health_notes,
-        family_context=family_context,
+        daily_aims=daily_aims,
+        daily_content=daily_content,
+        example_id=selected_example.id if selected_example else "",
+        example_source_ref=(selected_example.source_ref if selected_example else example_source_ref),
     )
+    values["timeline_rows"] = timeline_rows or [
+        {
+            "row_key": "row_1",
+            "time_label": "",
+            "activity_name": "",
+            "child_state": "",
+            "support": "",
+            "considerations": "",
+        }
+    ]
     if errors:
         return render_template(
             request,
@@ -367,18 +641,21 @@ def create_daily_plan(
             user=user,
             default_classroom_ref=selected_classroom_ref,
             age_class_options=AGE_CLASS_OPTIONS,
-            weekly_documents=_weekly_documents_for_user(user, classroom_ref=selected_classroom_ref),
+            weekly_documents=[],
             errors=errors,
             form_values=values,
+            examples=[],
+            selected_month=local_today().month,
+            search_query="",
+            corpus_info={},
+            corpus_error="",
         )
-    document = generate_daily_plan(
+    document = generate_simple_daily_plan(
         {
             **values,
             "class_name": selected_class_name,
-            "parent_document_id": resolved_parent_id,
-            "connection_warning": connection_warning,
         },
         user,
     )
-    created = document_store.create(document)
+    created = repository.create(document)
     return RedirectResponse(url=f"/plans/documents/{created.id}", status_code=303)

@@ -88,8 +88,25 @@ def export_sqlite_snapshot(db_path: Path) -> None:
         destination.close()
 
 
+def copy_sqlite_snapshot(source_path: Path, db_path: Path) -> None:
+    """Create a validated SQLite copy from a packaged demo template."""
+
+    if not source_path.is_file():
+        raise FileNotFoundError(source_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    source_uri = f"file:{source_path.resolve().as_posix()}?mode=ro"
+    source = sqlite3.connect(source_uri, uri=True)
+    destination = sqlite3.connect(db_path)
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+
+
 def create_db_and_tables() -> None:
     import models  # noqa: F401
+    import child_records.models  # noqa: F401
     import plan_docs.db_models  # noqa: F401
 
     if engine.dialect.name != "sqlite":
@@ -113,6 +130,7 @@ def create_db_and_tables() -> None:
     _migrate_add_meeting_note_columns()
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
+    _migrate_plan_document_child_record_columns()
     _migrate_billing_fee_labels()
     _migrate_zengin_workflow()
     _validate_sqlite_foreign_keys()
@@ -411,6 +429,37 @@ def _migrate_survey_tables() -> None:
     # New survey tables are created by SQLModel.metadata.create_all().
     # Keep this hook explicit for future additive indexes or backfills.
     return
+
+
+def _migrate_plan_document_child_record_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("plan_documents")
+            if not columns:
+                return
+            additions = {
+                "period_start": "VARCHAR",
+                "period_end": "VARCHAR",
+                "record_cycle_key": "VARCHAR",
+                "setting_version_id": "INTEGER REFERENCES child_record_setting_versions(id)",
+            }
+            for column_name, column_type in additions.items():
+                if column_name not in columns:
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE plan_documents ADD COLUMN {column_name} {column_type}"
+                        )
+                    )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_document_child_cycle "
+                    "ON plan_documents(document_type, child_id, record_cycle_key) "
+                    "WHERE record_cycle_key IS NOT NULL"
+                )
+            )
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("plan document child record columns", exc)
 
 
 def _migrate_billing_fee_labels() -> None:

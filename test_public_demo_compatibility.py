@@ -12,6 +12,8 @@ from auth import mock_auth_enabled
 from database import get_session
 from demo_runtime import get_demo_session_manager, reset_demo_runtime_cache
 from models import Child
+from plan_docs.contracts import DocumentType
+from plan_docs.db_models import PlanDocumentRow
 from security_config import validate_runtime_security
 from starlette.requests import HTTPConnection
 
@@ -72,6 +74,12 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
             with Session(manager.get_engine(first_id)) as first_session:
                 children = first_session.exec(select(Child).order_by(Child.id)).all()
                 self.assertEqual(len(children), 100)
+                daily_plans = first_session.exec(
+                    select(PlanDocumentRow).where(
+                        PlanDocumentRow.document_type == DocumentType.DAILY_PLAN.value
+                    )
+                ).all()
+                self.assertEqual(len(daily_plans), 6)
                 child = children[0]
                 self.assertIsNotNone(child)
                 child.last_name = "SessionOne"

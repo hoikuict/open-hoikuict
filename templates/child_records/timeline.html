@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }}の記録 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-6">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="text-sm font-semibold text-indigo-600">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</p>
+      <h1 class="mt-1 text-2xl font-bold text-slate-900">{{ child.full_name }}の記録</h1>
+      <p class="mt-2 text-sm text-slate-600">日々の姿を追記し、時系列で振り返ります。</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if can_add %}<a href="/children/{{ child.id }}/records/new" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">記録を追加</a>{% endif %}
+      <a href="/children/{{ child.id }}/progress-records" class="rounded-xl border border-indigo-300 bg-white px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50">児童票</a>
+      <a href="/children/{{ child.id }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">園児詳細へ</a>
+    </div>
+  </div>
+
+  {% if request.query_params.get('created') %}<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">記録を追加しました。</div>{% endif %}
+  {% if request.query_params.get('corrected') %}<div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">記録を訂正し、変更前の内容を履歴へ保存しました。</div>{% endif %}
+  {% if request.query_params.get('voided') %}<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">記録を無効化しました。データと理由は履歴として保持されます。</div>{% endif %}
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <form method="get" class="flex flex-wrap items-end gap-3">
+      <label class="min-w-56 flex-1 text-sm font-medium text-slate-700">記録区分
+        <select name="category" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2">
+          <option value="">すべて</option>
+          {% for option in categories %}<option value="{{ option }}" {% if category == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">絞り込む</button>
+    </form>
+  </section>
+
+  <div class="relative space-y-5 before:absolute before:bottom-3 before:left-[1.15rem] before:top-3 before:w-px before:bg-slate-200">
+    {% for log in logs %}
+    <article class="relative pl-12">
+      <span class="absolute left-2.5 top-6 h-5 w-5 rounded-full border-4 border-white bg-indigo-500 shadow"></span>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <time class="font-semibold text-slate-900">{{ log.observed_on.strftime('%Y年%m月%d日') }}</time>
+              {% if log.sensitivity == 'restricted' %}<span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">取扱注意</span>{% endif %}
+              {% for item in log.categories %}<span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{{ item }}</span>{% endfor %}
+            </div>
+            <p class="mt-1 text-xs text-slate-500">{{ log.created_by_name }}・{{ log.classroom_name_snapshot or 'クラス未設定' }}／入力 {{ log.created_at|jst_datetime }}</p>
+          </div>
+          {% if current_user.can_edit %}<a href="/children/{{ child.id }}/records/{{ log.id }}/correct" class="text-sm font-medium text-indigo-600 hover:underline">訂正</a>{% endif %}
+        </div>
+        <div class="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-800">{{ log.child_state }}</div>
+        {% if log.caregiver_support or log.reflection or log.next_focus or log.family_note or log.custom_values %}
+        <details class="mt-4 rounded-xl bg-slate-50 p-4">
+          <summary class="cursor-pointer text-sm font-semibold text-slate-700">関わり・振り返りを見る</summary>
+          <dl class="mt-3 grid gap-4 text-sm md:grid-cols-2">
+            {% if log.caregiver_support %}<div><dt class="font-medium text-slate-500">保育者の関わり</dt><dd class="mt-1 whitespace-pre-wrap text-slate-800">{{ log.caregiver_support }}</dd></div>{% endif %}
+            {% if log.reflection %}<div><dt class="font-medium text-slate-500">気付き・振り返り</dt><dd class="mt-1 whitespace-pre-wrap text-slate-800">{{ log.reflection }}</dd></div>{% endif %}
+            {% if log.next_focus %}<div><dt class="font-medium text-slate-500">次に意識したいこと</dt><dd class="mt-1 whitespace-pre-wrap text-slate-800">{{ log.next_focus }}</dd></div>{% endif %}
+            {% if log.family_note %}<div><dt class="font-medium text-slate-500">家庭との共有・連携</dt><dd class="mt-1 whitespace-pre-wrap text-slate-800">{{ log.family_note }}</dd></div>{% endif %}
+            {% for key, value in log.custom_values.items() %}<div><dt class="font-medium text-slate-500">{{ custom_labels_by_log_id.get(log.id, {}).get(key, '園独自項目') }}</dt><dd class="mt-1 whitespace-pre-wrap text-slate-800">{{ value }}</dd></div>{% endfor %}
+          </dl>
+        </details>
+        {% endif %}
+        {% if log.perspective_tags %}<div class="mt-4 flex flex-wrap gap-2">{% for tag in log.perspective_tags %}<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-700">{{ tag }}</span>{% endfor %}</div>{% endif %}
+      </div>
+    </article>
+    {% else %}
+    <div class="relative rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">該当する記録はまだありません。{% if can_add %}「記録を追加」から最初の姿を残せます。{% endif %}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

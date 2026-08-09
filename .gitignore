@@ -27,7 +27,11 @@ env/
 
 # Database
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
+!demo_data/
+!demo_data/demo-template.sqlite3
 hoikuict.db
 data/
 

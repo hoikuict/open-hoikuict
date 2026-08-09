@@ -2,6 +2,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from contextlib import suppress
+from pathlib import Path
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from database import (
     bootstrap_health_records,
     bootstrap_family_records,
+    copy_sqlite_snapshot,
     create_db_and_tables,
     export_sqlite_snapshot,
     seed_calendar_data,
@@ -68,6 +70,9 @@ from routers.staff_rooms import router as staff_rooms_router
 from routers.staff_surveys import router as staff_surveys_router
 from routers.surveys import router as surveys_router
 from routers.zengin import router as zengin_router
+from child_records.router import router as child_records_router
+from child_records.router import settings_router as child_record_settings_router
+from child_records.router import progress_router as child_progress_router
 from plan_docs.runtime import ensure_runtime_files
 from plan_docs.routers.bunrei import router as plan_docs_bunrei_router
 from plan_docs.routers.documents import router as plan_docs_documents_router
@@ -85,6 +90,18 @@ def initialize_application() -> None:
     _cleanup_stale_previews()
     ensure_runtime_files()
     if is_public_demo_enabled():
+        template_path = Path(
+            os.getenv(
+                "DEMO_TEMPLATE_DB_PATH",
+                str(Path(__file__).resolve().parent / "demo_data" / "demo-template.sqlite3"),
+            )
+        )
+        if template_path.is_file():
+            get_demo_session_manager().prepare_base_database(
+                lambda destination: copy_sqlite_snapshot(template_path, destination)
+            )
+            return
+
         from scripts.seed_demo_100 import seed as seed_demo_100
 
         seed_demo_100(wipe=True)
@@ -199,6 +216,7 @@ app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
 app.include_router(families_router)
 app.include_router(children_router)
+app.include_router(child_records_router)
 app.include_router(child_health_router)
 app.include_router(child_change_requests_router)
 app.include_router(attendance_router)
@@ -220,6 +238,8 @@ app.include_router(staff_rooms_router)
 app.include_router(surveys_router)
 app.include_router(staff_surveys_router)
 app.include_router(zengin_router)
+app.include_router(child_record_settings_router)
+app.include_router(child_progress_router)
 if mock_auth_enabled():
     app.include_router(staff_mock_login_router)
     app.include_router(parent_portal_mock_login_router)

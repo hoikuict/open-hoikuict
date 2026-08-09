@@ -68,6 +68,10 @@ class PlanDocument:
     target_week: str | None = None
     week_start_date: str | None = None
     target_date: str | None = None
+    period_start: str | None = None
+    period_end: str | None = None
+    record_cycle_key: str | None = None
+    setting_version_id: int | None = None
     age_class: str | None = None
     child_id: int | None = None
     child_ref: str | None = None

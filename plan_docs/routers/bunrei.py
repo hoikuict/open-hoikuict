@@ -21,7 +21,7 @@ from ..services.bunrei import (
     monthly_candidate_groups,
     selected_examples,
 )
-from ..store import document_store
+from ..store import DocumentRepositoryDep
 from ..templating import render_template
 
 
@@ -168,7 +168,11 @@ def monthly_bunrei_selector(
 
 
 @router.post("/monthly")
-async def create_monthly_from_bunrei(request: Request, user: CurrentUser):
+async def create_monthly_from_bunrei(
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+):
     _ensure_available()
     require_can_edit(user, request)
     form = await request.form()
@@ -204,7 +208,7 @@ async def create_monthly_from_bunrei(request: Request, user: CurrentUser):
         selected_by_section=selected_by_section,
         target_month=target_month,
     )
-    created = document_store.create(document)
+    created = repository.create(document)
     return RedirectResponse(url=f"/plans/documents/{created.id}/edit", status_code=303)
 
 
@@ -230,7 +234,11 @@ def annual_bunrei_selector(
 
 
 @router.post("/annual")
-async def create_annual_from_bunrei(request: Request, user: CurrentUser):
+async def create_annual_from_bunrei(
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+):
     _ensure_available()
     require_can_edit(user, request)
     form = await request.form()
@@ -255,7 +263,7 @@ async def create_annual_from_bunrei(request: Request, user: CurrentUser):
         selected_by_section=selected_examples(selection, nursery_ref=user.nursery_ref),
         school_year=school_year,
     )
-    created = document_store.create(document)
+    created = repository.create(document)
     return RedirectResponse(url=f"/plans/documents/{created.id}/edit", status_code=303)
 
 
