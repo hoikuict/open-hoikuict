@@ -330,7 +330,11 @@ def child_record_timeline(
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
     child = _load_child(session, child_id)
-    _require_child_access(session, current_user, child)
+    if not _has_child_access(session, current_user, child):
+        return RedirectResponse(
+            url=f"/children/{child_id}?child_records_denied=1",
+            status_code=303,
+        )
     statement = select(ChildObservationLog).where(
         ChildObservationLog.child_id == child_id,
         ChildObservationLog.voided_at.is_(None),
@@ -390,7 +394,11 @@ def new_child_record_form(
 ):
     require_can_edit(current_user)
     child = _load_child(session, child_id)
-    _require_child_access(session, current_user, child)
+    if not _has_child_access(session, current_user, child):
+        return RedirectResponse(
+            url=f"/children/{child_id}?child_records_denied=1",
+            status_code=303,
+        )
     config, _ = effective_config(session)
     return _log_form_context(
         request,
@@ -765,7 +773,11 @@ def child_progress_record_list(
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
     child = _load_child(session, child_id)
-    _require_child_access(session, current_user, child)
+    if not _has_child_access(session, current_user, child):
+        return RedirectResponse(
+            url=f"/children/{child_id}?child_records_denied=1",
+            status_code=303,
+        )
     config, _ = effective_config(session)
     cycle = _progress_cycle(child, config)
     records = session.exec(
@@ -804,7 +816,11 @@ def new_child_progress_record_form(
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
     child = _load_child(session, child_id)
-    _require_child_access(session, current_user, child)
+    if not _has_child_access(session, current_user, child):
+        return RedirectResponse(
+            url=f"/children/{child_id}?child_records_denied=1",
+            status_code=303,
+        )
     if not current_user.can_edit:
         return RedirectResponse(
             url=f"/children/{child_id}/progress-records?permission_denied=1",

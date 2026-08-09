@@ -3,14 +3,19 @@
 
 {% block content %}
 <div class="max-w-5xl space-y-6">
+  {% if child_records_denied %}
+  <div role="alert" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">この園児の記録・児童票は、担当クラスまたは園児台帳管理権限のある職員だけが確認できます。</div>
+  {% endif %}
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-slate-800">{{ child.full_name }}</h1>
       <p class="text-sm text-slate-500">園児情報と家族構成を閲覧できます。</p>
     </div>
     <div class="flex gap-3">
+      {% if can_access_child_records %}
       <a href="/children/{{ child.id }}/records" class="rounded border border-violet-300 px-4 py-2 text-sm text-violet-700 hover:bg-violet-50">子どもの記録</a>
       <a href="/children/{{ child.id }}/progress-records" class="rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50">児童票</a>
+      {% endif %}
       <a href="/children/{{ child.id }}/health" class="rounded border border-emerald-300 px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50">健康管理</a>
       {% if current_user and current_user.can_manage_child_records %}
       <a href="/children/{{ child.id }}/history" class="rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50">変更履歴</a>

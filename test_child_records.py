@@ -244,8 +244,35 @@ class ChildRecordFeatureTests(unittest.TestCase):
             session.commit()
             session.refresh(child)
             other_child_id = int(child.id or 0)
-        denied = self.client.get(f"/children/{other_child_id}/records")
-        self.assertEqual(denied.status_code, 403)
+        denied = self.client.get(
+            f"/children/{other_child_id}/records",
+            follow_redirects=False,
+        )
+        self.assertEqual(denied.status_code, 303)
+        self.assertEqual(
+            denied.headers["location"],
+            f"/children/{other_child_id}?child_records_denied=1",
+        )
+
+        denied_progress = self.client.get(
+            f"/children/{other_child_id}/progress-records",
+            follow_redirects=False,
+        )
+        self.assertEqual(denied_progress.status_code, 303)
+        self.assertEqual(
+            denied_progress.headers["location"],
+            f"/children/{other_child_id}?child_records_denied=1",
+        )
+
+        denied_new_progress = self.client.get(
+            f"/children/{other_child_id}/progress-records/new",
+            follow_redirects=False,
+        )
+        self.assertEqual(denied_new_progress.status_code, 303)
+        self.assertEqual(
+            denied_new_progress.headers["location"],
+            f"/children/{other_child_id}?child_records_denied=1",
+        )
 
     def test_progress_record_entry_shows_logs_and_creates_versioned_document(self):
         created_log = self.client.post(
