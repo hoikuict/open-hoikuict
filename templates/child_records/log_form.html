@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ '記録を訂正' if is_correction else '記録を追加' }} | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-6">
+  <div>
+    <p class="text-sm font-semibold text-indigo-600">{{ child.full_name }}</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">{{ '子どもの記録を訂正' if is_correction else '子どもの記録を追加' }}</h1>
+    <p class="mt-2 text-sm text-slate-600">具体的に見えた姿を中心に、必要な範囲で関わりや振り返りを記録します。</p>
+  </div>
+  {% if error %}<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>{% endif %}
+
+  <form method="post" action="{% if is_correction %}/children/{{ child.id }}/records/{{ log.id }}/correct{% else %}/children/{{ child.id }}/records{% endif %}" class="space-y-6">
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="grid gap-5 md:grid-cols-2">
+        {% for field in fields %}
+          {% if field.key == 'observed_on' %}
+          <label class="block text-sm font-medium text-slate-700">{{ field.label }} <span class="text-rose-600">*</span>
+            <input type="date" name="observed_on" value="{{ log.observed_on.isoformat() if log else today }}" required class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2">
+            <span class="mt-1 block text-xs font-normal text-slate-500">{{ field.description }}</span>
+          </label>
+          {% elif field.key == 'child_state' %}
+          <label class="block text-sm font-medium text-slate-700 md:col-span-2">{{ field.label }} <span class="text-rose-600">*</span>
+            <textarea name="child_state" rows="6" maxlength="5000" required class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="例：積み木を何度も積み直し、崩れると『もう一回』と言って隣の子と笑い合っていた。">{{ log.child_state if log else '' }}</textarea>
+            <span class="mt-1 block text-xs font-normal text-slate-500">{{ field.description }}</span>
+          </label>
+          {% elif field.key in ['caregiver_support', 'reflection', 'next_focus', 'family_note'] %}
+          <label class="block text-sm font-medium text-slate-700 {% if field.key in ['caregiver_support', 'reflection'] %}md:col-span-1{% endif %}">{{ field.label }}{% if field.required %} <span class="text-rose-600">*</span>{% endif %}
+            <textarea name="{{ field.key }}" rows="4" maxlength="5000" {% if field.required %}required{% endif %} class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2">{{ log[field.key] if log else '' }}</textarea>
+            <span class="mt-1 block text-xs font-normal text-slate-500">{{ field.description }}</span>
+          </label>
+          {% elif field.key == 'categories' %}
+          <fieldset class="md:col-span-2"><legend class="text-sm font-medium text-slate-700">{{ field.label }}</legend><div class="mt-2 flex flex-wrap gap-2">{% for option in categories %}<label class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"><input type="checkbox" name="categories" value="{{ option }}" {% if log and option in log.categories %}checked{% endif %}> {{ option }}</label>{% endfor %}</div></fieldset>
+          {% elif field.key == 'perspective_tags' %}
+          <fieldset class="md:col-span-2"><legend class="text-sm font-medium text-slate-700">{{ field.label }}</legend><div class="mt-2 flex flex-wrap gap-2">{% for option in perspective_tags %}<label class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs"><input type="checkbox" name="perspective_tags" value="{{ option }}" {% if log and option in log.perspective_tags %}checked{% endif %}> {{ option }}</label>{% endfor %}</div></fieldset>
+          {% elif field.key == 'sensitivity' %}
+          {% if current_user.is_admin %}<label class="block text-sm font-medium text-slate-700">{{ field.label }}
+            <select name="sensitivity" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"><option value="normal" {% if not log or log.sensitivity == 'normal' %}selected{% endif %}>通常</option><option value="restricted" {% if log and log.sensitivity == 'restricted' %}selected{% endif %}>取扱注意（管理者のみ）</option></select>
+          </label>{% else %}<input type="hidden" name="sensitivity" value="normal">{% endif %}
+          {% elif field.key.startswith('custom.') %}
+          <label class="block text-sm font-medium text-slate-700 md:col-span-2">{{ field.label }}{% if field.required %} <span class="text-rose-600">*</span>{% endif %}
+            <textarea name="custom_{{ field.key|replace('custom.', '') }}" rows="3" maxlength="5000" {% if field.required %}required{% endif %} class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2">{{ log.custom_values.get(field.key, '') if log else '' }}</textarea>
+          </label>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if is_correction %}
+    <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+      <label class="block text-sm font-medium text-amber-900">訂正理由 <span class="text-rose-600">*</span>
+        <textarea name="correction_reason" rows="2" maxlength="500" required class="mt-1 block w-full rounded-lg border border-amber-300 bg-white px-3 py-2" placeholder="訂正が必要になった理由を記録してください。"></textarea>
+      </label>
+      <p class="mt-2 text-xs text-amber-800">保存前の内容は訂正履歴に残ります。</p>
+    </section>
+    {% endif %}
+
+    <div class="flex flex-wrap justify-between gap-3">
+      <a href="/children/{{ child.id }}/records" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">キャンセル</a>
+      <button type="submit" class="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">{{ '訂正を保存' if is_correction else '記録を保存' }}</button>
+    </div>
+  </form>
+
+  {% if is_correction %}
+  <section class="rounded-2xl border border-rose-200 bg-white p-5">
+    <h2 class="font-semibold text-rose-800">誤登録として無効化</h2>
+    <p class="mt-1 text-sm text-slate-600">記録は削除せず、無効化理由とともに保持します。</p>
+    <form method="post" action="/children/{{ child.id }}/records/{{ log.id }}/void" class="mt-3 flex flex-wrap gap-3">
+      <input type="text" name="void_reason" maxlength="500" required placeholder="無効化理由" class="min-w-64 flex-1 rounded-lg border border-rose-200 px-3 py-2 text-sm">
+      <button type="submit" class="rounded-lg border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50">無効化する</button>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+

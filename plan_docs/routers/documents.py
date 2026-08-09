@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from time_utils import ensure_utc_from_local, local_naive_now, parse_local_datetime_input
@@ -12,6 +12,14 @@ from time_utils import ensure_utc_from_local, local_naive_now, parse_local_datet
 from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_edit, require_classroom_access
 from ..contracts import DocumentStatus, DocumentType, normalize_status
 from ..serializers import document_to_dict
+from ..services.daily_reflections import (
+    DailyReflectionError,
+    reflection_for_document,
+    reflection_state,
+    reflection_state_label,
+    reminder_time,
+    save_daily_reflection,
+)
 from ..store import (
     ConcurrentUpdateError,
     DocumentRepositoryDep,
@@ -138,6 +146,14 @@ def _change_to_dict(change) -> dict[str, object]:
     }
 
 
+def _reflection_status_html(reflection) -> str:
+    state = reflection_state(reflection)
+    return (
+        f'<span class="reflection-status reflection-status--{state}">'
+        f"{reflection_state_label(reflection)}</span>"
+    )
+
+
 @router.get("/documents/")
 def list_documents(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     classroom_refs = None if user.is_admin else user.classroom_refs
@@ -159,6 +175,11 @@ def document_detail(
 ):
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
+    reflection = (
+        reflection_for_document(repository.session, document_id)
+        if document.document_type == DocumentType.DAILY_PLAN
+        else None
+    )
     return render_template(
         request,
         "documents/detail.html",
@@ -171,7 +192,59 @@ def document_detail(
         reason_labels=REASON_LABELS,
         impact_labels=IMPACT_LABELS,
         changed_at_default=local_naive_now().strftime("%Y-%m-%dT%H:%M"),
+        reflection=reflection,
+        reflection_state=reflection_state(reflection),
+        reflection_state_label=reflection_state_label(reflection),
+        reflection_reminder_time=reminder_time().strftime("%H:%M"),
     )
+
+
+@router.post("/documents/{document_id}/reflection/draft", response_class=HTMLResponse)
+def save_reflection_draft(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+    reflection_body: Annotated[str, Form()] = "",
+):
+    document = _visible_document(document_id, user, repository)
+    require_can_edit(user, request)
+    if document.document_type != DocumentType.DAILY_PLAN:
+        raise HTTPException(status_code=404, detail="日案が見つかりません")
+    reflection = save_daily_reflection(
+        repository.session,
+        document_id=document_id,
+        body=reflection_body,
+        actor_ref=user.actor_ref or "unknown",
+        submit=False,
+    )
+    return HTMLResponse(_reflection_status_html(reflection))
+
+
+@router.post("/documents/{document_id}/reflection")
+def submit_daily_reflection(
+    document_id: int,
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+    reflection_body: Annotated[str, Form()] = "",
+    action: Annotated[str, Form()] = "submit",
+):
+    document = _visible_document(document_id, user, repository)
+    require_can_edit(user, request)
+    if document.document_type != DocumentType.DAILY_PLAN:
+        raise HTTPException(status_code=404, detail="日案が見つかりません")
+    try:
+        save_daily_reflection(
+            repository.session,
+            document_id=document_id,
+            body=reflection_body,
+            actor_ref=user.actor_ref or "unknown",
+            submit=action == "submit",
+        )
+    except DailyReflectionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return RedirectResponse(url=f"/plans/documents/{document_id}", status_code=303)
 
 
 @router.get("/documents/{document_id}/edit")

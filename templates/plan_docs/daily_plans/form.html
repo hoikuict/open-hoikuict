@@ -29,6 +29,8 @@
       <div class="notice"><strong>文例DBを読み込めません</strong><span>{{ corpus_error }}</span></div>
     {% endif %}
     <form method="get" action="/plans/daily-plans/new" class="form-layout compact">
+      <input name="target_date" type="hidden" value="{{ form_values.get('target_date', '') }}">
+      <input name="classroom_ref" type="hidden" value="{{ form_values.get('classroom_ref', default_classroom_ref) }}">
       <div class="field-grid">
         <label>
           <span>年齢</span>
@@ -79,7 +81,7 @@
                 </tbody>
               </table>
             </div>
-            <a class="button button--secondary" href="/plans/daily-plans/new?age_class={{ example.age_class|urlencode }}&month={{ selected_month }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}#daily-draft">この候補を下書きへコピー</a>
+            <a class="button button--secondary" href="/plans/daily-plans/new?age_class={{ example.age_class|urlencode }}&month={{ selected_month }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
           </article>
         {% endfor %}
       </div>

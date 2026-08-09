@@ -15,6 +15,12 @@ class PlanDocumentRow(SQLModel, table=True):
     __tablename__ = "plan_documents"
     __table_args__ = (
         UniqueConstraint("document_type", "child_id", "target_month", name="uq_plan_document_child_month"),
+        UniqueConstraint(
+            "document_type",
+            "child_id",
+            "record_cycle_key",
+            name="uq_plan_document_child_cycle_constraint",
+        ),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -30,6 +36,14 @@ class PlanDocumentRow(SQLModel, table=True):
     target_week: Optional[str] = None
     week_start_date: Optional[str] = None
     target_date: Optional[str] = None
+    period_start: Optional[str] = Field(default=None, index=True)
+    period_end: Optional[str] = Field(default=None, index=True)
+    record_cycle_key: Optional[str] = Field(default=None, index=True)
+    setting_version_id: Optional[int] = Field(
+        default=None,
+        foreign_key="child_record_setting_versions.id",
+        index=True,
+    )
     age_class: Optional[str] = None
     child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
     child_ref: Optional[str] = None
@@ -76,6 +90,22 @@ class PlanReviewNotificationRow(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now, index=True)
     read_at: Optional[datetime] = Field(default=None, index=True)
     resolved_at: Optional[datetime] = Field(default=None, index=True)
+
+
+class PlanDailyReflectionRow(SQLModel, table=True):
+    __tablename__ = "plan_daily_reflections"
+    __table_args__ = (
+        UniqueConstraint("document_id", name="uq_plan_daily_reflection_document"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="plan_documents.id", index=True)
+    body: str = Field(default="")
+    status: str = Field(default="draft", index=True)
+    updated_by: str
+    updated_at: datetime = Field(default_factory=utc_now)
+    submitted_by: Optional[str] = None
+    submitted_at: Optional[datetime] = Field(default=None, index=True)
 
 
 class PlanDocumentHeadRow(SQLModel, table=True):

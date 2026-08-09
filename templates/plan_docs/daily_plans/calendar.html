@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}日案カレンダー | hoiku-plan-docs{% endblock %}
+{% block content %}
+  <section class="toolbar-band">
+    <div>
+      <p class="eyebrow">日案一覧</p>
+      <h1>日案カレンダー</h1>
+      <p class="lead">クラスごとに、活動内容と未作成の日を確認できます。</p>
+    </div>
+    {% if user.can_edit %}
+      <a class="button button--primary" href="/plans/daily-plans/new">日案を作成</a>
+    {% endif %}
+  </section>
+
+  <section class="form-panel daily-calendar-toolbar no-print">
+    <a class="button button--secondary" href="{{ previous_month_url }}" aria-label="前月">← 前月</a>
+    <form method="get" action="/plans/daily-plans/" class="daily-calendar-filter">
+      <label>
+        年
+        <input type="number" name="year" min="2000" max="2100" value="{{ calendar_year }}">
+      </label>
+      <label>
+        月
+        <select name="month">
+          {% for month_number in range(1, 13) %}
+            <option value="{{ month_number }}"{% if month_number == calendar_month %} selected{% endif %}>{{ month_number }}月</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        クラス
+        <select name="classroom_ref">
+          <option value="">全クラス</option>
+          {% for classroom_ref in classroom_refs %}
+            <option value="{{ classroom_ref }}"{% if classroom_ref == selected_classroom_ref %} selected{% endif %}>{{ classroom_ref }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="button button--primary" type="submit">表示</button>
+    </form>
+    <a class="button button--secondary" href="{{ next_month_url }}" aria-label="翌月">翌月 →</a>
+  </section>
+
+  <section class="section-block daily-calendar-section" aria-labelledby="calendar-heading">
+    <div class="section-heading daily-calendar-heading">
+      <h2 id="calendar-heading">{{ calendar_year }}年{{ calendar_month }}月</h2>
+      <div class="daily-calendar-legend">
+        <span><i class="daily-calendar-legend__created"></i>作成済み</span>
+        <span><i class="daily-calendar-legend__missing"></i>未作成</span>
+      </div>
+    </div>
+    <div class="daily-calendar-scroll">
+      <table class="daily-calendar-table">
+        <thead>
+          <tr>
+            {% for weekday in weekday_labels %}
+              <th>{{ weekday }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in weeks %}
+            <tr>
+              {% for day in week %}
+                <td class="{% if not day.in_month %}is-outside{% endif %}{% if day.is_today %} is-today{% endif %}">
+                  {% if day.in_month %}
+                    <div class="daily-calendar-date">{{ day.date.day }}</div>
+                    <div class="daily-calendar-entries">
+                      {% for entry in day.entries %}
+                        <a
+                          class="daily-calendar-entry{% if not entry.is_created %} daily-calendar-entry--missing{% endif %}"
+                          href="{{ entry.url }}"
+                          aria-label="{{ day.date.month }}月{{ day.date.day }}日 {{ entry.classroom_ref }} {{ entry.activity }}"
+                        >
+                          <strong>{{ entry.classroom_ref }}</strong>
+                          <span>{{ entry.activity }}</span>
+                          {% if entry.reflection_label %}
+                            <small class="daily-calendar-reflection daily-calendar-reflection--{{ entry.reflection_state }}">{{ entry.reflection_label }}</small>
+                          {% endif %}
+                        </a>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

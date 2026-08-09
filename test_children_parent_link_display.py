@@ -135,6 +135,9 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
         self.assertIn("クラス", default_response.text)
         self.assertIn("Class A", default_response.text)
         self.assertIn("Class B", default_response.text)
+        self.assertIn(f'href="/children/{self.child_id}"', default_response.text)
+        self.assertIn("詳細", default_response.text)
+        self.assertIn(f'/children/{self.child_id}/edit', default_response.text)
 
         name_desc_response = self.client.get("/children/?sort_by=name&sort_order=desc")
         self.assertEqual(name_desc_response.status_code, 200)

@@ -40,14 +40,35 @@
     </section>
   {% endmacro %}
 
+  {% macro render_section(section) %}
+    <section class="report-section">
+      <div class="report-section__heading">
+        <h2>{{ section.title }}</h2>
+      </div>
+      <p>{{ section.body }}</p>
+      <footer class="report-section__footer">
+        <span>
+          {% for tag in section.evidence_tags %}
+            <b>{{ tag }}</b>
+          {% endfor %}
+        </span>
+      </footer>
+      {% if section.needs_confirmation %}
+        <div class="inline-note">{{ section.editor_note or "確認が必要です。" }}</div>
+      {% endif %}
+    </section>
+  {% endmacro %}
+
   <section class="document-header">
     <div>
       <p class="eyebrow">{{ document.document_type_label }}</p>
       <h1>{{ document.title }}</h1>
       <p class="lead">園: {{ document.nursery_label }} / クラス: {{ document.classroom_label }} / 作成者: {{ document.owner_name }}</p>
+      {% if document.period_start and document.period_end %}<p class="lead">対象期間: {{ document.period_start }}〜{{ document.period_end }}</p>{% endif %}
     </div>
     <div class="document-header__actions no-print">
       <span class="status status--{{ document.status.value }}">{{ document.status_label }}</span>
+      {% if document.document_type.value == "child_progress_record" and document.child_id %}<a class="button button--secondary" href="/children/{{ document.child_id }}/progress-records">児童票一覧</a>{% endif %}
       {% if user.can_edit and document.can_edit_body %}
         <a class="button button--primary" href="/plans/documents/{{ document.id }}/edit">修正</a>
       {% endif %}
@@ -96,31 +117,67 @@
       </span>
       <span>{{ document.status_label }}</span>
     </header>
-    {% if document.schedule and document.schedule.layout == "daily_timeline" %}
+    {% set is_daily_timeline = document.schedule and document.schedule.layout == "daily_timeline" %}
+    {% if is_daily_timeline %}
+      {% for section in document.sections %}
+        {% if section.section_key in ["daily_goal", "daily_content"] %}
+          {{ render_section(section) }}
+        {% endif %}
+      {% endfor %}
       {{ render_schedule(document.schedule) }}
     {% endif %}
     {% for section in document.sections %}
-      <section class="report-section">
-        <div class="report-section__heading">
-          <h2>{{ section.title }}</h2>
-        </div>
-        <p>{{ section.body }}</p>
-        <footer class="report-section__footer">
-          <span>
-            {% for tag in section.evidence_tags %}
-              <b>{{ tag }}</b>
-            {% endfor %}
-          </span>
-        </footer>
-        {% if section.needs_confirmation %}
-          <div class="inline-note">{{ section.editor_note or "確認が必要です。" }}</div>
-        {% endif %}
-      </section>
+      {% if not is_daily_timeline or section.section_key not in ["daily_goal", "daily_content", "daily_reflection_viewpoint"] %}
+        {{ render_section(section) }}
+      {% endif %}
     {% endfor %}
     {% if document.schedule and document.schedule.layout == "weekly_grid" %}
       {{ render_schedule(document.schedule) }}
     {% endif %}
   </article>
+
+  {% if document.document_type.value == "daily_plan" %}
+    <section class="form-panel daily-reflection-panel" aria-labelledby="daily-reflection-heading">
+      <div class="report-section__heading">
+        <div>
+          <p class="eyebrow">当日提出</p>
+          <h2 id="daily-reflection-heading">その日の振り返り</h2>
+          <p class="field-note">{{ document.target_date }} {{ reflection_reminder_time }}までに提出してください。</p>
+        </div>
+        <div id="daily-reflection-status" aria-live="polite">
+          <span class="reflection-status reflection-status--{{ reflection_state }}">{{ reflection_state_label }}</span>
+        </div>
+      </div>
+      {% if user.can_edit %}
+        <form method="post" action="/plans/documents/{{ document.id }}/reflection" class="form-layout">
+          <label>
+            <span>振り返り</span>
+            <textarea
+              name="reflection_body"
+              rows="6"
+              required
+              placeholder="その日の保育を振り返って記入してください"
+              hx-post="/plans/documents/{{ document.id }}/reflection/draft"
+              hx-trigger="keyup changed delay:1200ms, change delay:200ms"
+              hx-include="closest form"
+              hx-target="#daily-reflection-status"
+              hx-swap="innerHTML"
+            >{{ reflection.body if reflection else "" }}</textarea>
+          </label>
+          <p class="field-note">入力内容は自動で下書き保存されます。提出後に書き換えると再提出が必要になります。</p>
+          {% if reflection and reflection.submitted_at %}
+            <p class="field-note">最終提出: {{ reflection.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }}</p>
+          {% endif %}
+          <div class="form-actions no-print">
+            <button class="button button--secondary" type="submit" name="action" value="draft" formnovalidate>下書き保存</button>
+            <button class="button button--primary" type="submit" name="action" value="submit">振り返りを提出</button>
+          </div>
+        </form>
+      {% else %}
+        <p>{{ reflection.body if reflection and reflection.body else "未入力" }}</p>
+      {% endif %}
+    </section>
+  {% endif %}
 
   {% if document.document_type.value == "daily_plan" %}
     <section class="form-panel execution-change-panel">

@@ -6,6 +6,7 @@
       <p class="eyebrow">{{ document.document_type_label }}</p>
       <h1>帳票を修正</h1>
       <p class="lead">園: {{ document.nursery_label }} / クラス: {{ document.classroom_label }} / {{ document.status_label }}</p>
+      {% if document.period_start and document.period_end %}<p class="lead">対象期間: {{ document.period_start }}〜{{ document.period_end }}</p>{% endif %}
     </div>
   </section>
 
@@ -33,6 +34,7 @@
       <h2>セクション本文</h2>
       <div class="edit-section-list">
         {% for section in document.sections %}
+          {% if document.document_type.value != "daily_plan" or section.section_key != "daily_reflection_viewpoint" %}
           <div class="edit-section">
             <div class="report-section__heading">
               <h3>{{ section.title }}</h3>
@@ -52,6 +54,7 @@
               </label>
             {% endif %}
           </div>
+          {% endif %}
         {% endfor %}
       </div>
     </section>

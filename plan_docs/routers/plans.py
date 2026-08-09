@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import calendar
+from datetime import date
+import re
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
@@ -20,6 +24,11 @@ from ..services.daily_examples import (
     corpus_metadata,
     get_daily_plan_example,
     list_daily_plan_examples,
+)
+from ..services.daily_reflections import (
+    reflection_state,
+    reflection_state_label,
+    reflections_by_document_id,
 )
 from ..store import DocumentRepositoryDep, SqlModelDocumentRepository
 from ..templating import render_template
@@ -98,6 +107,139 @@ def _form_values(**values: str) -> dict[str, str]:
 
 def _list_value(values: list[str], index: int) -> str:
     return values[index] if index < len(values) else ""
+
+
+def _daily_activity_text(document) -> str:
+    activities: list[str] = []
+    if document.schedule:
+        for row in sorted(document.schedule.rows, key=lambda item: item.order):
+            activity = (row.label or "").strip()
+            if activity and activity not in activities:
+                activities.append(activity)
+    if activities:
+        return " / ".join(activities)
+    for section in document.sections:
+        if section.section_key == "daily_content" and section.body.strip():
+            return section.body.strip()
+    return "活動内容未入力"
+
+
+def _adjacent_month(year: int, month: int, offset: int) -> tuple[int, int]:
+    month_index = year * 12 + month - 1 + offset
+    return month_index // 12, month_index % 12 + 1
+
+
+def _age_class_from_classroom_ref(classroom_ref: str) -> str:
+    match = re.search(r"([0-5])\s*歳児", classroom_ref or "")
+    return f"{match.group(1)}歳児" if match else ""
+
+
+@router.get("/daily-plans/")
+def daily_plan_calendar(
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+    year: int | None = None,
+    month: int | None = None,
+    classroom_ref: str = "",
+):
+    today = local_today()
+    selected_year = year if year is not None and 2000 <= year <= 2100 else today.year
+    selected_month = month if month is not None and 1 <= month <= 12 else today.month
+    accessible_classrooms = list(user.classroom_refs or DEFAULT_CLASSROOM_REFS)
+    selected_classroom_ref = (
+        classroom_ref if classroom_ref in accessible_classrooms else ""
+    )
+    displayed_classrooms = (
+        [selected_classroom_ref] if selected_classroom_ref else accessible_classrooms
+    )
+    documents = repository.list(
+        nursery_ref=user.nursery_ref,
+        classroom_refs=None if user.is_admin else user.classroom_refs,
+        document_type=DocumentType.DAILY_PLAN,
+    )
+    documents_by_date_and_classroom = {}
+    month_prefix = f"{selected_year:04d}-{selected_month:02d}-"
+    for document in documents:
+        if (
+            not document.target_date
+            or not document.target_date.startswith(month_prefix)
+            or document.classroom_ref not in displayed_classrooms
+        ):
+            continue
+        documents_by_date_and_classroom.setdefault(
+            (document.target_date, document.classroom_ref), document
+        )
+    reflections = reflections_by_document_id(
+        repository.session,
+        [document.id for document in documents if document.id is not None],
+    )
+
+    weeks = []
+    for week in calendar.Calendar(firstweekday=calendar.MONDAY).monthdatescalendar(
+        selected_year, selected_month
+    ):
+        days = []
+        for day in week[:5]:
+            in_month = day.month == selected_month
+            entries = []
+            if in_month:
+                day_key = day.isoformat()
+                for classroom in displayed_classrooms:
+                    document = documents_by_date_and_classroom.get((day_key, classroom))
+                    age_class = _age_class_from_classroom_ref(classroom)
+                    reflection = reflections.get(document.id) if document else None
+                    entries.append(
+                        {
+                            "classroom_ref": classroom,
+                            "activity": _daily_activity_text(document) if document else "未作成",
+                            "is_created": document is not None,
+                            "reflection_state": reflection_state(reflection) if document else "",
+                            "reflection_label": reflection_state_label(reflection) if document else "",
+                            "url": (
+                                f"/plans/documents/{document.id}"
+                                if document
+                                else "/plans/daily-plans/new?"
+                                f"target_date={day_key}&classroom_ref={quote(classroom)}"
+                                f"&age_class={quote(age_class)}&month={selected_month}"
+                            ),
+                        }
+                    )
+            days.append(
+                {
+                    "date": day,
+                    "in_month": in_month,
+                    "is_today": day == today,
+                    "entries": entries,
+                }
+            )
+        if any(day["in_month"] for day in days):
+            weeks.append(days)
+
+    previous_year, previous_month = _adjacent_month(selected_year, selected_month, -1)
+    next_year, next_month = _adjacent_month(selected_year, selected_month, 1)
+    classroom_query = (
+        f"&classroom_ref={quote(selected_classroom_ref)}"
+        if selected_classroom_ref
+        else ""
+    )
+    return render_template(
+        request,
+        "daily_plans/calendar.html",
+        user=user,
+        calendar_year=selected_year,
+        calendar_month=selected_month,
+        weeks=weeks,
+        weekday_labels=("月", "火", "水", "木", "金"),
+        classroom_refs=accessible_classrooms,
+        selected_classroom_ref=selected_classroom_ref,
+        previous_month_url=(
+            f"/plans/daily-plans/?year={previous_year}&month={previous_month}{classroom_query}"
+        ),
+        next_month_url=(
+            f"/plans/daily-plans/?year={next_year}&month={next_month}{classroom_query}"
+        ),
+    )
 
 
 @router.get("/annual-plans/new")
@@ -318,16 +460,37 @@ def new_daily_plan(
     month: int | None = None,
     q: str = "",
     example_id: str = "",
+    target_date: str = "",
+    classroom_ref: str = "",
 ):
-    default_classroom_ref = user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0]
-    selected_month = month if month is not None and 1 <= month <= 12 else local_today().month
+    default_classroom_ref = (
+        classroom_ref
+        if classroom_ref in user.classroom_refs
+        else (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
+    )
+    inferred_month = None
+    if target_date:
+        try:
+            inferred_month = date.fromisoformat(target_date).month
+        except ValueError:
+            inferred_month = None
+    selected_month = (
+        month
+        if month is not None and 1 <= month <= 12
+        else (inferred_month or local_today().month)
+    )
+    selected_age_class = (
+        age_class
+        if age_class in AGE_CLASS_OPTIONS
+        else _age_class_from_classroom_ref(default_classroom_ref)
+    )
     selected_example = None
     examples = []
     corpus_info: dict[str, str] = {}
     corpus_error = ""
     try:
         examples = list_daily_plan_examples(
-            age_class=age_class or None,
+            age_class=selected_age_class or None,
             month=selected_month,
             query=q,
         )
@@ -336,7 +499,9 @@ def new_daily_plan(
     except DailyExampleCorpusError as exc:
         corpus_error = str(exc)
     values = {
-        "age_class": age_class,
+        "target_date": target_date,
+        "classroom_ref": default_classroom_ref,
+        "age_class": selected_age_class,
         "daily_aims": "\n".join(selected_example.aims) if selected_example else "",
         "daily_content": selected_example.content if selected_example else "",
         "example_id": selected_example.id if selected_example else "",
@@ -414,8 +579,6 @@ def create_daily_plan(
         errors.append("対象日を選択してください。")
     else:
         try:
-            from datetime import date
-
             date.fromisoformat(target_date)
         except ValueError:
             errors.append("対象日を正しい形式で選択してください。")

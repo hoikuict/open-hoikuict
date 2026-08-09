@@ -3,7 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from time_utils import local_now
+
 from ..auth_adapter import CurrentUser, require_admin
+from ..contracts import DocumentType
+from ..services.daily_reflections import (
+    list_reflection_reminders,
+    reflections_by_document_id,
+)
 from ..services.review_notifications import (
     get_review_notification,
     list_review_notifications,
@@ -20,6 +27,20 @@ router = APIRouter(tags=["home"])
 def home(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     classroom_refs = None if user.is_admin else user.classroom_refs
     documents = repository.list(nursery_ref=user.nursery_ref, classroom_refs=classroom_refs)
+    daily_documents = [
+        document for document in documents if document.document_type == DocumentType.DAILY_PLAN
+    ]
+    daily_reflections = reflections_by_document_id(
+        repository.session,
+        [document.id for document in daily_documents if document.id is not None],
+    )
+    reflection_reminders = list_reflection_reminders(
+        documents=daily_documents,
+        reflections=daily_reflections,
+        actor_ref=user.actor_ref,
+        is_admin=user.is_admin,
+        now=local_now(),
+    )
     review_notifications = (
         list_review_notifications(
             repository.session,
@@ -38,6 +59,7 @@ def home(request: Request, user: CurrentUser, repository: DocumentRepositoryDep)
         unread_review_notification_count=sum(
             1 for notification in review_notifications if notification.read_at is None
         ),
+        reflection_reminders=reflection_reminders,
     )
 
 

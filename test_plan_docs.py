@@ -3,7 +3,9 @@ import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -16,6 +18,7 @@ from models import Classroom, User
 from plan_docs.db_models import (
     PlanDocumentHeadRow,
     PlanDocumentRow,
+    PlanDailyReflectionRow,
     PlanExecutionChangeRow,
     PlanReviewNotificationRow,
     PlanRevisionRow,
@@ -335,6 +338,166 @@ class PlanDocsIntegrationTests(unittest.TestCase):
             "滑りやすい場所を確認し安全を見守る",
         )
 
+        detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        goal_position = detail.text.index("<h2>ねらい</h2>")
+        content_position = detail.text.index("<h2>内容（活動）</h2>")
+        timeline_position = detail.text.index("<h2>1日の流れ</h2>")
+        self.assertLess(goal_position, content_position)
+        self.assertLess(content_position, timeline_position)
+        self.assertEqual(detail.text.count("<h2>ねらい</h2>"), 1)
+        self.assertEqual(detail.text.count("<h2>内容（活動）</h2>"), 1)
+
+    def test_daily_plan_calendar_shows_activity_and_missing_class_days(self):
+        document_id = self.create_daily_plan()
+
+        calendar_response = self.client.get("/plans/daily-plans/?year=2026&month=8")
+        self.assertEqual(calendar_response.status_code, 200, calendar_response.text)
+        self.assertIn("日案カレンダー", calendar_response.text)
+        self.assertIn("2026年8月", calendar_response.text)
+        self.assertIn("<th>月</th>", calendar_response.text)
+        self.assertIn("<th>金</th>", calendar_response.text)
+        self.assertNotIn("<th>土</th>", calendar_response.text)
+        self.assertNotIn("<th>日</th>", calendar_response.text)
+        self.assertNotIn('aria-label="8月1日', calendar_response.text)
+        self.assertNotIn('aria-label="8月2日', calendar_response.text)
+        self.assertIn(
+            'aria-label="8月10日 ひよこ組 水遊び"',
+            calendar_response.text,
+        )
+        self.assertIn(
+            f'href="/plans/documents/{document_id}"',
+            calendar_response.text,
+        )
+        self.assertIn(
+            'aria-label="8月11日 うさぎ組 未作成"',
+            calendar_response.text,
+        )
+        self.assertIn(
+            "target_date=2026-08-11&amp;classroom_ref=%E3%81%86%E3%81%95%E3%81%8E%E7%B5%84",
+            calendar_response.text,
+        )
+
+        prefilled = self.client.get(
+            "/plans/daily-plans/new?target_date=2026-08-11&classroom_ref="
+            "%E3%81%86%E3%81%95%E3%81%8E%E7%B5%84"
+        )
+        self.assertEqual(prefilled.status_code, 200, prefilled.text)
+        self.assertIn(
+            'name="target_date" type="date" required value="2026-08-11"',
+            prefilled.text,
+        )
+        self.assertIn(
+            'value="うさぎ組" selected',
+            prefilled.text,
+        )
+
+        searched = self.client.get(
+            "/plans/daily-plans/new?target_date=2026-08-11&classroom_ref="
+            "%E3%81%86%E3%81%95%E3%81%8E%E7%B5%84&age_class=3%E6%AD%B3%E5%85%90&month=8"
+        )
+        self.assertIn(
+            'name="target_date" type="hidden" value="2026-08-11"',
+            searched.text,
+        )
+        self.assertIn(
+            "example_id=daily-001&target_date=2026-08-11&classroom_ref="
+            "%E3%81%86%E3%81%95%E3%81%8E%E7%B5%84",
+            searched.text,
+        )
+
+        copied = self.client.get(
+            "/plans/daily-plans/new?target_date=2026-08-11&classroom_ref="
+            "%E3%81%86%E3%81%95%E3%81%8E%E7%B5%84&age_class=3%E6%AD%B3%E5%85%90"
+            "&month=8&example_id=daily-001"
+        )
+        self.assertIn(
+            'name="target_date" type="date" required value="2026-08-11"',
+            copied.text,
+        )
+
+    def test_daily_reflection_submission_calendar_status_and_reminders(self):
+        editor_id = uuid4()
+        editor_cookies = self.staff_cookies(
+            role="can_edit",
+            staff_id=editor_id,
+            name="Daily%20Owner",
+        )
+        document_id = self.create_daily_plan(cookies=editor_cookies)
+
+        detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertIn("その日の振り返り", detail.text)
+        self.assertIn("振り返り未入力", detail.text)
+
+        draft = self.client.post(
+            f"/plans/documents/{document_id}/reflection/draft",
+            data={"reflection_body": "水に触れる時間を十分に取れた。"},
+        )
+        self.assertEqual(draft.status_code, 200, draft.text)
+        self.assertIn("振り返り下書き", draft.text)
+        with Session(self.engine) as session:
+            reflection = session.exec(
+                select(PlanDailyReflectionRow).where(
+                    PlanDailyReflectionRow.document_id == document_id
+                )
+            ).one()
+        self.assertEqual(reflection.status, "draft")
+        self.assertIsNone(reflection.submitted_at)
+
+        calendar_response = self.client.get("/plans/daily-plans/?year=2026&month=8")
+        self.assertIn("振り返り下書き", calendar_response.text)
+
+        jst = timezone(timedelta(hours=9))
+        reminder_at = datetime(2026, 8, 10, 16, 30, tzinfo=jst)
+        with patch("plan_docs.routers.home.local_now", return_value=reminder_at):
+            owner_home = self.client.get("/plans/")
+        self.assertIn("振り返りが未提出です", owner_home.text)
+        self.assertIn("本日16:30締切", owner_home.text)
+
+        self.client.cookies.update(
+            self.staff_cookies(role="admin", staff_id=uuid4(), name="Principal")
+        )
+        next_day = datetime(2026, 8, 11, 9, 0, tzinfo=jst)
+        with patch("plan_docs.routers.home.local_now", return_value=next_day):
+            admin_home = self.client.get("/plans/")
+        self.assertIn("Test Staffさんの振り返りが未提出", admin_home.text)
+
+        self.client.cookies.update(editor_cookies)
+        empty_submit = self.client.post(
+            f"/plans/documents/{document_id}/reflection",
+            data={"reflection_body": "", "action": "submit"},
+            follow_redirects=False,
+        )
+        self.assertEqual(empty_submit.status_code, 422)
+
+        submitted = self.client.post(
+            f"/plans/documents/{document_id}/reflection",
+            data={
+                "reflection_body": "水に触れる時間を十分に取れた。",
+                "action": "submit",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(submitted.status_code, 303, submitted.text)
+        self.assertIn(
+            "振り返り提出済み",
+            self.client.get("/plans/daily-plans/?year=2026&month=8").text,
+        )
+
+        edited_after_submit = self.client.post(
+            f"/plans/documents/{document_id}/reflection/draft",
+            data={"reflection_body": "水遊びの時間配分を明日は短くする。"},
+        )
+        self.assertIn("振り返り下書き", edited_after_submit.text)
+        with Session(self.engine) as session:
+            reflection = session.exec(
+                select(PlanDailyReflectionRow).where(
+                    PlanDailyReflectionRow.document_id == document_id
+                )
+            ).one()
+        self.assertEqual(reflection.status, "draft")
+        self.assertIsNone(reflection.submitted_at)
+
     def test_daily_plan_form_can_choose_only_approved_corpus_example(self):
         self.client.cookies.update(self.staff_cookies())
 
@@ -358,6 +521,36 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         self.assertIn("用具の置き場所と誤飲に配慮する", selected.text)
         self.assertIn('name="timeline_activity" type="hidden"', selected.text)
         self.assertNotIn('textarea name="timeline_activity"', selected.text)
+
+    def test_calendar_selection_infers_search_age_and_month_from_classroom(self):
+        with Session(self.engine) as session:
+            session.add(Classroom(name="りす組（1歳児）", display_order=3))
+            session.commit()
+        self.client.cookies.update(self.staff_cookies())
+
+        calendar_response = self.client.get(
+            "/plans/daily-plans/?year=2026&month=9&classroom_ref="
+            "%E3%82%8A%E3%81%99%E7%B5%84%EF%BC%881%E6%AD%B3%E5%85%90%EF%BC%89"
+        )
+        self.assertEqual(calendar_response.status_code, 200, calendar_response.text)
+        self.assertIn(
+            "target_date=2026-09-01&amp;classroom_ref="
+            "%E3%82%8A%E3%81%99%E7%B5%84%EF%BC%881%E6%AD%B3%E5%85%90%EF%BC%89"
+            "&amp;age_class=1%E6%AD%B3%E5%85%90&amp;month=9",
+            calendar_response.text,
+        )
+
+        selected = self.client.get(
+            "/plans/daily-plans/new?target_date=2026-09-01&classroom_ref="
+            "%E3%82%8A%E3%81%99%E7%B5%84%EF%BC%881%E6%AD%B3%E5%85%90%EF%BC%89"
+        )
+        self.assertEqual(selected.status_code, 200, selected.text)
+        self.assertEqual(selected.text.count('value="1歳児" selected'), 2)
+        self.assertIn('<option value="9" selected>9月</option>', selected.text)
+        self.assertIn(
+            'name="target_date" type="date" required value="2026-09-01"',
+            selected.text,
+        )
 
     def test_selected_corpus_timeline_is_copied_then_freely_editable(self):
         self.client.cookies.update(self.staff_cookies())

@@ -77,9 +77,30 @@ class DatabaseRuntimeTests(unittest.TestCase):
                                 text("PRAGMA table_info(meeting_notes)")
                             )
                         }
+                        plan_document_columns = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA table_info(plan_documents)")
+                            )
+                        }
+                        plan_document_indexes = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA index_list(plan_documents)")
+                            )
+                        }
                 self.assertIn("submitted_at", export_columns)
                 self.assertIn("new_code_consumed_by_export_id", profile_columns)
                 self.assertIn("search_text", meeting_note_columns)
+                self.assertTrue(
+                    {
+                        "period_start",
+                        "period_end",
+                        "record_cycle_key",
+                        "setting_version_id",
+                    }.issubset(plan_document_columns)
+                )
+                self.assertIn("uq_plan_document_child_cycle", plan_document_indexes)
             finally:
                 engine.dispose()
 
