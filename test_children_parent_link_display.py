@@ -217,6 +217,27 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_non_assigned_staff_does_not_see_child_record_links(self):
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="担当外職員",
+        )
+
+        response = self.client.get(f"/children/{self.child_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(f'/children/{self.child_id}/records"', response.text)
+        self.assertNotIn(
+            f'/children/{self.child_id}/progress-records"',
+            response.text,
+        )
+
+        denied = self.client.get(
+            f"/children/{self.child_id}?child_records_denied=1"
+        )
+        self.assertEqual(denied.status_code, 200)
+        self.assertIn("担当クラスまたは園児台帳管理権限", denied.text)
+
     def test_sibling_add_link_opens_new_child_form(self):
         response = self.client.get(f"/children/new?sibling_id={self.child_id}")
 
