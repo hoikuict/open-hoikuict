@@ -986,6 +986,17 @@ class PlanDocsIntegrationTests(unittest.TestCase):
             self.assertIsNotNone(
                 session.get(PlanReviewNotificationRow, outcome.id).read_at
             )
+        dismissed_outcome = self.client.post(
+            f"/plans/notifications/{outcome.id}/dismiss",
+            data={"redirect_to": "/plans/"},
+            follow_redirects=False,
+        )
+        self.assertEqual(dismissed_outcome.status_code, 303)
+        self.assertEqual(dismissed_outcome.headers["location"], "/plans/")
+        with Session(self.engine) as session:
+            dismissed = session.get(PlanReviewNotificationRow, outcome.id)
+            self.assertIsNotNone(dismissed.resolved_at)
+        self.assertNotIn("Principalさんが承認しました", self.client.get("/plans/").text)
 
     def test_review_notification_is_hidden_across_nurseries(self):
         principal_id = uuid4()
@@ -1044,6 +1055,12 @@ class PlanDocsIntegrationTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(denied.status_code, 404)
+        denied_dismiss = self.client.post(
+            f"/plans/notifications/{notification_id}/dismiss",
+            data={"redirect_to": "/"},
+            follow_redirects=False,
+        )
+        self.assertEqual(denied_dismiss.status_code, 404)
 
     def test_rejected_monthly_plan_notifies_original_creator(self):
         principal_id = uuid4()

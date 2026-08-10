@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from time_utils import local_now
+from url_utils import safe_internal_redirect
 
 from ..auth_adapter import CurrentUser, require_actor
 from ..contracts import DocumentType
@@ -12,6 +15,8 @@ from ..services.daily_reflections import (
     reflections_by_document_id,
 )
 from ..services.review_notifications import (
+    REVIEW_OUTCOME,
+    dismiss_review_notification,
     get_review_notification,
     list_review_notifications,
     mark_review_notification_read,
@@ -81,5 +86,29 @@ def open_review_notification(
     mark_review_notification_read(repository.session, notification)
     return RedirectResponse(
         url=f"/plans/documents/{notification.document_id}",
+        status_code=303,
+    )
+
+
+@router.post("/notifications/{notification_id}/dismiss")
+def dismiss_review_outcome_notification(
+    notification_id: int,
+    request: Request,
+    user: CurrentUser,
+    repository: DocumentRepositoryDep,
+    redirect_to: Annotated[str, Form()] = "/",
+):
+    require_actor(user, request)
+    notification = get_review_notification(
+        repository.session,
+        notification_id=notification_id,
+        recipient_user_id=user.staff_id,
+        nursery_ref=user.nursery_ref,
+    )
+    if notification is None or notification.notification_kind != REVIEW_OUTCOME:
+        raise HTTPException(status_code=404, detail="通知が見つかりません")
+    dismiss_review_notification(repository.session, notification)
+    return RedirectResponse(
+        url=safe_internal_redirect(redirect_to, "/"),
         status_code=303,
     )
