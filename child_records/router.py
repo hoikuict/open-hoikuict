@@ -933,7 +933,7 @@ async def create_child_progress_record(
                 title=definition.title,
                 body=body,
                 source_refs=list(source_refs),
-                evidence_tags=["子どもの記録"] if source_refs else ["入力"],
+                evidence_tags=["子どもの記録"] if source_refs else [],
             )
         )
     if not values.get("progress_children_overview"):
