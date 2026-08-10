@@ -9,6 +9,11 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
+from child_records.access import (
+    can_view_observation_records,
+    can_view_progress_records,
+)
+from child_records.settings import effective_config
 from child_health_service import sync_health_records_from_legacy_extra_data
 from child_profile_changes import RELATIONSHIP_OPTIONS
 from child_profile_history import (
@@ -41,9 +46,8 @@ from models import (
     Classroom,
     Family,
     ParentChildLink,
-    StaffClassroomAssignment,
 )
-from time_utils import format_jst_datetime, local_today, utc_now
+from time_utils import format_jst_datetime, utc_now
 
 router = APIRouter(prefix="/children", tags=["children"])
 from template_utils import create_templates
@@ -75,26 +79,6 @@ def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
         return int(str(raw).strip())
     except (TypeError, ValueError):
         return None
-
-
-def _can_access_child_records(session: Session, current_user, child: Child) -> bool:
-    if current_user.is_admin or current_user.can_manage_child_records:
-        return True
-    if current_user.user_id is None or child.classroom_id is None:
-        return False
-    today = local_today()
-    assignment = session.exec(
-        select(StaffClassroomAssignment).where(
-            StaffClassroomAssignment.staff_user_id == current_user.user_id,
-            StaffClassroomAssignment.classroom_id == child.classroom_id,
-            StaffClassroomAssignment.starts_on <= today,
-            (
-                StaffClassroomAssignment.ends_on.is_(None)
-                | (StaffClassroomAssignment.ends_on >= today)
-            ),
-        )
-    ).first()
-    return assignment is not None
 
 
 def _all_children(session: Session) -> list[Child]:
@@ -896,6 +880,7 @@ def child_detail(
         else []
     )
     guardian_profiles = child.family.guardian_profiles() if child.family else []
+    config, _ = effective_config(session)
 
     return templates.TemplateResponse(
         request,
@@ -907,10 +892,16 @@ def child_detail(
             "guardian_profiles": guardian_profiles,
             "family_children": family_children,
             "family_parent_accounts": family_parent_accounts,
-            "can_access_child_records": _can_access_child_records(
+            "can_access_observation_records": can_view_observation_records(
                 session,
                 current_user,
                 child,
+            ),
+            "can_view_progress_records": can_view_progress_records(
+                session,
+                current_user,
+                child,
+                config,
             ),
             "child_records_denied": child_records_denied,
         },

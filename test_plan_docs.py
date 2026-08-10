@@ -3,7 +3,7 @@ import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -14,7 +14,11 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import MOCK_CALENDAR_USER_COOKIE, MOCK_ROLE_COOKIE, MOCK_STAFF_NAME_COOKIE
-from models import Classroom, User
+from child_records.models import ChildRecordSettingVersion
+from child_records.settings import default_config
+from models import Child, ChildStatus, Classroom, User
+from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
+from plan_docs.contracts import DocumentType
 from plan_docs.db_models import (
     PlanDocumentHeadRow,
     PlanDocumentRow,
@@ -996,6 +1000,86 @@ class PlanDocsIntegrationTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(denied.status_code, 404)
+
+    def test_all_staff_can_view_other_class_progress_record_but_cannot_edit_it(self):
+        staff_id = uuid4()
+        config = default_config()
+        config["access_policy"]["progress_record_view_scope"] = "all_staff"
+        with Session(self.engine) as session:
+            classroom = session.exec(
+                select(Classroom).where(Classroom.name == "うさぎ組")
+            ).one()
+            child = Child(
+                last_name="佐藤",
+                first_name="空",
+                last_name_kana="サトウ",
+                first_name_kana="ソラ",
+                birth_date=date(2023, 4, 2),
+                enrollment_date=date(2024, 4, 1),
+                status=ChildStatus.enrolled,
+                classroom_id=classroom.id,
+            )
+            session.add(child)
+            session.flush()
+            session.add(
+                ChildRecordSettingVersion(
+                    version_no=1,
+                    status="active",
+                    preset_key="standard",
+                    effective_from=date(2000, 1, 1),
+                    config=config,
+                )
+            )
+            document = PlanDocumentRow(
+                document_type=DocumentType.CHILD_PROGRESS_RECORD.value,
+                status="draft",
+                title="佐藤 空 児童票",
+                nursery_ref=DEFAULT_NURSERY_REF,
+                classroom_ref=classroom.name,
+                owner_name="うさぎ組担任",
+                school_year=2026,
+                period_start="2026-07-01",
+                period_end="2026-09-30",
+                record_cycle_key="fy2026:2026-07-01:2026-09-30",
+                child_id=child.id,
+                child_ref=str(child.id),
+                child_name=child.full_name,
+                sections=[
+                    {
+                        "section_key": "progress_children_overview",
+                        "title": "対象期間の子どもの姿",
+                        "body": "友達との遊びが広がった。",
+                    }
+                ],
+            )
+            session.add(document)
+            session.commit()
+            session.refresh(document)
+            document_id = int(document.id or 0)
+
+        self.client.cookies.update(
+            self.staff_cookies(
+                role="can_edit",
+                staff_id=staff_id,
+                name="Other%20Class%20Staff",
+            )
+        )
+
+        detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn("友達との遊びが広がった。", detail.text)
+        self.assertNotIn(
+            f'href="/plans/documents/{document_id}/edit"',
+            detail.text,
+        )
+        edit = self.client.get(f"/plans/documents/{document_id}/edit")
+        self.assertEqual(edit.status_code, 403)
+        status_change = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+        self.assertEqual(status_change.status_code, 403)
 
 
 if __name__ == "__main__":

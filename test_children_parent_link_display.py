@@ -7,6 +7,8 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
 from auth import Role, StaffUser
+from child_records.models import ChildRecordSettingVersion
+from child_records.settings import default_config
 from models import Child, ChildStatus, Classroom, Family, ParentAccount, ParentAccountStatus
 from time_utils import utc_now
 import routers.children as children_module
@@ -237,6 +239,34 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
         )
         self.assertEqual(denied.status_code, 200)
         self.assertIn("担当クラスまたは園児台帳管理権限", denied.text)
+
+    def test_all_staff_scope_shows_only_progress_record_link_to_non_assigned_staff(self):
+        config = default_config()
+        config["access_policy"]["progress_record_view_scope"] = "all_staff"
+        with Session(self.engine) as session:
+            session.add(
+                ChildRecordSettingVersion(
+                    version_no=1,
+                    status="active",
+                    preset_key="standard",
+                    effective_from=date(2000, 1, 1),
+                    config=config,
+                )
+            )
+            session.commit()
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="担当外職員",
+        )
+
+        response = self.client.get(f"/children/{self.child_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(f'/children/{self.child_id}/records"', response.text)
+        self.assertIn(
+            f'/children/{self.child_id}/progress-records"',
+            response.text,
+        )
 
     def test_sibling_add_link_opens_new_child_form(self):
         response = self.client.get(f"/children/new?sibling_id={self.child_id}")

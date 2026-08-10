@@ -144,6 +144,9 @@ def default_config(preset_key: str = "standard") -> dict[str, Any]:
     return {
         "schema_version": "1",
         "preset_key": preset_key,
+        "access_policy": {
+            "progress_record_view_scope": "assigned_class",
+        },
         "age_rules": {
             key: {
                 "child_progress_record": {
@@ -202,4 +205,3 @@ def enabled_fields(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 def custom_field_key(label: str) -> str:
     return f"custom.{uuid5(NAMESPACE_URL, 'open-hoikuict:child-record:' + label.strip())}"
-

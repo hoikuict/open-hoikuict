@@ -55,7 +55,7 @@
             <td class="px-4 py-4 text-right">
               {% if row.document %}
               <a href="/plans/documents/{{ row.document.id }}" class="font-medium text-indigo-600 hover:underline">開く</a>
-              {% elif current_user.can_edit %}
+              {% elif row.can_create %}
               <a href="/children/{{ row.child.id }}/progress-records/new" class="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700">入力する</a>
               {% else %}
               <a href="/children/{{ row.child.id }}/progress-records" class="font-medium text-slate-600 hover:underline">履歴を見る</a>
