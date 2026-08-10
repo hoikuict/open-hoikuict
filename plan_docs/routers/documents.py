@@ -7,9 +7,12 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
+from child_records.access import can_create_progress_record, can_view_progress_records
+from child_records.settings import effective_config
+from models import Child
 from time_utils import ensure_utc_from_local, local_naive_now, parse_local_datetime_input
 
-from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_edit, require_classroom_access
+from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_edit
 from ..contracts import DocumentStatus, DocumentType, normalize_status
 from ..serializers import document_to_dict
 from ..services.daily_reflections import (
@@ -71,6 +74,59 @@ class ExecutionChangeCorrectionPayload(BaseModel):
     after_details: str
 
 
+def _progress_child(document, repository: SqlModelDocumentRepository) -> Child | None:
+    if (
+        document.document_type != DocumentType.CHILD_PROGRESS_RECORD
+        or document.child_id is None
+    ):
+        return None
+    return repository.session.get(Child, document.child_id)
+
+
+def _can_view_document(
+    document,
+    user: StaffUser,
+    repository: SqlModelDocumentRepository,
+) -> bool:
+    if document.nursery_ref != user.nursery_ref:
+        return False
+    if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
+        child = _progress_child(document, repository)
+        if child is None:
+            return False
+        config, _ = effective_config(repository.session)
+        return can_view_progress_records(repository.session, user, child, config)
+    return user.can_access_classroom(document.classroom_ref)
+
+
+def _can_edit_document(
+    document,
+    user: StaffUser,
+    repository: SqlModelDocumentRepository,
+) -> bool:
+    if not user.can_edit:
+        return False
+    if document.document_type != DocumentType.CHILD_PROGRESS_RECORD:
+        return True
+    child = _progress_child(document, repository)
+    return child is not None and can_create_progress_record(
+        repository.session,
+        user,
+        child,
+    )
+
+
+def _require_document_edit_access(
+    document,
+    user: StaffUser,
+    repository: SqlModelDocumentRepository,
+    request: Request,
+) -> None:
+    require_can_edit(user, request)
+    if not _can_edit_document(document, user, repository):
+        raise HTTPException(status_code=403, detail="この園児の児童票を編集できません")
+
+
 def _visible_document(
     document_id: int,
     user: StaffUser,
@@ -79,12 +135,8 @@ def _visible_document(
     document = repository.get(document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="文書が見つかりません")
-    if document.nursery_ref != user.nursery_ref:
+    if not _can_view_document(document, user, repository):
         raise HTTPException(status_code=404, detail="文書が見つかりません")
-    try:
-        require_classroom_access(user, document.classroom_ref)
-    except HTTPException as exc:
-        raise HTTPException(status_code=404, detail="文書が見つかりません") from exc
     return document
 
 
@@ -158,6 +210,11 @@ def _reflection_status_html(reflection) -> str:
 def list_documents(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     classroom_refs = None if user.is_admin else user.classroom_refs
     documents = repository.list(nursery_ref=user.nursery_ref, classroom_refs=classroom_refs)
+    documents = [
+        document
+        for document in documents
+        if _can_view_document(document, user, repository)
+    ]
     return render_template(
         request,
         "documents/list.html",
@@ -196,6 +253,7 @@ def document_detail(
         reflection_state=reflection_state(reflection),
         reflection_state_label=reflection_state_label(reflection),
         reflection_reminder_time=reminder_time().strftime("%H:%M"),
+        can_edit_document=_can_edit_document(document, user, repository),
     )
 
 
@@ -208,7 +266,7 @@ def save_reflection_draft(
     reflection_body: Annotated[str, Form()] = "",
 ):
     document = _visible_document(document_id, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
     reflection = save_daily_reflection(
@@ -231,7 +289,7 @@ def submit_daily_reflection(
     action: Annotated[str, Form()] = "submit",
 ):
     document = _visible_document(document_id, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
     try:
@@ -255,7 +313,7 @@ def edit_document_form(
     repository: DocumentRepositoryDep,
 ):
     document = _visible_document(document_id, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
     return render_template(
@@ -276,7 +334,7 @@ async def update_document(
     repository: DocumentRepositoryDep,
 ):
     document = _visible_document(document_id, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
 
@@ -338,7 +396,7 @@ def update_document_status(
     if target_status in {DocumentStatus.APPROVED, DocumentStatus.REJECTED, DocumentStatus.ARCHIVED}:
         require_admin(user, request)
     else:
-        require_can_edit(user, request)
+        _require_document_edit_access(document, user, repository, request)
     try:
         updated = repository.update_status(
             document.id,
@@ -371,7 +429,7 @@ def create_execution_change(
     after_details: Annotated[str, Form()] = "",
 ):
     document = _visible_document(document_id, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=409, detail="日案だけ実施変更を登録できます")
     parsed_changed_at = ensure_utc_from_local(parse_local_datetime_input(changed_at) or local_naive_now())
@@ -431,8 +489,8 @@ def correct_execution_change(
     after_details: Annotated[str, Form()] = "",
     correction_note: Annotated[str, Form()] = "",
 ):
-    _visible_document(document_id, user, repository)
-    require_can_edit(user, request)
+    document = _visible_document(document_id, user, repository)
+    _require_document_edit_access(document, user, repository, request)
     original = next(
         (
             item
@@ -511,7 +569,7 @@ def create_execution_change_json(
     repository: DocumentRepositoryDep,
 ):
     document = _visible_document_reference(document_ref, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
     try:
@@ -567,7 +625,7 @@ def correct_execution_change_json(
     repository: DocumentRepositoryDep,
 ):
     document = _visible_document_reference(document_ref, user, repository)
-    require_can_edit(user, request)
+    _require_document_edit_access(document, user, repository, request)
     original = next(
         (
             item

@@ -18,7 +18,7 @@ from auth import (
     require_can_edit,
 )
 from database import get_session
-from models import Child, ChildStatus, StaffClassroomAssignment
+from models import Child, ChildStatus
 from template_utils import create_templates
 from time_utils import local_today, utc_now
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
@@ -35,6 +35,13 @@ from .models import (
     ChildObservationLog,
     ChildObservationLogRevision,
     ChildRecordSettingVersion,
+)
+from .access import (
+    PROGRESS_VIEW_ALL_STAFF,
+    PROGRESS_VIEW_ASSIGNED_CLASS,
+    can_create_progress_record,
+    can_view_observation_records,
+    can_view_progress_records,
 )
 from .settings import (
     AGE_RULES,
@@ -81,23 +88,7 @@ def _load_child(session: Session, child_id: int) -> Child:
 
 
 def _has_child_access(session: Session, user: StaffUser, child: Child) -> bool:
-    if user.is_admin or user.can_manage_child_records:
-        return True
-    if user.user_id is None or child.classroom_id is None:
-        return False
-    today = local_today()
-    assignment = session.exec(
-        select(StaffClassroomAssignment).where(
-            StaffClassroomAssignment.staff_user_id == user.user_id,
-            StaffClassroomAssignment.classroom_id == child.classroom_id,
-            StaffClassroomAssignment.starts_on <= today,
-            (
-                StaffClassroomAssignment.ends_on.is_(None)
-                | (StaffClassroomAssignment.ends_on >= today)
-            ),
-        )
-    ).first()
-    return assignment is not None
+    return can_view_observation_records(session, user, child)
 
 
 def _require_child_access(session: Session, user: StaffUser, child: Child) -> None:
@@ -202,6 +193,15 @@ async def save_child_record_settings(
     form = await request.form()
     preset_key = str(form.get("preset_key") or "standard")
     config = default_config(preset_key)
+    progress_view_scope = str(
+        form.get("progress_record_view_scope") or PROGRESS_VIEW_ASSIGNED_CLASS
+    )
+    if progress_view_scope not in {
+        PROGRESS_VIEW_ASSIGNED_CLASS,
+        PROGRESS_VIEW_ALL_STAFF,
+    }:
+        progress_view_scope = PROGRESS_VIEW_ASSIGNED_CLASS
+    config["access_policy"]["progress_record_view_scope"] = progress_view_scope
     enabled_keys = {str(value) for value in form.getlist("enabled_fields")}
     required_keys = {str(value) for value in form.getlist("required_fields")}
     enabled_keys.update({"observed_on", "child_state", "sensitivity"})
@@ -773,12 +773,12 @@ def child_progress_record_list(
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
     child = _load_child(session, child_id)
-    if not _has_child_access(session, current_user, child):
+    config, _ = effective_config(session)
+    if not can_view_progress_records(session, current_user, child, config):
         return RedirectResponse(
             url=f"/children/{child_id}?child_records_denied=1",
             status_code=303,
         )
-    config, _ = effective_config(session)
     cycle = _progress_cycle(child, config)
     records = session.exec(
         select(PlanDocumentRow).where(
@@ -802,6 +802,16 @@ def child_progress_record_list(
             "current_record": current_record,
             "status_labels": PROGRESS_STATUS_LABELS,
             "permission_denied": permission_denied,
+            "can_view_observation_records": can_view_observation_records(
+                session,
+                current_user,
+                child,
+            ),
+            "can_create_progress_record": can_create_progress_record(
+                session,
+                current_user,
+                child,
+            ),
         },
     )
 
@@ -816,17 +826,17 @@ def new_child_progress_record_form(
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
     child = _load_child(session, child_id)
-    if not _has_child_access(session, current_user, child):
+    config, _ = effective_config(session)
+    if not can_view_progress_records(session, current_user, child, config):
         return RedirectResponse(
             url=f"/children/{child_id}?child_records_denied=1",
             status_code=303,
         )
-    if not current_user.can_edit:
+    if not can_create_progress_record(session, current_user, child):
         return RedirectResponse(
             url=f"/children/{child_id}/progress-records?permission_denied=1",
             status_code=303,
         )
-    config, _ = effective_config(session)
     cycle = _progress_cycle(child, config)
     selected_start = (
         _parse_date(period_start, field_label="対象期間の開始日")
@@ -880,7 +890,8 @@ async def create_child_progress_record(
 ):
     require_can_edit(current_user)
     child = _load_child(session, child_id)
-    _require_child_access(session, current_user, child)
+    if not can_create_progress_record(session, current_user, child):
+        raise HTTPException(status_code=403, detail="この園児の児童票を作成できません")
     form = await request.form()
     period_start = _parse_date(str(form.get("period_start") or ""), field_label="対象期間の開始日")
     period_end = _parse_date(str(form.get("period_end") or ""), field_label="対象期間の終了日")
@@ -984,10 +995,12 @@ def child_progress_dashboard(
         .where(Child.status == ChildStatus.enrolled)
         .order_by(Child.last_name_kana, Child.first_name_kana)
     ).all()
-    accessible_children = [
-        child for child in children if _has_child_access(session, current_user, child)
-    ]
     config, _ = effective_config(session)
+    accessible_children = [
+        child
+        for child in children
+        if can_view_progress_records(session, current_user, child, config)
+    ]
     documents = session.exec(
         select(PlanDocumentRow).where(
             PlanDocumentRow.document_type == DocumentType.CHILD_PROGRESS_RECORD.value
@@ -1006,6 +1019,11 @@ def child_progress_dashboard(
                 "cycle": cycle,
                 "age_label": age_labels.get(cycle["age_key"], cycle["age_key"]),
                 "document": document,
+                "can_create": can_create_progress_record(
+                    session,
+                    current_user,
+                    child,
+                ),
             }
         )
     total_count = len(rows)

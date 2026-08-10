@@ -14,6 +14,7 @@ from child_records.models import (
     ChildRecordSettingVersion,
 )
 from child_records.router import progress_router, router, settings_router
+from child_records.settings import default_config
 import child_records.router as child_records_router
 from models import (
     Child,
@@ -95,6 +96,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
             "/settings/child-records",
             data={
                 "preset_key": "simple",
+                "progress_record_view_scope": "all_staff",
                 "effective_from": "2026-04-01",
                 "interval_age_0": "1",
                 "interval_age_1": "2",
@@ -119,6 +121,10 @@ class ChildRecordFeatureTests(unittest.TestCase):
             setting = session.exec(select(ChildRecordSettingVersion)).one()
             self.assertEqual(setting.version_no, 1)
             self.assertEqual(setting.preset_key, "simple")
+            self.assertEqual(
+                setting.config["access_policy"]["progress_record_view_scope"],
+                "all_staff",
+            )
             self.assertEqual(
                 setting.config["age_rules"]["age_0"]["child_progress_record"]["interval_months"],
                 1,
@@ -350,6 +356,90 @@ class ChildRecordFeatureTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(duplicate.status_code, 409)
+
+    def test_all_staff_scope_allows_viewing_but_not_creating_for_other_class(self):
+        with Session(self.engine) as session:
+            other_child = Child(
+                last_name="佐藤",
+                first_name="空",
+                last_name_kana="サトウ",
+                first_name_kana="ソラ",
+                birth_date=date(2023, 4, 2),
+                enrollment_date=date(2024, 4, 1),
+                status=ChildStatus.enrolled,
+                classroom_id=self.other_classroom_id,
+            )
+            session.add(other_child)
+            config = default_config()
+            config["access_policy"]["progress_record_view_scope"] = "all_staff"
+            session.add(
+                ChildRecordSettingVersion(
+                    version_no=1,
+                    status="active",
+                    preset_key="standard",
+                    effective_from=date(2000, 1, 1),
+                    config=config,
+                )
+            )
+            session.commit()
+            session.refresh(other_child)
+            other_child_id = int(other_child.id or 0)
+
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="担当外職員",
+            user_id=uuid4(),
+        )
+
+        dashboard = self.client.get("/child-records/progress")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn("佐藤 空", dashboard.text)
+        self.assertNotIn(
+            f'/children/{other_child_id}/progress-records/new',
+            dashboard.text,
+        )
+        self.assertIn(
+            f'/children/{other_child_id}/progress-records',
+            dashboard.text,
+        )
+
+        record_list = self.client.get(
+            f"/children/{other_child_id}/progress-records"
+        )
+        self.assertEqual(record_list.status_code, 200)
+        self.assertIn("閲覧のみ", record_list.text)
+        self.assertNotIn(
+            f'/children/{other_child_id}/records',
+            record_list.text,
+        )
+
+        new_form = self.client.get(
+            f"/children/{other_child_id}/progress-records/new",
+            follow_redirects=False,
+        )
+        self.assertEqual(new_form.status_code, 303)
+        self.assertEqual(
+            new_form.headers["location"],
+            f"/children/{other_child_id}/progress-records?permission_denied=1",
+        )
+
+        create = self.client.post(
+            f"/children/{other_child_id}/progress-records",
+            data={
+                "period_start": "2026-07-01",
+                "period_end": "2026-09-30",
+                "cycle_key": "fy2026:2026-07-01:2026-09-30",
+                "body_progress_children_overview": "担当外からの入力",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(create.status_code, 403)
+
+        observation = self.client.get(
+            f"/children/{other_child_id}/records",
+            follow_redirects=False,
+        )
+        self.assertEqual(observation.status_code, 303)
 
     def test_progress_dashboard_filters_by_age_and_creation_status(self):
         with Session(self.engine) as session:

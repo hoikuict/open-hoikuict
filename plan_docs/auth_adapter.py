@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import Annotated
 from urllib.parse import quote
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session, select
@@ -30,6 +31,8 @@ class StaffUser:
     nursery_ref: str
     classroom_refs: tuple[str, ...]
     name: str
+    user_id: UUID | None = None
+    can_manage_child_records: bool = False
 
     @property
     def can_view(self) -> bool:
@@ -106,6 +109,8 @@ def resolve_plan_docs_staff_user(
         nursery_ref=_nursery_ref(),
         classroom_refs=_classroom_refs(session),
         name=current_user.name,
+        user_id=current_user.user_id,
+        can_manage_child_records=current_user.can_manage_child_records,
     )
 
 

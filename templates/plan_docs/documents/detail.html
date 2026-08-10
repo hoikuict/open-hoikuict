@@ -69,7 +69,7 @@
     <div class="document-header__actions no-print">
       <span class="status status--{{ document.status.value }}">{{ document.status_label }}</span>
       {% if document.document_type.value == "child_progress_record" and document.child_id %}<a class="button button--secondary" href="/children/{{ document.child_id }}/progress-records">児童票一覧</a>{% endif %}
-      {% if user.can_edit and document.can_edit_body %}
+      {% if can_edit_document and document.can_edit_body %}
         <a class="button button--primary" href="/plans/documents/{{ document.id }}/edit">修正</a>
       {% endif %}
       <button class="button button--secondary" type="button" onclick="window.print()">印刷</button>
@@ -86,10 +86,10 @@
   <section class="status-panel no-print">
     <form method="post" action="/plans/documents/{{ document.id }}/status" class="status-form">
       <input name="lock_version" type="hidden" value="{{ lock_version }}">
-      {% if user.can_edit and document.status.value in ["draft", "rejected"] %}
+      {% if can_edit_document and document.status.value in ["draft", "rejected"] %}
         <button class="button button--primary" name="status" value="in_review">レビュー依頼</button>
       {% endif %}
-      {% if user.can_edit and document.status.value == "in_review" %}
+      {% if can_edit_document and document.status.value == "in_review" %}
         <button class="button button--secondary" name="status" value="draft">レビューを取り下げる</button>
       {% endif %}
       {% if user.is_admin and document.status.value == "in_review" %}
@@ -148,7 +148,7 @@
           <span class="reflection-status reflection-status--{{ reflection_state }}">{{ reflection_state_label }}</span>
         </div>
       </div>
-      {% if user.can_edit %}
+      {% if can_edit_document %}
         <form method="post" action="/plans/documents/{{ document.id }}/reflection" class="form-layout">
           <label>
             <span>振り返り</span>
@@ -236,7 +236,7 @@
               {% if change.corrects_change_id %}
                 <p class="inline-note">実施変更 #{{ change.corrects_change_id }} の訂正</p>
               {% endif %}
-              {% if user.can_edit %}
+              {% if can_edit_document %}
                 <details class="no-print">
                   <summary>この記録を訂正する</summary>
                   <form method="post" action="/plans/documents/{{ document.id }}/execution-changes/{{ change.id }}/corrections">
@@ -270,7 +270,7 @@
         <p>実施変更はありません。</p>
       {% endif %}
 
-      {% if user.can_edit and document.status.value in ["in_review", "approved"] %}
+      {% if can_edit_document and document.status.value in ["in_review", "approved"] %}
         <form method="post" action="/plans/documents/{{ document.id }}/execution-changes" class="form-layout no-print">
           <h3>実施変更を記録</h3>
           <div class="field-grid">
