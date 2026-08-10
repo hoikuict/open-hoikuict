@@ -99,9 +99,43 @@ def copy_sqlite_snapshot(source_path: Path, db_path: Path) -> None:
     destination = sqlite3.connect(db_path)
     try:
         source.backup(destination)
+        _migrate_packaged_demo_snapshot(destination)
     finally:
         destination.close()
         source.close()
+
+
+def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
+    """Bring the packaged demo database up to the schema expected by this release."""
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(plan_review_notifications)")
+    }
+    if not columns:
+        return
+    additions = {
+        "notification_kind": "VARCHAR NOT NULL DEFAULT 'review_request'",
+        "decision_status": "VARCHAR",
+        "decided_by_name": "VARCHAR",
+        "decision_comment": "VARCHAR",
+    }
+    for column_name, column_type in additions.items():
+        if column_name not in columns:
+            connection.execute(
+                "ALTER TABLE plan_review_notifications "
+                f"ADD COLUMN {column_name} {column_type}"
+            )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS "
+        "ix_plan_review_notifications_notification_kind "
+        "ON plan_review_notifications(notification_kind)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS "
+        "ix_plan_review_notifications_decision_status "
+        "ON plan_review_notifications(decision_status)"
+    )
+    connection.commit()
 
 
 def create_db_and_tables() -> None:

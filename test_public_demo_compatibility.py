@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import shutil
 import time
 import unittest
@@ -113,6 +114,29 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
             self.assertIs(session.get_bind(), expected)
         finally:
             dependency.close()
+
+    def test_packaged_demo_database_is_migrated_for_review_outcomes(self):
+        main.initialize_application()
+        base_path = get_demo_session_manager().settings.base_db_path
+        connection = sqlite3.connect(base_path)
+        try:
+            columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(plan_review_notifications)"
+                )
+            }
+        finally:
+            connection.close()
+
+        self.assertTrue(
+            {
+                "notification_kind",
+                "decision_status",
+                "decided_by_name",
+                "decision_comment",
+            }.issubset(columns)
+        )
 
 
 if __name__ == "__main__":
