@@ -49,7 +49,7 @@
       <footer class="report-section__footer">
         <span>
           {% for tag in section.evidence_tags %}
-            <b>{{ tag }}</b>
+            {% if tag != "入力" %}<b>{{ tag }}</b>{% endif %}
           {% endfor %}
         </span>
       </footer>

@@ -1049,6 +1049,7 @@ class PlanDocsIntegrationTests(unittest.TestCase):
                         "section_key": "progress_children_overview",
                         "title": "対象期間の子どもの姿",
                         "body": "友達との遊びが広がった。",
+                        "evidence_tags": ["入力"],
                     }
                 ],
             )
@@ -1068,6 +1069,7 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         detail = self.client.get(f"/plans/documents/{document_id}")
         self.assertEqual(detail.status_code, 200, detail.text)
         self.assertIn("友達との遊びが広がった。", detail.text)
+        self.assertNotIn(">入力</b>", detail.text)
         self.assertNotIn(
             f'href="/plans/documents/{document_id}/edit"',
             detail.text,
