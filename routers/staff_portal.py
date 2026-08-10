@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -10,6 +11,8 @@ from auth import get_optional_current_staff_user
 from calendar_service import localize_datetime
 from database import get_session
 from models import User
+from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
+from plan_docs.services.review_notifications import list_review_notifications
 from staff_portal_service import (
     build_attendance_summaries,
     build_schedule_items,
@@ -70,8 +73,10 @@ def _render_staff_home(
     schedule_error = ""
     attention_error = ""
     timeline_error = ""
+    plan_notification_error = ""
     schedule_remaining_count = 0
     survey_pending_count = 0
+    plan_notifications = []
 
     try:
         classrooms, assignment_views = classroom_scope(
@@ -119,6 +124,19 @@ def _render_staff_home(
         logger.exception("staff portal timeline load failed", extra={"staff_user_id": str(staff_user.id)})
         timeline_error = "タイムラインを取得できませんでした。再読み込みしてください。"
 
+    try:
+        plan_notifications = list_review_notifications(
+            session,
+            recipient_user_id=staff_user.id,
+            nursery_ref=os.getenv("HOIKU_NURSERY_REF", DEFAULT_NURSERY_REF),
+        )
+    except Exception:
+        logger.exception(
+            "staff portal plan notification load failed",
+            extra={"staff_user_id": str(staff_user.id)},
+        )
+        plan_notification_error = "帳票通知を取得できませんでした。再読み込みしてください。"
+
     attendance_attention_count = sum(item.attention_count for item in attendance_summaries)
     attention_count = attendance_attention_count + survey_pending_count
     assignment_names = [item.classroom.name for item in assignment_views]
@@ -151,6 +169,11 @@ def _render_staff_home(
             "attention_url": "/staff/attention?scope=all" if show_all else "/staff/attention",
             "timeline_messages": timeline_messages,
             "timeline_error": timeline_error,
+            "plan_notifications": plan_notifications,
+            "unread_plan_notification_count": sum(
+                1 for notification in plan_notifications if notification.read_at is None
+            ),
+            "plan_notification_error": plan_notification_error,
             "present_count": sum(item.present_count for item in attendance_summaries),
             "show_all": show_all,
             "can_show_all": staff_user.staff_role == "admin",

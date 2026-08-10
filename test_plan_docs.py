@@ -268,6 +268,22 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
         return int(response.headers["location"].rstrip("/").split("/")[-1])
 
+    def create_monthly_plan(self, *, cookies=None):
+        self.client.cookies.update(cookies or self.staff_cookies())
+        response = self.client.post(
+            "/plans/monthly-plans",
+            data={
+                "target_month": "2026-08",
+                "class_name": "ひよこ組",
+                "classroom_ref": "ひよこ組",
+                "owner_name": "月案作成者",
+                "current_children_snapshot": "水遊びを繰り返し楽しんでいる。",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303, response.text)
+        return int(response.headers["location"].rstrip("/").split("/")[-1])
+
     def test_plan_docs_home_uses_main_mock_staff_session(self):
         self.client.cookies.update(self.staff_cookies())
         response = self.client.get("/plans/")
@@ -935,13 +951,41 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(approved.status_code, 303, approved.text)
         with Session(self.engine) as session:
-            resolved = session.exec(
+            all_notifications = session.exec(
                 select(PlanReviewNotificationRow).where(
                     PlanReviewNotificationRow.document_id == document_id
                 )
             ).all()
-        self.assertTrue(all(item.resolved_at is not None for item in resolved))
-        self.assertIn("新しいレビュー依頼はありません", self.client.get("/plans/").text)
+        request_notifications = [
+            item
+            for item in all_notifications
+            if item.notification_kind == "review_request"
+        ]
+        outcome = next(
+            item
+            for item in all_notifications
+            if item.notification_kind == "review_outcome"
+        )
+        self.assertTrue(all(item.resolved_at is not None for item in request_notifications))
+        self.assertEqual(outcome.recipient_user_id, editor_id)
+        self.assertEqual(outcome.decision_status, "approved")
+        self.assertEqual(outcome.decided_by_name, "Principal")
+        self.assertIsNone(outcome.resolved_at)
+        self.assertIn("新しい帳票通知はありません", self.client.get("/plans/").text)
+
+        self.client.cookies.update(editor_cookies)
+        creator_home = self.client.get("/plans/")
+        self.assertEqual(creator_home.status_code, 200)
+        self.assertIn("Principalさんが承認しました", creator_home.text)
+        opened_outcome = self.client.post(
+            f"/plans/notifications/{outcome.id}/open",
+            follow_redirects=False,
+        )
+        self.assertEqual(opened_outcome.status_code, 303)
+        with Session(self.engine) as session:
+            self.assertIsNotNone(
+                session.get(PlanReviewNotificationRow, outcome.id).read_at
+            )
 
     def test_review_notification_is_hidden_across_nurseries(self):
         principal_id = uuid4()
@@ -994,12 +1038,79 @@ class PlanDocsIntegrationTests(unittest.TestCase):
                 name="Principal",
             )
         )
-        self.assertIn("新しいレビュー依頼はありません", self.client.get("/plans/").text)
+        self.assertIn("新しい帳票通知はありません", self.client.get("/plans/").text)
         denied = self.client.post(
             f"/plans/notifications/{notification_id}/open",
             follow_redirects=False,
         )
         self.assertEqual(denied.status_code, 404)
+
+    def test_rejected_monthly_plan_notifies_original_creator(self):
+        principal_id = uuid4()
+        creator_id = uuid4()
+        with Session(self.engine) as session:
+            session.add_all(
+                [
+                    User(
+                        id=principal_id,
+                        email="monthly-principal@example.test",
+                        display_name="園長",
+                        staff_role="admin",
+                    ),
+                    User(
+                        id=creator_id,
+                        email="monthly-creator@example.test",
+                        display_name="ひよこ組担任",
+                        staff_role="can_edit",
+                    ),
+                ]
+            )
+            session.commit()
+        creator_cookies = self.staff_cookies(
+            role="can_edit",
+            staff_id=creator_id,
+            name="Monthly%20Creator",
+        )
+        document_id = self.create_monthly_plan(cookies=creator_cookies)
+        submitted = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={"status": "in_review", "lock_version": "1"},
+            follow_redirects=False,
+        )
+        self.assertEqual(submitted.status_code, 303, submitted.text)
+        self.client.cookies.update(
+            self.staff_cookies(
+                role="admin",
+                staff_id=principal_id,
+                name="Principal",
+            )
+        )
+        rejected = self.client.post(
+            f"/plans/documents/{document_id}/status",
+            data={
+                "status": "rejected",
+                "lock_version": "2",
+                "comment": "家庭連携欄を追記してください。",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(rejected.status_code, 303, rejected.text)
+        with Session(self.engine) as session:
+            outcome = session.exec(
+                select(PlanReviewNotificationRow).where(
+                    PlanReviewNotificationRow.document_id == document_id,
+                    PlanReviewNotificationRow.notification_kind == "review_outcome",
+                )
+            ).one()
+        self.assertEqual(outcome.recipient_user_id, creator_id)
+        self.assertEqual(outcome.decision_status, "rejected")
+        self.assertEqual(outcome.decision_comment, "家庭連携欄を追記してください。")
+
+        self.client.cookies.update(creator_cookies)
+        creator_home = self.client.get("/plans/")
+        self.assertEqual(creator_home.status_code, 200)
+        self.assertIn("Principalさんが却下（差戻し）しました", creator_home.text)
+        self.assertIn("家庭連携欄を追記してください。", creator_home.text)
 
     def test_all_staff_can_view_other_class_progress_record_but_cannot_edit_it(self):
         staff_id = uuid4()

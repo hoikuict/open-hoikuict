@@ -29,6 +29,8 @@ from models import (
     SurveyTargetType,
     User,
 )
+from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
+from plan_docs.db_models import PlanReviewNotificationRow
 import routers.staff_portal as portal_module
 from staff_portal_service import active_assignments
 from testing_helpers import authenticate_mock_staff, configure_test_environment
@@ -75,6 +77,83 @@ class StaffPortalTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 303)
         self.assertEqual(response.headers["location"], "/staff/login?redirect=/staff/portal")
+
+    def test_admin_home_shows_monthly_plan_review_request(self):
+        with Session(self.engine) as session:
+            admin = User(
+                email="principal-notification@example.com",
+                display_name="園長",
+                staff_role="admin",
+            )
+            session.add(admin)
+            session.flush()
+            session.add(
+                PlanReviewNotificationRow(
+                    document_id=10,
+                    review_revision_id=20,
+                    recipient_user_id=admin.id,
+                    nursery_ref=DEFAULT_NURSERY_REF,
+                    document_title="8月 ひよこ組 月案",
+                    notification_kind="review_request",
+                    requested_by_ref="staff:teacher",
+                    requested_by_name="ひよこ組担任",
+                )
+            )
+            session.commit()
+            admin_id = admin.id
+        authenticate_mock_staff(
+            self.client,
+            role=Role.ADMIN,
+            user_id=admin_id,
+            name="園長",
+        )
+
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("月案・児童票の通知", response.text)
+        self.assertIn("8月 ひよこ組 月案", response.text)
+        self.assertIn("ひよこ組担任さんからレビュー依頼", response.text)
+
+    def test_creator_home_shows_child_record_review_outcome(self):
+        with Session(self.engine) as session:
+            creator = User(
+                email="creator-notification@example.com",
+                display_name="うさぎ組担任",
+                staff_role="can_edit",
+            )
+            session.add(creator)
+            session.flush()
+            session.add(
+                PlanReviewNotificationRow(
+                    document_id=11,
+                    review_revision_id=21,
+                    recipient_user_id=creator.id,
+                    nursery_ref=DEFAULT_NURSERY_REF,
+                    document_title="佐藤 空 児童票",
+                    notification_kind="review_outcome",
+                    decision_status="rejected",
+                    decided_by_name="園長",
+                    decision_comment="家庭連携欄を再確認してください。",
+                    requested_by_ref="staff:principal",
+                    requested_by_name="園長",
+                )
+            )
+            session.commit()
+            creator_id = creator.id
+        authenticate_mock_staff(
+            self.client,
+            role=Role.CAN_EDIT,
+            user_id=creator_id,
+            name="うさぎ組担任",
+        )
+
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("佐藤 空 児童票", response.text)
+        self.assertIn("却下（差戻し）しました", response.text)
+        self.assertIn("家庭連携欄を再確認してください。", response.text)
 
     def test_logged_in_home_shows_schedule_and_assigned_class_attendance(self):
         today = local_today()

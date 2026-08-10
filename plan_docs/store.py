@@ -31,6 +31,7 @@ from .models import (
 )
 from .serializers import document_to_dict
 from .services.review_notifications import (
+    create_review_outcome_notification,
     create_review_notifications,
     resolve_review_notifications,
 )
@@ -382,6 +383,19 @@ class SqlModelDocumentRepository:
                 self.session,
                 document_id=document_id,
                 review_revision_id=previous_review_revision_id,
+            )
+        if (
+            status in {DocumentStatus.APPROVED, DocumentStatus.REJECTED}
+            and previous_review_revision_id is not None
+        ):
+            create_review_outcome_notification(
+                self.session,
+                document=document,
+                review_revision_id=previous_review_revision_id,
+                decision_status=status.value,
+                decided_by_ref=actor_ref,
+                decided_by_name=actor_name,
+                decision_comment=comment,
             )
         head.updated_at = document.updated_at
         self.session.add(head)

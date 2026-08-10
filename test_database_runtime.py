@@ -89,6 +89,12 @@ class DatabaseRuntimeTests(unittest.TestCase):
                                 text("PRAGMA index_list(plan_documents)")
                             )
                         }
+                        notification_columns = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA table_info(plan_review_notifications)")
+                            )
+                        }
                 self.assertIn("submitted_at", export_columns)
                 self.assertIn("new_code_consumed_by_export_id", profile_columns)
                 self.assertIn("search_text", meeting_note_columns)
@@ -101,6 +107,14 @@ class DatabaseRuntimeTests(unittest.TestCase):
                     }.issubset(plan_document_columns)
                 )
                 self.assertIn("uq_plan_document_child_cycle", plan_document_indexes)
+                self.assertTrue(
+                    {
+                        "notification_kind",
+                        "decision_status",
+                        "decided_by_name",
+                        "decision_comment",
+                    }.issubset(notification_columns)
+                )
             finally:
                 engine.dispose()
 

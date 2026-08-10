@@ -36,12 +36,12 @@
     </section>
   {% endif %}
 
-  {% if user.is_admin %}
+  {% if user.is_admin or review_notifications %}
     <section class="section-block" aria-labelledby="review-notification-heading">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">承認待ち</p>
-          <h2 id="review-notification-heading">レビュー通知</h2>
+          <p class="eyebrow">{% if user.is_admin %}承認・確認{% else %}レビュー結果{% endif %}</p>
+          <h2 id="review-notification-heading">帳票通知</h2>
         </div>
         {% if unread_review_notification_count %}
           <span class="status status--in_review">未読 {{ unread_review_notification_count }}件</span>
@@ -57,7 +57,16 @@
                   <span>{{ notification.created_at|jst_datetime("%Y-%m-%d %H:%M") }}</span>
                 </div>
                 <h3>{{ notification.document_title }}</h3>
+                {% if notification.notification_kind == 'review_outcome' %}
+                  {% if notification.decision_status == 'approved' %}
+                  <p>{{ notification.decided_by_name or notification.requested_by_name }}さんが承認しました。</p>
+                  {% else %}
+                  <p>{{ notification.decided_by_name or notification.requested_by_name }}さんが却下（差戻し）しました。</p>
+                  {% endif %}
+                  {% if notification.decision_comment %}<p>{{ notification.decision_comment }}</p>{% endif %}
+                {% else %}
                 <p>{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
+                {% endif %}
               </div>
               <form method="post" action="/plans/notifications/{{ notification.id }}/open">
                 <button class="button button--primary" type="submit">帳票を確認</button>
@@ -67,8 +76,8 @@
         </div>
       {% else %}
         <div class="empty-state">
-          <strong>新しいレビュー依頼はありません</strong>
-          <span>依頼が届くと、この欄に表示されます。</span>
+          <strong>新しい帳票通知はありません</strong>
+          <span>レビュー依頼や結果が届くと、この欄に表示されます。</span>
         </div>
       {% endif %}
     </section>

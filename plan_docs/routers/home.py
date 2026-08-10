@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 
 from time_utils import local_now
 
-from ..auth_adapter import CurrentUser, require_admin
+from ..auth_adapter import CurrentUser, require_actor
 from ..contracts import DocumentType
 from ..services.daily_reflections import (
     list_reflection_reminders,
@@ -41,14 +41,10 @@ def home(request: Request, user: CurrentUser, repository: DocumentRepositoryDep)
         is_admin=user.is_admin,
         now=local_now(),
     )
-    review_notifications = (
-        list_review_notifications(
-            repository.session,
-            recipient_user_id=user.staff_id,
-            nursery_ref=user.nursery_ref,
-        )
-        if user.is_admin
-        else []
+    review_notifications = list_review_notifications(
+        repository.session,
+        recipient_user_id=user.staff_id,
+        nursery_ref=user.nursery_ref,
     )
     return render_template(
         request,
@@ -70,7 +66,7 @@ def open_review_notification(
     user: CurrentUser,
     repository: DocumentRepositoryDep,
 ):
-    require_admin(user, request)
+    require_actor(user, request)
     notification = get_review_notification(
         repository.session,
         notification_id=notification_id,
