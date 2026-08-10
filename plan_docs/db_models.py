@@ -85,6 +85,10 @@ class PlanReviewNotificationRow(SQLModel, table=True):
     recipient_user_id: UUID = Field(foreign_key="users.id", index=True)
     nursery_ref: str = Field(index=True)
     document_title: str
+    notification_kind: str = Field(default="review_request", index=True)
+    decision_status: Optional[str] = Field(default=None, index=True)
+    decided_by_name: Optional[str] = None
+    decision_comment: Optional[str] = None
     requested_by_ref: str
     requested_by_name: str
     created_at: datetime = Field(default_factory=utc_now, index=True)

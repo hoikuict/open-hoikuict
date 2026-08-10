@@ -131,6 +131,7 @@ def create_db_and_tables() -> None:
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
+    _migrate_plan_review_notification_columns()
     _migrate_billing_fee_labels()
     _migrate_zengin_workflow()
     _validate_sqlite_foreign_keys()
@@ -460,6 +461,45 @@ def _migrate_plan_document_child_record_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("plan document child record columns", exc)
+
+
+def _migrate_plan_review_notification_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("plan_review_notifications")
+            if not columns:
+                return
+            additions = {
+                "notification_kind": "VARCHAR NOT NULL DEFAULT 'review_request'",
+                "decision_status": "VARCHAR",
+                "decided_by_name": "VARCHAR",
+                "decision_comment": "VARCHAR",
+            }
+            for column_name, column_type in additions.items():
+                if column_name not in columns:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE plan_review_notifications "
+                            f"ADD COLUMN {column_name} {column_type}"
+                        )
+                    )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_plan_review_notifications_notification_kind "
+                    "ON plan_review_notifications(notification_kind)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_plan_review_notifications_decision_status "
+                    "ON plan_review_notifications(decision_status)"
+                )
+            )
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("plan review notification columns", exc)
 
 
 def _migrate_billing_fee_labels() -> None:

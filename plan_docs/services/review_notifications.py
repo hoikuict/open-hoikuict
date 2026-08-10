@@ -11,6 +11,10 @@ from ..db_models import PlanReviewNotificationRow
 from ..models import PlanDocument
 
 
+REVIEW_REQUEST = "review_request"
+REVIEW_OUTCOME = "review_outcome"
+
+
 def _user_id_from_actor_ref(actor_ref: str) -> UUID | None:
     if not actor_ref.startswith("staff:"):
         return None
@@ -52,12 +56,59 @@ def create_review_notifications(
             recipient_user_id=recipient.id,
             nursery_ref=document.nursery_ref,
             document_title=document.title,
+            notification_kind=REVIEW_REQUEST,
             requested_by_ref=requested_by_ref,
             requested_by_name=requested_by_name,
         )
         session.add(notification)
         notifications.append(notification)
     return notifications
+
+
+def create_review_outcome_notification(
+    session: Session,
+    *,
+    document: PlanDocument,
+    review_revision_id: int,
+    decision_status: str,
+    decided_by_ref: str,
+    decided_by_name: str,
+    decision_comment: str | None = None,
+) -> PlanReviewNotificationRow | None:
+    """Notify the original document creator when a review is decided."""
+    creator_id = _user_id_from_actor_ref(document.actor_ref or "")
+    if creator_id is None:
+        return None
+    creator = session.get(User, creator_id)
+    if creator is None or not creator.is_active:
+        return None
+    notification = session.exec(
+        select(PlanReviewNotificationRow).where(
+            PlanReviewNotificationRow.review_revision_id == review_revision_id,
+            PlanReviewNotificationRow.recipient_user_id == creator_id,
+        )
+    ).first()
+    if notification is None:
+        notification = PlanReviewNotificationRow(
+            document_id=int(document.id or 0),
+            review_revision_id=review_revision_id,
+            recipient_user_id=creator_id,
+            nursery_ref=document.nursery_ref,
+            document_title=document.title,
+            requested_by_ref=decided_by_ref,
+            requested_by_name=decided_by_name,
+        )
+    notification.notification_kind = REVIEW_OUTCOME
+    notification.decision_status = decision_status
+    notification.decided_by_name = decided_by_name
+    notification.decision_comment = (decision_comment or "").strip() or None
+    notification.requested_by_ref = decided_by_ref
+    notification.requested_by_name = decided_by_name
+    notification.created_at = utc_now()
+    notification.read_at = None
+    notification.resolved_at = None
+    session.add(notification)
+    return notification
 
 
 def resolve_review_notifications(
