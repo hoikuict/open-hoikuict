@@ -19,7 +19,13 @@
           {% endif %}
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div class="grid grid-cols-2 gap-3 {% if staff_record.staff_role == 'admin' %}sm:grid-cols-4{% else %}sm:grid-cols-3{% endif %}">
+        {% if staff_record.staff_role == 'admin' %}
+        <a href="#pending-approvals" class="rounded-2xl border border-amber-300/30 bg-amber-300/15 px-4 py-3 backdrop-blur hover:bg-amber-300/20">
+          <span class="block text-xs text-amber-100">承認待ち</span>
+          <strong class="mt-1 block text-2xl">{{ pending_plan_document_count }}件</strong>
+        </a>
+        {% endif %}
         <a href="{{ attention_url }}" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
           <span class="block text-xs text-slate-300">要確認</span>
           <strong class="mt-1 block text-2xl">{{ attention_count }}件</strong>
@@ -44,7 +50,38 @@
     </div>
   </section>
 
-  {% if plan_notifications or plan_notification_error %}
+  {% if staff_record.staff_role == 'admin' %}
+  <section id="pending-approvals" class="rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm sm:p-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-700">Approval queue</p>
+        <h2 class="mt-1 text-xl font-bold text-slate-900">指導計画・児童票の承認待ち</h2>
+      </div>
+      <span class="rounded-full bg-amber-600 px-3 py-1 text-xs font-bold text-white">{{ pending_plan_document_count }}件</span>
+    </div>
+    {% if plan_notification_error %}
+    <p class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ plan_notification_error }}</p>
+    {% elif pending_plan_documents %}
+    <div class="mt-5 grid gap-3 lg:grid-cols-2">
+      {% for document in pending_plan_documents %}
+      <article class="rounded-2xl border border-amber-200 bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">{{ plan_document_type_labels.get(document.document_type, document.document_type) }}</span>
+          <time class="text-xs text-slate-400">{{ document.updated_at|jst_datetime("%m-%d %H:%M") }}</time>
+        </div>
+        <h3 class="mt-3 font-bold text-slate-900">{{ document.title }}</h3>
+        <p class="mt-2 text-sm text-slate-600">{{ document.owner_name }}さんから承認依頼が届いています。</p>
+        <a href="/plans/documents/{{ document.id }}" class="mt-4 inline-flex rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700">内容を確認</a>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="mt-5 rounded-2xl border border-amber-100 bg-white p-4 text-sm text-slate-600">現在、承認待ちの帳票はありません。</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if plan_notifications or (plan_notification_error and staff_record.staff_role != 'admin') %}
   <section id="plan-notifications" class="rounded-3xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-sm sm:p-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>

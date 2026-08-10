@@ -12,7 +12,12 @@ from calendar_service import localize_datetime
 from database import get_session
 from models import User
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
-from plan_docs.services.review_notifications import list_review_notifications
+from plan_docs.contracts import DOCUMENT_TYPE_LABELS
+from plan_docs.services.review_notifications import (
+    REVIEW_OUTCOME,
+    list_pending_review_documents,
+    list_review_notifications,
+)
 from staff_portal_service import (
     build_attendance_summaries,
     build_schedule_items,
@@ -77,6 +82,7 @@ def _render_staff_home(
     schedule_remaining_count = 0
     survey_pending_count = 0
     plan_notifications = []
+    pending_plan_documents = []
 
     try:
         classrooms, assignment_views = classroom_scope(
@@ -125,11 +131,23 @@ def _render_staff_home(
         timeline_error = "タイムラインを取得できませんでした。再読み込みしてください。"
 
     try:
+        nursery_ref = os.getenv("HOIKU_NURSERY_REF", DEFAULT_NURSERY_REF)
         plan_notifications = list_review_notifications(
             session,
             recipient_user_id=staff_user.id,
-            nursery_ref=os.getenv("HOIKU_NURSERY_REF", DEFAULT_NURSERY_REF),
+            nursery_ref=nursery_ref,
         )
+        if staff_user.staff_role == "admin":
+            pending_plan_documents = list_pending_review_documents(
+                session,
+                nursery_ref=nursery_ref,
+            )
+            # Review requests are represented by the authoritative queue above.
+            plan_notifications = [
+                notification
+                for notification in plan_notifications
+                if notification.notification_kind == REVIEW_OUTCOME
+            ]
     except Exception:
         logger.exception(
             "staff portal plan notification load failed",
@@ -174,6 +192,12 @@ def _render_staff_home(
                 1 for notification in plan_notifications if notification.read_at is None
             ),
             "plan_notification_error": plan_notification_error,
+            "pending_plan_documents": pending_plan_documents,
+            "pending_plan_document_count": len(pending_plan_documents),
+            "plan_document_type_labels": {
+                document_type.value: label
+                for document_type, label in DOCUMENT_TYPE_LABELS.items()
+            },
             "present_count": sum(item.present_count for item in attendance_summaries),
             "show_all": show_all,
             "can_show_all": staff_user.staff_role == "admin",

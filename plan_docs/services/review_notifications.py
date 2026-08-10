@@ -7,12 +7,33 @@ from sqlmodel import Session, select
 from models import User
 from time_utils import utc_now
 
-from ..db_models import PlanReviewNotificationRow
+from ..contracts import DocumentStatus
+from ..db_models import PlanDocumentRow, PlanReviewNotificationRow
 from ..models import PlanDocument
 
 
 REVIEW_REQUEST = "review_request"
 REVIEW_OUTCOME = "review_outcome"
+
+
+def list_pending_review_documents(
+    session: Session,
+    *,
+    nursery_ref: str,
+    limit: int = 50,
+) -> list[PlanDocumentRow]:
+    """Return the authoritative approval queue, independent of notification rows."""
+    return list(
+        session.exec(
+            select(PlanDocumentRow)
+            .where(
+                PlanDocumentRow.nursery_ref == nursery_ref,
+                PlanDocumentRow.status == DocumentStatus.IN_REVIEW.value,
+            )
+            .order_by(PlanDocumentRow.updated_at.desc(), PlanDocumentRow.id.desc())
+            .limit(limit)
+        ).all()
+    )
 
 
 def _user_id_from_actor_ref(actor_ref: str) -> UUID | None:
