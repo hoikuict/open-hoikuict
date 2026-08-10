@@ -14,6 +14,7 @@ from child_records.models import (
     ChildRecordSettingVersion,
 )
 from child_records.router import progress_router, router, settings_router
+from child_records.access import progress_record_view_scope
 from child_records.settings import default_config
 import child_records.router as child_records_router
 from models import (
@@ -88,8 +89,12 @@ class ChildRecordFeatureTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("児童記録の初期設定", response.text)
         self.assertIn("標準", response.text)
+        self.assertIn("全職員が全園児を閲覧（標準）", response.text)
         with Session(self.engine) as session:
             self.assertEqual(session.exec(select(ChildRecordSettingVersion)).all(), [])
+        legacy_config = default_config()
+        legacy_config.pop("access_policy")
+        self.assertEqual(progress_record_view_scope(legacy_config), "all_staff")
 
     def test_admin_saves_versioned_facility_settings(self):
         response = self.client.post(
@@ -206,7 +211,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
             self.assertIsNotNone(log.voided_at)
             self.assertEqual(log.void_reason, "別の園児の記録だったため")
 
-    def test_assigned_teacher_can_access_only_assigned_classroom(self):
+    def test_teacher_can_view_all_progress_records_but_only_edit_assigned_class(self):
         teacher_id = uuid4()
         with Session(self.engine) as session:
             session.add(
@@ -260,15 +265,12 @@ class ChildRecordFeatureTests(unittest.TestCase):
             f"/children/{other_child_id}?child_records_denied=1",
         )
 
-        denied_progress = self.client.get(
+        visible_progress = self.client.get(
             f"/children/{other_child_id}/progress-records",
             follow_redirects=False,
         )
-        self.assertEqual(denied_progress.status_code, 303)
-        self.assertEqual(
-            denied_progress.headers["location"],
-            f"/children/{other_child_id}?child_records_denied=1",
-        )
+        self.assertEqual(visible_progress.status_code, 200)
+        self.assertIn("閲覧のみ", visible_progress.text)
 
         denied_new_progress = self.client.get(
             f"/children/{other_child_id}/progress-records/new",
@@ -277,7 +279,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
         self.assertEqual(denied_new_progress.status_code, 303)
         self.assertEqual(
             denied_new_progress.headers["location"],
-            f"/children/{other_child_id}?child_records_denied=1",
+            f"/children/{other_child_id}/progress-records?permission_denied=1",
         )
 
     def test_progress_record_entry_shows_logs_and_creates_versioned_document(self):
@@ -440,6 +442,37 @@ class ChildRecordFeatureTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(observation.status_code, 303)
+
+    def test_assigned_class_scope_can_restrict_progress_record_viewing(self):
+        config = default_config()
+        config["access_policy"]["progress_record_view_scope"] = "assigned_class"
+        with Session(self.engine) as session:
+            session.add(
+                ChildRecordSettingVersion(
+                    version_no=1,
+                    status="active",
+                    preset_key="standard",
+                    effective_from=date(2000, 1, 1),
+                    config=config,
+                )
+            )
+            session.commit()
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="担当外職員",
+            user_id=uuid4(),
+        )
+
+        denied = self.client.get(
+            f"/children/{self.child_id}/progress-records",
+            follow_redirects=False,
+        )
+
+        self.assertEqual(denied.status_code, 303)
+        self.assertEqual(
+            denied.headers["location"],
+            f"/children/{self.child_id}?child_records_denied=1",
+        )
 
     def test_progress_dashboard_filters_by_age_and_creation_status(self):
         with Session(self.engine) as session:

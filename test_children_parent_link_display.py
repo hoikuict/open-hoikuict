@@ -219,7 +219,7 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_non_assigned_staff_does_not_see_child_record_links(self):
+    def test_non_assigned_staff_sees_progress_record_but_not_observation_link(self):
         self.current_user = StaffUser(
             role=Role.CAN_EDIT,
             name="担当外職員",
@@ -229,7 +229,7 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(f'/children/{self.child_id}/records"', response.text)
-        self.assertNotIn(
+        self.assertIn(
             f'/children/{self.child_id}/progress-records"',
             response.text,
         )

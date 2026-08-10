@@ -51,19 +51,19 @@
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 class="text-lg font-semibold text-slate-900">2. 児童票の閲覧範囲</h2>
       <p class="mt-1 text-sm text-slate-500">職員が閲覧できる児童票の範囲を選びます。作成・訂正できる範囲は変わらず、担当職員または園児台帳管理権限者に限られます。</p>
-      {% set progress_view_scope = config.get('access_policy', {}).get('progress_record_view_scope', 'assigned_class') %}
+      {% set progress_view_scope = config.get('access_policy', {}).get('progress_record_view_scope', 'all_staff') %}
       <div class="mt-5 grid gap-3 md:grid-cols-2">
         <label class="cursor-pointer rounded-xl border p-4 {% if progress_view_scope == 'assigned_class' %}border-indigo-400 bg-indigo-50{% else %}border-slate-200{% endif %}">
           <span class="flex items-center gap-2">
             <input type="radio" name="progress_record_view_scope" value="assigned_class" {% if progress_view_scope == 'assigned_class' %}checked{% endif %}>
-            <strong class="text-slate-900">担当クラスのみ（推奨）</strong>
+            <strong class="text-slate-900">担当クラスのみ</strong>
           </span>
           <span class="mt-2 block text-xs leading-5 text-slate-500">担当しているクラスの園児と、管理権限がある職員だけが閲覧できます。</span>
         </label>
         <label class="cursor-pointer rounded-xl border p-4 {% if progress_view_scope == 'all_staff' %}border-indigo-400 bg-indigo-50{% else %}border-slate-200{% endif %}">
           <span class="flex items-center gap-2">
             <input type="radio" name="progress_record_view_scope" value="all_staff" {% if progress_view_scope == 'all_staff' %}checked{% endif %}>
-            <strong class="text-slate-900">全職員が全園児を閲覧</strong>
+            <strong class="text-slate-900">全職員が全園児を閲覧（標準）</strong>
           </span>
           <span class="mt-2 block text-xs leading-5 text-slate-500">クラス担当に関係なく、すべての職員が作成済み児童票と作成状況を閲覧できます。</span>
         </label>

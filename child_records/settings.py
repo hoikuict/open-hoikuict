@@ -145,7 +145,7 @@ def default_config(preset_key: str = "standard") -> dict[str, Any]:
         "schema_version": "1",
         "preset_key": preset_key,
         "access_policy": {
-            "progress_record_view_scope": "assigned_class",
+            "progress_record_view_scope": "all_staff",
         },
         "age_rules": {
             key: {

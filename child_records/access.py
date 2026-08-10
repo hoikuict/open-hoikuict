@@ -20,11 +20,11 @@ def progress_record_view_scope(config: dict[str, Any]) -> str:
     value = str(
         config.get("access_policy", {}).get(
             "progress_record_view_scope",
-            PROGRESS_VIEW_ASSIGNED_CLASS,
+            PROGRESS_VIEW_ALL_STAFF,
         )
     )
     if value not in PROGRESS_VIEW_SCOPES:
-        return PROGRESS_VIEW_ASSIGNED_CLASS
+        return PROGRESS_VIEW_ALL_STAFF
     return value
 
 

@@ -194,13 +194,13 @@ async def save_child_record_settings(
     preset_key = str(form.get("preset_key") or "standard")
     config = default_config(preset_key)
     progress_view_scope = str(
-        form.get("progress_record_view_scope") or PROGRESS_VIEW_ASSIGNED_CLASS
+        form.get("progress_record_view_scope") or PROGRESS_VIEW_ALL_STAFF
     )
     if progress_view_scope not in {
         PROGRESS_VIEW_ASSIGNED_CLASS,
         PROGRESS_VIEW_ALL_STAFF,
     }:
-        progress_view_scope = PROGRESS_VIEW_ASSIGNED_CLASS
+        progress_view_scope = PROGRESS_VIEW_ALL_STAFF
     config["access_policy"]["progress_record_view_scope"] = progress_view_scope
     enabled_keys = {str(value) for value in form.getlist("enabled_fields")}
     required_keys = {str(value) for value in form.getlist("required_fields")}
