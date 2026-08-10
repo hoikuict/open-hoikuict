@@ -68,9 +68,17 @@
                 <p>{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
                 {% endif %}
               </div>
-              <form method="post" action="/plans/notifications/{{ notification.id }}/open">
-                <button class="button button--primary" type="submit">帳票を確認</button>
-              </form>
+              <div>
+                <form method="post" action="/plans/notifications/{{ notification.id }}/open">
+                  <button class="button button--primary" type="submit">帳票を確認</button>
+                </form>
+                {% if notification.notification_kind == 'review_outcome' %}
+                <form method="post" action="/plans/notifications/{{ notification.id }}/dismiss">
+                  <input type="hidden" name="redirect_to" value="/plans/">
+                  <button class="button button--secondary" type="submit">確認済みにして消す</button>
+                </form>
+                {% endif %}
+              </div>
             </article>
           {% endfor %}
         </div>

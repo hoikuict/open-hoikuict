@@ -208,3 +208,16 @@ def mark_review_notification_read(
         notification.read_at = utc_now()
         session.add(notification)
         session.commit()
+
+
+def dismiss_review_notification(
+    session: Session,
+    notification: PlanReviewNotificationRow,
+) -> None:
+    """Mark a personal review outcome as confirmed and remove it from active lists."""
+    now = utc_now()
+    if notification.read_at is None:
+        notification.read_at = now
+    notification.resolved_at = now
+    session.add(notification)
+    session.commit()

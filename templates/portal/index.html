@@ -113,9 +113,15 @@
         {% else %}
         <p class="mt-2 text-sm text-slate-600">{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
         {% endif %}
-        <form method="post" action="/plans/notifications/{{ notification.id }}/open" class="mt-4">
-          <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">帳票を確認</button>
-        </form>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <form method="post" action="/plans/notifications/{{ notification.id }}/open">
+            <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">帳票を確認</button>
+          </form>
+          <form method="post" action="/plans/notifications/{{ notification.id }}/dismiss">
+            <input type="hidden" name="redirect_to" value="/">
+            <button type="submit" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">確認済みにして消す</button>
+          </form>
+        </div>
       </article>
       {% endfor %}
     </div>
