@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
+import child_records.models  # noqa: F401
 from auth import Role
 from models import (
     AttendanceRecord,
@@ -30,7 +31,7 @@ from models import (
     User,
 )
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
-from plan_docs.db_models import PlanReviewNotificationRow
+from plan_docs.db_models import PlanDocumentRow, PlanReviewNotificationRow
 import routers.staff_portal as portal_module
 from staff_portal_service import active_assignments
 from testing_helpers import authenticate_mock_staff, configure_test_environment
@@ -88,15 +89,14 @@ class StaffPortalTests(unittest.TestCase):
             session.add(admin)
             session.flush()
             session.add(
-                PlanReviewNotificationRow(
-                    document_id=10,
-                    review_revision_id=20,
-                    recipient_user_id=admin.id,
+                PlanDocumentRow(
+                    document_type="monthly_plan",
+                    status="in_review",
+                    title="8月 ひよこ組 月案",
                     nursery_ref=DEFAULT_NURSERY_REF,
-                    document_title="8月 ひよこ組 月案",
-                    notification_kind="review_request",
-                    requested_by_ref="staff:teacher",
-                    requested_by_name="ひよこ組担任",
+                    classroom_ref="ひよこ組",
+                    actor_ref="staff:teacher",
+                    owner_name="ひよこ組担任",
                 )
             )
             session.commit()
@@ -111,9 +111,10 @@ class StaffPortalTests(unittest.TestCase):
         response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("月案・児童票の通知", response.text)
+        self.assertIn("指導計画・児童票の承認待ち", response.text)
+        self.assertIn("承認待ち", response.text)
         self.assertIn("8月 ひよこ組 月案", response.text)
-        self.assertIn("ひよこ組担任さんからレビュー依頼", response.text)
+        self.assertIn("ひよこ組担任さんから承認依頼", response.text)
 
     def test_creator_home_shows_child_record_review_outcome(self):
         with Session(self.engine) as session:
