@@ -88,8 +88,43 @@ class NotificationDeliveryChannel(str, Enum):
 
 class NotificationDeliveryStatus(str, Enum):
     pending = "pending"
+    processing = "processing"
     delivered = "delivered"
+    accepted = "accepted"
+    shown = "shown"
+    clicked = "clicked"
     failed = "failed"
+    suppressed = "suppressed"
+    expired = "expired"
+
+
+class ParentPushSubscriptionStatus(str, Enum):
+    active = "active"
+    revoked = "revoked"
+    expired = "expired"
+
+
+class ParentPushDeliveryTargetStatus(str, Enum):
+    pending = "pending"
+    processing = "processing"
+    accepted = "accepted"
+    shown = "shown"
+    clicked = "clicked"
+    retry_wait = "retry_wait"
+    failed = "failed"
+    suppressed = "suppressed"
+    expired = "expired"
+
+
+class ParentPushTransport(str, Enum):
+    capture = "capture"
+    webpush = "webpush"
+
+
+class ParentPushDeliveryAttemptResult(str, Enum):
+    accepted = "accepted"
+    retryable_failed = "retryable_failed"
+    terminal_failed = "terminal_failed"
 
 
 class AttendanceVerificationStatus(str, Enum):
@@ -1587,9 +1622,115 @@ class ParentNotificationDelivery(SQLModel, table=True):
     status: NotificationDeliveryStatus = Field(default=NotificationDeliveryStatus.pending, index=True)
     attempted_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = Field(default=None, index=True)
+    targets_resolved_at: Optional[datetime] = Field(default=None, index=True)
+    planning_lease_expires_at: Optional[datetime] = Field(default=None, index=True)
+    completed_at: Optional[datetime] = Field(default=None, index=True)
+    accepted_at: Optional[datetime] = None
+    shown_at: Optional[datetime] = None
+    clicked_at: Optional[datetime] = None
     error_message: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentPushSubscription(SQLModel, table=True):
+    __tablename__ = "parent_push_subscriptions"
+    __table_args__ = (
+        UniqueConstraint("endpoint_hash", name="uq_parent_push_subscription_endpoint_hash"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    endpoint: str
+    endpoint_hash: str = Field(index=True)
+    p256dh_key: str
+    auth_key: str
+    status: ParentPushSubscriptionStatus = Field(
+        default=ParentPushSubscriptionStatus.active,
+        index=True,
+    )
+    device_label: Optional[str] = Field(default=None, max_length=100)
+    user_agent: Optional[str] = Field(default=None, max_length=512)
+    environment: str = Field(index=True)
+    is_test_device: bool = Field(default=False, index=True)
+    failure_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+    last_seen_at: Optional[datetime] = None
+    disabled_at: Optional[datetime] = None
+    disabled_reason: Optional[str] = Field(default=None, max_length=100)
+
+
+class ParentPushPreference(SQLModel, table=True):
+    __tablename__ = "parent_push_preferences"
+    __table_args__ = (
+        UniqueConstraint("parent_account_id", name="uq_parent_push_preference_account"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    push_enabled: bool = Field(default=True)
+    attendance_confirmation_enabled: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentPushDeliveryTarget(SQLModel, table=True):
+    __tablename__ = "parent_push_delivery_targets"
+    __table_args__ = (
+        UniqueConstraint(
+            "delivery_id",
+            "subscription_id",
+            name="uq_parent_push_delivery_target_subscription",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    delivery_id: int = Field(foreign_key="parent_notification_deliveries.id", index=True)
+    subscription_id: int = Field(foreign_key="parent_push_subscriptions.id", index=True)
+    status: ParentPushDeliveryTargetStatus = Field(
+        default=ParentPushDeliveryTargetStatus.pending,
+        index=True,
+    )
+    attempt_count: int = Field(default=0)
+    shown_receipt_token_hash: Optional[str] = None
+    clicked_receipt_token_hash: Optional[str] = None
+    processing_started_at: Optional[datetime] = None
+    lease_expires_at: Optional[datetime] = Field(default=None, index=True)
+    attempted_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    shown_at: Optional[datetime] = None
+    clicked_at: Optional[datetime] = None
+    next_retry_at: Optional[datetime] = Field(default=None, index=True)
+    last_error_code: Optional[str] = Field(default=None, max_length=100)
+    last_error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentPushDeliveryAttempt(SQLModel, table=True):
+    __tablename__ = "parent_push_delivery_attempts"
+    __table_args__ = (
+        UniqueConstraint(
+            "target_id",
+            "attempt_no",
+            name="uq_parent_push_delivery_attempt_number",
+        ),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    target_id: int = Field(foreign_key="parent_push_delivery_targets.id", index=True)
+    attempt_no: int
+    transport: ParentPushTransport = Field(index=True)
+    result: Optional[ParentPushDeliveryAttemptResult] = Field(default=None, index=True)
+    provider_status_code: Optional[int] = None
+    provider_request_id: Optional[str] = Field(default=None, max_length=255)
+    started_at: datetime = Field(default_factory=utc_now)
+    completed_at: Optional[datetime] = None
+    error_code: Optional[str] = Field(default=None, max_length=100)
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ChildProfileChangeRequest(SQLModel, table=True):

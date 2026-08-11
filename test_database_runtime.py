@@ -95,6 +95,18 @@ class DatabaseRuntimeTests(unittest.TestCase):
                                 text("PRAGMA table_info(plan_review_notifications)")
                             )
                         }
+                        parent_delivery_columns = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA table_info(parent_notification_deliveries)")
+                            )
+                        }
+                        table_names = {
+                            row[0]
+                            for row in connection.execute(
+                                text("SELECT name FROM sqlite_master WHERE type = 'table'")
+                            )
+                        }
                 self.assertIn("submitted_at", export_columns)
                 self.assertIn("new_code_consumed_by_export_id", profile_columns)
                 self.assertIn("search_text", meeting_note_columns)
@@ -114,6 +126,25 @@ class DatabaseRuntimeTests(unittest.TestCase):
                         "decided_by_name",
                         "decision_comment",
                     }.issubset(notification_columns)
+                )
+                self.assertTrue(
+                    {
+                        "expires_at",
+                        "targets_resolved_at",
+                        "planning_lease_expires_at",
+                        "completed_at",
+                        "accepted_at",
+                        "shown_at",
+                        "clicked_at",
+                    }.issubset(parent_delivery_columns)
+                )
+                self.assertTrue(
+                    {
+                        "parent_push_subscriptions",
+                        "parent_push_preferences",
+                        "parent_push_delivery_targets",
+                        "parent_push_delivery_attempts",
+                    }.issubset(table_names)
                 )
             finally:
                 engine.dispose()

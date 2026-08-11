@@ -74,6 +74,7 @@ def create_db_and_tables() -> None:
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
     _migrate_plan_review_notification_columns()
+    _migrate_parent_push_delivery_columns()
     _migrate_billing_fee_labels()
     _migrate_zengin_workflow()
     _migrate_extended_care_billing_transfer()
@@ -456,6 +457,48 @@ def _migrate_plan_review_notification_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("plan review notification columns", exc)
+
+
+def _migrate_parent_push_delivery_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("parent_notification_deliveries")
+            if not columns:
+                return
+            additions = {
+                "expires_at": "DATETIME",
+                "targets_resolved_at": "DATETIME",
+                "planning_lease_expires_at": "DATETIME",
+                "completed_at": "DATETIME",
+                "accepted_at": "DATETIME",
+                "shown_at": "DATETIME",
+                "clicked_at": "DATETIME",
+            }
+            for column_name, column_type in additions.items():
+                if column_name not in columns:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE parent_notification_deliveries "
+                            f"ADD COLUMN {column_name} {column_type}"
+                        )
+                    )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_parent_notification_deliveries_targets_resolved_at "
+                    "ON parent_notification_deliveries(targets_resolved_at)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_parent_notification_deliveries_planning_lease_expires_at "
+                    "ON parent_notification_deliveries(planning_lease_expires_at)"
+                )
+            )
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("parent push delivery columns", exc)
 
 
 def _migrate_billing_fee_labels() -> None:

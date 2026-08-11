@@ -22,6 +22,7 @@ from routers.guardian import router as guardian_router
 import routers.staff_auth as staff_auth_module
 from security_config import (
     csrf_enforced,
+    parent_push_transport,
     secure_cookie_enabled,
     validate_runtime_security,
     websocket_runtime_available,
@@ -155,6 +156,34 @@ class SecurityControlTests(unittest.TestCase):
         }
         with patch.dict(os.environ, settings, clear=True):
             with self.assertRaisesRegex(RuntimeError, "HOIKUICT_COOKIE_SECURE=1"):
+                validate_runtime_security()
+
+    def test_parent_push_transport_defaults_to_capture_outside_production(self):
+        with patch.dict(os.environ, {"HOIKUICT_ENV": "development"}, clear=True):
+            self.assertEqual(parent_push_transport(), "capture")
+
+    def test_production_rejects_parent_push_transport_until_feature_is_complete(self):
+        for transport in ("capture", "webpush"):
+            with self.subTest(transport=transport):
+                settings = {
+                    "HOIKUICT_ENV": "production",
+                    "HOIKUICT_SECRET_KEY": "s" * 40,
+                    "HOIKUICT_PUSH_TRANSPORT": transport,
+                }
+                with patch.dict(os.environ, settings, clear=True):
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        "プッシュ通知transportを有効化できません",
+                    ):
+                        validate_runtime_security()
+
+    def test_unknown_parent_push_transport_is_rejected(self):
+        settings = {
+            "HOIKUICT_ENV": "development",
+            "HOIKUICT_PUSH_TRANSPORT": "unknown",
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "disabled / capture / webpush"):
                 validate_runtime_security()
 
     def test_missing_websocket_driver_fails_at_startup(self):

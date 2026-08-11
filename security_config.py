@@ -13,6 +13,11 @@ def is_production() -> bool:
     return deployment_environment() == "production"
 
 
+def parent_push_transport() -> str:
+    default = "disabled" if is_production() else "capture"
+    return (os.getenv("HOIKUICT_PUSH_TRANSPORT") or default).strip().lower()
+
+
 def _boolean_setting(name: str, *, production_default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -66,6 +71,9 @@ def validate_runtime_security() -> None:
         raise RuntimeError("HOIKUICT_KIOSK_ACCESS_MODE が不正です")
     if mode == "token" and not os.getenv("HOIKUICT_KIOSK_TOKEN"):
         raise RuntimeError("tokenモードでは HOIKUICT_KIOSK_TOKEN が必要です")
+    push_transport = parent_push_transport()
+    if push_transport not in {"disabled", "capture", "webpush"}:
+        raise RuntimeError("HOIKUICT_PUSH_TRANSPORT は disabled / capture / webpush のいずれかです")
     if not is_production():
         return
 
@@ -82,5 +90,7 @@ def validate_runtime_security() -> None:
         errors.append("32文字以上の HOIKUICT_SECRET_KEY が必要です")
     if mode == "open":
         errors.append("productionではguardian openモードを使用できません")
+    if push_transport != "disabled":
+        errors.append("productionでは保護者プッシュ通知transportを有効化できません")
     if errors:
         raise RuntimeError("productionセキュリティ設定が不正です: " + "; ".join(errors))
