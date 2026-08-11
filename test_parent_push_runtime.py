@@ -40,6 +40,27 @@ class ParentPushRuntimeTests(unittest.TestCase):
         ):
             self.assertFalse(parent_push_worker_enabled())
 
+    def test_webpush_worker_runs_only_in_development(self):
+        with patch.dict(
+            os.environ,
+            {
+                "HOIKUICT_ENV": "development",
+                "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            },
+            clear=True,
+        ):
+            self.assertTrue(parent_push_worker_enabled())
+
+        with patch.dict(
+            os.environ,
+            {
+                "HOIKUICT_ENV": "production",
+                "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            },
+            clear=True,
+        ):
+            self.assertFalse(parent_push_worker_enabled())
+
 
 if __name__ == "__main__":
     unittest.main()

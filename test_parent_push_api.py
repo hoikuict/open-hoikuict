@@ -133,6 +133,32 @@ class ParentPushApiTests(unittest.TestCase):
             self.assertEqual(subscriptions[0].p256dh_key, "new-p256dh")
             self.assertEqual(subscriptions[0].auth_key, "new-auth")
 
+    def test_development_registration_can_explicitly_mark_test_device(self):
+        self._login(self.first_parent_id)
+
+        response = self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(is_test_device=True),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        with Session(self.engine) as session:
+            subscription = session.exec(select(ParentPushSubscription)).one()
+            self.assertTrue(subscription.is_test_device)
+
+    def test_production_registration_ignores_test_device_request(self):
+        self._login(self.first_parent_id)
+        with patch.dict(os.environ, {"HOIKUICT_ENV": "production"}):
+            response = self.client.post(
+                "/parent-portal/push/subscriptions",
+                json=self._subscription_payload(is_test_device=True),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        with Session(self.engine) as session:
+            subscription = session.exec(select(ParentPushSubscription)).one()
+            self.assertFalse(subscription.is_test_device)
+
     def test_endpoint_cannot_be_claimed_by_another_parent(self):
         self._login(self.first_parent_id)
         self.client.post(

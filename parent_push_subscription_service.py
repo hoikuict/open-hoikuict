@@ -33,6 +33,7 @@ def register_parent_push_subscription(
     p256dh_key: str,
     auth_key: str,
     environment: str,
+    is_test_device: bool,
     device_label: str | None,
     user_agent: str | None,
     previous_subscription_id: int | None = None,
@@ -53,6 +54,7 @@ def register_parent_push_subscription(
         subscription.p256dh_key = p256dh_key
         subscription.auth_key = auth_key
         subscription.environment = environment
+        subscription.is_test_device = is_test_device
         subscription.device_label = device_label
         subscription.user_agent = user_agent
         subscription.status = ParentPushSubscriptionStatus.active
@@ -69,6 +71,7 @@ def register_parent_push_subscription(
             p256dh_key=p256dh_key,
             auth_key=auth_key,
             environment=environment,
+            is_test_device=is_test_device,
             device_label=device_label,
             user_agent=user_agent,
             last_seen_at=registered_at,

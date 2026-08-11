@@ -22,6 +22,18 @@ def parent_push_vapid_public_key() -> str:
     return (os.getenv("HOIKUICT_PUSH_VAPID_PUBLIC_KEY") or "").strip()
 
 
+def parent_push_vapid_private_key() -> str:
+    return (os.getenv("HOIKUICT_PUSH_VAPID_PRIVATE_KEY") or "").strip()
+
+
+def parent_push_vapid_subject() -> str:
+    return (os.getenv("HOIKUICT_PUSH_VAPID_SUBJECT") or "").strip()
+
+
+def public_origin() -> str:
+    return (os.getenv("HOIKUICT_PUBLIC_ORIGIN") or "").strip().rstrip("/")
+
+
 def _boolean_setting(name: str, *, production_default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -79,6 +91,8 @@ def validate_runtime_security() -> None:
     if push_transport not in {"disabled", "capture", "webpush"}:
         raise RuntimeError("HOIKUICT_PUSH_TRANSPORT は disabled / capture / webpush のいずれかです")
     if not is_production():
+        if push_transport == "webpush":
+            _validate_development_webpush_configuration()
         return
 
     errors: list[str] = []
@@ -98,3 +112,38 @@ def validate_runtime_security() -> None:
         errors.append("productionでは保護者プッシュ通知transportを有効化できません")
     if errors:
         raise RuntimeError("productionセキュリティ設定が不正です: " + "; ".join(errors))
+
+
+def _validate_development_webpush_configuration() -> None:
+    required = {
+        "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": parent_push_vapid_public_key(),
+        "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": parent_push_vapid_private_key(),
+        "HOIKUICT_PUSH_VAPID_SUBJECT": parent_push_vapid_subject(),
+        "HOIKUICT_PUBLIC_ORIGIN": public_origin(),
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise RuntimeError(
+            "developmentのwebpushには次の設定が必要です: " + ", ".join(missing)
+        )
+
+    subject = urlsplit(parent_push_vapid_subject())
+    if subject.scheme not in {"mailto", "https"}:
+        raise RuntimeError("HOIKUICT_PUSH_VAPID_SUBJECT は mailto: または https:// で指定してください")
+
+    origin = urlsplit(public_origin())
+    is_local_http = origin.scheme == "http" and origin.hostname in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }
+    if (
+        not origin.netloc
+        or (origin.scheme != "https" and not is_local_http)
+        or origin.path not in {"", "/"}
+        or origin.query
+        or origin.fragment
+    ):
+        raise RuntimeError(
+            "HOIKUICT_PUBLIC_ORIGIN はHTTPS origin（localhostのみHTTP可）で指定してください"
+        )

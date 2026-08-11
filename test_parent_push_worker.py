@@ -19,6 +19,7 @@ from models import (
     ParentPushDeliveryTarget,
     ParentPushDeliveryTargetStatus,
     ParentPushSubscription,
+    ParentPushSubscriptionStatus,
     ParentPushTransport,
 )
 from parent_push_service import (
@@ -33,9 +34,13 @@ from time_utils import ensure_utc
 
 
 class ScriptedTransport:
-    name = ParentPushTransport.capture
-
-    def __init__(self, results: list[ParentPushSendResult]):
+    def __init__(
+        self,
+        results: list[ParentPushSendResult],
+        *,
+        name: ParentPushTransport = ParentPushTransport.capture,
+    ):
+        self.name = name
         self.results = list(results)
         self.payloads: list[dict[str, object]] = []
 
@@ -251,6 +256,90 @@ class ParentPushWorkerTests(unittest.TestCase):
             self.assertEqual(
                 ensure_utc(delivery.completed_at),
                 self.now + timedelta(seconds=31),
+            )
+
+    def test_subscription_gone_disables_only_the_failed_subscription(self):
+        gone = ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.terminal_failed,
+            provider_status_code=410,
+            error_code="subscription_gone",
+            error_message="Push Serviceで購読が無効になっています",
+        )
+        with Session(self.engine) as session:
+            self._create_delivery(session, subscription_count=2)
+            plan_pending_deliveries(
+                session,
+                environment="development",
+                now=self.now,
+            )
+            target = claim_next_delivery_target(session, now=self.now)
+            process_claimed_target(
+                session,
+                target,
+                transport=ScriptedTransport([gone]),
+                environment="development",
+                now=self.now,
+            )
+
+            failed_subscription = session.get(
+                ParentPushSubscription,
+                target.subscription_id,
+            )
+            other_subscription = session.exec(
+                select(ParentPushSubscription).where(
+                    ParentPushSubscription.id != target.subscription_id
+                )
+            ).one()
+            self.assertEqual(
+                failed_subscription.status,
+                ParentPushSubscriptionStatus.expired,
+            )
+            self.assertEqual(
+                failed_subscription.disabled_reason,
+                "push_service_gone",
+            )
+            self.assertEqual(
+                other_subscription.status,
+                ParentPushSubscriptionStatus.active,
+            )
+
+    def test_development_webpush_suppresses_non_test_device_before_send(self):
+        with Session(self.engine) as session:
+            delivery_id = self._create_delivery(session)
+            subscription = session.exec(select(ParentPushSubscription)).one()
+            subscription.is_test_device = False
+            session.add(subscription)
+            session.commit()
+            plan_pending_deliveries(
+                session,
+                environment="development",
+                now=self.now,
+            )
+            target = claim_next_delivery_target(session, now=self.now)
+            transport = ScriptedTransport(
+                [
+                    ParentPushSendResult(
+                        result=ParentPushDeliveryAttemptResult.accepted,
+                    )
+                ],
+                name=ParentPushTransport.webpush,
+            )
+
+            process_claimed_target(
+                session,
+                target,
+                transport=transport,
+                environment="development",
+                now=self.now,
+            )
+
+            delivery = session.get(ParentNotificationDelivery, delivery_id)
+            self.assertEqual(target.status, ParentPushDeliveryTargetStatus.suppressed)
+            self.assertEqual(delivery.status, NotificationDeliveryStatus.suppressed)
+            self.assertEqual(transport.payloads, [])
+            self.assertEqual(
+                session.exec(select(ParentPushDeliveryAttempt)).all(),
+                [],
             )
 
     def test_expired_target_finishes_without_transport_attempt(self):

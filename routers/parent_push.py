@@ -52,6 +52,7 @@ class ParentPushSubscriptionInput(BaseModel):
     endpoint: str = Field(min_length=1, max_length=2048)
     keys: ParentPushSubscriptionKeysInput
     device_label: str | None = Field(default=None, max_length=100)
+    is_test_device: bool = False
 
     @field_validator("endpoint")
     @classmethod
@@ -88,6 +89,7 @@ def push_settings(
             "parent_portal_mode": True,
             "preference": preference,
             "vapid_key_available": bool(parent_push_vapid_public_key()),
+            "development_mode": deployment_environment() == "development",
         },
     )
 
@@ -165,6 +167,9 @@ def register_subscription(
             p256dh_key=payload.keys.p256dh,
             auth_key=payload.keys.auth,
             environment=deployment_environment(),
+            is_test_device=(
+                payload.is_test_device and deployment_environment() == "development"
+            ),
             device_label=(payload.device_label or "").strip() or None,
             user_agent=(request.headers.get("user-agent") or "")[:512] or None,
             previous_subscription_id=previous_subscription_id,

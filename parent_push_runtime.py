@@ -17,7 +17,7 @@ DEFAULT_WORKER_INTERVAL_SECONDS = 2.0
 def parent_push_worker_enabled() -> bool:
     return (
         deployment_environment() == "development"
-        and parent_push_transport() == "capture"
+        and parent_push_transport() in {"capture", "webpush"}
     )
 
 
@@ -42,5 +42,5 @@ async def parent_push_worker_loop(
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("parent push capture worker cycle failed")
+            logger.exception("parent push worker cycle failed")
         await asyncio.sleep(interval_seconds)

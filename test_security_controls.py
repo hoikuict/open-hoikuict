@@ -186,6 +186,53 @@ class SecurityControlTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "disabled / capture / webpush"):
                 validate_runtime_security()
 
+    def test_development_webpush_requires_vapid_and_public_origin(self):
+        with patch.dict(
+            os.environ,
+            {
+                "HOIKUICT_ENV": "development",
+                "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            },
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "HOIKUICT_PUSH_VAPID_PUBLIC_KEY"):
+                validate_runtime_security()
+
+    def test_development_webpush_accepts_https_or_localhost_origin(self):
+        base_settings = {
+            "HOIKUICT_ENV": "development",
+            "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "public-key",
+            "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+            "HOIKUICT_PUSH_VAPID_SUBJECT": "mailto:developer@example.com",
+        }
+        for origin in ("https://push-dev.example.com", "http://localhost:8000"):
+            with self.subTest(origin=origin):
+                with patch.dict(
+                    os.environ,
+                    {**base_settings, "HOIKUICT_PUBLIC_ORIGIN": origin},
+                    clear=True,
+                ):
+                    validate_runtime_security()
+
+    def test_development_webpush_rejects_unsafe_origin_and_subject(self):
+        settings = {
+            "HOIKUICT_ENV": "development",
+            "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "public-key",
+            "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+            "HOIKUICT_PUSH_VAPID_SUBJECT": "developer@example.com",
+            "HOIKUICT_PUBLIC_ORIGIN": "http://push-dev.example.com",
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "VAPID_SUBJECT"):
+                validate_runtime_security()
+
+        settings["HOIKUICT_PUSH_VAPID_SUBJECT"] = "mailto:developer@example.com"
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "HTTPS origin"):
+                validate_runtime_security()
+
     def test_missing_websocket_driver_fails_at_startup(self):
         with patch("security_config.find_spec", return_value=None):
             self.assertFalse(websocket_runtime_available())

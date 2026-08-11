@@ -21,6 +21,7 @@ from models import (
 )
 from parent_push_service import (
     CaptureParentPushTransport,
+    WebPushParentPushTransport,
     build_push_payload,
     create_parent_push_transport,
     hash_receipt_token,
@@ -233,11 +234,21 @@ class ParentPushServiceTests(unittest.TestCase):
         self.assertEqual(result.result.value, "accepted")
         self.assertEqual(result.provider_request_id, "capture")
 
-    def test_disabled_and_unimplemented_transports_fail_closed(self):
+    def test_disabled_transport_fails_closed_and_webpush_requires_vapid(self):
         with self.assertRaisesRegex(RuntimeError, "無効"):
             create_parent_push_transport("disabled")
-        with self.assertRaisesRegex(RuntimeError, "まだ実装されていません"):
-            create_parent_push_transport("webpush")
+        with patch.dict(
+            "os.environ",
+            {
+                "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+                "HOIKUICT_PUSH_VAPID_SUBJECT": "mailto:developer@example.com",
+            },
+            clear=True,
+        ):
+            self.assertIsInstance(
+                create_parent_push_transport("webpush"),
+                WebPushParentPushTransport,
+            )
 
 
 if __name__ == "__main__":

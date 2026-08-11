@@ -20,6 +20,9 @@
     {% if not vapid_key_available %}
     <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">VAPID公開鍵が未設定のため、端末登録はまだ利用できません。</p>
     {% endif %}
+    {% if development_mode %}
+    <p class="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">development環境です。この画面から登録した端末は、開発用Web Pushの送信対象として明示登録されます。</p>
+    {% endif %}
     <div class="mt-5 flex flex-wrap gap-3">
       <button id="enable-push" type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300" {% if not vapid_key_available %}disabled{% endif %}>この端末で通知を受け取る</button>
       <button id="disable-push" type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300" disabled>この端末の通知を解除する</button>
@@ -95,7 +98,7 @@
       if (!config.available || !config.public_key) throw new Error('VAPID公開鍵が設定されていません。');
       registration ||= await navigator.serviceWorker.register('/parent-portal/push-service-worker.js', {scope: '/parent-portal/'});
       subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: applicationServerKey(config.public_key)});
-      const response = await jsonRequest('/parent-portal/push/subscriptions', {method: 'POST', body: JSON.stringify({...subscription.toJSON(), device_label: navigator.platform || 'ブラウザ端末'})});
+      const response = await jsonRequest('/parent-portal/push/subscriptions', {method: 'POST', body: JSON.stringify({...subscription.toJSON(), device_label: navigator.platform || 'ブラウザ端末', is_test_device: {{ 'true' if development_mode else 'false' }}})});
       if (!response.ok) throw new Error('端末を登録できませんでした。');
       updateStatus();
       showMessage('この端末を登録しました。');

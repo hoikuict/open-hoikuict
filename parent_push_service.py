@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
+
+from pywebpush import WebPushException, webpush
 
 from sqlalchemy import and_, or_, update
 from sqlmodel import Session, select
@@ -27,6 +30,7 @@ from models import (
     ParentPushTransport,
 )
 from time_utils import ensure_utc, utc_now
+from security_config import parent_push_vapid_private_key, parent_push_vapid_subject
 
 
 PUSH_SCHEMA_VERSION = 1
@@ -41,6 +45,8 @@ DEFAULT_LEASE_SECONDS = 120
 DEFAULT_PLANNING_LEASE_SECONDS = 30
 DEFAULT_MAX_ATTEMPTS = 5
 DEFAULT_RETRY_DELAYS_SECONDS = (30, 120, 600, 1800)
+DEFAULT_WEB_PUSH_TIMEOUT_SECONDS = 10
+DEFAULT_WEB_PUSH_TTL_SECONDS = 6 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -81,14 +87,140 @@ class CaptureParentPushTransport:
         )
 
 
+class WebPushParentPushTransport:
+    name = ParentPushTransport.webpush
+
+    def __init__(
+        self,
+        *,
+        vapid_private_key: str,
+        vapid_subject: str,
+        sender=webpush,
+        timeout_seconds: int = DEFAULT_WEB_PUSH_TIMEOUT_SECONDS,
+    ):
+        if not vapid_private_key or not vapid_subject:
+            raise RuntimeError("Web Push transportにはVAPID秘密鍵とsubjectが必要です")
+        self._vapid_private_key = vapid_private_key
+        self._vapid_subject = vapid_subject
+        self._sender = sender
+        self._timeout_seconds = timeout_seconds
+
+    def send(
+        self,
+        *,
+        subscription: ParentPushSubscription,
+        payload: dict[str, object],
+    ) -> ParentPushSendResult:
+        try:
+            response = self._sender(
+                subscription_info={
+                    "endpoint": subscription.endpoint,
+                    "keys": {
+                        "p256dh": subscription.p256dh_key,
+                        "auth": subscription.auth_key,
+                    },
+                },
+                data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                vapid_private_key=self._vapid_private_key,
+                vapid_claims={"sub": self._vapid_subject},
+                content_encoding="aes128gcm",
+                ttl=_payload_ttl_seconds(payload),
+                timeout=self._timeout_seconds,
+            )
+        except WebPushException as exc:
+            response = exc.response
+            return classify_web_push_response(
+                getattr(response, "status_code", None),
+                headers=getattr(response, "headers", None),
+            )
+        return classify_web_push_response(
+            getattr(response, "status_code", None),
+            headers=getattr(response, "headers", None),
+        )
+
+
 def create_parent_push_transport(name: str) -> ParentPushTransportProtocol:
     if name == ParentPushTransport.capture.value:
         return CaptureParentPushTransport()
     if name == "disabled":
         raise RuntimeError("保護者プッシュ通知transportは無効です")
     if name == ParentPushTransport.webpush.value:
-        raise RuntimeError("webpush transportはまだ実装されていません")
+        return WebPushParentPushTransport(
+            vapid_private_key=parent_push_vapid_private_key(),
+            vapid_subject=parent_push_vapid_subject(),
+        )
     raise RuntimeError(f"未対応の保護者プッシュ通知transportです: {name}")
+
+
+def classify_web_push_response(
+    status_code: int | None,
+    *,
+    headers=None,
+) -> ParentPushSendResult:
+    request_id = _provider_request_id(headers)
+    if status_code is not None and 200 <= status_code < 300:
+        return ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.accepted,
+            provider_status_code=status_code,
+            provider_request_id=request_id,
+        )
+    if status_code in {404, 410}:
+        return ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.terminal_failed,
+            provider_status_code=status_code,
+            provider_request_id=request_id,
+            error_code="subscription_gone",
+            error_message="Push Serviceで購読が無効になっています",
+        )
+    if status_code in {408, 425, 429} or (
+        status_code is not None and status_code >= 500
+    ):
+        error_code = "rate_limited" if status_code == 429 else "provider_unavailable"
+        return ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.retryable_failed,
+            provider_status_code=status_code,
+            provider_request_id=request_id,
+            error_code=error_code,
+            error_message="Push Serviceの一時的なエラーです",
+        )
+    if status_code is not None and 400 <= status_code < 500:
+        error_code = "payload_too_large" if status_code == 413 else "provider_rejected"
+        return ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.terminal_failed,
+            provider_status_code=status_code,
+            provider_request_id=request_id,
+            error_code=error_code,
+            error_message="Push Serviceが送信要求を拒否しました",
+        )
+    return ParentPushSendResult(
+        result=ParentPushDeliveryAttemptResult.retryable_failed,
+        provider_status_code=status_code,
+        provider_request_id=request_id,
+        error_code="transport_unavailable",
+        error_message="Push Serviceから有効な応答を取得できませんでした",
+    )
+
+
+def _payload_ttl_seconds(payload: dict[str, object]) -> int:
+    raw_expires_at = payload.get("expires_at")
+    if not isinstance(raw_expires_at, str) or not raw_expires_at:
+        return DEFAULT_WEB_PUSH_TTL_SECONDS
+    try:
+        expires_at = ensure_utc(datetime.fromisoformat(raw_expires_at))
+    except ValueError:
+        return DEFAULT_WEB_PUSH_TTL_SECONDS
+    remaining = int((expires_at - utc_now()).total_seconds())
+    return max(0, min(DEFAULT_WEB_PUSH_TTL_SECONDS, remaining))
+
+
+def _provider_request_id(headers) -> str | None:
+    if not headers:
+        return None
+    accepted_names = {"x-request-id", "x-amzn-requestid"}
+    for name, value in headers.items():
+        if str(name).lower() in accepted_names and value:
+            return str(value)[:255]
+    return None
 
 
 def generate_receipt_token() -> str:

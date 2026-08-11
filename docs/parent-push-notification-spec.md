@@ -1,13 +1,13 @@
 # 保護者向けプッシュ通知機能仕様書
 
 - 対象リポジトリ: open-hoikuict
-- ステータス: Draft / Step 1・Step 2実装済み
+- ステータス: Draft / Step 1・Step 2・Step 3実装済み
 - 作成日: 2026-08-12
-- 実装状況: 一部実装（ブラウザ購読とcapture確認画面まで）
+- 実装状況: 一部実装（実Web Push transportとcapture確認画面まで）
 - 初期対象: 出欠未確認時の保護者確認依頼
 - 関連: 保護者ポータル、保護者アカウント、出欠確認、認証、セキュリティ
 
-> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、development確認画面は実装済みである。一方、Web Push実送信、receipt API、開発用テスト端末への実送信、保存期間処理は未実装である。未実装部分のモデル、URL、画面は実装案であり、現行機能として扱わない。
+> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture / Web Push transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、development確認画面は実装済みである。developmentのWeb Pushは、本人が設定画面から明示登録したテスト端末だけへ送信できる。一方、receipt API、実端末での送受信確認、保存期間処理は未実装である。未実装部分のモデル、URL、画面は実装案であり、現行機能として扱わない。
 
 ---
 
@@ -30,6 +30,8 @@
 - 保護者は通知設定画面から明示操作でブラウザ購読を登録・解除できる
 - 明示ログアウトでは現在端末だけを無効化し、セッション期限切れでは購読を維持する
 - development確認画面で秘密情報を除いたcapture配送内容を確認できる
+- developmentではVAPID設定が揃った場合に限り、テスト端末へ `pywebpush` で実送信できる
+- 404 / 410は購読失効、429 / 5xxは再試行可能エラーとしてTarget単位で処理する
 
 一方、現行の保護者認証はモックバックエンドのみである。本番プッシュ通知を有効化する前に、保護者を継続的かつ安全に識別できる本番用認証バックエンドが必要である。
 
@@ -571,6 +573,8 @@ Phase 1の最大送信試行回数は5回とする。待機時間の目安は `3
 - `test`: `capture`。テスト内ではインメモリtransportへ差し替え可能
 - `production`: `disabled`。実Web Pushと本番認証が完成するまで `capture` / `webpush` の指定を起動時に拒否
 
+現行実装ではWeb Push送信に `pywebpush==2.3.0` を利用し、`aes128gcm`、10秒タイムアウト、配送期限に基づく最大6時間のTTLを指定する。
+
 ### 14.2 VAPID設定
 
 実送信には以下を必須とする。
@@ -776,8 +780,8 @@ Phase 1は以下をすべて満たしたとき完了とする。
 - [ ] 1保護者の複数端末を個別に追跡できる
 - [ ] 同一業務イベントから通知と配送が重複作成されない
 - [ ] Push Service障害が出欠確認の保存を失敗させない
-- [ ] 無効な購読を自動停止できる
-- [ ] 一時障害を有効期限内で再試行できる
+- [x] 無効な購読を自動停止できる
+- [x] 一時障害を有効期限内で再試行できる
 - [ ] プッシュ本文、画面、ログに禁止された個人情報を含めない
 - [ ] 他の保護者の購読を登録・解除・閲覧できない
 - [ ] productionで鍵、HTTPS、本番保護者認証が不足している場合はWeb Pushを有効化できない
@@ -803,7 +807,7 @@ Phase 1は以下をすべて満たしたとき完了とする。
 - 購読登録・解除API追加
 - 複数端末とログアウト処理追加
 
-### Step 3: 実Web Push
+### Step 3: 実Web Push（2026-08-12実装済み・実機確認未実施）
 
 - VAPID設定と起動時検証追加
 - Web Push transport追加
