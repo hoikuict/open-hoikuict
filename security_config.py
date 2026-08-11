@@ -18,6 +18,10 @@ def parent_push_transport() -> str:
     return (os.getenv("HOIKUICT_PUSH_TRANSPORT") or default).strip().lower()
 
 
+def parent_push_vapid_public_key() -> str:
+    return (os.getenv("HOIKUICT_PUSH_VAPID_PUBLIC_KEY") or "").strip()
+
+
 def _boolean_setting(name: str, *, production_default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
@@ -24,10 +25,13 @@ from parent_push_subscription_service import (
     set_parent_push_device_cookie,
     update_parent_push_preference,
 )
-from security_config import deployment_environment
+from security_config import deployment_environment, parent_push_vapid_public_key
+from template_utils import create_templates
 
 
 router = APIRouter(prefix="/parent-portal/push", tags=["parent_push"])
+settings_router = APIRouter(prefix="/parent-portal", tags=["parent_push"])
+templates = create_templates()
 
 
 def _validate_push_endpoint(value: str) -> str:
@@ -67,6 +71,79 @@ class ParentPushEndpointInput(BaseModel):
 class ParentPushPreferenceInput(BaseModel):
     push_enabled: bool
     attendance_confirmation_enabled: bool
+
+
+@settings_router.get("/push-settings", response_class=HTMLResponse)
+def push_settings(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    parent = _require_parent_account(request, session)
+    preference = get_parent_push_preference(session, parent_account_id=parent.id)
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/push_settings.html",
+        {
+            "current_parent_user": parent,
+            "parent_portal_mode": True,
+            "preference": preference,
+            "vapid_key_available": bool(parent_push_vapid_public_key()),
+        },
+    )
+
+
+@settings_router.get("/manifest.webmanifest")
+def parent_portal_manifest():
+    return Response(
+        content=(
+            '{"name":"open-hoikuict 保護者ポータル",'
+            '"short_name":"保護者ポータル",'
+            '"start_url":"/parent-portal/",'
+            '"scope":"/parent-portal/",'
+            '"display":"standalone",'
+            '"background_color":"#f8fafc",'
+            '"theme_color":"#4338ca",'
+            '"icons":[{"src":"/parent-portal/push-icon.svg",'
+            '"sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}'
+        ),
+        media_type="application/manifest+json",
+    )
+
+
+@settings_router.get("/push-icon.svg")
+def parent_push_icon():
+    return Response(
+        content=(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
+            '<rect width="512" height="512" rx="96" fill="#4338ca"/>'
+            '<path d="M128 176c0-70 57-128 128-128s128 58 128 128v74l42 66H86l42-66z" '
+            'fill="#fff"/><circle cx="256" cy="382" r="54" fill="#a5b4fc"/>'
+            '</svg>'
+        ),
+        media_type="image/svg+xml",
+    )
+
+
+@settings_router.get("/push-service-worker.js")
+def parent_push_service_worker():
+    return Response(
+        content=templates.get_template("parent_portal/push_service_worker.js").render(),
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Service-Worker-Allowed": "/parent-portal/",
+        },
+    )
+
+
+@router.get("/public-key")
+def get_public_key(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    _require_parent_account(request, session)
+    public_key = parent_push_vapid_public_key()
+    return {"available": bool(public_key), "public_key": public_key or None}
 
 
 @router.post("/subscriptions")

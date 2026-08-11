@@ -1,13 +1,13 @@
 # 保護者向けプッシュ通知機能仕様書
 
 - 対象リポジトリ: open-hoikuict
-- ステータス: Draft / Step 1実装済み
+- ステータス: Draft / Step 1・Step 2実装済み
 - 作成日: 2026-08-12
-- 実装状況: 一部実装（capture配送基盤まで）
+- 実装状況: 一部実装（ブラウザ購読とcapture確認画面まで）
 - 初期対象: 出欠未確認時の保護者確認依頼
 - 関連: 保護者ポータル、保護者アカウント、出欠確認、認証、セキュリティ
 
-> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成は実装済みである。一方、ブラウザ購読API、Service Worker、Web Push実送信、receipt API、開発用確認画面は未実装である。未実装部分のモデル、URL、画面は実装案であり、現行機能として扱わない。
+> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、development確認画面は実装済みである。一方、Web Push実送信、receipt API、開発用テスト端末への実送信、保存期間処理は未実装である。未実装部分のモデル、URL、画面は実装案であり、現行機能として扱わない。
 
 ---
 
@@ -27,6 +27,9 @@
 - Target単位でclaim、lease回復、再試行、Attempt履歴を管理できる
 - developmentでは外部送信しないcapture transportをバックグラウンド実行できる
 - productionでは `capture` と `webpush` の有効化を起動時に拒否する
+- 保護者は通知設定画面から明示操作でブラウザ購読を登録・解除できる
+- 明示ログアウトでは現在端末だけを無効化し、セッション期限切れでは購読を維持する
+- development確認画面で秘密情報を除いたcapture配送内容を確認できる
 
 一方、現行の保護者認証はモックバックエンドのみである。本番プッシュ通知を有効化する前に、保護者を継続的かつ安全に識別できる本番用認証バックエンドが必要である。
 
@@ -566,7 +569,7 @@ Phase 1の最大送信試行回数は5回とする。待機時間の目安は `3
 
 - `development`: `capture`
 - `test`: `capture`。テスト内ではインメモリtransportへ差し替え可能
-- `production`: `disabled`。明示的に `webpush` を指定した場合だけ有効
+- `production`: `disabled`。実Web Pushと本番認証が完成するまで `capture` / `webpush` の指定を起動時に拒否
 
 ### 14.2 VAPID設定
 
@@ -766,8 +769,8 @@ productionはHTTPSを必須とする。`HOIKUICT_PUBLIC_ORIGIN` がHTTPSでな�
 
 Phase 1は以下をすべて満たしたとき完了とする。
 
-- [ ] developmentの既定状態では外部へプッシュ送信しない
-- [ ] capture画面で送信予定payloadと状態遷移を確認できる
+- [x] developmentの既定状態では外部へプッシュ送信しない
+- [x] capture画面で送信予定payloadと状態遷移を確認できる
 - [ ] 開発用テスト端末に実送信できる
 - [ ] `pending / accepted / shown / clicked` の各段階を区別して確認できる
 - [ ] 1保護者の複数端末を個別に追跡できる
@@ -778,7 +781,7 @@ Phase 1は以下をすべて満たしたとき完了とする。
 - [ ] プッシュ本文、画面、ログに禁止された個人情報を含めない
 - [ ] 他の保護者の購読を登録・解除・閲覧できない
 - [ ] productionで鍵、HTTPS、本番保護者認証が不足している場合はWeb Pushを有効化できない
-- [ ] 明示的なログアウトでは現在端末の購読を無効化し、セッション有効期限切れでは無効化しない
+- [x] 明示的なログアウトでは現在端末の購読を無効化し、セッション有効期限切れでは無効化しない
 - [ ] 自動テストとPC・Android・iPhone/iPadの実機確認手順が整備されている
 
 ---
@@ -793,7 +796,7 @@ Phase 1は以下をすべて満たしたとき完了とする。
 - 出欠確認通知からプッシュ配送をキュー登録
 - 単体・統合テスト追加
 
-### Step 2: ブラウザ購読
+### Step 2: ブラウザ購読（2026-08-12実装済み）
 
 - Manifest、アイコン、Service Worker追加
 - 保護者向け通知設定画面追加
@@ -810,7 +813,7 @@ Phase 1は以下をすべて満たしたとき完了とする。
 ### Step 4: 配送確認と運用
 
 - 表示・クリック確認API追加
-- development確認画面追加
+- development確認画面追加（2026-08-12実装済み）
 - 実端末確認手順整備
 - 運用指標と保存期間処理追加
 

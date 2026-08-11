@@ -1,4 +1,6 @@
 import unittest
+import os
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -31,6 +33,7 @@ class ParentPushApiTests(unittest.TestCase):
         app.include_router(parent_portal_module.router)
         app.include_router(parent_portal_module.mock_login_router)
         app.include_router(parent_push_module.router)
+        app.include_router(parent_push_module.settings_router)
 
         def override_get_session():
             with Session(self.engine) as session:
@@ -261,6 +264,53 @@ class ParentPushApiTests(unittest.TestCase):
             subscription = session.get(ParentPushSubscription, subscription_id)
             self.assertEqual(subscription.status, ParentPushSubscriptionStatus.active)
             self.assertIsNone(subscription.disabled_at)
+
+    def test_push_settings_requires_authentication(self):
+        response = self.client.get("/parent-portal/push-settings")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_push_settings_does_not_request_permission_on_page_load(self):
+        self._login(self.first_parent_id)
+        with patch.dict(os.environ, {"HOIKUICT_PUSH_VAPID_PUBLIC_KEY": ""}):
+            response = self.client.get("/parent-portal/push-settings")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("この端末で通知を受け取る", response.text)
+        self.assertIn("VAPID公開鍵が未設定", response.text)
+        self.assertIn("enableButton.addEventListener('click'", response.text)
+
+    def test_public_key_is_available_only_to_authenticated_parent(self):
+        self._login(self.first_parent_id)
+        with patch.dict(
+            os.environ,
+            {"HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "test-public-key"},
+        ):
+            response = self.client.get("/parent-portal/push/public-key")
+
+        self.assertEqual(
+            response.json(),
+            {"available": True, "public_key": "test-public-key"},
+        )
+        self.client.cookies.clear()
+        self.assertEqual(
+            self.client.get("/parent-portal/push/public-key").status_code,
+            401,
+        )
+
+    def test_manifest_and_service_worker_are_served_with_expected_scope(self):
+        manifest = self.client.get("/parent-portal/manifest.webmanifest")
+        worker = self.client.get("/parent-portal/push-service-worker.js")
+
+        self.assertEqual(manifest.status_code, 200)
+        self.assertEqual(manifest.json()["scope"], "/parent-portal/")
+        self.assertEqual(worker.status_code, 200)
+        self.assertEqual(
+            worker.headers["service-worker-allowed"],
+            "/parent-portal/",
+        )
+        self.assertIn("safeActionUrl", worker.text)
+        self.assertIn("postReceipt(receiptData, 'shown')", worker.text)
 
 
 if __name__ == "__main__":
