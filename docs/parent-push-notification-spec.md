@@ -1,13 +1,13 @@
 # 保護者向けプッシュ通知機能仕様書
 
 - 対象リポジトリ: open-hoikuict
-- ステータス: Draft
+- ステータス: Draft / Step 1実装済み
 - 作成日: 2026-08-12
-- 実装状況: 一部基盤あり・プッシュ配送は未実装（計画）
+- 実装状況: 一部実装（capture配送基盤まで）
 - 初期対象: 出欠未確認時の保護者確認依頼
 - 関連: 保護者ポータル、保護者アカウント、出欠確認、認証、セキュリティ
 
-> `ParentNotification`、`ParentNotificationDelivery`、アプリ内通知、プッシュ配送のキュー作成ヘルパは既に存在する。一方、ブラウザ購読、Service Worker、実送信ワーカー、端末別配送結果、開発用確認画面は未実装である。本書で「追加する」と記載するモデル、URL、状態は実装案であり、現行機能として扱わない。
+> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成は実装済みである。一方、ブラウザ購読API、Service Worker、Web Push実送信、receipt API、開発用確認画面は未実装である。未実装部分のモデル、URL、画面は実装案であり、現行機能として扱わない。
 
 ---
 
@@ -23,6 +23,10 @@
 - `ParentNotificationDelivery` に `in_app` と `push` のチャネルを保存できる
 - 出欠未確認時に、職員の明示操作で対象園児に紐づく有効な保護者へアプリ内通知を作成できる
 - 同じ通知に対してプッシュ配送を `pending` で作成する `queue_push_delivery()` がある
+- 配送を有効な購読ごとのTargetへ冪等に展開できる
+- Target単位でclaim、lease回復、再試行、Attempt履歴を管理できる
+- developmentでは外部送信しないcapture transportをバックグラウンド実行できる
+- productionでは `capture` と `webpush` の有効化を起動時に拒否する
 
 一方、現行の保護者認証はモックバックエンドのみである。本番プッシュ通知を有効化する前に、保護者を継続的かつ安全に識別できる本番用認証バックエンドが必要である。
 
@@ -781,7 +785,7 @@ Phase 1は以下をすべて満たしたとき完了とする。
 
 ## 20. 実装順序
 
-### Step 1: 配送基盤とcapture
+### Step 1: 配送基盤とcapture（2026-08-12実装済み）
 
 - 状態enumとデータモデル追加
 - transportインターフェース追加
