@@ -52,6 +52,7 @@ from routers.notices import router as notices_router
 from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import mock_login_router as parent_portal_mock_login_router
 from routers.parent_portal import router as parent_portal_router
+from routers.parent_push import router as parent_push_router
 from routers.staff_auth import mock_login_router as staff_mock_login_router
 from routers.staff_auth import router as staff_auth_router
 from routers.staff_portal import router as staff_portal_router
@@ -137,6 +138,7 @@ app.include_router(billing_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
+app.include_router(parent_push_router)
 app.include_router(calendar_router)
 app.include_router(staff_auth_router)
 app.include_router(institutional_records_router)
