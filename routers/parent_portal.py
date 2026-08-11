@@ -47,6 +47,11 @@ from models import (
     SurveyQuestion,
     SurveyStatus,
 )
+from parent_push_subscription_service import (
+    PARENT_PUSH_DEVICE_COOKIE,
+    clear_parent_push_device_cookie,
+    disable_parent_push_subscription_for_browser,
+)
 from survey_service import (
     answer_value_for_display,
     closes_soon,
@@ -450,8 +455,22 @@ def parent_mock_login(
 
 
 @router.post("/logout")
-def parent_logout():
+def parent_logout(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    parent_account_id = get_current_parent_account_id(request)
+    if parent_account_id is not None:
+        subscription = disable_parent_push_subscription_for_browser(
+            session,
+            parent_account_id=parent_account_id,
+            raw_device_cookie=request.cookies.get(PARENT_PUSH_DEVICE_COOKIE),
+            reason="explicit_logout",
+        )
+        if subscription is not None:
+            session.commit()
     response = RedirectResponse(url="/parent-portal/login", status_code=303)
+    clear_parent_push_device_cookie(response)
     clear_parent_account_cookie(response)
     return response
 

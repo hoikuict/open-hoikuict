@@ -11,6 +11,7 @@ from models import (
     ParentPushSubscription,
     ParentPushSubscriptionStatus,
 )
+from auth import MOCK_PARENT_ACCOUNT_COOKIE
 import routers.parent_portal as parent_portal_module
 import routers.parent_push as parent_push_module
 from testing_helpers import configure_test_environment
@@ -27,6 +28,7 @@ class ParentPushApiTests(unittest.TestCase):
         SQLModel.metadata.create_all(self.engine)
 
         app = FastAPI()
+        app.include_router(parent_portal_module.router)
         app.include_router(parent_portal_module.mock_login_router)
         app.include_router(parent_push_module.router)
 
@@ -204,6 +206,61 @@ class ParentPushApiTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+
+    def test_explicit_logout_revokes_only_this_browser_subscription(self):
+        self._login(self.first_parent_id)
+        registration = self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(),
+        )
+        current_subscription_id = registration.json()["id"]
+        with Session(self.engine) as session:
+            other_device = ParentPushSubscription(
+                parent_account_id=self.first_parent_id,
+                endpoint="https://push.example.test/subscriptions/device-b",
+                endpoint_hash=parent_push_module.endpoint_hash(
+                    "https://push.example.test/subscriptions/device-b"
+                ),
+                p256dh_key="other-p256dh",
+                auth_key="other-auth",
+                environment="development",
+            )
+            session.add(other_device)
+            session.commit()
+            session.refresh(other_device)
+            other_subscription_id = other_device.id
+
+        response = self.client.post(
+            "/parent-portal/logout",
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertNotIn(MOCK_PARENT_ACCOUNT_COOKIE, self.client.cookies)
+        self.assertNotIn("parent_push_device", self.client.cookies)
+        with Session(self.engine) as session:
+            current = session.get(ParentPushSubscription, current_subscription_id)
+            other = session.get(ParentPushSubscription, other_subscription_id)
+            self.assertEqual(current.status, ParentPushSubscriptionStatus.revoked)
+            self.assertEqual(current.disabled_reason, "explicit_logout")
+            self.assertEqual(other.status, ParentPushSubscriptionStatus.active)
+
+    def test_session_expiry_does_not_revoke_subscription(self):
+        self._login(self.first_parent_id)
+        registration = self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(),
+        )
+        subscription_id = registration.json()["id"]
+
+        self.client.cookies.delete(MOCK_PARENT_ACCOUNT_COOKIE)
+        response = self.client.get("/parent-portal/push/preferences")
+
+        self.assertEqual(response.status_code, 401)
+        with Session(self.engine) as session:
+            subscription = session.get(ParentPushSubscription, subscription_id)
+            self.assertEqual(subscription.status, ParentPushSubscriptionStatus.active)
+            self.assertIsNone(subscription.disabled_at)
 
 
 if __name__ == "__main__":

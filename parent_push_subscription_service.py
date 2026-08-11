@@ -106,6 +106,29 @@ def disable_parent_push_subscription(
     session.add(subscription)
 
 
+def disable_parent_push_subscription_for_browser(
+    session: Session,
+    *,
+    parent_account_id: int,
+    raw_device_cookie: str | None,
+    reason: str,
+    now: datetime | None = None,
+) -> ParentPushSubscription | None:
+    subscription_id = read_parent_push_device_cookie(raw_device_cookie)
+    if subscription_id is None:
+        return None
+    subscription = session.get(ParentPushSubscription, subscription_id)
+    if subscription is None or subscription.parent_account_id != parent_account_id:
+        return None
+    disable_parent_push_subscription(
+        session,
+        subscription,
+        reason=reason,
+        now=now,
+    )
+    return subscription
+
+
 def get_parent_push_preference(
     session: Session,
     *,
