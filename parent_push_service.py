@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 import secrets
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol
 
+from sqlalchemy import and_, or_, update
 from sqlmodel import Session, select
 
 from models import (
@@ -16,6 +17,7 @@ from models import (
     ParentNotification,
     ParentNotificationDelivery,
     ParentNotificationKind,
+    ParentPushDeliveryAttempt,
     ParentPushDeliveryAttemptResult,
     ParentPushDeliveryTarget,
     ParentPushDeliveryTargetStatus,
@@ -35,6 +37,10 @@ OPEN_TARGET_STATUSES = {
     ParentPushDeliveryTargetStatus.processing,
     ParentPushDeliveryTargetStatus.retry_wait,
 }
+DEFAULT_LEASE_SECONDS = 120
+DEFAULT_PLANNING_LEASE_SECONDS = 30
+DEFAULT_MAX_ATTEMPTS = 5
+DEFAULT_RETRY_DELAYS_SECONDS = (30, 120, 600, 1800)
 
 
 @dataclass(frozen=True)
@@ -238,6 +244,267 @@ def recompute_delivery_summary(
     return delivery
 
 
+def plan_pending_deliveries(
+    session: Session,
+    *,
+    environment: str,
+    now: datetime | None = None,
+    limit: int = 50,
+) -> int:
+    planned = 0
+    planned_at = now or utc_now()
+    candidate_ids = session.exec(
+        select(ParentNotificationDelivery.id)
+        .where(
+            ParentNotificationDelivery.channel == NotificationDeliveryChannel.push,
+            ParentNotificationDelivery.targets_resolved_at.is_(None),
+            or_(
+                ParentNotificationDelivery.planning_lease_expires_at.is_(None),
+                ParentNotificationDelivery.planning_lease_expires_at < planned_at,
+            ),
+        )
+        .order_by(ParentNotificationDelivery.id)
+        .limit(limit)
+    ).all()
+    for delivery_id in candidate_ids:
+        lease_expires_at = planned_at + timedelta(seconds=DEFAULT_PLANNING_LEASE_SECONDS)
+        result = session.exec(
+            update(ParentNotificationDelivery)
+            .where(
+                ParentNotificationDelivery.id == delivery_id,
+                ParentNotificationDelivery.targets_resolved_at.is_(None),
+                or_(
+                    ParentNotificationDelivery.planning_lease_expires_at.is_(None),
+                    ParentNotificationDelivery.planning_lease_expires_at < planned_at,
+                ),
+            )
+            .values(
+                planning_lease_expires_at=lease_expires_at,
+                updated_at=planned_at,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            continue
+        session.commit()
+        session.expire_all()
+        delivery = session.get(ParentNotificationDelivery, delivery_id)
+        if delivery is None:
+            continue
+        resolve_delivery_targets(
+            session,
+            delivery,
+            environment=environment,
+            now=planned_at,
+        )
+        delivery.planning_lease_expires_at = None
+        session.add(delivery)
+        session.commit()
+        planned += 1
+    return planned
+
+
+def claim_next_delivery_target(
+    session: Session,
+    *,
+    now: datetime | None = None,
+    lease_seconds: int = DEFAULT_LEASE_SECONDS,
+) -> ParentPushDeliveryTarget | None:
+    claimed_at = now or utc_now()
+    eligible = _claimable_target_condition(claimed_at)
+    candidate_ids = session.exec(
+        select(ParentPushDeliveryTarget.id)
+        .where(eligible)
+        .order_by(
+            ParentPushDeliveryTarget.next_retry_at,
+            ParentPushDeliveryTarget.id,
+        )
+        .limit(50)
+    ).all()
+    for target_id in candidate_ids:
+        result = session.exec(
+            update(ParentPushDeliveryTarget)
+            .where(
+                ParentPushDeliveryTarget.id == target_id,
+                _claimable_target_condition(claimed_at),
+            )
+            .values(
+                status=ParentPushDeliveryTargetStatus.processing,
+                processing_started_at=claimed_at,
+                lease_expires_at=claimed_at + timedelta(seconds=lease_seconds),
+                updated_at=claimed_at,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            continue
+        session.commit()
+        session.expire_all()
+        return session.get(ParentPushDeliveryTarget, target_id)
+    session.rollback()
+    return None
+
+
+def process_claimed_target(
+    session: Session,
+    target: ParentPushDeliveryTarget,
+    *,
+    transport: ParentPushTransportProtocol,
+    environment: str,
+    now: datetime | None = None,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+) -> ParentPushDeliveryTarget:
+    processed_at = now or utc_now()
+    if target.id is None:
+        raise ValueError("保存済みの配送対象が必要です")
+    session.refresh(target)
+    if target.status != ParentPushDeliveryTargetStatus.processing:
+        raise ValueError("claim済みの配送対象だけを処理できます")
+
+    delivery = session.get(ParentNotificationDelivery, target.delivery_id)
+    subscription = session.get(ParentPushSubscription, target.subscription_id)
+    if delivery is None or subscription is None:
+        raise ValueError("配送または購読が見つかりません")
+    notification = session.get(ParentNotification, delivery.notification_id)
+    if notification is None:
+        raise ValueError("配送元の保護者通知が見つかりません")
+
+    preference = session.exec(
+        select(ParentPushPreference).where(
+            ParentPushPreference.parent_account_id == notification.parent_account_id
+        )
+    ).first()
+    parent_account = session.get(ParentAccount, notification.parent_account_id)
+    suppression_status = _target_suppression_status(
+        delivery=delivery,
+        subscription=subscription,
+        parent_account=parent_account,
+        preference=preference,
+        notification_kind=notification.kind,
+        environment=environment,
+        transport=transport.name,
+        now=processed_at,
+    )
+    if suppression_status is not None:
+        target.status = suppression_status
+        target.lease_expires_at = None
+        target.next_retry_at = None
+        target.updated_at = processed_at
+        session.add(target)
+        recompute_delivery_summary(session, delivery, now=processed_at)
+        session.commit()
+        session.refresh(target)
+        return target
+
+    shown_token = generate_receipt_token()
+    clicked_token = generate_receipt_token()
+    target.shown_receipt_token_hash = hash_receipt_token(shown_token)
+    target.clicked_receipt_token_hash = hash_receipt_token(clicked_token)
+    target.attempt_count += 1
+    target.attempted_at = processed_at
+    target.updated_at = processed_at
+    attempt = ParentPushDeliveryAttempt(
+        target_id=target.id,
+        attempt_no=target.attempt_count,
+        transport=transport.name,
+        started_at=processed_at,
+        created_at=processed_at,
+    )
+    session.add(target)
+    session.add(attempt)
+    session.commit()
+    session.refresh(attempt)
+
+    payload = build_push_payload(
+        notification=notification,
+        delivery=delivery,
+        target=target,
+        shown_receipt_token=shown_token,
+        clicked_receipt_token=clicked_token,
+    )
+    try:
+        send_result = transport.send(subscription=subscription, payload=payload)
+    except Exception:
+        send_result = ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.retryable_failed,
+            error_code="transport_exception",
+            error_message="transport送信中に例外が発生しました",
+        )
+
+    attempt.result = send_result.result
+    attempt.provider_status_code = send_result.provider_status_code
+    attempt.provider_request_id = send_result.provider_request_id
+    attempt.error_code = send_result.error_code
+    attempt.error_message = send_result.error_message
+    attempt.completed_at = processed_at
+
+    target.lease_expires_at = None
+    target.processing_started_at = None
+    target.last_error_code = send_result.error_code
+    target.last_error_message = send_result.error_message
+    if send_result.result == ParentPushDeliveryAttemptResult.accepted:
+        target.status = ParentPushDeliveryTargetStatus.accepted
+        target.accepted_at = processed_at
+        target.next_retry_at = None
+        target.last_error_code = None
+        target.last_error_message = None
+    elif send_result.result == ParentPushDeliveryAttemptResult.retryable_failed:
+        _schedule_retry_or_finish(
+            target,
+            delivery=delivery,
+            now=processed_at,
+            max_attempts=max_attempts,
+        )
+    else:
+        target.status = ParentPushDeliveryTargetStatus.failed
+        target.next_retry_at = None
+        if send_result.error_code == "subscription_gone":
+            subscription.status = ParentPushSubscriptionStatus.expired
+            subscription.disabled_at = processed_at
+            subscription.disabled_reason = "push_service_gone"
+            session.add(subscription)
+    target.updated_at = processed_at
+    session.add(attempt)
+    session.add(target)
+    recompute_delivery_summary(session, delivery, now=processed_at)
+    session.commit()
+    session.refresh(target)
+    return target
+
+
+def run_parent_push_worker_cycle(
+    session: Session,
+    *,
+    transport: ParentPushTransportProtocol,
+    environment: str,
+    now: datetime | None = None,
+    max_targets: int = 50,
+) -> int:
+    cycle_at = now or utc_now()
+    plan_pending_deliveries(
+        session,
+        environment=environment,
+        now=cycle_at,
+        limit=max_targets,
+    )
+    processed = 0
+    while processed < max_targets:
+        target = claim_next_delivery_target(session, now=cycle_at)
+        if target is None:
+            break
+        process_claimed_target(
+            session,
+            target,
+            transport=transport,
+            environment=environment,
+            now=cycle_at,
+        )
+        processed += 1
+    return processed
+
+
 def _targets_for_delivery(
     session: Session,
     delivery_id: int,
@@ -249,6 +516,73 @@ def _targets_for_delivery(
             .order_by(ParentPushDeliveryTarget.id)
         ).all()
     )
+
+
+def _claimable_target_condition(now: datetime):
+    return or_(
+        ParentPushDeliveryTarget.status == ParentPushDeliveryTargetStatus.pending,
+        and_(
+            ParentPushDeliveryTarget.status == ParentPushDeliveryTargetStatus.retry_wait,
+            ParentPushDeliveryTarget.next_retry_at.is_not(None),
+            ParentPushDeliveryTarget.next_retry_at <= now,
+        ),
+        and_(
+            ParentPushDeliveryTarget.status == ParentPushDeliveryTargetStatus.processing,
+            ParentPushDeliveryTarget.lease_expires_at.is_not(None),
+            ParentPushDeliveryTarget.lease_expires_at < now,
+        ),
+    )
+
+
+def _target_suppression_status(
+    *,
+    delivery: ParentNotificationDelivery,
+    subscription: ParentPushSubscription,
+    parent_account: ParentAccount | None,
+    preference: ParentPushPreference | None,
+    notification_kind: ParentNotificationKind,
+    environment: str,
+    transport: ParentPushTransport,
+    now: datetime,
+) -> ParentPushDeliveryTargetStatus | None:
+    if _is_expired(delivery, now):
+        return ParentPushDeliveryTargetStatus.expired
+    if not _push_allowed(parent_account, preference, notification_kind):
+        return ParentPushDeliveryTargetStatus.suppressed
+    if subscription.status != ParentPushSubscriptionStatus.active:
+        return ParentPushDeliveryTargetStatus.suppressed
+    if subscription.environment != environment:
+        return ParentPushDeliveryTargetStatus.suppressed
+    if (
+        transport == ParentPushTransport.webpush
+        and environment == "development"
+        and not subscription.is_test_device
+    ):
+        return ParentPushDeliveryTargetStatus.suppressed
+    return None
+
+
+def _schedule_retry_or_finish(
+    target: ParentPushDeliveryTarget,
+    *,
+    delivery: ParentNotificationDelivery,
+    now: datetime,
+    max_attempts: int,
+) -> None:
+    if target.attempt_count >= max_attempts:
+        target.status = ParentPushDeliveryTargetStatus.failed
+        target.next_retry_at = None
+        return
+    delay_index = min(target.attempt_count - 1, len(DEFAULT_RETRY_DELAYS_SECONDS) - 1)
+    retry_at = now + timedelta(seconds=DEFAULT_RETRY_DELAYS_SECONDS[delay_index])
+    expires_at = ensure_utc(delivery.expires_at)
+    comparable_retry_at = ensure_utc(retry_at)
+    if expires_at and comparable_retry_at and retry_at >= expires_at:
+        target.status = ParentPushDeliveryTargetStatus.expired
+        target.next_retry_at = None
+        return
+    target.status = ParentPushDeliveryTargetStatus.retry_wait
+    target.next_retry_at = retry_at
 
 
 def _push_allowed(
