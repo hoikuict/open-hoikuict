@@ -1,5 +1,5 @@
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -23,7 +23,10 @@ from models import (
     ParentNotificationDelivery,
 )
 import routers.attendance_checks as attendance_checks_module
-from parent_notification_service import queue_push_delivery
+from parent_notification_service import (
+    attendance_confirmation_push_expires_at,
+    queue_push_delivery,
+)
 
 
 class AttendanceChecksTests(unittest.TestCase):
@@ -207,7 +210,7 @@ class AttendanceChecksTests(unittest.TestCase):
             r'data-status-key="unknown"[\s\S]*?aria-pressed="true"',
         )
 
-    def test_unknown_can_notify_linked_parent_for_future_push_delivery(self):
+    def test_unknown_queues_in_app_and_push_delivery_for_linked_parent(self):
         response = self.client.post(
             f"/attendance-checks/{self.child_id}/verification",
             data={
@@ -222,7 +225,7 @@ class AttendanceChecksTests(unittest.TestCase):
         self.assertIn("notice=parent_notified", response.headers["location"])
         with Session(self.engine) as session:
             notification = session.exec(select(ParentNotification)).one()
-            delivery = session.exec(select(ParentNotificationDelivery)).one()
+            deliveries = session.exec(select(ParentNotificationDelivery)).all()
 
         self.assertEqual(notification.parent_account_id, self.parent_id)
         self.assertEqual(notification.child_id, self.child_id)
@@ -230,17 +233,36 @@ class AttendanceChecksTests(unittest.TestCase):
             notification.body,
             "本日の連絡をいただいておりません。出席か欠席かお知らせください。",
         )
-        self.assertEqual(delivery.notification_id, notification.id)
-        self.assertEqual(delivery.channel.value, "in_app")
-        self.assertEqual(delivery.status.value, "delivered")
+        deliveries_by_channel = {delivery.channel.value: delivery for delivery in deliveries}
+        self.assertEqual(set(deliveries_by_channel), {"in_app", "push"})
+        self.assertEqual(deliveries_by_channel["in_app"].notification_id, notification.id)
+        self.assertEqual(deliveries_by_channel["in_app"].status.value, "delivered")
+        self.assertEqual(deliveries_by_channel["push"].status.value, "pending")
+        self.assertIsNotNone(deliveries_by_channel["push"].expires_at)
 
         with Session(self.engine) as session:
             notification = session.get(ParentNotification, notification.id)
             push_delivery = queue_push_delivery(session, notification)
             session.commit()
             session.refresh(push_delivery)
+            delivery_count = len(session.exec(select(ParentNotificationDelivery)).all())
             self.assertEqual(push_delivery.channel.value, "push")
             self.assertEqual(push_delivery.status.value, "pending")
+            self.assertEqual(delivery_count, 2)
+
+    def test_attendance_push_expiry_uses_earlier_of_six_hours_and_local_day_end(self):
+        target_day = date(2026, 8, 12)
+        six_hour_limit = attendance_confirmation_push_expires_at(
+            target_date=target_day,
+            created_at=datetime(2026, 8, 12, 1, 0, tzinfo=timezone.utc),
+        )
+        local_day_end = attendance_confirmation_push_expires_at(
+            target_date=target_day,
+            created_at=datetime(2026, 8, 12, 10, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(six_hour_limit, datetime(2026, 8, 12, 7, 0, tzinfo=timezone.utc))
+        self.assertEqual(local_day_end, datetime(2026, 8, 12, 15, 0, tzinfo=timezone.utc))
 
     def test_unknown_without_parent_contact_does_not_create_notification(self):
         response = self.client.post(

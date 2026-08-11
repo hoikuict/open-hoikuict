@@ -67,6 +67,7 @@ from plan_docs.routers.bunrei import router as plan_docs_bunrei_router
 from plan_docs.routers.documents import router as plan_docs_documents_router
 from plan_docs.routers.home import router as plan_docs_home_router
 from plan_docs.routers.plans import router as plan_docs_plans_router
+from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
 from url_utils import safe_internal_redirect
 from auth import mock_auth_enabled, require_mock_staff_auth, staff_auth_http_exception_handler
 from csrf import CsrfTokenMiddleware, verify_csrf
@@ -94,13 +95,17 @@ def initialize_application() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     initialize_application()
-    cleanup_task = asyncio.create_task(_preview_cleanup_loop())
+    background_tasks = [asyncio.create_task(_preview_cleanup_loop())]
+    if parent_push_worker_enabled():
+        background_tasks.append(asyncio.create_task(parent_push_worker_loop()))
     try:
         yield
     finally:
-        cleanup_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await cleanup_task
+        for task in background_tasks:
+            task.cancel()
+        for task in background_tasks:
+            with suppress(asyncio.CancelledError):
+                await task
 
 
 async def _preview_cleanup_loop() -> None:
