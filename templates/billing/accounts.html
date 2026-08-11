@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}口座情報管理 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Billing Accounts</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">口座情報管理</h1>
+    <p class="mt-2 text-sm text-slate-500">家族ごとの支払方法と口座振替情報を登録・変更します。</p>
+  </div>
+  <a href="/billing/" class="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">請求入力へ戻る</a>
+</div>
+
+<div class="mb-5 grid gap-4 sm:grid-cols-3">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-xs text-slate-500">対象家族</div>
+    <div class="mt-1 text-xl font-semibold text-slate-900">{{ account_rows|length }} 家族</div>
+  </div>
+  <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+    <div class="text-xs text-emerald-700">口座登録済み</div>
+    <div class="mt-1 text-xl font-semibold text-emerald-900">{{ registered_count }} 家族</div>
+  </div>
+  <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <div class="text-xs text-amber-700">未登録・入力途中</div>
+    <div class="mt-1 text-xl font-semibold text-amber-900">{{ unregistered_count }} 家族</div>
+  </div>
+</div>
+
+{% if not latest_cycle %}
+<div class="mb-5 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  口座入力画面を開くには、先に請求入力で請求月を作成してください。
+</div>
+{% endif %}
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-200 px-5 py-4">
+    <h2 class="font-semibold text-slate-900">家族別口座一覧</h2>
+    <p class="mt-1 text-xs text-slate-500">「入力・編集」から口座情報の入力欄へ直接移動します。</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+        <tr>
+          <th class="px-5 py-3">家族</th>
+          <th class="px-5 py-3">園児</th>
+          <th class="px-5 py-3">支払方法</th>
+          <th class="px-5 py-3">口座振替状態</th>
+          <th class="px-5 py-3">登録状況</th>
+          <th class="px-5 py-3 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in account_rows %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3 font-medium text-slate-900">{{ row.family.family_name if row.family else '家族ID ' ~ row.representative_child.family_id }}</td>
+          <td class="px-5 py-3 text-slate-700">
+            {% for child in row.children %}
+            <span class="{% if not loop.first %}ml-2{% endif %}">{{ child.full_name }}</span>
+            {% endfor %}
+          </td>
+          <td class="px-5 py-3 text-slate-700">{{ row.payment_method_label }}</td>
+          <td class="px-5 py-3 text-slate-700">{{ row.direct_debit_status_label }}</td>
+          <td class="px-5 py-3">
+            {% if row.is_registered %}
+            <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">登録済み</span>
+            {% else %}
+            <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未登録・入力途中</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-right">
+            {% if latest_cycle %}
+            <a href="/billing/cycles/{{ latest_cycle.id }}/child-charges/{{ row.representative_child.id }}#account-profile" class="inline-flex rounded border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100">入力・編集</a>
+            {% else %}
+            <span class="text-xs text-slate-400">請求月未作成</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="px-5 py-10 text-center text-slate-400">対象となる在園児がいません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

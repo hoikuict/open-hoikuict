@@ -76,6 +76,7 @@ def create_db_and_tables() -> None:
     _migrate_plan_review_notification_columns()
     _migrate_billing_fee_labels()
     _migrate_zengin_workflow()
+    _migrate_extended_care_billing_transfer()
     _validate_sqlite_foreign_keys()
 
 
@@ -311,6 +312,19 @@ def _migrate_add_calendar_columns() -> None:
                 conn.execute(text("ALTER TABLE users ADD COLUMN staff_sort_order INTEGER DEFAULT 100"))
             if user_cols and "can_manage_child_records" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN can_manage_child_records BOOLEAN DEFAULT 0"))
+            if user_cols and "can_manage_billing_accounts" not in user_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN can_manage_billing_accounts "
+                        "BOOLEAN DEFAULT 0 NOT NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "UPDATE users SET can_manage_billing_accounts = 1 "
+                        "WHERE email IN ('office@example.com', 'office@demo.open-hoikuict.example')"
+                    )
+                )
             if user_cols and "provisioning_source" not in user_cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN provisioning_source VARCHAR DEFAULT 'manual'"))
                 user_cols.append("provisioning_source")
@@ -520,6 +534,62 @@ def _migrate_zengin_workflow() -> None:
                 text(
                     "UPDATE zengin_exports SET status = 'superseded' "
                     "WHERE status = 'reissued'"
+                )
+            )
+
+
+def _migrate_extended_care_billing_transfer() -> None:
+    with engine.begin() as conn:
+        charge_cols = _table_columns("extended_care_charges")
+        line_cols = _table_columns("billing_charge_lines")
+
+        if charge_cols:
+            additions = {
+                "billing_charge_line_id": (
+                    "INTEGER REFERENCES billing_charge_lines(id)"
+                ),
+                "transferred_amount": "INTEGER",
+                "transferred_at": "DATETIME",
+                "transferred_by_user_id": "CHAR(32) REFERENCES users(id)",
+                "transferred_by_name": "VARCHAR(100)",
+            }
+            for column_name, column_sql in additions.items():
+                if column_name not in charge_cols:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE extended_care_charges "
+                            f"ADD COLUMN {column_name} {column_sql}"
+                        )
+                    )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_extended_care_charges_billing_charge_line_id "
+                    "ON extended_care_charges (billing_charge_line_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS "
+                    "ix_extended_care_charges_transferred_by_user_id "
+                    "ON extended_care_charges (transferred_by_user_id)"
+                )
+            )
+
+        if line_cols and "source_reference" not in line_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE billing_charge_lines "
+                    "ADD COLUMN source_reference VARCHAR(120)"
+                )
+            )
+        if line_cols:
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "ux_billing_charge_lines_source_reference "
+                    "ON billing_charge_lines (source_reference) "
+                    "WHERE source_reference IS NOT NULL"
                 )
             )
 
@@ -996,25 +1066,25 @@ def seed_calendar_data() -> None:
             return
 
         staff_specs = [
-            {"email": "principal@example.com", "display_name": "園長", "staff_role": "admin", "staff_sort_order": 10, "color": "#2563EB", "can_manage_child_records": True},
-            {"email": "chief@example.com", "display_name": "主任", "staff_role": "admin", "staff_sort_order": 20, "color": "#7C3AED", "can_manage_child_records": True},
-            {"email": "nurse@example.com", "display_name": "看護師", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#0891B2", "can_manage_child_records": False},
-            {"email": "nutritionist@example.com", "display_name": "栄養士", "staff_role": "can_edit", "staff_sort_order": 35, "color": "#65A30D", "can_manage_child_records": False},
-            {"email": "office@example.com", "display_name": "事務", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#9333EA", "can_manage_child_records": True},
-            {"email": "hiyoko@example.com", "display_name": "ひよこ組担任A", "staff_role": "can_edit", "staff_sort_order": 60, "color": "#F59E0B", "can_manage_child_records": False},
-            {"email": "hiyoko-b@example.com", "display_name": "ひよこ組担任B", "staff_role": "can_edit", "staff_sort_order": 61, "color": "#F97316", "can_manage_child_records": False},
-            {"email": "takenoko@example.com", "display_name": "りす組担任A", "staff_role": "can_edit", "staff_sort_order": 70, "color": "#10B981", "can_manage_child_records": False},
-            {"email": "risu-b@example.com", "display_name": "りす組担任B", "staff_role": "can_edit", "staff_sort_order": 71, "color": "#14B8A6", "can_manage_child_records": False},
-            {"email": "kinoko@example.com", "display_name": "うさぎ組担任A", "staff_role": "can_edit", "staff_sort_order": 80, "color": "#EC4899", "can_manage_child_records": False},
-            {"email": "usagi-b@example.com", "display_name": "うさぎ組担任B", "staff_role": "can_edit", "staff_sort_order": 81, "color": "#F43F5E", "can_manage_child_records": False},
-            {"email": "panda-a@example.com", "display_name": "ぱんだ組担任A", "staff_role": "can_edit", "staff_sort_order": 90, "color": "#8B5CF6", "can_manage_child_records": False},
-            {"email": "panda-b@example.com", "display_name": "ぱんだ組担任B", "staff_role": "can_edit", "staff_sort_order": 91, "color": "#A855F7", "can_manage_child_records": False},
-            {"email": "kirin-a@example.com", "display_name": "きりん組担任A", "staff_role": "can_edit", "staff_sort_order": 100, "color": "#0EA5E9", "can_manage_child_records": False},
-            {"email": "kirin-b@example.com", "display_name": "きりん組担任B", "staff_role": "can_edit", "staff_sort_order": 101, "color": "#38BDF8", "can_manage_child_records": False},
-            {"email": "zou-a@example.com", "display_name": "ぞう組担任A", "staff_role": "can_edit", "staff_sort_order": 110, "color": "#2563EB", "can_manage_child_records": False},
-            {"email": "zou-b@example.com", "display_name": "ぞう組担任B", "staff_role": "can_edit", "staff_sort_order": 111, "color": "#1D4ED8", "can_manage_child_records": False},
-            {"email": "part@example.com", "display_name": "早番パート", "staff_role": "view_only", "staff_sort_order": 150, "color": "#64748B", "can_manage_child_records": False},
-            {"email": "arbeit@example.com", "display_name": "遅番パート", "staff_role": "view_only", "staff_sort_order": 151, "color": "#475569", "can_manage_child_records": False},
+            {"email": "principal@example.com", "display_name": "園長", "staff_role": "admin", "staff_sort_order": 10, "color": "#2563EB", "can_manage_child_records": True, "can_manage_billing_accounts": False},
+            {"email": "chief@example.com", "display_name": "主任", "staff_role": "admin", "staff_sort_order": 20, "color": "#7C3AED", "can_manage_child_records": True, "can_manage_billing_accounts": False},
+            {"email": "nurse@example.com", "display_name": "看護師", "staff_role": "can_edit", "staff_sort_order": 30, "color": "#0891B2", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "nutritionist@example.com", "display_name": "栄養士", "staff_role": "can_edit", "staff_sort_order": 35, "color": "#65A30D", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "office@example.com", "display_name": "事務", "staff_role": "can_edit", "staff_sort_order": 40, "color": "#9333EA", "can_manage_child_records": True, "can_manage_billing_accounts": True},
+            {"email": "hiyoko@example.com", "display_name": "ひよこ組担任A", "staff_role": "can_edit", "staff_sort_order": 60, "color": "#F59E0B", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "hiyoko-b@example.com", "display_name": "ひよこ組担任B", "staff_role": "can_edit", "staff_sort_order": 61, "color": "#F97316", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "takenoko@example.com", "display_name": "りす組担任A", "staff_role": "can_edit", "staff_sort_order": 70, "color": "#10B981", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "risu-b@example.com", "display_name": "りす組担任B", "staff_role": "can_edit", "staff_sort_order": 71, "color": "#14B8A6", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "kinoko@example.com", "display_name": "うさぎ組担任A", "staff_role": "can_edit", "staff_sort_order": 80, "color": "#EC4899", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "usagi-b@example.com", "display_name": "うさぎ組担任B", "staff_role": "can_edit", "staff_sort_order": 81, "color": "#F43F5E", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "panda-a@example.com", "display_name": "ぱんだ組担任A", "staff_role": "can_edit", "staff_sort_order": 90, "color": "#8B5CF6", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "panda-b@example.com", "display_name": "ぱんだ組担任B", "staff_role": "can_edit", "staff_sort_order": 91, "color": "#A855F7", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "kirin-a@example.com", "display_name": "きりん組担任A", "staff_role": "can_edit", "staff_sort_order": 100, "color": "#0EA5E9", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "kirin-b@example.com", "display_name": "きりん組担任B", "staff_role": "can_edit", "staff_sort_order": 101, "color": "#38BDF8", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "zou-a@example.com", "display_name": "ぞう組担任A", "staff_role": "can_edit", "staff_sort_order": 110, "color": "#2563EB", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "zou-b@example.com", "display_name": "ぞう組担任B", "staff_role": "can_edit", "staff_sort_order": 111, "color": "#1D4ED8", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "part@example.com", "display_name": "早番パート", "staff_role": "view_only", "staff_sort_order": 150, "color": "#64748B", "can_manage_child_records": False, "can_manage_billing_accounts": False},
+            {"email": "arbeit@example.com", "display_name": "遅番パート", "staff_role": "view_only", "staff_sort_order": 151, "color": "#475569", "can_manage_child_records": False, "can_manage_billing_accounts": False},
         ]
 
         def ensure_user(
@@ -1024,6 +1094,7 @@ def seed_calendar_data() -> None:
             staff_role: str,
             staff_sort_order: int,
             can_manage_child_records: bool,
+            can_manage_billing_accounts: bool,
         ) -> User:
             is_calendar_admin = staff_role == "admin"
             user = session.exec(select(User).where(User.email == email)).first()
@@ -1037,6 +1108,7 @@ def seed_calendar_data() -> None:
                     staff_sort_order=staff_sort_order,
                     is_calendar_admin=is_calendar_admin,
                     can_manage_child_records=can_manage_child_records,
+                    can_manage_billing_accounts=can_manage_billing_accounts,
                     provisioning_source=USER_SOURCE_LOCAL_SAMPLE,
                 )
             else:
@@ -1047,6 +1119,7 @@ def seed_calendar_data() -> None:
                 user.staff_sort_order = staff_sort_order
                 user.is_calendar_admin = is_calendar_admin
                 user.can_manage_child_records = can_manage_child_records
+                user.can_manage_billing_accounts = can_manage_billing_accounts
                 user.provisioning_source = USER_SOURCE_LOCAL_SAMPLE
                 user.is_active = True
                 user.updated_at = utc_now()
@@ -1107,6 +1180,7 @@ def seed_calendar_data() -> None:
                 staff_role=spec["staff_role"],
                 staff_sort_order=spec["staff_sort_order"],
                 can_manage_child_records=spec["can_manage_child_records"],
+                can_manage_billing_accounts=spec["can_manage_billing_accounts"],
             )
             for spec in staff_specs
         ]

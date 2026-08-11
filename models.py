@@ -850,12 +850,69 @@ class ExtendedCareCharge(SQLModel, table=True):
     adjustment_reason: Optional[str] = None
     confirmed_by: Optional[str] = None
     confirmed_at: Optional[datetime] = None
+    billing_charge_line_id: Optional[int] = Field(
+        default=None,
+        foreign_key="billing_charge_lines.id",
+        index=True,
+    )
+    transferred_amount: Optional[int] = None
+    transferred_at: Optional[datetime] = None
+    transferred_by_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    transferred_by_name: Optional[str] = Field(default=None, max_length=100)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
     attendance_record: Optional[AttendanceRecord] = Relationship(back_populates="extended_care_charge")
     child: Optional[Child] = Relationship()
     rule: Optional[ExtendedCareFeeRule] = Relationship(back_populates="charges")
+
+
+class ExtendedCareBillingSetting(SQLModel, table=True):
+    __tablename__ = "extended_care_billing_settings"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    is_enabled: bool = Field(default=False)
+    fee_item_code: str = Field(default="monthly_childcare", max_length=64)
+    description_template: str = Field(
+        default="延長保育料（{year}年{month}月分）",
+        max_length=200,
+    )
+    transfer_mode: str = Field(default="manual_monthly", max_length=32)
+    target_month_rule: str = Field(default="same_month", max_length=32)
+    updated_at: datetime = Field(default_factory=utc_now)
+    updated_by_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    updated_by_name: Optional[str] = Field(default=None, max_length=100)
+
+
+class ExtendedCareBillingTransferLog(SQLModel, table=True):
+    __tablename__ = "extended_care_billing_transfer_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    action: str = Field(max_length=32, index=True)
+    target_month: str = Field(max_length=7, index=True)
+    billing_cycle_id: int = Field(foreign_key="billing_cycles.id", index=True)
+    affected_child_count: int = Field(default=0)
+    affected_charge_count: int = Field(default=0)
+    total_amount: int = Field(default=0)
+    changed_child_ids: list[int] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+    )
+    executed_by_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    executed_by_name: str = Field(max_length=100)
+    executed_at: datetime = Field(default_factory=utc_now, index=True)
 
 
 class ParentAccount(SQLModel, table=True):
@@ -1256,6 +1313,7 @@ class BillingChargeLine(SQLModel, table=True):
     source_type: BillingChargeSourceType
     source_date: Optional[date] = None
     source_claim_id: Optional[int] = Field(default=None, foreign_key="billing_claims.id")
+    source_reference: Optional[str] = Field(default=None, max_length=120, unique=True, index=True)
     description: str
     quantity: int = Field(default=1)
     unit_label: Optional[str] = None
@@ -1987,6 +2045,7 @@ class User(SQLModel, table=True):
     staff_sort_order: int = Field(default=100, index=True)
     is_calendar_admin: bool = Field(default=False)
     can_manage_child_records: bool = Field(default=False)
+    can_manage_billing_accounts: bool = Field(default=False)
     provisioning_source: str = Field(default=USER_SOURCE_MANUAL, max_length=32, index=True)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=utc_now)
@@ -2013,11 +2072,56 @@ class User(SQLModel, table=True):
         return self.staff_role == "admin" or self.can_manage_child_records
 
     @property
+    def can_manage_billing_accounts_effective(self) -> bool:
+        return self.is_active and (
+            self.staff_role == "admin"
+            or (self.staff_role == "can_edit" and self.can_manage_billing_accounts)
+        )
+
+    @property
     def provisioning_source_label(self) -> str:
         return USER_PROVISIONING_SOURCE_LABELS.get(
             self.provisioning_source,
             self.provisioning_source or "未分類",
         )
+
+
+class StaffPermissionChangeLog(SQLModel, table=True):
+    __tablename__ = "staff_permission_change_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    target_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    permission_key: str = Field(max_length=64, index=True)
+    old_value: str = Field(max_length=64)
+    new_value: str = Field(max_length=64)
+    changed_by_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    changed_by_name_snapshot: str = Field(max_length=100)
+    changed_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class FamilyBillingProfileChangeLog(SQLModel, table=True):
+    __tablename__ = "family_billing_profile_change_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    family_id: int = Field(foreign_key="families.id", index=True)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    billing_cycle_id: Optional[int] = Field(
+        default=None,
+        foreign_key="billing_cycles.id",
+        index=True,
+    )
+    changed_fields: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    changed_by_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    changed_by_name_snapshot: str = Field(max_length=100)
+    changed_at: datetime = Field(default_factory=utc_now, index=True)
 
 
 class StaffClassroomAssignment(SQLModel, table=True):

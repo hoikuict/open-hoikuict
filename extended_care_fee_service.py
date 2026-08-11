@@ -53,6 +53,8 @@ class ExtendedCareChargeDetail:
     status: ExtendedCareChargeStatus
     status_label: str
     adjustment_reason: str
+    is_transferred: bool
+    transferred_amount: Optional[int]
     warning: str = ""
 
     @property
@@ -226,6 +228,8 @@ def recalculate_attendance_charge(
     existing = session.exec(
         select(ExtendedCareCharge).where(ExtendedCareCharge.attendance_record_id == record.id)
     ).first()
+    if existing and existing.billing_charge_line_id is not None:
+        return existing
     if existing and existing.status in LOCKED_STATUSES and not include_locked:
         return existing
 
@@ -306,6 +310,7 @@ def _charge_recalculation_snapshot(charge: Optional[ExtendedCareCharge]) -> tupl
 
 
 def confirm_charge(charge: ExtendedCareCharge, staff_name: str) -> None:
+    _ensure_not_transferred(charge)
     charge.status = ExtendedCareChargeStatus.confirmed
     charge.confirmed_by = staff_name
     charge.confirmed_at = utc_now()
@@ -314,6 +319,7 @@ def confirm_charge(charge: ExtendedCareCharge, staff_name: str) -> None:
 
 
 def adjust_charge(charge: ExtendedCareCharge, adjustment_amount: int, reason: str, staff_name: str) -> None:
+    _ensure_not_transferred(charge)
     cleaned_reason = reason.strip()
     if adjustment_amount != 0 and not cleaned_reason:
         raise ValueError("調整額を入力する場合は理由を入力してください。")
@@ -327,6 +333,7 @@ def adjust_charge(charge: ExtendedCareCharge, adjustment_amount: int, reason: st
 
 
 def exclude_charge(charge: ExtendedCareCharge, reason: str, staff_name: str) -> None:
+    _ensure_not_transferred(charge)
     charge.adjustment_amount = -charge.auto_amount
     charge.adjustment_reason = reason.strip() or "請求対象外"
     charge.final_amount = 0
@@ -533,5 +540,12 @@ def _make_detail(charge: ExtendedCareCharge, record: Optional[AttendanceRecord])
         status=charge.status,
         status_label=charge_status_label(charge),
         adjustment_reason=charge.adjustment_reason or "",
+        is_transferred=charge.billing_charge_line_id is not None,
+        transferred_amount=charge.transferred_amount,
         warning=warning,
     )
+
+
+def _ensure_not_transferred(charge: ExtendedCareCharge) -> None:
+    if charge.billing_charge_line_id is not None:
+        raise ValueError("請求へ転送済みです。先に対象月の請求転送を解除してください。")

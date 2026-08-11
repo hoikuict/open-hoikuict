@@ -23,11 +23,15 @@ from models import (
     Child,
     ChildStatus,
     DirectDebitStatus,
+    Family,
     FamilyBillingProfile,
+    FamilyBillingProfileChangeLog,
     FeeItem,
     ZenginExport,
     ZenginExportLine,
+    ZenginExportStatus,
 )
+from staff_permissions import can_manage_billing_accounts, require_billing_account_manager
 from time_utils import utc_now
 from zengin_service import (
     ParsedResultRecord,
@@ -123,6 +127,47 @@ TABLE_CHARGE_GROUPS = [
         "columns": [column for column in TABLE_CHARGE_COLUMNS if column["category"] == "adjustment"],
     },
 ]
+
+BILLING_CYCLE_STATUS_LABELS = {
+    BillingCycleStatus.draft: "下書き",
+    BillingCycleStatus.generated: "請求生成済み",
+    BillingCycleStatus.confirmed: "確定済み",
+    BillingCycleStatus.exported: "出力済み",
+    BillingCycleStatus.result_imported: "結果取込済み",
+    BillingCycleStatus.closed: "締め済み",
+}
+
+BILLING_CLAIM_STATUS_LABELS = {
+    BillingClaimStatus.draft: "下書き",
+    BillingClaimStatus.confirmed: "確定済み",
+    BillingClaimStatus.exported: "出力済み",
+    BillingClaimStatus.paid: "入金済み",
+    BillingClaimStatus.failed: "振替失敗",
+    BillingClaimStatus.exempted: "請求対象外",
+    BillingClaimStatus.canceled: "取消済み",
+}
+
+BILLING_PAYMENT_METHOD_LABELS = {
+    BillingPaymentMethod.direct_debit: "口座振替",
+    BillingPaymentMethod.cash: "現金",
+    BillingPaymentMethod.bank_transfer: "銀行振込",
+    BillingPaymentMethod.exempt: "免除",
+}
+
+DIRECT_DEBIT_STATUS_LABELS = {
+    DirectDebitStatus.not_set: "未設定",
+    DirectDebitStatus.paper_received: "依頼書回収済",
+    DirectDebitStatus.active: "利用中",
+    DirectDebitStatus.suspended: "停止中",
+}
+
+ZENGIN_EXPORT_STATUS_LABELS = {
+    ZenginExportStatus.created: "作成済み",
+    ZenginExportStatus.submitted: "銀行提出済み",
+    ZenginExportStatus.result_imported: "結果取込済み",
+    ZenginExportStatus.superseded: "差し替え済み",
+    ZenginExportStatus.canceled: "取消済み",
+}
 
 
 def _dashboard_redirect(**params: str) -> RedirectResponse:
@@ -503,6 +548,7 @@ def billing_dashboard(
                 "claim_count": len(cycle_claims),
                 "total_amount": sum(claim.total_amount for claim in cycle_claims),
                 "exports": cycle_exports,
+                "status_label": BILLING_CYCLE_STATUS_LABELS.get(cycle.status, cycle.status.value),
             }
         )
 
@@ -511,10 +557,15 @@ def billing_dashboard(
         lines = session.exec(
             select(ZenginExportLine).where(ZenginExportLine.zengin_export_id == export.id)
         ).all()
-        export_rows.append({"export": export, "line_count": len(lines)})
+        export_rows.append(
+            {
+                "export": export,
+                "line_count": len(lines),
+                "status_label": ZENGIN_EXPORT_STATUS_LABELS.get(export.status, export.status.value),
+            }
+        )
 
     setting = session.exec(select(BillingSetting).order_by(BillingSetting.id)).first()
-    profiles = session.exec(select(FamilyBillingProfile).order_by(FamilyBillingProfile.family_id)).all()
 
     return templates.TemplateResponse(
         request,
@@ -525,9 +576,92 @@ def billing_dashboard(
             "cycle_rows": cycle_rows,
             "export_rows": export_rows,
             "setting": setting,
-            "profiles": profiles,
+            "can_manage_billing_accounts": can_manage_billing_accounts(session, current_user),
             "message": request.query_params.get("message", ""),
             "error": request.query_params.get("error", ""),
+        },
+    )
+
+
+@router.get("/accounts")
+def billing_account_list(
+    request: Request,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_billing_account_manager(session, current_user)
+    children = session.exec(
+        select(Child)
+        .where(Child.status == ChildStatus.enrolled, Child.family_id.is_not(None))
+        .order_by(Child.last_name_kana, Child.first_name_kana, Child.id)
+    ).all()
+    family_ids = sorted({child.family_id for child in children if child.family_id is not None})
+    families = (
+        session.exec(select(Family).where(Family.id.in_(family_ids))).all()
+        if family_ids
+        else []
+    )
+    profiles = (
+        session.exec(
+            select(FamilyBillingProfile).where(FamilyBillingProfile.family_id.in_(family_ids))
+        ).all()
+        if family_ids
+        else []
+    )
+    families_by_id = {family.id: family for family in families if family.id is not None}
+    profiles_by_family = {profile.family_id: profile for profile in profiles}
+    children_by_family: dict[int, list[Child]] = {}
+    for child in children:
+        if child.family_id is not None:
+            children_by_family.setdefault(child.family_id, []).append(child)
+
+    latest_cycle = session.exec(
+        select(BillingCycle).order_by(BillingCycle.year_month.desc(), BillingCycle.id.desc())
+    ).first()
+    account_rows = []
+    for family_id, family_children in children_by_family.items():
+        profile = profiles_by_family.get(family_id)
+        is_registered = bool(
+            profile
+            and profile.bank_code
+            and profile.branch_code
+            and profile.account_number
+            and profile.account_holder_kana
+        )
+        account_rows.append(
+            {
+                "family": families_by_id.get(family_id),
+                "children": family_children,
+                "representative_child": family_children[0],
+                "profile": profile,
+                "payment_method_label": (
+                    BILLING_PAYMENT_METHOD_LABELS.get(
+                        profile.payment_method, profile.payment_method.value
+                    )
+                    if profile
+                    else "未設定"
+                ),
+                "direct_debit_status_label": (
+                    DIRECT_DEBIT_STATUS_LABELS.get(
+                        profile.direct_debit_status, profile.direct_debit_status.value
+                    )
+                    if profile
+                    else "未設定"
+                ),
+                "is_registered": is_registered,
+            }
+        )
+
+    return templates.TemplateResponse(
+        request,
+        "billing/accounts.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "account_rows": account_rows,
+            "latest_cycle": latest_cycle,
+            "registered_count": sum(1 for row in account_rows if row["is_registered"]),
+            "unregistered_count": sum(1 for row in account_rows if not row["is_registered"]),
         },
     )
 
@@ -562,6 +696,7 @@ def child_charge_form(
     table_fee_items = session.exec(select(FeeItem).where(FeeItem.code.in_(table_codes))).all()
     table_item_codes_by_id = {item.id: item.code for item in table_fee_items if item.id is not None}
     table_amounts: dict[tuple[int, str], int] = {}
+    table_locked_codes: dict[int, set[str]] = {}
     for line in charge_lines:
         if line.child_id is None:
             continue
@@ -570,6 +705,8 @@ def child_charge_form(
             continue
         key = (line.child_id, code)
         table_amounts[key] = table_amounts.get(key, 0) + line.amount
+        if line.is_locked:
+            table_locked_codes.setdefault(line.child_id, set()).add(code)
 
     profiles = session.exec(select(FamilyBillingProfile).order_by(FamilyBillingProfile.family_id)).all()
     profiles_by_family = {profile.family_id: profile for profile in profiles}
@@ -578,7 +715,18 @@ def child_charge_form(
     for line in charge_lines:
         child = children_by_id.get(line.child_id)
         claim = next((item for item in claims if item.id == line.billing_claim_id), None)
-        line_rows.append({"line": line, "child": child, "claim": claim})
+        line_rows.append(
+            {
+                "line": line,
+                "child": child,
+                "claim": claim,
+                "claim_status_label": (
+                    BILLING_CLAIM_STATUS_LABELS.get(claim.status, claim.status.value)
+                    if claim
+                    else "-"
+                ),
+            }
+        )
 
     table_rows = []
     for child in children:
@@ -590,7 +738,15 @@ def child_charge_form(
                 "child": child,
                 "claim": claim,
                 "profile": profile,
+                "profile_status_label": (
+                    DIRECT_DEBIT_STATUS_LABELS.get(
+                        profile.direct_debit_status, profile.direct_debit_status.value
+                    )
+                    if profile
+                    else "未設定"
+                ),
                 "amounts": amounts,
+                "locked_codes": table_locked_codes.get(child.id, set()),
                 "row_total": sum(amounts.values()),
             }
         )
@@ -607,6 +763,7 @@ def child_charge_form(
             "request": request,
             "current_user": current_user,
             "cycle": cycle,
+            "cycle_status_label": BILLING_CYCLE_STATUS_LABELS.get(cycle.status, cycle.status.value),
             "children": children,
             "claims_by_family": claims_by_family,
             "charge_columns": TABLE_CHARGE_COLUMNS,
@@ -614,8 +771,10 @@ def child_charge_form(
             "table_rows": table_rows,
             "line_rows": line_rows,
             "editable": editable,
+            "can_manage_billing_accounts": can_manage_billing_accounts(session, current_user),
             "message": request.query_params.get("message", ""),
             "error": request.query_params.get("error", ""),
+            "return_month": request.query_params.get("return_month", ""),
         },
     )
 
@@ -641,6 +800,7 @@ async def update_child_charge_table(
     ).all()
     children_by_id = {child.id: child for child in children if child.id is not None}
     form = await request.form()
+    return_month = str(form.get("return_month", "")).strip()
     touched_claims: list[BillingClaim] = []
 
     try:
@@ -668,6 +828,19 @@ async def update_child_charge_table(
         session.rollback()
         return _cycle_redirect(cycle_id, error=str(exc))
 
+    if len(return_month) == 7 and return_month[4] == "-":
+        return RedirectResponse(
+            url=(
+                "/extended-care-fees/billing-transfer?"
+                + urlencode(
+                    {
+                        "month": return_month,
+                        "message": "請求入力を修正しました。転送内容を再確認してください。",
+                    }
+                )
+            ),
+            status_code=303,
+        )
     return _cycle_redirect(cycle_id, message="表入力を保存しました")
 
 
@@ -705,12 +878,45 @@ def child_charge_input(
                 .where(BillingChargeLine.child_id == child.id)
                 .order_by(BillingChargeLine.created_at.desc(), BillingChargeLine.id.desc())
             ).all()
-            line_rows = [{"line": line, "claim": claim} for line in lines]
+            line_rows = [
+                {
+                    "line": line,
+                    "claim": claim,
+                    "claim_status_label": BILLING_CLAIM_STATUS_LABELS.get(
+                        claim.status, claim.status.value
+                    ),
+                }
+                for line in lines
+            ]
 
     editable = cycle.status in {
         BillingCycleStatus.draft,
         BillingCycleStatus.generated,
         BillingCycleStatus.confirmed,
+    }
+    can_manage_account = can_manage_billing_accounts(session, current_user)
+    profile_summary = {
+        "payment_method": (
+            BILLING_PAYMENT_METHOD_LABELS.get(profile.payment_method, profile.payment_method.value)
+            if profile
+            else "-"
+        ),
+        "direct_debit_status": (
+            DIRECT_DEBIT_STATUS_LABELS.get(
+                profile.direct_debit_status, profile.direct_debit_status.value
+            )
+            if profile
+            else "-"
+        ),
+        "is_registered": bool(
+            profile
+            and (
+                profile.bank_code
+                or profile.branch_code
+                or profile.account_number
+                or profile.account_holder_kana
+            )
+        ),
     }
     return templates.TemplateResponse(
         request,
@@ -719,9 +925,17 @@ def child_charge_input(
             "request": request,
             "current_user": current_user,
             "cycle": cycle,
+            "cycle_status_label": BILLING_CYCLE_STATUS_LABELS.get(cycle.status, cycle.status.value),
             "child": child,
-            "profile": profile,
+            "profile": profile if can_manage_account else None,
+            "profile_summary": profile_summary,
+            "can_manage_billing_accounts": can_manage_account,
             "claim": claim,
+            "claim_status_label": (
+                BILLING_CLAIM_STATUS_LABELS.get(claim.status, claim.status.value)
+                if claim
+                else "-"
+            ),
             "line_rows": line_rows,
             "editable": editable,
             "message": request.query_params.get("message", ""),
@@ -749,7 +963,7 @@ def update_child_billing_profile(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_can_edit(current_user)
+    billing_account_manager = require_billing_account_manager(session, current_user)
     cycle = session.get(BillingCycle, cycle_id)
     if cycle is None:
         raise HTTPException(status_code=404, detail="請求月が見つかりません")
@@ -760,7 +974,10 @@ def update_child_billing_profile(
         return _child_charge_redirect(cycle_id, child_id, error="園児に家族が紐づいていません")
 
     try:
-        method = BillingPaymentMethod(payment_method)
+        try:
+            method = BillingPaymentMethod[payment_method]
+        except KeyError:
+            method = BillingPaymentMethod(payment_method)
         status = DirectDebitStatus(direct_debit_status)
         if new_code not in {"0", "1", "2"}:
             raise BillingCalculationError("新規コードは0, 1, 2のいずれかで入力してください")
@@ -784,6 +1001,21 @@ def update_child_billing_profile(
                 "account_holder_kana": profile.account_holder_kana,
             }
 
+        audit_before = {
+            "payment_method": profile.payment_method.value,
+            "direct_debit_status": profile.direct_debit_status.value,
+            "bank_code": profile.bank_code,
+            "bank_name_kana": profile.bank_name_kana,
+            "branch_code": profile.branch_code,
+            "branch_name_kana": profile.branch_name_kana,
+            "account_type": profile.account_type,
+            "account_number": profile.account_number,
+            "account_holder_kana": profile.account_holder_kana,
+            "new_code": profile.new_code,
+            "mandate_received_on": profile.mandate_received_on.isoformat() if profile.mandate_received_on else None,
+            "note": profile.note,
+        }
+
         profile.payment_method = method
         profile.direct_debit_status = status
         profile.bank_code = _validate_account_digits(bank_code, 4, "銀行コード") if bank_code.strip() else None
@@ -804,6 +1036,36 @@ def update_child_billing_profile(
             _update_profile_new_code(profile, previous=previous)
         profile.updated_at = utc_now()
         session.add(profile)
+        audit_after = {
+            "payment_method": profile.payment_method.value,
+            "direct_debit_status": profile.direct_debit_status.value,
+            "bank_code": profile.bank_code,
+            "bank_name_kana": profile.bank_name_kana,
+            "branch_code": profile.branch_code,
+            "branch_name_kana": profile.branch_name_kana,
+            "account_type": profile.account_type,
+            "account_number": profile.account_number,
+            "account_holder_kana": profile.account_holder_kana,
+            "new_code": profile.new_code,
+            "mandate_received_on": profile.mandate_received_on.isoformat() if profile.mandate_received_on else None,
+            "note": profile.note,
+        }
+        changed_fields = [
+            field_name
+            for field_name, previous_value in audit_before.items()
+            if audit_after[field_name] != previous_value
+        ]
+        if changed_fields:
+            session.add(
+                FamilyBillingProfileChangeLog(
+                    family_id=child.family_id,
+                    child_id=child.id,
+                    billing_cycle_id=cycle.id,
+                    changed_fields=changed_fields,
+                    changed_by_user_id=billing_account_manager.id,
+                    changed_by_name_snapshot=billing_account_manager.display_name,
+                )
+            )
         session.commit()
     except (BillingCalculationError, ValueError) as exc:
         return _child_charge_redirect(cycle_id, child_id, error=str(exc))

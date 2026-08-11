@@ -8,13 +8,20 @@
     <h1 class="mt-1 text-2xl font-bold text-slate-900">請求・Zengin</h1>
     <p class="mt-2 text-sm text-slate-500">新規請求月を作成し、園児別の請求入力からZengin出力まで確認します。</p>
   </div>
-  {% if current_user and current_user.can_edit %}
-  <form method="post" action="/billing/cycles/new-input">
-    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-      新規請求月作成
-    </button>
-  </form>
-  {% endif %}
+  <div class="flex flex-wrap gap-2">
+    {% if can_manage_billing_accounts %}
+    <a href="/billing/accounts" class="rounded border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">
+      口座情報管理
+    </a>
+    {% endif %}
+    {% if current_user and current_user.can_edit %}
+    <form method="post" action="/billing/cycles/new-input">
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+        新規請求月作成
+      </button>
+    </form>
+    {% endif %}
+  </div>
 </div>
 
 {% if message %}
@@ -24,7 +31,7 @@
 <div class="mb-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>
 {% endif %}
 
-<div class="grid gap-4 lg:grid-cols-3">
+<div class="grid gap-4 lg:grid-cols-2">
   <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <h2 class="text-base font-semibold text-slate-900">施設設定</h2>
     {% if setting %}
@@ -37,25 +44,6 @@
     {% else %}
     <p class="mt-4 text-sm text-slate-500">未作成です。</p>
     {% endif %}
-  </section>
-
-  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <h2 class="text-base font-semibold text-slate-900">口座プロファイル</h2>
-    <div class="mt-4 space-y-3">
-      {% for profile in profiles %}
-      <div class="rounded border border-slate-200 px-3 py-2 text-sm">
-        <div class="font-medium text-slate-800">Family #{{ profile.family_id }}</div>
-        <div class="mt-1 text-slate-500">{{ profile.customer_number }}</div>
-        <div class="mt-1 flex gap-2">
-          <span class="rounded bg-slate-100 px-2 py-0.5 text-xs">{{ profile.payment_method.value }}</span>
-          <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">{{ profile.direct_debit_status.value }}</span>
-          <span class="rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">new {{ profile.new_code }}</span>
-        </div>
-      </div>
-      {% else %}
-      <p class="text-sm text-slate-500">未作成です。</p>
-      {% endfor %}
-    </div>
   </section>
 
   <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -91,7 +79,7 @@
         {% for row in cycle_rows %}
         <tr>
           <td class="px-5 py-3 font-medium text-slate-900">{{ row.cycle.year_month }}</td>
-          <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.cycle.status.value }}</span></td>
+          <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.status_label }}</span></td>
           <td class="px-5 py-3">{{ row.cycle.withdrawal_date }}</td>
           <td class="px-5 py-3 text-right">{{ row.claim_count }}</td>
           <td class="px-5 py-3 text-right">{{ "{:,}".format(row.total_amount) }}円</td>
@@ -134,7 +122,7 @@
         {% for row in export_rows %}
         <tr>
           <td class="px-5 py-3 font-medium">#{{ row.export.id }}</td>
-          <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.export.status.value }}</span></td>
+          <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.status_label }}</span></td>
           <td class="px-5 py-3 text-right">{{ row.export.total_count }}</td>
           <td class="px-5 py-3 text-right">{{ "{:,}".format(row.export.total_amount) }}円</td>
           <td class="px-5 py-3 font-mono text-xs text-slate-500">{{ row.export.content_hash[:16] }}...</td>

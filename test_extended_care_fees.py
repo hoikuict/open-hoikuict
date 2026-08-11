@@ -198,6 +198,67 @@ class ExtendedCareFeeTests(unittest.TestCase):
         self.assertIn("田中 太郎", csv_text)
         self.assertIn(",100,0,100,1", csv_text)
 
+    def test_confirm_redirect_keeps_operated_child_details_open(self):
+        with Session(self.engine) as session:
+            record = AttendanceRecord(
+                child_id=self.child_id,
+                attendance_date=date(2026, 3, 2),
+                check_in_at=datetime(2026, 3, 2, 9, 0),
+                check_out_at=datetime(2026, 3, 2, 18, 6),
+            )
+            session.add(record)
+            session.flush()
+            charge = recalculate_attendance_charge(session, record)
+            session.commit()
+            charge_id = charge.id
+
+        response = self.client.post(
+            f"/extended-care-fees/{charge_id}/confirm",
+            data={
+                "return_url": "/extended-care-fees/?month=2026-03",
+                "open_child_id": str(self.child_id),
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertIn(f"open_child_id={self.child_id}", response.headers["location"])
+        self.assertTrue(
+            response.headers["location"].endswith(
+                f"#extended-care-child-{self.child_id}"
+            )
+        )
+
+        reopened = self.client.get(response.headers["location"])
+        self.assertEqual(reopened.status_code, 200)
+        self.assertIn("<details open>", reopened.text)
+
+    def test_unconfirmed_filter_shows_flat_review_queue(self):
+        with Session(self.engine) as session:
+            for day, checkout_hour, checkout_minute in [(2, 18, 6), (3, 18, 21)]:
+                target_date = date(2026, 3, day)
+                record = AttendanceRecord(
+                    child_id=self.child_id,
+                    attendance_date=target_date,
+                    check_in_at=datetime(2026, 3, day, 9, 0),
+                    check_out_at=datetime(
+                        2026, 3, day, checkout_hour, checkout_minute
+                    ),
+                )
+                session.add(record)
+                session.flush()
+                recalculate_attendance_charge(session, record)
+            session.commit()
+
+        response = self.client.get(
+            "/extended-care-fees/?month=2026-03&unconfirmed_only=1"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("要確認一覧", response.text)
+        self.assertIn("2026-03-02", response.text)
+        self.assertIn("2026-03-03", response.text)
+        self.assertIn("js-inline-confirm", response.text)
+        self.assertNotIn("日別明細 2 件", response.text)
+
     def test_settings_can_create_rule_and_reject_active_overlap(self):
         overlap_response = self.client.post(
             "/extended-care-fees/settings",

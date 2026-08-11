@@ -73,6 +73,8 @@ python -m uvicorn main:app --reload
 - [デモデータ仕様](docs/demo-data.md)
 - [職員個人ポータル機能仕様](docs/staff-personal-portal-spec.md)
 - [職員有給管理機能仕様](docs/paid-leave-management-spec.md)
+- [職員権限設定・請求口座情報管理仕様](docs/staff-permissions-and-billing-accounts-spec.md)
+- [延長保育料金・請求転送仕様](docs/extended-care-billing-transfer-spec.md)
 - [FAQ](docs/faq.md)
 
 ## ライセンス
