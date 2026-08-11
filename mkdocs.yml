@@ -26,12 +26,32 @@ markdown_extensions:
 nav:
   - はじめに: index.md
   - 導入ロードマップ: roadmap.md
-  - 開発者向け: development.md
-  - 運用責任: operations.md
-  - セキュリティ最低ライン: security.md
-  - 個人情報とダミーデータ: privacy.md
-  - デモデータ: demo-data.md
-  - 園内運用テンプレ: templates.md
-  - リリース前チェック: release-checklist.md
+  - 仕様・設計:
+      - 仕様書一覧: specifications.md
+      - 画面遷移: screen-transition-list.md
+      - 連携契約: integration-contract.md
+      - 児童記録・児童票・保育要録: child-records-spec.md
+      - 園児健康管理: health-record-spec-review.md
+      - インポート・エクスポート: import-export-spec.md
+      - 認可施設帳票入力: ninka-input-screen-spec.md
+      - 延長保育料金: extended-care-fee-spec.md
+      - 延長保育料金・請求転送: extended-care-billing-transfer-spec.md
+      - 職員ポータル: staff-personal-portal-spec.md
+      - 職員権限・請求口座: staff-permissions-and-billing-accounts-spec.md
+      - 施設設定（計画）: facility-settings-spec.md
+      - 職員有給管理（計画）: paid-leave-management-spec.md
+      - 保育計画:
+          - 日案仕様 v1: spec-daily-plan-v1.md
+          - 週案・日案追加仕様: spec-weekly-daily-plans.md
+          - 日案文例コーパス契約: daily-plan-corpus-contract.md
+          - 統合仕様 v2.1: spec-plan-docs-integration-v2-revised.md
+  - 開発・運用:
+      - 開発者向け: development.md
+      - 運用責任: operations.md
+      - セキュリティ最低ライン: security.md
+      - 個人情報とダミーデータ: privacy.md
+      - デモデータ: demo-data.md
+      - 園内運用テンプレ: templates.md
+      - リリース前チェック: release-checklist.md
   - ライセンス: license.md
   - FAQ: faq.md

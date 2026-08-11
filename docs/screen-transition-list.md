@@ -3,11 +3,17 @@
 UI調整とデバッグで迷子にならないための、現時点の主要画面遷移メモです。
 API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係するものだけ載せています。
 
+- 最終照合日: 2026-08-11
+- 照合元: `main.py`に登録されたFastAPIルート
+- モックログイン用ルートは`HOIKUICT_MOCK_AUTH_ENABLED`が有効な環境だけで登録される
+
 ## 共通
 
 | 入口 | 主な遷移 |
 | --- | --- |
-| `/` | `/children` へリダイレクト |
+| `/` | 未ログイン時はログイン案内、ログイン後は職員ホームを表示 |
+| `/staff/portal` | ログイン後の職員ホームへの別名。未ログイン時は職員ログインへ |
+| `/staff/attention` | ログイン中職員の要確認事項一覧 |
 | `/staff/login` | 職員選択後、`redirect` 指定先へ |
 | `/staff/logout` | ログアウト後、指定先またはログイン画面へ |
 | `/switch-role?redirect=...` | `/staff/login?redirect=...` へ |
@@ -16,9 +22,15 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 
 | 機能 | 入口 | 主な遷移 |
 | --- | --- | --- |
-| 職員ホーム（仕様策定済み・未実装） | `/staff/portal` | 当日カレンダー、職員アンケート回答、職員ルームの対象スレッド |
+| 職員ホーム | `/`、`/staff/portal` | 当日予定、担当クラス出席、要確認 `/staff/attention`、職員ルームの保護者連絡タイムライン |
+| 職員管理 | `/staff/users` | 新規 `/staff/users/new`、編集 `/staff/users/{user_id}/edit`、担当クラス `/staff/users/{user_id}/classrooms` |
+| 職員権限設定 | `/staff/permissions` | 基本ロール、園児台帳管理、請求口座情報管理の更新 |
 | 園児一覧 | `/children/` | 新規 `/children/new`、詳細 `/children/{child_id}`、編集 `/children/{child_id}/edit`、兄弟追加 `/children/new?sibling_id={child_id}` |
-| 園児詳細 | `/children/{child_id}` | 編集、健康サマリー `/children/{child_id}/health` |
+| 園児詳細 | `/children/{child_id}` | 編集、変更履歴、健康サマリー、子どもの記録、児童票 |
+| 子どもの記録 | `/children/{child_id}/records` | 新規記録、訂正、無効化、児童票の根拠参照 |
+| 児童票 | `/children/{child_id}/progress-records` | 新規 `/children/{child_id}/progress-records/new`、作成後は計画文書詳細へ |
+| 児童票進捗 | `/child-records/progress` | 年齢区分・作成状況で絞り込み、園児別児童票へ |
+| 児童記録設定 | `/settings/child-records` | 記録項目、年齢別頻度、閲覧範囲を版として保存 |
 | 家庭管理 | `/families/` | 新規 `/families/new`、編集 `/families/{family_id}/edit`、この家族に園児追加 `/children/new?family_id={family_id}` |
 | クラス管理 | `/classrooms/` | 新規 `/classrooms/new`、編集 `/classrooms/{classroom_id}/edit` |
 | 健康管理 | `/health` | 健康サマリー `/children/{child_id}/health`、健診記録 `/children/{child_id}/health/check-records` |
@@ -29,9 +41,11 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | 出欠一覧 | `/attendance` | 日付・クラス絞り込み、登園、降園、CSV/Excel出力 |
 | 出欠確認 | `/attendance-checks/` | 日付・クラス絞り込み、園児ごとの確認更新 |
 | 日次連絡 | `/daily-contacts/` | 園児別詳細 `/daily-contacts/{child_id}` |
-| 延長保育料金 | `/extended-care-fees/` | 再計算、確定、調整、対象外、CSV出力、料金ルール `/extended-care-fees/settings` |
+| 延長保育料金 | `/extended-care-fees/` | 再計算、確定、調整、対象外、CSV出力、料金ルール、請求転送 `/extended-care-fees/billing-transfer` |
+| 延長保育料金・請求転送 | `/extended-care-fees/billing-transfer` | プレビュー、転送・再転送、転送解除、手入力競合の解消 |
 | 延長保育料金ルール | `/extended-care-fees/settings` | ルール追加、既存ルール更新後、同画面へ |
 | 請求入力 | `/billing/` | 入力サイクル作成、園児別入力 `/billing/cycles/{cycle_id}/child-charges`、全銀データ作成、入金デモ反映 |
+| 請求口座情報 | `/billing/accounts` | 権限のある職員だけが家族口座情報を表示・編集 |
 | 園児別請求一覧 | `/billing/cycles/{cycle_id}/child-charges` | 園児別詳細 `/billing/cycles/{cycle_id}/child-charges/{child_id}`、一括保存 |
 | 園児別請求詳細 | `/billing/cycles/{cycle_id}/child-charges/{child_id}` | 請求項目保存、請求プロフィール保存 |
 | 保護者キオスク | `/guardian` | クラス・園児選択、登園、迎え予定確認、降園確認 |
@@ -41,12 +55,15 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | アンケート管理 | `/surveys/` | 新規 `/surveys/new`、詳細 `/surveys/{survey_id}`、編集 `/surveys/{survey_id}/edit`、回答CSV |
 | 保護者アカウント | `/parent-accounts/` | 新規 `/parent-accounts/new`、編集 `/parent-accounts/{account_id}/edit`、保護者として確認 `/parent-portal/mock-login/{account_id}` |
 | プロフィール変更申請 | `/child-change-requests` | 詳細 `/child-change-requests/{request_id}`、承認、却下 |
-| データ入出力 | `/data-transfers/` | テンプレート取得、エクスポート、インポート確認、インポート確定 |
+| データ入出力 | `/data-transfers/` | テンプレート取得、エクスポート、インポート確認・確定、認可施設帳票出力 |
 | カレンダー | `/calendar` | 表示切替 `/calendar/view`、予定作成 `/events/new`、予定詳細 `/events/{event_id}`、予定編集 `/events/{event_id}/edit`、検索 `/search/events` |
 | カレンダー設定 | `/calendar` | カレンダー作成、更新、アーカイブ、復元、削除、共有、表示切替 |
 | 職員ルーム | `/staff-rooms/` | メッセージ投稿、タイムライン更新、スレッド `/staff-rooms/threads/{parent_message_id}`、添付 `/staff-rooms/attachments/{attachment_id}` |
 | 議事録 | `/meeting-notes/` | 新規作成後 `/meeting-notes/{note_id}`、詳細から一覧へ |
 | 職員アンケート | `/staff-surveys/` | 回答画面 `/staff-surveys/{survey_id}`、保存後一覧へ |
+| 園内記録 | `/records/` | 新規、詳細、編集、公開範囲、関連リンク、レビュー、廃止 |
+| ハイライト | `/highlights/` | コメント、園内記録への昇格、アーカイブ |
+| 年度継続記録 | `/event-series/` | 一覧、新規、詳細、年度別メンバー追加 |
 
 ## 保護者側
 
@@ -72,8 +89,9 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | 月案作成 | `/plans/monthly-plans/new` | 保存後 `/plans/documents/{document_id}` |
 | 週案作成 | `/plans/weekly-plans/new` | 保存後 `/plans/documents/{document_id}` |
 | 日案作成 | `/plans/daily-plans/new` | 保存後 `/plans/documents/{document_id}` |
+| 日案カレンダー | `/plans/daily-plans/` | 日別の作成状況・活動を確認し、日案作成または詳細へ |
 | 文書一覧 | `/plans/documents/` | 詳細 `/plans/documents/{document_id}` |
-| 文書詳細 | `/plans/documents/{document_id}` | 編集 `/plans/documents/{document_id}/edit`、ステータス更新 |
+| 文書詳細 | `/plans/documents/{document_id}` | 編集、ステータス更新、日案の振り返り、承認後の実施変更・確認・訂正 |
 | 文書編集 | `/plans/documents/{document_id}/edit` | 保存後、詳細へ |
 | 月案文例選択 | `/plans/bunrei/monthly` | 文例から作成後 `/plans/documents/{document_id}/edit` |
 | 年案文例選択 | `/plans/bunrei/annual` | 文例から作成後 `/plans/documents/{document_id}/edit` |
@@ -89,4 +107,5 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | 全銀データ | `/billing/zengin/exports/{export_id}/download` |
 | データ入出力テンプレート | `/data-transfers/templates/{file_name}` |
 | データエクスポート | `/data-transfers/export/{file_name}` |
+| 認可施設帳票出力 | `POST /data-transfers/ninka/export` |
 | ヘルスチェック | `/healthz` |

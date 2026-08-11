@@ -1,5 +1,11 @@
 # open-hoikuict への hoiku-plan-docs 統合仕様 v2.1
 
+- 文書種別: 統合設計の履歴
+- 現況再確認: 2026-08-11
+- 実装状況: Phase 1・2完了、Phase 3一部実装
+
+> `plan_docs/`へのコード統合、`/plans`マウント、職員セッション統合、SQLite永続化、`/healthz`は完了している。Phase 3のうち児童票・観察ログは[児童記録仕様](child-records-spec.md)として実装し、個別指導計画の双方向参照は未実装である。本書のPhase 1・2本文は移行時の設計記録として残す。
+
 対象リポジトリ: `hoikuict/open-hoikuict`（統合先）、`hoikuict/hoiku-plan-docs`（統合元）
 前提段階: アルファ。本物の認証（パスワード、外部 IdP 等）は実装しない。
 
@@ -46,7 +52,7 @@ open-hoikuict/
     __init__.py
     contracts.py
     models.py
-    store.py              # DocumentStore（in-memory）。Phase 2 で実装差し替え
+    store.py              # DocumentRepositoryとSQLModel / テスト用in-memory実装
     auth_adapter.py       # 本体モックセッションから plan_docs StaffUser を組み立てる
     serializers.py
     runtime.py            # facility.sqlite seed-copy 等の起動時初期化
@@ -75,7 +81,7 @@ open-hoikuict/
 - `static/styles.css`
 - 独自 `base.html`
 - `auth.py`（CookieStaffAuthBackend）
-- `web/routers/staff_auth.py`
+- 統合元の`web/routers/staff_auth.py`（本体の`routers/staff_auth.py`を使用）
 
 アプリ生成・テンプレート基盤・セッションは open-hoikuict 側に一本化する。
 

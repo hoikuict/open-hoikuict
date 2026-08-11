@@ -1,12 +1,26 @@
 # 児童記録・児童票・保育要録機能 仕様書
 
-- 文書バージョン: 0.1（実装前レビュー用）
+- 文書バージョン: 0.2（Phase 1実装反映）
 - 作成日: 2026-08-10
 - 対象リポジトリ: `open-hoikuict`
-- ステータス: Approved（初期仕様。実装中の画面確認により更新する）
+- ステータス: Approved / Phase 1一部実装済み
 - 初期仕様承認日: 2026-08-10
+- 現況再確認: 2026-08-11
 - 対象施設: 認可保育所を主対象とする
 - 関連仕様: `docs/integration-contract.md`、`docs/spec-plan-docs-integration-v2-revised.md`
+
+## 0. 現在の実装状況
+
+次のPhase 1範囲を実装済みである。
+
+- 施設別設定版と、年齢別の記録頻度・項目・閲覧範囲
+- 子どもの観察ログの作成、タイムライン、訂正、無効化、訂正履歴
+- 設定版・作成者・クラス割当を使った閲覧／作成権限
+- 対象期間のログを根拠に選ぶ児童票（`child_progress_record`）の作成
+- 園児別児童票一覧と、年齢区分・作成状況で絞り込む進捗画面
+- 児童票を計画文書基盤へ保存し、版管理・提出・承認フローを再利用する連携
+
+個別指導計画との双方向参照、根拠の逆引き、保育要録、小学校情報・送付管理は未実装である。後続節のPhase 2・3は計画として扱う。
 
 ## 1. 目的
 
@@ -28,12 +42,12 @@
 
 また、計画文書基盤には、個別指導計画の文書種別、園児参照、対象月、セクション定義、版管理、提出・承認、`source_refs` による根拠参照の一部が実装済みである。
 
-一方、次は未実装である。
+初期仕様作成時は次が未実装だった。2026年8月11日現在、先頭4項目は実装済みである。
 
-- 子どもの姿を随時追記する保育上の個人記録
-- 時系列での振り返り
-- 一定期間の記録をまとめる児童票・発達経過記録
-- 施設別・年齢別の頻度と項目設定
+- ~~子どもの姿を随時追記する保育上の個人記録~~
+- ~~時系列での振り返り~~
+- ~~一定期間の記録をまとめる児童票・発達経過記録の基本作成~~
+- ~~施設別・年齢別の頻度と項目設定~~
 - 児童票と月次個別指導計画の双方向参照
 - 最終年度の保育所児童保育要録
 - 小学校への送付管理
@@ -242,13 +256,12 @@
 
 | 用途 | メソッド | URL |
 | --- | --- | --- |
-| 設定一覧 | GET | `/settings/child-records` |
-| 設定版作成 | GET/POST | `/settings/child-records/versions/new` |
-| 設定版編集 | GET/POST | `/settings/child-records/versions/{version_id}` |
-| プレビュー | GET | `/settings/child-records/versions/{version_id}/preview` |
-| 適用 | POST | `/settings/child-records/versions/{version_id}/activate` |
+| 現行の設定表示 | GET | `/settings/child-records` |
+| 現行の新設定版保存・適用 | POST | `/settings/child-records` |
 
 すべて管理者専用とする。
+
+設定版ごとの個別編集、プレビュー、将来日での適用予約を画面分離する場合は、`/settings/child-records/versions/...`配下を後続フェーズで追加する。現在は単一画面で設定を確認し、保存時に新しい設定版を作成・適用する。
 
 ### 9.2 プリセット
 
@@ -372,8 +385,8 @@
 | 用途 | メソッド | URL |
 | --- | --- | --- |
 | タイムライン | GET | `/children/{child_id}/records` |
-| ログ追加 | GET/POST | `/children/{child_id}/records/new` |
-| ログ詳細 | GET | `/children/{child_id}/records/{log_id}` |
+| ログ追加画面 | GET | `/children/{child_id}/records/new` |
+| ログ保存 | POST | `/children/{child_id}/records` |
 | ログ訂正 | GET/POST | `/children/{child_id}/records/{log_id}/correct` |
 | ログ無効化 | POST | `/children/{child_id}/records/{log_id}/void` |
 
@@ -921,13 +934,13 @@ WHERE record_cycle_key IS NOT NULL;
 | 画面 | URL | 主な遷移先 |
 | --- | --- | --- |
 | 園児詳細 | `/children/{child_id}` | 記録タイムライン、健康、プロフィール |
-| 記録タイムライン | `/children/{child_id}/records` | ログ追加、ログ詳細、児童票、個別計画 |
+| 記録タイムライン | `/children/{child_id}/records` | ログ追加、訂正、無効化、児童票 |
 | ログ追加 | `/children/{child_id}/records/new` | 保存後タイムライン |
 | 児童票作成状況 | `/child-records/progress` | 園児別作成・文書詳細 |
 | 園児別児童票一覧 | `/children/{child_id}/progress-records` | 新規作成・文書詳細 |
-| 個別指導計画一覧 | `/plans/individual-plans/` | 新規・一括下書き・文書詳細 |
-| 保育要録対象一覧 | `/child-records/yoroku` | 要録作成・文書詳細・送付記録 |
-| 児童記録設定 | `/settings/child-records` | 設定版編集・プレビュー・適用 |
+| 個別指導計画一覧（未実装） | `/plans/individual-plans/`（予定） | 新規・一括下書き・文書詳細 |
+| 保育要録対象一覧（未実装） | `/child-records/yoroku`（予定） | 要録作成・文書詳細・送付記録 |
+| 児童記録設定 | `/settings/child-records` | 現行設定の確認、新設定版の保存・適用 |
 
 ## 18. 通知・期限管理
 

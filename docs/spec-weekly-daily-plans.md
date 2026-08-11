@@ -1,14 +1,19 @@
 # 週案・日案 作成機能 追加仕様書 (rev.3)
 
-`hoiku-plan-docs` に **週案（weekly_plan）** と **日案（daily_plan）** の作成機能を追加するための仕様です。
+`open-hoikuict`の`plan_docs`モジュールに **週案（weekly_plan）** と **日案（daily_plan）** の作成機能を追加した際の仕様です。
 現行の年案・月案で確立した契約（`document_type` / `status` / `section_key` / `source_refs`）と UI コンポーネントを最大限に再利用し、後方互換を壊さずに「短期的な指導計画」までを一気通貫で扱えるようにします。
 
 - 対象読者: 本リポジトリの実装者、`open-hoikuict` / `hoiku-plan-writer` 連携担当
-- 前提ドキュメント: [README.md](../README.md) / [docs/integration-contract.md](integration-contract.md)
-- 関連実装: `app/hoiku_plan_docs/contracts.py` / `models.py` / `services/generators.py` / `services/bunrei.py` / `web/routers/plans.py` / `web/routers/bunrei.py` / `serializers.py` / `store.py` / `templates/`
+- 前提ドキュメント: [サイト概要](index.md) / [連携契約](integration-contract.md)
+- 関連実装: `plan_docs/contracts.py` / `plan_docs/models.py` / `plan_docs/services/generators.py` / `plan_docs/services/bunrei.py` / `plan_docs/routers/plans.py` / `plan_docs/routers/bunrei.py` / `plan_docs/serializers.py` / `plan_docs/store.py` / `templates/plan_docs/`
+
+- 現況再確認: 2026-08-11
+- 実装状況: フェーズ1実装済み、フェーズ2・3未実装
+
+> 統合と後続実装により、保存先は現在SQLModelリポジトリとSQLiteである。本文中のin-memory保存や統合前パスは、フェーズ設計当時の記述を修正済みである。
 
 > **rev.2 で確定した主要な設計判断（矛盾解消）**
-> 1. **MVP（フェーズ1）は手入力フォーム作成のみ。文例選択（`/bunrei/weekly` `/bunrei/daily`）はフェーズ2**（§2.3 / §10）。
+> 1. **MVP（フェーズ1）は手入力フォーム作成のみ。文例選択（`/plans/bunrei/weekly` `/plans/bunrei/daily`）はフェーズ2**（§2.3 / §10）。
 > 2. **対象期間は必須・自動フォールバックなし**。Web は同フォーム再表示＋エラー、API は 422（§7.1）。
 > 3. **接続は要約テキストに加え `parent_document_id` / `related_document_ids` を契約に追加**（§3.3 / §3.6）。
 > 4. **`schedule` を永続契約として厳密定義**（`layout` / `column.key` / `row_key` / `ScheduleCell`、§3.4）。
@@ -25,11 +30,11 @@
 
 ### 1.1 現状
 
-現行アプリは「長期的な指導計画」である **年案（`annual_plan`）** と「短期的な指導計画」の入口である **月案（`monthly_plan`）** までを実装済みです。
+現行アプリは **年案（`annual_plan`）**、**月案（`monthly_plan`）**、**週案（`weekly_plan`）**、**日案（`daily_plan`）** の作成・表示・編集を実装済みです。
 
 - 帳票は `PlanDocument` + `SectionBlock`（`section_key` で永続契約）で表現
 - 生成は `services/generators.py`、文例選択生成は `services/bunrei.py`
-- 保存は in-memory の `DocumentStore`、状態遷移は `draft → in_review → approved / rejected → archived`
+- 保存は`DocumentRepository`を介したSQLModel / SQLite、状態遷移は `draft → in_review → approved / rejected → archived`
 - 権限は `view_only` / `can_edit` / `admin`、職員セッションは Cookie ベース（差し替え前提）
 
 ### 1.2 法令・指針上の位置づけ（実装根拠）
@@ -63,7 +68,7 @@
 ### 1.4 スコープ外
 
 - 共通文例DB（`bunrei.sqlite`）への週案・日案専用文例の新規生成（当面は月案文例を流用。園文例で `週案`/`日案` を受け入れる拡張のみ行う）。
-- 永続DB化（in-memory 踏襲。`schedule` のシリアライズは将来の永続化を見据えて確定させる）。
+- SQLite以外の正式サポートとAlembic移行。`schedule`自体は現在SQLiteへ永続化している。
 - 帳票PDF出力（`window.print()` を使用）。
 - 行事・祝日・休園日のカレンダー連携、延長保育/短時間利用の時間割自動分岐（MVPは固定、§7.5）。
 
@@ -101,8 +106,8 @@
 | 週案/日案の手入力フォーム作成・生成・詳細・編集・印刷 | **1（MVP）** |
 | `schedule`（日案時系列＋週案グリッド）の生成・表示・セル編集 | **1（MVP）** |
 | `parent_document_id` による接続と参照リスト | **1（MVP）** |
-| 文例選択作成 `/bunrei/weekly` `/bunrei/daily`、園文例の `週案`/`日案` 受け入れ | **2** |
-| 日案時系列の行追加/削除UI、週案↔日案の自動連携、永続DB化 | **3** |
+| 文例選択作成 `/plans/bunrei/weekly` `/plans/bunrei/daily`、園文例の `週案`/`日案` 受け入れ | **2** |
+| 日案時系列の行追加/削除UI、週案↔日案の自動連携、園全体の時間割設定 | **3** |
 
 §4.6・§5.2・§6.4 は **フェーズ2の仕様**として記載する（見出しに「[フェーズ2]」を付す）。MVP では `home.html` の文例カードは表示しても遷移先を「準備中」表示にするか、フェーズ2まで非表示とする（§4.1）。
 
@@ -338,12 +343,12 @@ age_class: str | None = None         # 週案/日案: "5歳児" 等（フォー�
 `work-grid` に週案・日案カードを追加。**view_only ユーザーには「年案/月案/週案/日案」作成カードを非表示**（§7.4）。文例カードは **フェーズ2で表示**（MVPでは出さない）。
 
 ```html
-<a class="action-panel" href="/weekly-plans/new">
+<a class="action-panel" href="/plans/weekly-plans/new">
   <span class="action-panel__label">週間計画</span>
   <strong>週案</strong>
   <span>月案を受けて1週間の見通し（ねらい・活動・環境・援助）を作成します。</span>
 </a>
-<a class="action-panel action-panel--accent" href="/daily-plans/new">
+<a class="action-panel action-panel--accent" href="/plans/daily-plans/new">
   <span class="action-panel__label">日間計画</span>
   <strong>日案</strong>
   <span>1日の生活の流れ（時系列）と養護・教育のねらいを作成します。</span>
@@ -352,7 +357,7 @@ age_class: str | None = None         # 週案/日案: "5歳児" 等（フォー�
 
 最近の帳票一覧は全種別表示済み。バッジは `document.document_type_label` がそのまま「週案/日案」を返す。
 
-### 4.2 週案フォーム `templates/weekly_plans/form.html`（新規）
+### 4.2 週案フォーム `templates/plan_docs/weekly_plans/form.html`
 
 `monthly_plans/form.html` を踏襲。
 
@@ -360,15 +365,15 @@ age_class: str | None = None         # 週案/日案: "5歳児" 等（フォー�
 - **土曜を含む**: `<input type="checkbox" name="include_saturday">`（既定 off、§7.5）
 - **月案との接続**: `_monthly_documents_for_user(user)` を `reference-list` で表示し、**選択は `<select name="parent_document_id">`**（先頭は「接続しない」）。`related_monthly_summary`（textarea）。
 - **今週の入力**: `previous_week_reflection` / `current_children_snapshot` / `weekly_activities_note` / `seasonal_context` / `family_context` / `class_notes`
-- 送信先 `POST /weekly-plans`。
+- 送信先 `POST /plans/weekly-plans`。
 
-### 4.3 日案フォーム `templates/daily_plans/form.html`（新規）
+### 4.3 日案フォーム `templates/plan_docs/daily_plans/form.html`
 
 - **基本情報**: 対象日 `<input type="date" name="target_date" required>` / クラス / **年齢 `age_class`（select）** / 作成者
 - **週案・月案との接続**: 週案参照リスト + `<select name="parent_document_id">`。`related_weekly_summary`（textarea）。
 - **本日の入力**: `daily_main_activity_note` / `current_children_snapshot` / `seasonal_context` / `health_notes` / `family_context`
 - 時系列詳細は作成後の編集画面で調整（生成時にひな型自動投入）。
-- 送信先 `POST /daily-plans`。
+- 送信先 `POST /plans/daily-plans`。
 
 ### 4.4 詳細 `documents/detail.html`（拡張）
 
@@ -418,12 +423,12 @@ age_class: str | None = None         # 週案/日案: "5歳児" 等（フォー�
 
 - 叙述セクション編集は既存のまま。
 - `schedule` がある場合、**サーバが保持する行・列を走査して** `textarea` を描画。フォーム名は **二重アンダースコア区切り** `cell__{row_key}__{column_key}`（`row_key` 内の単一 `_` と衝突しない、§5.4）。行ラベルは `rowlabel__{row_key}`、開始時刻は `rowtime__{row_key}`。
-- POST 先は既存 `POST /documents/{id}` を流用。読取は **キー名をパースせず、`document.schedule` の既存 row/col を権威として** `form.get(f"cell__{row.row_key}__{col.key}")` で取得（§5.4）。
+- POST 先は既存 `POST /plans/documents/{id}` を流用。読取は **キー名をパースせず、`document.schedule` の既存 row/col を権威として** `form.get(f"cell__{row.row_key}__{col.key}")` で取得（§5.4）。
 - 行追加/削除はフェーズ3。MVP は固定ひな型のセル本文・ラベル・時刻編集のみ。
 
-### 4.6 [フェーズ2] 文例選択 `templates/bunrei/weekly.html` / `daily.html`（新規）
+### 4.6 [フェーズ2] 文例選択 `templates/plan_docs/bunrei/weekly.html` / `daily.html`（新規）
 
-`bunrei/monthly.html` を流用。条件は「年齢（`age_class_options("月案")`）」「月」。POST 後は `/documents/{id}/edit` へ遷移し、日案は生成後に時系列ひな型を付与（§6.4）。
+`bunrei/monthly.html` を流用。条件は「年齢（`age_class_options("月案")`）」「月」。POST 後は `/plans/documents/{id}/edit` へ遷移し、日案は生成後に時系列ひな型を付与（§6.4）。
 
 ### 4.7 新規CSS（`static/styles.css` 追記）
 
@@ -452,14 +457,14 @@ age_class: str | None = None         # 週案/日案: "5歳児" 等（フォー�
 
 ## 5. ルーティング・サーバ仕様
 
-### 5.1 週案・日案ルート（`web/routers/plans.py`）
+### 5.1 週案・日案ルート（`plan_docs/routers/plans.py`）
 
 | method | path | 権限 | 説明 |
 | --- | --- | --- | --- |
-| GET | `/weekly-plans/new` | view可（view_onlyはカード非表示だがGETは閲覧可、§7.4） | 週案フォーム。月案参照リスト。 |
-| POST | `/weekly-plans` | `can_edit` | バリデーション→`generate_weekly_plan`→保存→`/documents/{id}` |
-| GET | `/daily-plans/new` | view可 | 日案フォーム。週案参照リスト。 |
-| POST | `/daily-plans` | `can_edit` | バリデーション→`generate_daily_plan`→保存→`/documents/{id}` |
+| GET | `/plans/weekly-plans/new` | view可（view_onlyはカード非表示だがGETは閲覧可、§7.4） | 週案フォーム。月案参照リスト。 |
+| POST | `/plans/weekly-plans` | `can_edit` | バリデーション→`generate_weekly_plan`→保存→`/plans/documents/{id}` |
+| GET | `/plans/daily-plans/new` | view可 | 日案フォーム。週案参照リスト。 |
+| POST | `/plans/daily-plans` | `can_edit` | バリデーション→`generate_daily_plan`→保存→`/plans/documents/{id}` |
 
 参照リストヘルパ（既存 `_annual_documents_for_user` と同型、**絞り込み付き**、§7.6）:
 ```python
@@ -468,12 +473,12 @@ def _weekly_documents_for_user(user, *, classroom_ref=None, limit=8): ...
 # document_type フィルタ + classroom_ref 一致 + archived 除外 + updated_at 降順 + limit
 ```
 
-### 5.2 [フェーズ2] 文例ルート（`web/routers/bunrei.py`）
+### 5.2 [フェーズ2] 文例ルート（`plan_docs/routers/bunrei.py`）
 
 | method | path | 説明 |
 | --- | --- | --- |
-| GET/POST | `/bunrei/weekly` | 週案文例選択（年齢・月）。`weekly_candidate_groups` |
-| GET/POST | `/bunrei/daily` | 日案文例選択（年齢・月）。`daily_candidate_groups` |
+| GET/POST | `/plans/bunrei/weekly` | 週案文例選択（年齢・月）。`weekly_candidate_groups` |
+| GET/POST | `/plans/bunrei/daily` | 日案文例選択（年齢・月）。`daily_candidate_groups` |
 
 POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与（§6.4）。
 
@@ -481,8 +486,8 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 
 `plan_type` 妥当値を `{"年案","月案"}` → `{"年案","月案","週案","日案"}` に拡張。**import 側だけでなく以下を一貫更新**:
 - `services/bunrei.py`: `import_facility_examples` / `add_facility_example` の検証、警告文言。
-- `web/routers/bunrei.py`: `create_facility_bunrei` の plan_type 既定/受理、リダイレクト分岐（`週案`→`/bunrei/weekly`、`日案`→`/bunrei/daily`）。
-- `templates/bunrei/facility_new.html`: plan_type の `select` 選択肢に「週案/日案」を追加。
+- `plan_docs/routers/bunrei.py`: `create_facility_bunrei` の plan_type 既定/受理、リダイレクト分岐（`週案`→`/plans/bunrei/weekly`、`日案`→`/plans/bunrei/daily`）。
+- `templates/plan_docs/bunrei/facility_new.html`: plan_type の `select` 選択肢に「週案/日案」を追加。
 - 取り込みテンプレート注記・`README.md`・`docs/integration-contract.md` の取り込み列説明。
 - テスト（§9）。
 
@@ -512,7 +517,7 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 
 ### 5.5 JSON API（`serializers.py`）
 
-§3.6 のとおり。`GET /api/documents/{id}` は週案/日案で `schedule` 等を含み、年案/月案の出力は従来と完全一致（後方互換）。
+§3.6 のとおり。`GET /plans/api/documents/{id}` は週案/日案で `schedule` 等を含み、年案/月案の出力は従来と完全一致（後方互換）。
 
 ---
 
@@ -599,20 +604,20 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 
 ## 8. 実装タスク（ファイル別チェックリスト）
 
-- [ ] `contracts.py`: 種別/ラベル/alias、`SOURCE_REF_PREFIX_TAGS` に `weekly.`/`daily.`、`WEEKLY_SECTIONS`/`DAILY_SECTIONS` と `section_definitions()` 分岐、日案/週案ひな型定数（行・列・order・start_time）。
-- [ ] `models.py`: `ScheduleColumn`/`ScheduleCell`/`ScheduleRow`/`PlanSchedule`、`PlanDocument` に `target_week`/`week_start_date`/`target_date`/`age_class`/`parent_document_id`/`related_document_ids`/`schedule`（全て既定値あり）。
-- [ ] `services/generators.py`: `generate_weekly_plan`/`generate_daily_plan`/`attach_daily_schedule`/`attach_weekly_grid`、週開始日・年度・月の算出ユーティリティ。
-- [ ] `web/routers/plans.py`: 4ルート + 絞り込み付き参照リストヘルパ + バリデーション（必須/再表示/422）。
-- [ ] `store.py`: `update_document` の schedule 対応（キー非パース・row/col 走査）。
-- [ ] `serializers.py`: `serialize_schedule` + null/省略方針 + 後方互換。
-- [ ] `templates/weekly_plans/form.html`・`daily_plans/form.html` 新規（年齢select・接続select・土曜チェック）。
-- [ ] `templates/home.html`: 週案/日案カード（view_only 非表示、文例カードはフェーズ2）。
-- [ ] `templates/documents/detail.html`: 期間表示 + `render_schedule` マクロ（位置分岐・横スクロール・改行・印刷）。
-- [ ] `templates/documents/edit.html`: schedule セル/ラベル/時刻編集（`cell__`/`rowlabel__`/`rowtime__`）。
-- [ ] `static/styles.css`: `.schedule-scroll` / `.schedule-table` + 印刷規則。
-- [ ] `docs/integration-contract.md`: 種別/セクション/`schedule`契約/接続ID/最小データ形/破壊的変更に追記。
+- [x] `plan_docs/contracts.py`: 種別/ラベル/alias、セクション、日案/週案ひな型定数。
+- [x] `plan_docs/models.py`: `ScheduleColumn`/`ScheduleCell`/`ScheduleRow`/`PlanSchedule`と`PlanDocument`の追加フィールド。
+- [x] `plan_docs/services/generators.py`: 週案・日案生成と日付算出。
+- [x] `plan_docs/routers/plans.py`: 週案・日案の作成ルート、参照候補、バリデーション。
+- [x] `plan_docs/store.py`: `schedule`を含む永続化・更新。
+- [x] `plan_docs/serializers.py`: `serialize_schedule`と後方互換。
+- [x] `templates/plan_docs/weekly_plans/form.html`・`daily_plans/form.html`: 作成フォーム。
+- [x] `templates/plan_docs/home.html`: 週案/日案カード。
+- [x] `templates/plan_docs/documents/detail.html`: 期間表示と`render_schedule`。
+- [x] `templates/plan_docs/documents/edit.html`: scheduleセル・ラベル・時刻編集。
+- [x] `templates/base.html`: `.schedule-scroll` / `.schedule-table`と印刷規則。
+- [x] `docs/integration-contract.md`: 種別、`schedule`、接続ID、破壊的変更を追記。
 - [ ] `README.md`: 主な画面・文書種別に週案/日案を追記。
-- [ ] [フェーズ2] `services/bunrei.py`/`web/routers/bunrei.py`/`templates/bunrei/*`: 文例候補・園文例 plan_type 一貫更新。
+- [ ] [フェーズ2] `plan_docs/services/bunrei.py`/`plan_docs/routers/bunrei.py`/`templates/plan_docs/bunrei/*`: 文例候補・園文例 plan_type 一貫更新。
 
 ---
 
@@ -631,7 +636,7 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 - ISO 週→`week_start_date`（月曜）算出、年度（4月境界）判定、年度またぎ週の月判定（木曜基準）。
 
 **ルーティング**
-- `POST /weekly-plans` / `/daily-plans` が 303 で `/documents/{id}`、`document_type` 正。`view_only` は POST 403、GET は閲覧可。クラス外 `parent_document_id` は接続されず確認項目化。
+- `POST /plans/weekly-plans` / `/plans/daily-plans` が303で`/plans/documents/{id}`へ遷移し、`document_type`が正しい。`view_only`はPOST 403、GETは閲覧可。クラス外`parent_document_id`は接続されず確認項目化。
 - 参照リストが archived 除外・クラス一致・上限。
 
 **保存**
@@ -654,8 +659,8 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 ## 10. 段階的リリース計画（§2.3 と整合）
 
 1. **フェーズ1（MVP）**: 契約・モデル・生成・週案/日案フォーム・詳細表示・印刷・`schedule` の生成/表示/セル編集・`parent_document_id` 接続と参照リスト・必須バリデーション・API シリアライズ。
-2. **フェーズ2**: 文例選択（`/bunrei/weekly` `/bunrei/daily`）、園文例の週案/日案受け入れ（一貫更新）、`weekly_environment`/`weekly_support` の重複除外。
-3. **フェーズ3**: 週案↔日案の自動連携（週案曜日行→日案生成、日案評価→週案集約）、日案時系列の行追加/削除UI、園全体設定（土曜/保育時間/延長）、永続DB化に伴う `schedule` シリアライズ確定。
+2. **フェーズ2**: 文例選択（`/plans/bunrei/weekly` `/plans/bunrei/daily`）、園文例の週案/日案受け入れ（一貫更新）、`weekly_environment`/`weekly_support` の重複除外。
+3. **フェーズ3**: 週案↔日案の自動連携（週案曜日行→日案生成、日案評価→週案集約）、日案時系列の行追加/削除UI、園全体設定（土曜/保育時間/延長）。`schedule`のSQLite永続化とシリアライズは後続の日案v1実装で完了済み。
 
 ---
 

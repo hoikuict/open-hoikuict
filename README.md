@@ -65,6 +65,8 @@ python -m uvicorn main:app --reload
 
 ## ドキュメント
 
+- [仕様書・設計文書一覧](docs/specifications.md)
+- [現在の主要画面遷移](docs/screen-transition-list.md)
 - [導入ロードマップ](docs/roadmap.md)
 - [開発者向けセットアップ](docs/development.md)
 - [運用責任と本番導入前チェック](docs/operations.md)
