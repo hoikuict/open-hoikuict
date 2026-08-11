@@ -1,6 +1,6 @@
 # 仕様書・設計文書一覧
 
-このページを、仕様書関係の入口とする。実装状況は2026年8月11日時点のリポジトリを基準にしている。
+このページを、仕様書関係の入口とする。実装状況は2026年8月12日時点のリポジトリを基準にしている。
 
 ## ステータスの意味
 
@@ -26,6 +26,7 @@
 | [延長保育料金・請求転送](extended-care-billing-transfer-spec.md) | 実装済み | プレビュー、転送・再転送・解除、競合処理、ロック、監査 |
 | [職員ポータル](staff-personal-portal-spec.md) | 実装済み | `/`、`/staff/portal`、`/staff/attention`、担当クラス・予定・要確認・タイムライン |
 | [職員権限・請求口座情報](staff-permissions-and-billing-accounts-spec.md) | 実装済み | 集約権限画面、園児台帳管理・請求口座管理権限、口座情報の秘匿、監査ログ |
+| [保護者向けプッシュ通知](parent-push-notification-spec.md) | 計画 | アプリ内通知と配送キューの基盤は一部存在。ブラウザ購読、Web Push実送信、端末別配送確認は未実装 |
 | [施設設定](facility-settings-spec.md) | 計画 | `FacilitySettings` と `/settings/facility` は未実装 |
 | [職員有給管理](paid-leave-management-spec.md) | 計画 | 有給台帳・申請・承認ルートとモデルは未実装 |
 
