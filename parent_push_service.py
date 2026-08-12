@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pywebpush import WebPushException, webpush
 
@@ -58,6 +59,18 @@ class ParentPushSendResult:
     provider_request_id: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+
+
+class ParentPushReceiptNotFoundError(Exception):
+    pass
+
+
+class ParentPushReceiptExpiredError(Exception):
+    pass
+
+
+class ParentPushReceiptStateError(Exception):
+    pass
 
 
 class ParentPushTransportProtocol(Protocol):
@@ -239,6 +252,69 @@ def generate_receipt_token() -> str:
 
 def hash_receipt_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def record_parent_push_receipt(
+    session: Session,
+    *,
+    target_id: int,
+    event: Literal["shown", "clicked"],
+    token: str,
+    now: datetime | None = None,
+) -> ParentPushDeliveryTarget:
+    recorded_at = now or utc_now()
+    target = session.get(ParentPushDeliveryTarget, target_id)
+    if target is None:
+        raise ParentPushReceiptNotFoundError
+    delivery = session.get(ParentNotificationDelivery, target.delivery_id)
+    if delivery is None:
+        raise ParentPushReceiptNotFoundError
+    if delivery.expires_at is not None and ensure_utc(delivery.expires_at) <= ensure_utc(
+        recorded_at
+    ):
+        raise ParentPushReceiptExpiredError
+
+    expected_hash = (
+        target.shown_receipt_token_hash
+        if event == "shown"
+        else target.clicked_receipt_token_hash
+    )
+    presented_hash = hash_receipt_token(token)
+    if not expected_hash or not hmac.compare_digest(expected_hash, presented_hash):
+        raise ParentPushReceiptNotFoundError
+
+    allowed_statuses = {
+        ParentPushDeliveryTargetStatus.accepted,
+        ParentPushDeliveryTargetStatus.shown,
+        ParentPushDeliveryTargetStatus.clicked,
+    }
+    if target.status not in allowed_statuses:
+        raise ParentPushReceiptStateError
+
+    changed = False
+    if event == "shown" and target.shown_at is None:
+        target.shown_at = recorded_at
+        if target.status != ParentPushDeliveryTargetStatus.clicked:
+            target.status = ParentPushDeliveryTargetStatus.shown
+        changed = True
+    elif event == "clicked" and target.clicked_at is None:
+        target.clicked_at = recorded_at
+        target.status = ParentPushDeliveryTargetStatus.clicked
+        changed = True
+
+    if changed:
+        target.updated_at = recorded_at
+        session.add(target)
+        recompute_delivery_summary(session, delivery, now=recorded_at)
+        logger.info(
+            "parent push receipt recorded",
+            extra={
+                "push_delivery_id": delivery.id,
+                "push_target_id": target.id,
+                "push_receipt_event": event,
+            },
+        )
+    return target
 
 
 def build_push_payload(

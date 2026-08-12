@@ -25,6 +25,12 @@ from parent_push_subscription_service import (
     set_parent_push_device_cookie,
     update_parent_push_preference,
 )
+from parent_push_service import (
+    ParentPushReceiptExpiredError,
+    ParentPushReceiptNotFoundError,
+    ParentPushReceiptStateError,
+    record_parent_push_receipt,
+)
 from security_config import deployment_environment, parent_push_vapid_public_key
 from template_utils import create_templates
 
@@ -72,6 +78,10 @@ class ParentPushEndpointInput(BaseModel):
 class ParentPushPreferenceInput(BaseModel):
     push_enabled: bool
     attendance_confirmation_enabled: bool
+
+
+class ParentPushReceiptInput(BaseModel):
+    token: str = Field(min_length=20, max_length=256)
 
 
 @settings_router.get("/push-settings", response_class=HTMLResponse)
@@ -146,6 +156,24 @@ def get_public_key(
     _require_parent_account(request, session)
     public_key = parent_push_vapid_public_key()
     return {"available": bool(public_key), "public_key": public_key or None}
+
+
+@router.post("/receipts/{target_id}/shown")
+def record_shown_receipt(
+    target_id: int,
+    payload: ParentPushReceiptInput,
+    session: Session = Depends(get_session),
+):
+    return _record_receipt(session, target_id=target_id, event="shown", token=payload.token)
+
+
+@router.post("/receipts/{target_id}/clicked")
+def record_clicked_receipt(
+    target_id: int,
+    payload: ParentPushReceiptInput,
+    session: Session = Depends(get_session),
+):
+    return _record_receipt(session, target_id=target_id, event="clicked", token=payload.token)
 
 
 @router.post("/subscriptions")
@@ -243,6 +271,31 @@ def save_preferences(
         "push_enabled": preference.push_enabled,
         "attendance_confirmation_enabled": preference.attendance_confirmation_enabled,
     }
+
+
+def _record_receipt(
+    session: Session,
+    *,
+    target_id: int,
+    event: str,
+    token: str,
+):
+    try:
+        target = record_parent_push_receipt(
+            session,
+            target_id=target_id,
+            event=event,
+            token=token,
+        )
+    except ParentPushReceiptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Receiptが見つかりません") from exc
+    except ParentPushReceiptExpiredError as exc:
+        raise HTTPException(status_code=410, detail="Receiptの有効期限が切れています") from exc
+    except ParentPushReceiptStateError as exc:
+        raise HTTPException(status_code=409, detail="Receiptを記録できない状態です") from exc
+    session.commit()
+    session.refresh(target)
+    return {"status": "recorded", "event": event}
 
 
 def _require_parent_account(request: Request, session: Session) -> ParentAccount:
