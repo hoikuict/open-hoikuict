@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlmodel import Session, select
 
@@ -15,7 +15,7 @@ from models import (
     ParentNotificationDelivery,
     ParentNotificationKind,
 )
-from time_utils import utc_now
+from time_utils import ensure_utc, utc_now
 
 
 ATTENDANCE_CONFIRMATION_TITLE = "本日の出欠確認のお願い"
@@ -31,12 +31,7 @@ def notify_attendance_confirmation_needed(
     created_by_name: str,
     now: datetime | None = None,
 ) -> list[ParentNotification]:
-    """Create in-app notifications for every active guardian linked to a child.
-
-    Notifications are independent from delivery records. A future push worker can
-    add a ``push`` delivery to the same notification without changing attendance
-    check logic.
-    """
+    """Create in-app and queued push deliveries for each active linked guardian."""
     if child.id is None:
         return []
 
@@ -81,6 +76,15 @@ def notify_attendance_confirmation_needed(
                 updated_at=created_at,
             )
         )
+        queue_push_delivery(
+            session,
+            notification,
+            now=created_at,
+            expires_at=attendance_confirmation_push_expires_at(
+                target_date=target_date,
+                created_at=created_at,
+            ),
+        )
         notifications.append(notification)
     return notifications
 
@@ -90,8 +94,9 @@ def queue_push_delivery(
     notification: ParentNotification,
     *,
     now: datetime | None = None,
+    expires_at: datetime | None = None,
 ) -> ParentNotificationDelivery | None:
-    """Queue a push delivery for a future push-notification worker."""
+    """Queue an idempotent push delivery for the background worker."""
     if notification.id is None:
         return None
     existing = session.exec(
@@ -108,8 +113,25 @@ def queue_push_delivery(
         notification_id=notification.id,
         channel=NotificationDeliveryChannel.push,
         status=NotificationDeliveryStatus.pending,
+        expires_at=expires_at,
         created_at=created_at,
         updated_at=created_at,
     )
     session.add(delivery)
     return delivery
+
+
+def attendance_confirmation_push_expires_at(
+    *,
+    target_date: date,
+    created_at: datetime,
+) -> datetime:
+    created_utc = ensure_utc(created_at)
+    if created_utc is None:
+        raise ValueError("通知作成日時が必要です")
+    next_local_midnight = datetime.combine(
+        target_date + timedelta(days=1),
+        time.min,
+        tzinfo=timezone(timedelta(hours=9), name="JST"),
+    ).astimezone(timezone.utc)
+    return min(created_utc + timedelta(hours=6), next_local_midnight)

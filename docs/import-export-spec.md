@@ -1,5 +1,10 @@
 # インポート・エクスポート機能仕様
 
+- 現況再確認: 2026-08-11
+- 実装状況: 初期実装済み
+
+現在は`routers/data_transfers.py`と`data_transfer_service.py`で、クラス、家庭、園児、保護者アカウント、保護者・園児紐付けのCSV/Excelテンプレート、エクスポート、事前検証、確定処理を提供する。認可施設帳票の出力も同じ画面へ統合されている。
+
 ## 目的
 
 園児、家庭、保護者、クラスなどの基本情報を、CSV または Excel ファイルで取り込み・出力できるようにする。
@@ -288,9 +293,9 @@ ID と名称のように同じ参照先を示す列が両方指定されてい�
 
 ## 権限
 
-- インポートは職員ログイン済み、かつ編集可能な権限を持つユーザーのみ実行できる。
-- エクスポートも個人情報を含むため、職員ログイン済みユーザーに限定する。
-- 閲覧専用ユーザーはエクスポート可否を別途設定できるようにする。初期実装では不可とする。
+- テンプレート取得、インポート、エクスポートは、職員ログイン済みかつ園児台帳管理権限`can_manage_child_records`を持つユーザーに限定する。
+- `admin`は園児台帳管理権限を常に持つ。`can_edit`だけでは利用できない。
+- `view_only`には業務別権限を付与しないため利用できない。
 
 ## 実行履歴
 
@@ -309,19 +314,18 @@ ID と名称のように同じ参照先を示す列が両方指定されてい�
 
 エクスポート履歴は初期実装では必須としない。ただし、本番運用時には個人情報の持ち出し履歴として追加を検討する。
 
-## API・ルーティング案
+## API・ルーティング
 
 画面と処理は専用ルータに分離する。
 
 | メソッド | パス | 用途 |
 | --- | --- | --- |
 | GET | `/data-transfers/` | インポート・エクスポート画面 |
-| GET | `/data-transfers/templates/{dataset}.csv` | CSV テンプレートダウンロード |
-| GET | `/data-transfers/templates/{dataset}.xlsx` | Excel テンプレートダウンロード |
-| GET | `/data-transfers/export/{dataset}.csv` | CSV エクスポート |
-| GET | `/data-transfers/export/{dataset}.xlsx` | Excel エクスポート |
+| GET | `/data-transfers/templates/{file_name}` | CSV / Excelテンプレートダウンロード。`file_name`は`{dataset}.csv`または`{dataset}.xlsx` |
+| GET | `/data-transfers/export/{file_name}` | CSV / Excelエクスポート。`file_name`は`{dataset}.csv`または`{dataset}.xlsx` |
 | POST | `/data-transfers/import/{dataset}/preview` | インポート事前検証 |
 | POST | `/data-transfers/import/{dataset}/commit` | インポート確定 |
+| POST | `/data-transfers/ninka/export` | 認可施設帳票Excel出力 |
 
 `dataset` は以下の値を使用する。
 

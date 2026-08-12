@@ -52,6 +52,7 @@ from routers.classrooms import router as classrooms_router
 from routers.data_transfers import router as data_transfers_router
 from routers.data_transfers import _cleanup_stale_previews
 from routers.daily_contacts import router as daily_contacts_router
+from routers.dev_parent_push import router as dev_parent_push_router
 from routers.extended_care_fees import router as extended_care_fees_router
 from routers.families import router as families_router
 from routers.guardian import router as guardian_router
@@ -63,6 +64,8 @@ from routers.notices import router as notices_router
 from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import mock_login_router as parent_portal_mock_login_router
 from routers.parent_portal import router as parent_portal_router
+from routers.parent_push import router as parent_push_router
+from routers.parent_push import settings_router as parent_push_settings_router
 from routers.staff_auth import mock_login_router as staff_mock_login_router
 from routers.staff_auth import router as staff_auth_router
 from routers.staff_portal import router as staff_portal_router
@@ -78,10 +81,12 @@ from plan_docs.routers.bunrei import router as plan_docs_bunrei_router
 from plan_docs.routers.documents import router as plan_docs_documents_router
 from plan_docs.routers.home import router as plan_docs_home_router
 from plan_docs.routers.plans import router as plan_docs_plans_router
+from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
+from parent_push_operations import apply_parent_push_retention
 from url_utils import safe_internal_redirect
 from auth import mock_auth_enabled, require_mock_staff_auth, staff_auth_http_exception_handler
 from csrf import CsrfTokenMiddleware, verify_csrf
-from security_config import validate_runtime_security
+from security_config import deployment_environment, validate_runtime_security
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -110,6 +115,7 @@ def initialize_application() -> None:
         return
 
     create_db_and_tables()
+    apply_parent_push_retention()
     seed_classroom_data()
     seed_extended_care_fee_rules()
     seed_sample_data()
@@ -125,13 +131,17 @@ def initialize_application() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     initialize_application()
-    cleanup_task = asyncio.create_task(_preview_cleanup_loop())
+    background_tasks = [asyncio.create_task(_preview_cleanup_loop())]
+    if parent_push_worker_enabled():
+        background_tasks.append(asyncio.create_task(parent_push_worker_loop()))
     try:
         yield
     finally:
-        cleanup_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await cleanup_task
+        for task in background_tasks:
+            task.cancel()
+        for task in background_tasks:
+            with suppress(asyncio.CancelledError):
+                await task
 
 
 async def _preview_cleanup_loop() -> None:
@@ -226,9 +236,13 @@ app.include_router(billing_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
+app.include_router(parent_push_router)
+app.include_router(parent_push_settings_router)
 app.include_router(calendar_router)
 app.include_router(staff_auth_router)
 app.include_router(institutional_records_router)
+if deployment_environment() == "development" or is_public_demo_enabled():
+    app.include_router(dev_parent_push_router)
 app.include_router(highlights_router)
 app.include_router(event_series_router)
 app.include_router(meeting_notes_router)

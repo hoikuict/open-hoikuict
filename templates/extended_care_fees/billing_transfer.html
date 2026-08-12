@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}延長保育料金の請求転送 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
+  <div>
+    <h1 class="text-xl font-bold text-gray-700">延長保育料金の請求転送</h1>
+    <p class="text-sm text-gray-500 mt-1">{{ preview.month }} の確認済み料金を同月の請求入力へ転送します。</p>
+  </div>
+  <a href="/extended-care-fees/?month={{ preview.month }}" class="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50">月次集計へ戻る</a>
+</div>
+
+{% if message %}
+<div class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ error }}</div>
+{% endif %}
+
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">状態</p>
+    <p class="mt-1 text-lg font-semibold text-gray-800">{{ preview.status_label }}</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">対象園児</p>
+    <p class="mt-1 text-lg font-semibold text-gray-800">{{ preview.target_child_count }} 名</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">対象明細</p>
+    <p class="mt-1 text-lg font-semibold text-gray-800">{{ preview.target_charge_count }} 件</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">転送予定額</p>
+    <p class="mt-1 text-lg font-semibold text-blue-700">{{ "{:,}".format(preview.target_amount) }} 円</p>
+  </div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <p class="text-xs text-gray-500">現在の転送額</p>
+    <p class="mt-1 text-lg font-semibold text-gray-800">{{ "{:,}".format(preview.current_amount) }} 円</p>
+  </div>
+</div>
+
+{% if preview.errors %}
+<div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+  <p class="font-medium">転送前に次の内容を確認してください。</p>
+  <ul class="mt-2 list-disc pl-5 space-y-1">
+    {% for item in preview.errors %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% if preview.warnings %}
+<div class="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  <ul class="space-y-1">{% for item in preview.warnings %}<li>{{ item }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+  <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h2 class="font-semibold text-gray-800">園児別転送内容</h2>
+      <p class="text-xs text-gray-500 mt-1">転送後は請求入力側の明細がロックされます。</p>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if preview.has_existing_transfer and preview.cycle and preview.cycle.status.value in ['draft', 'generated', 'confirmed'] %}
+      <form method="post" action="/extended-care-fees/billing-transfer/revert" onsubmit="return confirm('対象月の延長保育料金の請求転送を解除しますか？');">
+        <input type="hidden" name="month" value="{{ preview.month }}">
+        <button type="submit" class="px-3 py-1.5 border border-red-300 text-red-700 text-sm rounded hover:bg-red-50">転送を解除</button>
+      </form>
+      {% endif %}
+      {% if preview.can_transfer and preview.has_changes %}
+      <form method="post" action="/extended-care-fees/billing-transfer">
+        <input type="hidden" name="month" value="{{ preview.month }}">
+        <button type="submit" class="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
+          {% if preview.has_existing_transfer %}差分を再転送{% else %}請求へ転送{% endif %}
+        </button>
+      </form>
+      {% elif preview.can_transfer %}
+      <span class="text-sm text-green-700">転送内容は最新です</span>
+      {% endif %}
+    </div>
+  </div>
+  <form id="manual-conflict-delete-form" method="post" action="/extended-care-fees/billing-transfer/manual-conflict" class="hidden">
+    <input type="hidden" name="month" value="{{ preview.month }}">
+  </form>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-indigo-50 text-indigo-800">
+        <tr>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">園児名</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">クラス</th>
+          <th class="px-4 py-2 text-right font-medium whitespace-nowrap">日別件数</th>
+          <th class="px-4 py-2 text-right font-medium whitespace-nowrap">延長分数</th>
+          <th class="px-4 py-2 text-right font-medium whitespace-nowrap">転送予定額</th>
+          <th class="px-4 py-2 text-right font-medium whitespace-nowrap">現在額</th>
+          <th class="px-4 py-2 text-right font-medium whitespace-nowrap">差額</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">状態</th>
+          <th class="px-4 py-2 text-left font-medium whitespace-nowrap no-print">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for row in preview.child_rows %}
+        <tr class="{% if row.errors %}bg-red-50{% elif row.has_changes %}bg-blue-50{% else %}hover:bg-gray-50{% endif %}">
+          <td class="px-4 py-2 font-medium text-gray-800 whitespace-nowrap">{{ row.child_name }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ row.classroom_name or '—' }}</td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">{{ row.charge_count }} 件</td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">{{ row.extended_minutes }} 分</td>
+          <td class="px-4 py-2 text-right font-semibold text-blue-700 whitespace-nowrap">{{ "{:,}".format(row.target_amount) }} 円</td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">{{ "{:,}".format(row.current_amount) }} 円</td>
+          <td class="px-4 py-2 text-right whitespace-nowrap">{{ "+" if row.difference > 0 else "" }}{{ "{:,}".format(row.difference) }} 円</td>
+          <td class="px-4 py-2 whitespace-nowrap">
+            <span class="rounded-full bg-white border border-gray-200 px-2 py-0.5 text-xs">{{ row.state }}</span>
+            {% for item in row.errors %}<div class="mt-1 text-xs text-red-700">{{ item }}</div>{% endfor %}
+          </td>
+          <td class="px-4 py-2 whitespace-nowrap no-print">
+            {% if row.needs_billing_correction and preview.cycle %}
+            <div class="flex items-center gap-2">
+              <button type="submit" form="manual-conflict-delete-form" name="child_id" value="{{ row.child_id }}" class="px-3 py-1.5 border border-red-300 bg-red-50 text-red-700 text-xs font-medium rounded hover:bg-red-100">競合手入力を削除</button>
+              <a href="/billing/cycles/{{ preview.cycle.id }}/child-charges?return_month={{ preview.month }}#billing-child-{{ row.child_id }}" class="inline-flex px-3 py-1.5 border border-indigo-300 bg-white text-indigo-700 text-xs font-medium rounded hover:bg-indigo-50">請求入力を開く</a>
+            </div>
+            {% else %}
+            <span class="text-gray-400">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">転送対象がありません</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if preview.cycle %}
+<div class="mt-4 text-sm">
+  <a href="/billing/cycles/{{ preview.cycle.id }}/child-charges" class="text-indigo-700 hover:underline">{{ preview.month }} の請求入力を確認</a>
+</div>
+{% endif %}
+{% endblock %}

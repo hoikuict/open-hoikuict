@@ -11,7 +11,10 @@
     <p class="mt-2 text-sm text-slate-500">{{ cycle.year_month }} / 振替日 {{ cycle.withdrawal_date }}</p>
   </div>
   <div class="flex flex-wrap items-center gap-2">
-    <span class="rounded bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">{{ cycle.status.value }}</span>
+    <span class="rounded bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600">{{ cycle_status_label }}</span>
+    {% if return_month %}
+    <a href="/extended-care-fees/billing-transfer?month={{ return_month }}" class="rounded border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">転送確認へ戻る</a>
+    {% endif %}
     <a href="/billing/" class="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">請求一覧へ戻る</a>
   </div>
 </div>
@@ -21,6 +24,11 @@
 {% endif %}
 {% if error %}
 <div class="mb-4 rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>
+{% endif %}
+{% if return_month %}
+<div class="mb-4 rounded border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+  競合を解消するには、対象園児の「延長保育料」を空欄または0円にして保存してください。自動計算額は請求転送後に登録されます。
+</div>
 {% endif %}
 
 <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -44,6 +52,7 @@
 
   {% if can_edit_table %}
   <form id="child-charge-table" method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/table">
+    {% if return_month %}<input type="hidden" name="return_month" value="{{ return_month }}">{% endif %}
   {% endif %}
     <div class="overflow-x-auto">
       <table class="min-w-[980px] divide-y divide-slate-200 text-sm">
@@ -70,14 +79,14 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
           {% for row in table_rows %}
-          <tr class="hover:bg-slate-50">
+          <tr id="billing-child-{{ row.child.id }}" class="scroll-mt-4 hover:bg-slate-50 target:bg-indigo-100 target:ring-2 target:ring-inset target:ring-indigo-400">
             <td class="sticky left-0 z-10 bg-white px-4 py-3">
               <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}" class="font-semibold text-indigo-700 hover:underline">{{ row.child.full_name }}</a>
               <div class="mt-1 text-xs text-slate-400">ID {{ row.child.id }}</div>
             </td>
             <td class="px-4 py-3 text-xs text-slate-600">
               {% if row.profile %}
-              <div class="font-medium text-slate-700">{{ row.profile.direct_debit_status.value }}</div>
+              <div class="font-medium text-slate-700">{{ row.profile_status_label }}</div>
               <div class="mt-1 font-mono text-[11px] text-slate-400">{{ row.profile.customer_number }}</div>
               {% else %}
               <span class="text-slate-400">未設定</span>
@@ -88,6 +97,7 @@
             </td>
             {% for column in charge_columns %}
             {% set amount = row.amounts.get(column.code, 0) %}
+            {% set is_locked = column.code in row.locked_codes %}
             <td class="px-3 py-2 {% if column.category == 'monthly' %}bg-sky-50/30{% elif column.category == 'temporary' %}bg-amber-50/30{% else %}bg-rose-50/30{% endif %}">
               <input
                 name="amount_{{ column.code }}_{{ row.child.id }}"
@@ -95,15 +105,23 @@
                 inputmode="numeric"
                 value="{% if amount != 0 %}{{ amount }}{% endif %}"
                 class="h-9 w-28 rounded border border-slate-300 bg-white px-2 text-right text-sm font-medium text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
-                {% if not can_edit_table %}disabled{% endif %}
+                {% if not can_edit_table or is_locked %}disabled{% endif %}
               >
+              {% if is_locked %}
+              <div class="mt-1 text-center text-[10px] font-medium text-blue-700">自動転送・ロック</div>
+              {% endif %}
             </td>
             {% endfor %}
             <td class="px-4 py-3 text-right font-semibold {% if row.row_total < 0 %}text-rose-700{% else %}text-slate-900{% endif %}">
               {{ "{:,}".format(row.row_total) }}円
             </td>
             <td class="px-4 py-3 text-right">
-              <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}" class="rounded border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">詳細</a>
+              <div class="flex justify-end gap-2">
+                {% if can_manage_billing_accounts %}
+                <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}#account-profile" class="rounded border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100">口座入力</a>
+                {% endif %}
+                <a href="/billing/cycles/{{ cycle.id }}/child-charges/{{ row.child.id }}" class="rounded border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">請求詳細</a>
+              </div>
             </td>
           </tr>
           {% else %}
@@ -147,14 +165,19 @@
             <span class="text-slate-400">園児未設定</span>
             {% endif %}
           </td>
-          <td class="px-5 py-3 text-slate-700">{{ row.line.description }}</td>
+          <td class="px-5 py-3 text-slate-700">
+            {{ row.line.description }}
+            {% if row.line.source_type.value == 'extension_auto' %}
+            <span class="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">延長保育から自動転送</span>
+            {% endif %}
+          </td>
           <td class="px-5 py-3 text-slate-500">{{ row.line.source_date or "-" }}</td>
           <td class="px-5 py-3 text-right font-medium {% if row.line.amount < 0 %}text-rose-700{% else %}text-slate-900{% endif %}">
             {{ "{:,}".format(row.line.amount) }}円
           </td>
           <td class="px-5 py-3">
             {% if row.claim %}
-            <span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.claim.status.value }}</span>
+            <span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.claim_status_label }}</span>
             {% else %}
             <span class="text-slate-400">-</span>
             {% endif %}

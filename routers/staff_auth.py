@@ -1,4 +1,5 @@
 from datetime import date
+from urllib.parse import urlencode
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -25,7 +26,13 @@ from models import (
     Classroom,
     StaffClassroomAssignment,
     StaffClassroomAssignmentRole,
+    StaffPermissionChangeLog,
     User,
+)
+from staff_permissions import (
+    STAFF_PERMISSION_DEFINITIONS,
+    add_permission_change_logs,
+    require_live_admin,
 )
 from staff_user_service import list_active_staff_users
 from time_utils import local_today, utc_now
@@ -86,6 +93,12 @@ def _normalize_source_filter(raw_source: str) -> str:
     return raw_source if raw_source in STAFF_SOURCE_FILTER_VALUES else "all"
 
 
+def _permissions_redirect(**params: str) -> RedirectResponse:
+    query = urlencode({key: value for key, value in params.items() if value})
+    suffix = f"?{query}" if query else ""
+    return RedirectResponse(url=f"/staff/permissions{suffix}", status_code=303)
+
+
 def _staff_source_counts(session: Session) -> dict[str, int]:
     counts = {"all": 0}
     for source in session.exec(select(User.provisioning_source)).all():
@@ -114,6 +127,7 @@ def _staff_form_data(
 ) -> dict[str, object]:
     if user:
         return {
+            "user_id": str(user.id),
             "display_name": user.display_name,
             "email": user.email,
             "staff_role": user.staff_role,
@@ -122,6 +136,7 @@ def _staff_form_data(
             "is_active": user.is_active,
         }
     return {
+        "user_id": "",
         "display_name": display_name,
         "email": email,
         "staff_role": staff_role,
@@ -184,6 +199,7 @@ def _render_staff_user_form(
             "form_data": form_data,
             "form_error": form_error,
             "staff_role_options": STAFF_ROLE_OPTIONS,
+            "is_new": action_url == "/staff/users",
         },
     )
 
@@ -276,6 +292,130 @@ def staff_user_list(
     )
 
 
+@router.get("/permissions", response_class=HTMLResponse)
+def staff_permissions_page(
+    request: Request,
+    q: str = "",
+    role: str = "",
+    status: str = "active",
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_live_admin(session, current_user)
+    selected_role = role if role in {value for value, _label in STAFF_ROLE_OPTIONS} else ""
+    selected_status = status if status in {"all", "active", "inactive"} else "active"
+    query = q.strip().casefold()
+
+    users = session.exec(
+        select(User).order_by(User.staff_sort_order, User.display_name, User.email)
+    ).all()
+    if selected_status == "active":
+        users = [user for user in users if user.is_active]
+    elif selected_status == "inactive":
+        users = [user for user in users if not user.is_active]
+    if selected_role:
+        users = [user for user in users if user.staff_role == selected_role]
+    if query:
+        users = [
+            user
+            for user in users
+            if query in user.display_name.casefold() or query in user.email.casefold()
+        ]
+
+    latest_log_by_user: dict[UUID, StaffPermissionChangeLog] = {}
+    logs = session.exec(
+        select(StaffPermissionChangeLog).order_by(
+            StaffPermissionChangeLog.changed_at.desc(),
+            StaffPermissionChangeLog.id.desc(),
+        )
+    ).all()
+    for log in logs:
+        latest_log_by_user.setdefault(log.target_user_id, log)
+
+    rows = [
+        {"user": user, "latest_log": latest_log_by_user.get(user.id)}
+        for user in users
+    ]
+    return templates.TemplateResponse(
+        request,
+        "staff_auth/permissions.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "rows": rows,
+            "permission_definitions": STAFF_PERMISSION_DEFINITIONS,
+            "staff_role_options": STAFF_ROLE_OPTIONS,
+            "filters": {"q": q.strip(), "role": selected_role, "status": selected_status},
+            "message": request.query_params.get("message", ""),
+            "error": request.query_params.get("error", ""),
+        },
+    )
+
+
+@router.post("/permissions/{user_id}")
+def update_staff_permissions(
+    user_id: UUID,
+    staff_role: str = Form("can_edit"),
+    can_manage_child_records: str = Form(""),
+    can_manage_billing_accounts: str = Form(""),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    actor = require_live_admin(session, current_user)
+    target_user = session.get(User, user_id)
+    if target_user is None:
+        return _permissions_redirect(error="対象の職員が見つかりません。")
+
+    next_role = _normalize_staff_role(staff_role)
+    role_error = _role_change_error(
+        session=session,
+        target_user=target_user,
+        current_user=current_user,
+        next_role=next_role,
+        next_is_active=target_user.is_active,
+    )
+    if role_error:
+        return _permissions_redirect(error=role_error)
+
+    if next_role == "admin":
+        next_can_manage_child_records = target_user.can_manage_child_records
+        next_can_manage_billing_accounts = target_user.can_manage_billing_accounts
+    elif next_role == "can_edit" and target_user.staff_role != "admin":
+        next_can_manage_child_records = _checked(can_manage_child_records)
+        next_can_manage_billing_accounts = _checked(can_manage_billing_accounts)
+    else:
+        next_can_manage_child_records = False
+        next_can_manage_billing_accounts = False
+
+    changes = [
+        ("staff_role", target_user.staff_role, next_role),
+        (
+            "can_manage_child_records",
+            target_user.can_manage_child_records,
+            next_can_manage_child_records,
+        ),
+        (
+            "can_manage_billing_accounts",
+            target_user.can_manage_billing_accounts,
+            next_can_manage_billing_accounts,
+        ),
+    ]
+    add_permission_change_logs(
+        session,
+        target_user=target_user,
+        actor=actor,
+        changes=changes,
+    )
+    target_user.staff_role = next_role
+    target_user.is_calendar_admin = next_role == "admin"
+    target_user.can_manage_child_records = next_can_manage_child_records
+    target_user.can_manage_billing_accounts = next_can_manage_billing_accounts
+    target_user.updated_at = utc_now()
+    session.add(target_user)
+    session.commit()
+    return _permissions_redirect(message=f"{target_user.display_name}さんの権限を更新しました。")
+
+
 @router.get("/users/new", response_class=HTMLResponse)
 def new_staff_user_form(
     request: Request,
@@ -305,7 +445,7 @@ def create_staff_user(
 ):
     require_admin(current_user)
     next_role = _normalize_staff_role(staff_role)
-    next_can_manage_child_records = _checked(can_manage_child_records) or next_role == "admin"
+    next_can_manage_child_records = False
     next_is_active = _checked(is_active)
     form_data = _staff_form_data(
         display_name=display_name,
@@ -366,8 +506,6 @@ def update_staff_user(
     user_id: UUID,
     display_name: str = Form(...),
     email: str = Form(...),
-    staff_role: str = Form("can_edit"),
-    can_manage_child_records: str = Form(""),
     staff_sort_order: int = Form(100),
     is_active: str = Form(""),
     session: Session = Depends(get_session),
@@ -378,8 +516,8 @@ def update_staff_user(
     if user is None:
         return RedirectResponse(url="/staff/users", status_code=303)
 
-    next_role = _normalize_staff_role(staff_role)
-    next_can_manage_child_records = _checked(can_manage_child_records) or next_role == "admin"
+    next_role = user.staff_role
+    next_can_manage_child_records = user.can_manage_child_records
     next_is_active = _checked(is_active)
     form_data = _staff_form_data(
         display_name=display_name,

@@ -2,14 +2,23 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_can_edit
+from auth import get_current_staff_user, require_admin, require_can_edit
 from database import get_session
+from extended_care_billing_transfer_service import (
+    ExtendedCareBillingTransferError,
+    build_extended_care_transfer_preview,
+    get_extended_care_billing_setting,
+    remove_manual_extended_care_billing_conflict,
+    revert_extended_care_transfer,
+    transfer_extended_care_charges,
+    validate_extended_care_billing_setting,
+)
 from extended_care_fee_service import (
     adjust_charge,
     build_monthly_csv,
@@ -20,7 +29,12 @@ from extended_care_fee_service import (
     recalculate_period,
     validate_fee_rule,
 )
-from models import Classroom, ExtendedCareCharge, ExtendedCareFeeRule
+from models import (
+    Classroom,
+    ExtendedCareBillingSetting,
+    ExtendedCareCharge,
+    ExtendedCareFeeRule,
+)
 from time_utils import local_today, utc_now
 
 
@@ -38,11 +52,17 @@ def extended_care_fees_index(
     child_name: Optional[str] = Query(default=None),
     unconfirmed_only: Optional[str] = Query(default=None),
     recalculated: Optional[str] = Query(default=None),
+    message: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+    open_child_id: Optional[int] = Query(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     filters = _build_filters(month, classroom_id, child_name, unconfirmed_only)
     overview = build_monthly_overview(session, **filters)
+    billing_setting = get_extended_care_billing_setting(session)
+    billing_preview = build_extended_care_transfer_preview(session, filters["month"])
+    review_filters = {**filters, "unconfirmed_only": True}
     classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
 
     return templates.TemplateResponse(
@@ -55,8 +75,14 @@ def extended_care_fees_index(
             "classroom_options": classrooms,
             "filters": filters,
             "current_query_string": urlencode(_query_params(filters)),
+            "review_query_string": urlencode(_query_params(review_filters)),
             "current_url": _current_url(request),
             "recalculated": recalculated,
+            "message": message,
+            "error": error,
+            "billing_setting": billing_setting,
+            "billing_preview": billing_preview,
+            "open_child_id": open_child_id,
         },
     )
 
@@ -113,19 +139,153 @@ def recalculate_extended_care_fees(
     return RedirectResponse(url=f"/extended-care-fees/?{urlencode(params)}", status_code=303)
 
 
+@router.get("/billing-transfer", response_class=HTMLResponse)
+def extended_care_billing_transfer_preview(
+    request: Request,
+    month: Optional[str] = Query(default=None),
+    message: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_can_edit(current_user)
+    normalized_month, _, _ = parse_month(month)
+    preview = build_extended_care_transfer_preview(session, normalized_month)
+    return templates.TemplateResponse(
+        request,
+        "extended_care_fees/billing_transfer.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "preview": preview,
+            "message": message,
+            "error": error,
+        },
+    )
+
+
+@router.post("/billing-transfer")
+def execute_extended_care_billing_transfer(
+    month: str = Form(...),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_can_edit(current_user)
+    normalized_month, _, _ = parse_month(month)
+    try:
+        result = transfer_extended_care_charges(
+            session,
+            normalized_month,
+            executed_by_user_id=current_user.user_id,
+            executed_by_name=current_user.name,
+        )
+        session.commit()
+    except ExtendedCareBillingTransferError as exc:
+        session.rollback()
+        params = {"month": normalized_month, "error": str(exc)}
+        return RedirectResponse(
+            url=f"/extended-care-fees/billing-transfer?{urlencode(params)}",
+            status_code=303,
+        )
+    if result.action == "none":
+        message = "転送済みの内容と一致しているため、変更はありませんでした。"
+    elif result.action == "retransfer":
+        message = f"{result.affected_child_count}名分の延長保育料金を再転送しました。"
+    else:
+        message = f"{result.affected_child_count}名分の延長保育料金を請求へ転送しました。"
+    params = {"month": normalized_month, "message": message}
+    return RedirectResponse(
+        url=f"/extended-care-fees/billing-transfer?{urlencode(params)}",
+        status_code=303,
+    )
+
+
+@router.post("/billing-transfer/revert")
+def revert_extended_care_billing_transfer_route(
+    month: str = Form(...),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_can_edit(current_user)
+    normalized_month, _, _ = parse_month(month)
+    try:
+        result = revert_extended_care_transfer(
+            session,
+            normalized_month,
+            executed_by_user_id=current_user.user_id,
+            executed_by_name=current_user.name,
+        )
+        session.commit()
+    except ExtendedCareBillingTransferError as exc:
+        session.rollback()
+        params = {"month": normalized_month, "error": str(exc)}
+        return RedirectResponse(
+            url=f"/extended-care-fees/billing-transfer?{urlencode(params)}",
+            status_code=303,
+        )
+    params = {
+        "month": normalized_month,
+        "message": f"{result.affected_child_count}名分の請求転送を解除しました。",
+    }
+    return RedirectResponse(
+        url=f"/extended-care-fees/billing-transfer?{urlencode(params)}",
+        status_code=303,
+    )
+
+
+@router.post("/billing-transfer/manual-conflict")
+def remove_extended_care_manual_conflict_route(
+    month: str = Form(...),
+    child_id: int = Form(...),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_can_edit(current_user)
+    normalized_month, _, _ = parse_month(month)
+    try:
+        removed_amount = remove_manual_extended_care_billing_conflict(
+            session,
+            normalized_month,
+            child_id=child_id,
+        )
+        session.commit()
+    except ExtendedCareBillingTransferError as exc:
+        session.rollback()
+        params = {"month": normalized_month, "error": str(exc)}
+        return RedirectResponse(
+            url=f"/extended-care-fees/billing-transfer?{urlencode(params)}",
+            status_code=303,
+        )
+    params = {
+        "month": normalized_month,
+        "message": f"競合していた手入力の延長保育料 {removed_amount:,}円を削除しました。",
+    }
+    return RedirectResponse(
+        url=f"/extended-care-fees/billing-transfer?{urlencode(params)}",
+        status_code=303,
+    )
+
+
 @router.post("/{charge_id}/confirm")
 def confirm_extended_care_charge(
     charge_id: int,
     return_url: str = Form(default="/extended-care-fees/"),
+    open_child_id: Optional[int] = Form(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     charge = _load_charge(session, charge_id)
-    confirm_charge(charge, current_user.name)
+    try:
+        confirm_charge(charge, current_user.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     session.add(charge)
     session.commit()
-    return RedirectResponse(url=_safe_return_url(return_url), status_code=303)
+    return RedirectResponse(
+        url=_return_url_with_open_child(return_url, open_child_id),
+        status_code=303,
+    )
 
 
 @router.post("/{charge_id}/adjust")
@@ -134,6 +294,7 @@ def adjust_extended_care_charge(
     adjustment_amount: str = Form(default="0"),
     adjustment_reason: str = Form(default=""),
     return_url: str = Form(default="/extended-care-fees/"),
+    open_child_id: Optional[int] = Form(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -143,10 +304,14 @@ def adjust_extended_care_charge(
         amount = int(adjustment_amount or "0")
         adjust_charge(charge, amount, adjustment_reason, current_user.name)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        status_code = 409 if charge.billing_charge_line_id is not None else 400
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
     session.add(charge)
     session.commit()
-    return RedirectResponse(url=_safe_return_url(return_url), status_code=303)
+    return RedirectResponse(
+        url=_return_url_with_open_child(return_url, open_child_id),
+        status_code=303,
+    )
 
 
 @router.post("/{charge_id}/exclude")
@@ -154,20 +319,28 @@ def exclude_extended_care_charge(
     charge_id: int,
     exclusion_reason: str = Form(default=""),
     return_url: str = Form(default="/extended-care-fees/"),
+    open_child_id: Optional[int] = Form(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     charge = _load_charge(session, charge_id)
-    exclude_charge(charge, exclusion_reason, current_user.name)
+    try:
+        exclude_charge(charge, exclusion_reason, current_user.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     session.add(charge)
     session.commit()
-    return RedirectResponse(url=_safe_return_url(return_url), status_code=303)
+    return RedirectResponse(
+        url=_return_url_with_open_child(return_url, open_child_id),
+        status_code=303,
+    )
 
 
 @router.get("/settings", response_class=HTMLResponse)
 def extended_care_fee_settings(
     request: Request,
+    message: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -181,6 +354,9 @@ def extended_care_fee_settings(
             "rules": rules,
             "errors": [],
             "form_values": _default_rule_form_values(),
+            "billing_setting": get_extended_care_billing_setting(session),
+            "billing_errors": [],
+            "message": message,
         },
     )
 
@@ -220,6 +396,55 @@ def create_extended_care_fee_rule(
     session.add(ExtendedCareFeeRule(**values))
     session.commit()
     return RedirectResponse(url="/extended-care-fees/settings", status_code=303)
+
+
+@router.post("/settings/billing", response_class=HTMLResponse)
+def update_extended_care_billing_setting(
+    request: Request,
+    is_enabled: Optional[str] = Form(default=None),
+    fee_item_code: str = Form(default="monthly_childcare"),
+    description_template: str = Form(default="延長保育料（{year}年{month}月分）"),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_admin(current_user)
+    cleaned_code = fee_item_code.strip()
+    cleaned_template = description_template.strip()
+    errors = validate_extended_care_billing_setting(
+        fee_item_code=cleaned_code,
+        description_template=cleaned_template,
+    )
+    setting = get_extended_care_billing_setting(session)
+    setting.is_enabled = _as_bool(is_enabled)
+    setting.fee_item_code = cleaned_code
+    setting.description_template = cleaned_template
+    setting.transfer_mode = "manual_monthly"
+    setting.target_month_rule = "same_month"
+    if errors:
+        return templates.TemplateResponse(
+            request,
+            "extended_care_fees/settings.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "rules": _list_rules(session),
+                "errors": [],
+                "form_values": _default_rule_form_values(),
+                "billing_setting": setting,
+                "billing_errors": errors,
+                "message": None,
+            },
+            status_code=400,
+        )
+    setting.updated_at = utc_now()
+    setting.updated_by_user_id = current_user.user_id
+    setting.updated_by_name = current_user.name
+    session.add(setting)
+    session.commit()
+    return RedirectResponse(
+        url=f"/extended-care-fees/settings?{urlencode({'message': '請求連携設定を更新しました。'})}",
+        status_code=303,
+    )
 
 
 @router.post("/settings/{rule_id}", response_class=HTMLResponse)
@@ -345,6 +570,9 @@ def _settings_response(
             "rules": _list_rules(session),
             "errors": errors,
             "form_values": form_values,
+            "billing_setting": get_extended_care_billing_setting(session),
+            "billing_errors": [],
+            "message": None,
         },
         status_code=400,
     )
@@ -403,6 +631,24 @@ def _safe_return_url(return_url: str) -> str:
     if return_url.startswith("/") and not return_url.startswith("//"):
         return return_url
     return "/extended-care-fees/"
+
+
+def _return_url_with_open_child(return_url: str, child_id: Optional[int]) -> str:
+    safe_url = _safe_return_url(return_url)
+    if child_id is None:
+        return safe_url
+    parts = urlsplit(safe_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["open_child_id"] = str(child_id)
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            f"extended-care-child-{child_id}",
+        )
+    )
 
 
 def _parse_date(raw: Optional[str]) -> Optional[date]:

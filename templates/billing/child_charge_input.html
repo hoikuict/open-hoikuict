@@ -8,7 +8,12 @@
     <h1 class="mt-1 text-2xl font-bold text-slate-900">{{ child.full_name }} の請求入力</h1>
     <p class="mt-2 text-sm text-slate-500">{{ cycle.year_month }} の園児別費用を登録します。</p>
   </div>
-  <a href="/billing/cycles/{{ cycle.id }}/child-charges" class="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">園児選択へ戻る</a>
+  <div class="flex flex-wrap gap-2">
+    {% if can_manage_billing_accounts %}
+    <a href="/billing/accounts" class="rounded border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">口座情報一覧へ戻る</a>
+    {% endif %}
+    <a href="/billing/cycles/{{ cycle.id }}/child-charges" class="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">園児選択へ戻る</a>
+  </div>
 </div>
 
 {% if message %}
@@ -51,7 +56,7 @@
         <button type="submit" class="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">追加する</button>
       </form>
       {% else %}
-      <p class="mt-4 text-sm text-slate-500">この請求月は {{ cycle.status.value }} のため編集できません。</p>
+      <p class="mt-4 text-sm text-slate-500">この請求月は「{{ cycle_status_label }}」のため編集できません。</p>
       {% if current_user and current_user.can_edit %}
       <form method="post" action="/billing/child-charges/{{ child.id }}/new-editable-cycle" class="mt-4">
         <button type="submit" class="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
@@ -68,19 +73,23 @@
         <div class="flex justify-between gap-4"><dt class="text-slate-500">園児ID</dt><dd class="font-medium">{{ child.id }}</dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">家族ID</dt><dd class="font-medium">{{ child.family_id or "-" }}</dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">家族請求合計</dt><dd class="font-medium">{% if claim %}{{ "{:,}".format(claim.total_amount) }}円{% else %}-{% endif %}</dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">請求状態</dt><dd class="font-medium">{% if claim %}{{ claim.status.value }}{% else %}-{% endif %}</dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-slate-500">請求状態</dt><dd class="font-medium">{{ claim_status_label }}</dd></div>
       </dl>
     </section>
 
     <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 class="text-lg font-semibold text-slate-900">口座情報</h2>
       <dl class="mt-4 space-y-2 text-sm">
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">支払方法</dt><dd class="font-medium">{% if profile %}{{ profile.payment_method.value }}{% else %}-{% endif %}</dd></div>
-        <div class="flex justify-between gap-4"><dt class="text-slate-500">振替状態</dt><dd class="font-medium">{% if profile %}{{ profile.direct_debit_status.value }}{% else %}-{% endif %}</dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-slate-500">支払方法</dt><dd class="font-medium">{{ profile_summary.payment_method }}</dd></div>
+        <div class="flex justify-between gap-4"><dt class="text-slate-500">振替状態</dt><dd class="font-medium">{{ profile_summary.direct_debit_status }}</dd></div>
+        {% if can_manage_billing_accounts %}
         <div class="flex justify-between gap-4"><dt class="text-slate-500">顧客番号</dt><dd class="font-mono text-xs font-medium">{% if profile %}{{ profile.customer_number }}{% else %}-{% endif %}</dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">銀行/支店</dt><dd class="font-medium">{% if profile %}{{ profile.bank_code or "-" }} / {{ profile.branch_code or "-" }}{% else %}-{% endif %}</dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">口座番号</dt><dd class="font-medium">{% if profile and profile.account_number %}****{{ profile.account_number[-4:] }}{% else %}-{% endif %}</dd></div>
         <div class="flex justify-between gap-4"><dt class="text-slate-500">新規コード</dt><dd class="font-medium">{% if profile %}{{ profile.new_code }}{% else %}-{% endif %}</dd></div>
+        {% else %}
+        <div class="flex justify-between gap-4"><dt class="text-slate-500">登録状況</dt><dd class="font-medium">{% if profile_summary.is_registered %}登録済み{% else %}未登録{% endif %}</dd></div>
+        {% endif %}
       </dl>
     </section>
   </aside>
@@ -103,11 +112,16 @@
         <tbody class="divide-y divide-slate-100">
           {% for row in line_rows %}
           <tr>
-            <td class="px-5 py-3 font-medium text-slate-900">{{ row.line.description }}</td>
+            <td class="px-5 py-3 font-medium text-slate-900">
+              {{ row.line.description }}
+              {% if row.line.source_type.value == 'extension_auto' %}
+              <span class="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800">延長保育から自動転送</span>
+              {% endif %}
+            </td>
             <td class="px-5 py-3 text-slate-500">{{ row.line.source_date or "-" }}</td>
             <td class="px-5 py-3 text-right">{{ row.line.quantity }}{{ row.line.unit_label or "" }}</td>
             <td class="px-5 py-3 text-right font-medium {% if row.line.amount < 0 %}text-rose-700{% else %}text-slate-900{% endif %}">{{ "{:,}".format(row.line.amount) }}円</td>
-            <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.claim.status.value }}</span></td>
+            <td class="px-5 py-3"><span class="rounded bg-slate-100 px-2 py-1 text-xs">{{ row.claim_status_label }}</span></td>
           </tr>
           {% else %}
           <tr><td colspan="5" class="px-5 py-10 text-center text-slate-400">この園児の明細はまだありません。</td></tr>
@@ -118,16 +132,16 @@
   </section>
 </div>
 
-<section class="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm">
+<section id="account-profile" class="mt-5 scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="border-b border-slate-200 px-5 py-4">
     <h2 class="text-lg font-semibold text-slate-900">家族口座情報の編集</h2>
   </div>
-  {% if current_user and current_user.can_edit %}
+  {% if can_manage_billing_accounts %}
   <form method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/{{ child.id }}/profile" class="grid gap-4 p-5 md:grid-cols-2 lg:grid-cols-4">
     <label class="block">
       <span class="text-sm font-medium text-slate-700">支払方法</span>
       <select name="payment_method" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
-        {% set method = profile.payment_method.value if profile else "direct_debit" %}
+        {% set method = profile.payment_method.name if profile else "direct_debit" %}
         <option value="direct_debit" {% if method == "direct_debit" %}selected{% endif %}>口座振替</option>
         <option value="cash" {% if method == "cash" %}selected{% endif %}>現金</option>
         <option value="bank_transfer" {% if method == "bank_transfer" %}selected{% endif %}>銀行振込</option>
@@ -200,7 +214,7 @@
     </div>
   </form>
   {% else %}
-  <p class="p-5 text-sm text-slate-500">口座情報を編集する権限がありません。</p>
+  <p class="p-5 text-sm text-slate-500">口座情報は管理者または請求・口座情報管理権限を持つ職員が管理します。</p>
   {% endif %}
 </section>
 {% endblock %}

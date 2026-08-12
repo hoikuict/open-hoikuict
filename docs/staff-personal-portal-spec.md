@@ -1,7 +1,9 @@
 # 職員ポータル（入口・個人ダッシュボード）機能仕様
 
-- 文書バージョン: 0.1（実装前レビュー用）
+- 文書バージョン: 0.2（実装反映）
 - 作成日: 2026-08-02
+- 現況再確認: 2026-08-11
+- ステータス: MVP実装済み
 - 対象: open-hoikuict
 - 想定利用者: 保育施設の職員、管理者
 
@@ -21,7 +23,7 @@
 4. 園児名、出欠、健康情報、職員名、予定、お知らせ、職員限定連絡等の業務情報は未ログイン画面に一切表示しない。
 5. ログイン後は、今日の予定、担当クラスの出席状況、要確認事項、よく使う機能を表示する。
 6. ポータル上では原則として閲覧と画面遷移だけを行い、出欠打刻、予定編集、回答入力等は既存画面で行う。
-7. 現行データモデルに職員と担当クラスの正式な紐付けがないため、担当クラス割当モデルを追加する。
+7. 職員と担当クラスは`StaffClassroomAssignment`で正式に紐付ける。
 8. 初期表示はサーバーサイドレンダリングとし、自動更新やカードの並べ替えは初期対象外とする。
 
 ## 3. 用語
@@ -273,7 +275,7 @@ MVPでは次を表示する。
 
 ポータル専用に出欠や予定を複製せず、既存モデルを正とする。
 
-### 8.2 新規 `staff_classroom_assignments`
+### 8.2 `staff_classroom_assignments`
 
 | カラム | 型 | 内容 |
 | --- | --- | --- |
@@ -320,11 +322,11 @@ MVPでは次を表示する。
 
 サーバーログには相関ID、職員ID、失敗したカード種別、例外を記録する。園児名、予定本文、アンケート回答本文をログへ出力しない。
 
-## 10. サーバー構成案
+## 10. サーバー構成
 
 ### 10.1 ルーター
 
-`routers/staff_portal.py` を追加し、次の責務を持たせる。
+`routers/staff_portal.py`が次の責務を持つ。`GET /staff/portal`は同じ職員ホームのログイン必須別名、`GET /staff/attention`は要確認事項の全件画面である。
 
 ```text
 GET /
@@ -352,12 +354,8 @@ GET /
 
 ```text
 templates/portal/index.html
-templates/portal/_login_prompt.html
-templates/portal/_staff_home.html
-templates/portal/_today_schedule.html
-templates/portal/_attendance_summary.html
-templates/portal/_attention_items.html
-templates/portal/_quick_links.html
+templates/portal/login_prompt.html
+templates/portal/attention.html
 ```
 
 `base.html` は未ログインのログイン案内で職員サイドバーを出さない。ログイン済み職員ホームでは既存サイドバーを利用する。

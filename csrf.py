@@ -12,6 +12,7 @@ from security_config import csrf_enforced, secure_cookie_enabled
 
 CSRF_COOKIE_NAME = "hoikuict_csrf"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+CSRF_EXEMPT_PATH_PREFIXES = ("/parent-portal/push/receipts/",)
 logger = logging.getLogger(__name__)
 _PUBLIC_DEMO_SECRET = secrets.token_bytes(32)
 
@@ -80,6 +81,8 @@ async def verify_csrf(request: Request = None, websocket: WebSocket = None) -> N
     if request is None:
         raise RuntimeError("CSRF検証対象のHTTPリクエストを解決できませんでした")
     if request.method.upper() in SAFE_METHODS:
+        return
+    if request.url.path.startswith(CSRF_EXEMPT_PATH_PREFIXES):
         return
 
     cookie_token = request.cookies.get(CSRF_COOKIE_NAME)

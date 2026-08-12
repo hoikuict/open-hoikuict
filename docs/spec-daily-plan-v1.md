@@ -3,7 +3,8 @@
 - 作成日: 2026-08-09
 - 対象: `open-hoikuict`（FastAPI / SQLModel / SQLite / Jinja2 / HTMX）
 - 対象読者: プロダクトオーナー、保育実務者、実装者、レビュー担当者
-- ステータス: 実装基準案
+- ステータス: Phase 0・1の主要範囲を実装済み、Phase 2以降は計画
+- 現況再確認: 2026-08-11
 - 比較元:
   - `日案作成機能_設計書_v0.2.md`
   - `DESIGN.md`
@@ -468,34 +469,28 @@ AIはMVP外とし、導入後も提案専用とする。AIなしで作成、提�
 - 新しい日案ワークスペースAPIは `/plans/api/daily` 配下に追加する。
 - 互換ルートも同じアプリケーションサービスとリポジトリを使用し、別の保存経路を作らない。
 
-### 10.2 追加エンドポイント
+### 10.2 現在の追加エンドポイント
 
 ```text
-GET   /plans/daily/
-GET   /plans/daily/new
-POST  /plans/daily/
-GET   /plans/daily/{public_id}
-GET   /plans/daily/{public_id}/print
+GET   /plans/daily-plans/
+GET   /plans/daily-plans/new
+POST  /plans/daily-plans
+GET   /plans/documents/{document_id}
 
-GET   /plans/api/daily/context?date=YYYY-MM-DD&classroom_ref=...
-PATCH /plans/api/daily/{public_id}/draft
-POST  /plans/api/daily/{public_id}/revisions
-POST  /plans/api/daily/{public_id}/submit
-POST  /plans/api/daily/{public_id}/return
-POST  /plans/api/daily/{public_id}/withdraw
-POST  /plans/api/daily/{public_id}/approve
-POST  /plans/api/daily/{public_id}/execution-records
-POST  /plans/api/daily/{public_id}/execution-changes
-POST  /plans/api/daily/{public_id}/execution-changes/{change_id}/confirm
-POST  /plans/api/daily/{public_id}/execution-changes/{change_id}/corrections
-POST  /plans/api/daily/{public_id}/comments
-PATCH /plans/api/daily/{public_id}/comments/{comment_id}
+GET   /plans/api/daily/{document_ref}/execution-changes
+POST  /plans/api/daily/{document_ref}/execution-changes
+POST  /plans/api/daily/{document_ref}/execution-changes/{change_id}/confirm
+POST  /plans/api/daily/{document_ref}/execution-changes/{change_id}/corrections
 ```
+
+`document_ref`は内部IDまたは公開IDを受け付ける。振り返りは`/plans/documents/{document_id}/reflection`、画面上の実施変更は`/plans/documents/{document_id}/execution-changes`配下を使用する。
+
+文脈API、自動保存、コメント、専用の提出・差戻し・承認API、実施記録API、専用印刷URLは後続フェーズで追加する。現時点では文書詳細・編集・状態更新の既存ルートを再利用する。
 
 ### 10.3 更新契約
 
-- 更新は `If-Match` または `lock_version` を必須とする。
-- 成功時は新しい `lock_version` とETagを返す。
+- 現行のHTML編集・状態更新は`lock_version`を必須とし、成功時に新しい版を保存する。
+- 将来のJSON更新APIは`If-Match`とETagを使用する。
 - 版競合、状態遷移違反は409とする。
 - 入力不備は422、権限違反は403、範囲外IDは404相当とする。
 - CSRF対策を既存ミドルウェアに統合する。
@@ -717,12 +712,12 @@ PATCH /plans/api/daily/{public_id}/comments/{comment_id}
 ## 付録A. 実装開始時のチェックリスト
 
 - [ ] 現行URL・JSONの回帰スナップショットを追加する。
-- [ ] `DocumentRepository` とSQLModel実装を追加する。
-- [ ] `PlanDocumentHeadRow`、`PlanRevisionRow` と楽観ロックを新規テーブルで追加する。
-- [ ] 既存 `plan_documents` の移行テストを追加する。
+- [x] `DocumentRepository` とSQLModel実装を追加する。
+- [x] `PlanDocumentHeadRow`、`PlanRevisionRow` と楽観ロックを新規テーブルで追加する。
+- [x] 既存 `plan_documents` の移行テストを追加する。
 - [ ] テンプレート版と活動ブロックスキーマv2を確定する。
 - [ ] 光の森保育園型テンプレートの印刷ゴールデンテストを追加する。
-- [ ] クラス範囲・IDORテストを先に作る。
+- [x] クラス範囲・IDORテストを追加する。
 - [ ] `DailyPlanContextService` を読み取り専用で実装する。
 - [ ] 承認時文脈スナップショットを固定する。
 - [ ] 雨天変更の計画・実績差分、事後確認、訂正履歴のE2Eを追加する。

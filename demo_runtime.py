@@ -144,28 +144,28 @@ class DemoSessionManager:
     def get_engine(self, session_id: str) -> Engine:
         db_path = self.ensure_session_database(session_id)
         with self._lock:
-            cached = self._engines.get(session_id)
-            if cached is not None:
-                return cached
-            engine = create_engine(
-                f"sqlite:///{db_path.resolve().as_posix()}",
-                echo=False,
-                connect_args={"check_same_thread": False, "timeout": 15},
-            )
+            return self._get_or_create_engine_locked(session_id, db_path)
 
-            @event.listens_for(engine, "connect")
-            def _set_sqlite_connection_pragmas(dbapi_connection, connection_record) -> None:
-                del connection_record
-                cursor = dbapi_connection.cursor()
-                try:
-                    cursor.execute("PRAGMA busy_timeout=15000")
-                    cursor.execute("PRAGMA synchronous=NORMAL")
-                    cursor.execute("PRAGMA foreign_keys=ON")
-                finally:
-                    cursor.close()
+    def active_session_engines(self) -> tuple[tuple[str, Engine], ...]:
+        """Return existing session engines without extending browser-session TTL."""
 
-            self._engines[session_id] = engine
-            return engine
+        self.cleanup_expired_sessions()
+        if not self.settings.sessions_dir.exists():
+            return ()
+
+        with self._lock:
+            engines: list[tuple[str, Engine]] = []
+            for session_dir in self.settings.sessions_dir.iterdir():
+                session_id = session_dir.name
+                if not session_dir.is_dir() or not SESSION_ID_PATTERN.fullmatch(session_id):
+                    continue
+                db_path = self._db_path(session_id)
+                if not db_path.is_file():
+                    continue
+                engines.append(
+                    (session_id, self._get_or_create_engine_locked(session_id, db_path))
+                )
+            return tuple(engines)
 
     def touch_session(self, session_id: str) -> None:
         with self._lock:
@@ -240,6 +240,30 @@ class DemoSessionManager:
                 shutil.rmtree(self.settings.sessions_dir, ignore_errors=True)
             self.settings.sessions_dir.mkdir(parents=True, exist_ok=True)
             self._last_cleanup_at = 0.0
+
+    def _get_or_create_engine_locked(self, session_id: str, db_path: Path) -> Engine:
+        cached = self._engines.get(session_id)
+        if cached is not None:
+            return cached
+        engine = create_engine(
+            f"sqlite:///{db_path.resolve().as_posix()}",
+            echo=False,
+            connect_args={"check_same_thread": False, "timeout": 15},
+        )
+
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_connection_pragmas(dbapi_connection, connection_record) -> None:
+            del connection_record
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("PRAGMA busy_timeout=15000")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.execute("PRAGMA foreign_keys=ON")
+            finally:
+                cursor.close()
+
+        self._engines[session_id] = engine
+        return engine
 
     def _session_dir(self, session_id: str) -> Path:
         return self.settings.sessions_dir / session_id

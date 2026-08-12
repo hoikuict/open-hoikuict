@@ -111,7 +111,8 @@ BOOL_FIELDS = {
     "is_primary_contact", "diagnosis_confirmed", "removal_required", "is_active", "requires_medical_care",
     "epipen_required", "sids_risk_flag", "has_allergy", "has_epipen", "has_anaphylaxis",
     "has_febrile_seizure", "has_nursemaids_elbow", "has_medication", "breastfed",
-    "requires_followup", "is_calendar_admin",
+    "requires_followup", "is_calendar_admin", "can_manage_child_records",
+    "can_manage_billing_accounts",
     "is_primary", "is_archived", "is_visible", "is_all_day", "is_deleted", "is_read",
     "is_required", "value_bool",
 }
@@ -261,6 +262,10 @@ def seed(wipe: bool = False) -> dict[str, int]:
             if table == "users":
                 for row in rows:
                     row.setdefault("provisioning_source", USER_SOURCE_WEB_DEMO)
+                    is_admin = row.get("staff_role") == "admin"
+                    is_office = row.get("email") == "office@demo.open-hoikuict.example"
+                    row.setdefault("can_manage_child_records", is_admin or is_office)
+                    row.setdefault("can_manage_billing_accounts", is_office)
             if table == "child_profile_change_requests":
                 for row in rows:
                     child = session.get(Child, row["child_id"])

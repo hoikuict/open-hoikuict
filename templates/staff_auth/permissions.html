@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}職員権限設定 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <p class="text-sm font-semibold text-indigo-600">職員管理</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-800">職員権限設定</h1>
+    <p class="mt-1 text-sm text-slate-500">職員の基本権限と、機微情報を扱う業務別権限を設定します。</p>
+  </div>
+  <a href="/staff/users" class="text-sm font-semibold text-indigo-600 hover:underline">職員管理へ戻る</a>
+</div>
+
+{% if message %}
+<div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>
+{% endif %}
+
+<section class="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <form method="get" action="/staff/permissions" class="grid gap-3 md:grid-cols-[minmax(14rem,1fr)_12rem_12rem_auto] md:items-end">
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">職員名・メール</span>
+      <input name="q" value="{{ filters.q }}" placeholder="職員を検索" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">基本権限</span>
+      <select name="role" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <option value="">すべて</option>
+        {% for value, label in staff_role_options %}
+        <option value="{{ value }}" {% if filters.role == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="text-sm font-medium text-slate-700">状態</span>
+      <select name="status" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <option value="active" {% if filters.status == 'active' %}selected{% endif %}>有効</option>
+        <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>無効</option>
+        <option value="all" {% if filters.status == 'all' %}selected{% endif %}>すべて</option>
+      </select>
+    </label>
+    <button type="submit" class="rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">絞り込む</button>
+  </form>
+</section>
+
+<div class="mb-4 grid gap-3 md:grid-cols-2">
+  {% for permission in permission_definitions %}
+  <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <p class="text-sm font-semibold text-slate-800">{{ permission.label }}</p>
+    <p class="mt-1 text-xs leading-5 text-slate-500">{{ permission.description }}</p>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="space-y-4">
+  {% for row in rows %}
+  {% set user = row.user %}
+  <form method="post" action="/staff/permissions/{{ user.id }}" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="grid gap-5 lg:grid-cols-2 2xl:grid-cols-[minmax(15rem,1.2fr)_12rem_minmax(14rem,1fr)_minmax(14rem,1fr)_auto] 2xl:items-start">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <p class="font-semibold text-slate-900">{{ user.display_name }}</p>
+          {% if user.is_active %}
+          <span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">有効</span>
+          {% else %}
+          <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">無効</span>
+          {% endif %}
+        </div>
+        <p class="mt-1 text-xs text-slate-500">{{ user.email }}</p>
+        {% if row.latest_log %}
+        <p class="mt-3 text-xs text-slate-400">最終更新: {{ row.latest_log.changed_at|jst_datetime('%Y-%m-%d %H:%M') }} / {{ row.latest_log.changed_by_name_snapshot }}</p>
+        {% else %}
+        <p class="mt-3 text-xs text-slate-400">権限変更履歴なし</p>
+        {% endif %}
+      </div>
+
+      <label class="block">
+        <span class="text-sm font-medium text-slate-700">基本権限</span>
+        <select name="staff_role" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
+          {% for value, label in staff_role_options %}
+          <option value="{{ value }}" {% if user.staff_role == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="flex items-start gap-3 rounded-lg border border-slate-200 px-4 py-3 {% if user.staff_role == 'view_only' %}bg-slate-50{% endif %}">
+        <input type="checkbox" name="can_manage_child_records" value="1" class="mt-0.5" {% if user.can_manage_child_records_effective %}checked{% endif %} {% if user.staff_role in ['admin', 'view_only'] %}disabled{% endif %}>
+        <span>
+          <span class="block text-sm font-medium text-slate-800">園児台帳管理</span>
+          {% if user.staff_role == 'admin' %}<span class="block text-xs text-indigo-600">管理者には常に付与</span>{% elif user.staff_role == 'view_only' %}<span class="block text-xs text-slate-500">閲覧のみには付与不可</span>{% endif %}
+        </span>
+      </label>
+
+      <label class="flex items-start gap-3 rounded-lg border border-slate-200 px-4 py-3 {% if user.staff_role == 'view_only' %}bg-slate-50{% endif %}">
+        <input type="checkbox" name="can_manage_billing_accounts" value="1" class="mt-0.5" {% if user.can_manage_billing_accounts_effective %}checked{% endif %} {% if user.staff_role in ['admin', 'view_only'] %}disabled{% endif %}>
+        <span>
+          <span class="block text-sm font-medium text-slate-800">請求・口座情報管理</span>
+          {% if user.staff_role == 'admin' %}<span class="block text-xs text-indigo-600">管理者には常に付与</span>{% elif user.staff_role == 'view_only' %}<span class="block text-xs text-slate-500">閲覧のみには付与不可</span>{% endif %}
+        </span>
+      </label>
+
+      <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">この職員の権限を保存</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center text-sm text-slate-500">条件に一致する職員がいません。</div>
+  {% endfor %}
+</div>
+{% endblock %}

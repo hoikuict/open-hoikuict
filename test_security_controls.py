@@ -22,6 +22,7 @@ from routers.guardian import router as guardian_router
 import routers.staff_auth as staff_auth_module
 from security_config import (
     csrf_enforced,
+    parent_push_transport,
     secure_cookie_enabled,
     validate_runtime_security,
     websocket_runtime_available,
@@ -155,6 +156,114 @@ class SecurityControlTests(unittest.TestCase):
         }
         with patch.dict(os.environ, settings, clear=True):
             with self.assertRaisesRegex(RuntimeError, "HOIKUICT_COOKIE_SECURE=1"):
+                validate_runtime_security()
+
+    def test_parent_push_transport_defaults_to_capture_outside_production(self):
+        with patch.dict(os.environ, {"HOIKUICT_ENV": "development"}, clear=True):
+            self.assertEqual(parent_push_transport(), "capture")
+
+    def test_production_rejects_parent_push_transport_until_feature_is_complete(self):
+        for transport in ("capture", "webpush"):
+            with self.subTest(transport=transport):
+                settings = {
+                    "HOIKUICT_ENV": "production",
+                    "HOIKUICT_SECRET_KEY": "s" * 40,
+                    "HOIKUICT_PUSH_TRANSPORT": transport,
+                }
+                with patch.dict(os.environ, settings, clear=True):
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        "プッシュ通知transportを有効化できません",
+                    ):
+                        validate_runtime_security()
+
+    def test_public_demo_allows_webpush_with_exact_safe_configuration(self):
+        settings = {
+            "HOIKUICT_ENV": "production",
+            "PUBLIC_DEMO_MODE": "1",
+            "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "public-key",
+            "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+            "HOIKUICT_PUSH_VAPID_SUBJECT": "mailto:developer@example.com",
+            "HOIKUICT_PUBLIC_ORIGIN": "https://demo.hoikuict.net",
+            "HOIKUICT_COOKIE_SECURE": "1",
+            "HOIKUICT_CSRF_ENFORCE": "1",
+            "HOIKUICT_SECRET_KEY": "s" * 40,
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            validate_runtime_security()
+
+    def test_public_demo_webpush_rejects_non_demo_origin(self):
+        settings = {
+            "HOIKUICT_ENV": "production",
+            "PUBLIC_DEMO_MODE": "1",
+            "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "public-key",
+            "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+            "HOIKUICT_PUSH_VAPID_SUBJECT": "mailto:developer@example.com",
+            "HOIKUICT_PUBLIC_ORIGIN": "https://example.test",
+            "HOIKUICT_COOKIE_SECURE": "1",
+            "HOIKUICT_CSRF_ENFORCE": "1",
+            "HOIKUICT_SECRET_KEY": "s" * 40,
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "demo.hoikuict.net"):
+                validate_runtime_security()
+
+    def test_unknown_parent_push_transport_is_rejected(self):
+        settings = {
+            "HOIKUICT_ENV": "development",
+            "HOIKUICT_PUSH_TRANSPORT": "unknown",
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "disabled / capture / webpush"):
+                validate_runtime_security()
+
+    def test_development_webpush_requires_vapid_and_public_origin(self):
+        with patch.dict(
+            os.environ,
+            {
+                "HOIKUICT_ENV": "development",
+                "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            },
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "HOIKUICT_PUSH_VAPID_PUBLIC_KEY"):
+                validate_runtime_security()
+
+    def test_development_webpush_accepts_https_or_localhost_origin(self):
+        base_settings = {
+            "HOIKUICT_ENV": "development",
+            "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "public-key",
+            "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+            "HOIKUICT_PUSH_VAPID_SUBJECT": "mailto:developer@example.com",
+        }
+        for origin in ("https://push-dev.example.com", "http://localhost:8000"):
+            with self.subTest(origin=origin):
+                with patch.dict(
+                    os.environ,
+                    {**base_settings, "HOIKUICT_PUBLIC_ORIGIN": origin},
+                    clear=True,
+                ):
+                    validate_runtime_security()
+
+    def test_development_webpush_rejects_unsafe_origin_and_subject(self):
+        settings = {
+            "HOIKUICT_ENV": "development",
+            "HOIKUICT_PUSH_TRANSPORT": "webpush",
+            "HOIKUICT_PUSH_VAPID_PUBLIC_KEY": "public-key",
+            "HOIKUICT_PUSH_VAPID_PRIVATE_KEY": "private-key",
+            "HOIKUICT_PUSH_VAPID_SUBJECT": "developer@example.com",
+            "HOIKUICT_PUBLIC_ORIGIN": "http://push-dev.example.com",
+        }
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "VAPID_SUBJECT"):
+                validate_runtime_security()
+
+        settings["HOIKUICT_PUSH_VAPID_SUBJECT"] = "mailto:developer@example.com"
+        with patch.dict(os.environ, settings, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "HTTPS origin"):
                 validate_runtime_security()
 
     def test_missing_websocket_driver_fails_at_startup(self):

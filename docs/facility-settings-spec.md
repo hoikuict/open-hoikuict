@@ -3,7 +3,11 @@
 - 対象リポジトリ: open-hoikuict
 - ステータス: Draft revised
 - 作成日: 2026-07-05
+- 現況再確認: 2026-08-11
+- 実装状況: 未実装（計画）
 - 関連: 保護者キオスクUI、延長保育料金設定、補食判定、請求
+
+> `FacilitySettings`、`FacilitySettingsHistory`、`/settings/facility`は現在のコードには存在しない。本書のURL・モデル・画面は現行構成ではなく実装案である。
 
 ---
 

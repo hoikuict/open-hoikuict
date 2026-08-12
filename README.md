@@ -65,6 +65,8 @@ python -m uvicorn main:app --reload
 
 ## ドキュメント
 
+- [仕様書・設計文書一覧](docs/specifications.md)
+- [現在の主要画面遷移](docs/screen-transition-list.md)
 - [導入ロードマップ](docs/roadmap.md)
 - [開発者向けセットアップ](docs/development.md)
 - [運用責任と本番導入前チェック](docs/operations.md)
@@ -73,6 +75,8 @@ python -m uvicorn main:app --reload
 - [デモデータ仕様](docs/demo-data.md)
 - [職員個人ポータル機能仕様](docs/staff-personal-portal-spec.md)
 - [職員有給管理機能仕様](docs/paid-leave-management-spec.md)
+- [職員権限設定・請求口座情報管理仕様](docs/staff-permissions-and-billing-accounts-spec.md)
+- [延長保育料金・請求転送仕様](docs/extended-care-billing-transfer-spec.md)
 - [FAQ](docs/faq.md)
 
 ## ライセンス

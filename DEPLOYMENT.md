@@ -10,6 +10,8 @@ This repository now supports a public demo mode for Dockge deployments.
 - Cleans up expired session databases after the configured TTL.
 - Rejects oversized write requests.
 - Rejects sessions that exceed the total write budget.
+- Stores Web Push subscriptions, delivery targets, and receipts in the same isolated session database.
+- Removes those subscriptions automatically when the session database expires.
 
 ## Recommended environment values
 
@@ -19,6 +21,23 @@ This repository now supports a public demo mode for Dockge deployments.
 - `DEMO_MAX_REQUEST_BODY_BYTES=16384`
 - `DEMO_SECURE_COOKIES=1`
 
+To enable the opt-in Web Push experience on `demo.hoikuict.net`, also set:
+
+- `HOIKUICT_ENV=production`
+- `HOIKUICT_COOKIE_SECURE=1`
+- `HOIKUICT_CSRF_ENFORCE=1`
+- `HOIKUICT_SECRET_KEY` to a random value of at least 32 characters
+- `HOIKUICT_ALLOWED_ORIGINS=https://demo.hoikuict.net`
+- `HOIKUICT_PUSH_TRANSPORT=webpush`
+- `HOIKUICT_PUSH_VAPID_PUBLIC_KEY` to the public application server key
+- `HOIKUICT_PUSH_VAPID_PRIVATE_KEY` to the matching private key
+- `HOIKUICT_PUSH_VAPID_SUBJECT` to a maintained `mailto:` or HTTPS contact
+- `HOIKUICT_PUBLIC_ORIGIN=https://demo.hoikuict.net`
+
+Keep the VAPID key pair stable across deployments so an existing browser subscription remains usable. Store the private key only in Dockge's environment/secret management; never commit it.
+
+The ordinary production mode still rejects `capture` and `webpush`. The exception applies only when `PUBLIC_DEMO_MODE=1`, the exact public origin is configured, and all Web Push security checks pass.
+
 ## Dockge
 
 1. Fork this repository.
@@ -26,6 +45,7 @@ This repository now supports a public demo mode for Dockge deployments.
 3. Copy `.env.example` values into the stack environment editor.
 4. Set `CLOUDFLARE_TUNNEL_TOKEN` if you want the stack to publish itself through Cloudflare Tunnel.
 5. Start the stack and confirm the app responds on port `8000`.
+6. Open `/parent-portal/push-settings`, register a test device, create an attendance confirmation request, and verify `accepted`, `shown`, and `clicked` under `/dev/push-notifications`.
 
 ## Cloudflare
 

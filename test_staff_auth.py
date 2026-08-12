@@ -19,6 +19,7 @@ from models import (
     Classroom,
     StaffClassroomAssignment,
     StaffClassroomAssignmentRole,
+    StaffPermissionChangeLog,
     User,
 )
 import routers.staff_auth as staff_auth_module
@@ -73,6 +74,7 @@ class StaffAuthRouterTests(unittest.TestCase):
             session.add(self.external_user)
             session.commit()
             self.principal_id = self.principal.id
+            self.part_timer_id = self.part_timer.id
 
     def tearDown(self):
         self.client.close()
@@ -267,7 +269,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIsNotNone(demo_principal)
         self.assertEqual(demo_principal.provisioning_source, USER_SOURCE_WEB_DEMO)
 
-    def test_admin_can_create_staff_user_with_child_record_permission(self):
+    def test_new_staff_business_permissions_default_to_disabled(self):
         self._login_admin()
 
         response = self.client.post(
@@ -289,7 +291,7 @@ class StaffAuthRouterTests(unittest.TestCase):
             user = session.exec(select(User).where(User.email == "records@example.com")).first()
         self.assertIsNotNone(user)
         self.assertEqual(user.staff_role, "can_edit")
-        self.assertTrue(user.can_manage_child_records)
+        self.assertFalse(user.can_manage_child_records)
         self.assertEqual(user.provisioning_source, USER_SOURCE_MANUAL)
 
     def test_admin_can_filter_staff_users_by_source(self):
@@ -324,6 +326,101 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertEqual(filtered_response.status_code, 200)
         self.assertIn("デモ園長", filtered_response.text)
         self.assertNotIn("早番パート", filtered_response.text)
+
+    def test_admin_can_manage_billing_account_permission_from_central_page(self):
+        with Session(self.engine) as session:
+            office = User(
+                email="office-permission@example.com",
+                display_name="事務担当",
+                staff_role="can_edit",
+                staff_sort_order=40,
+            )
+            session.add(office)
+            session.commit()
+            office_id = office.id
+
+        self._login_admin()
+        page = self.client.get("/staff/permissions")
+
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("職員権限設定", page.text)
+        self.assertIn("請求・口座情報管理", page.text)
+        self.assertIn("事務担当", page.text)
+
+        response = self.client.post(
+            f"/staff/permissions/{office_id}",
+            data={
+                "staff_role": "can_edit",
+                "can_manage_child_records": "1",
+                "can_manage_billing_accounts": "1",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("message=", response.headers["location"])
+        with Session(self.engine) as session:
+            office = session.get(User, office_id)
+            logs = session.exec(
+                select(StaffPermissionChangeLog).where(
+                    StaffPermissionChangeLog.target_user_id == office_id
+                )
+            ).all()
+        self.assertTrue(office.can_manage_child_records)
+        self.assertTrue(office.can_manage_billing_accounts)
+        self.assertEqual(
+            {log.permission_key for log in logs},
+            {"can_manage_child_records", "can_manage_billing_accounts"},
+        )
+        self.assertTrue(all(log.changed_by_user_id == self.principal_id for log in logs))
+
+    def test_view_only_role_clears_business_permissions(self):
+        with Session(self.engine) as session:
+            staff = User(
+                email="limited@example.com",
+                display_name="権限変更対象",
+                staff_role="can_edit",
+                can_manage_child_records=True,
+                can_manage_billing_accounts=True,
+            )
+            session.add(staff)
+            session.commit()
+            staff_id = staff.id
+
+        self._login_admin()
+        response = self.client.post(
+            f"/staff/permissions/{staff_id}",
+            data={
+                "staff_role": "view_only",
+                "can_manage_child_records": "1",
+                "can_manage_billing_accounts": "1",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            staff = session.get(User, staff_id)
+        self.assertEqual(staff.staff_role, "view_only")
+        self.assertFalse(staff.can_manage_child_records)
+        self.assertFalse(staff.can_manage_billing_accounts)
+
+    def test_non_admin_cannot_open_or_update_permissions(self):
+        response = self.client.post(
+            "/staff/login",
+            data={"user_id": str(self.part_timer_id), "redirect_to": "/"},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+
+        page = self.client.get("/staff/permissions")
+        update = self.client.post(
+            f"/staff/permissions/{self.principal_id}",
+            data={"staff_role": "admin"},
+        )
+
+        self.assertEqual(page.status_code, 403)
+        self.assertEqual(update.status_code, 403)
 
     def test_admin_can_add_staff_classroom_assignment(self):
         with Session(self.engine) as session:
@@ -479,14 +576,8 @@ class StaffAuthRouterTests(unittest.TestCase):
         self._login_admin()
 
         response = self.client.post(
-            f"/staff/users/{self.principal_id}/edit",
-            data={
-                "display_name": "園長",
-                "email": "principal@example.com",
-                "staff_role": "can_edit",
-                "staff_sort_order": "10",
-                "is_active": "1",
-            },
+            f"/staff/permissions/{self.principal_id}",
+            data={"staff_role": "can_edit"},
         )
 
         self.assertEqual(response.status_code, 200)

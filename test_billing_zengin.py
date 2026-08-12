@@ -18,16 +18,21 @@ from models import (
     BillingCycleStatus,
     BillingPaymentMethod,
     BillingSetting,
+    Child,
+    ChildStatus,
     DirectDebitStatus,
     Family,
     FamilyBillingProfile,
+    FamilyBillingProfileChangeLog,
     MealFeeRule,
     MealFeeProrationPolicy,
     ProrationRounding,
     ZenginExport,
     ZenginExportLine,
     ZenginExportStatus,
+    User,
 )
+import routers.billing as billing_router_module
 import routers.zengin as zengin_router_module
 from zengin_service import (
     ParsedResultRecord,
@@ -323,6 +328,264 @@ class BillingZenginTests(unittest.TestCase):
         validate_charge_amount(BillingChargeSourceType.manual, -500)
         with self.assertRaises(BillingCalculationError):
             validate_charge_amount(BillingChargeSourceType.meal_auto, -500)
+
+
+class BillingAccountPermissionTests(unittest.TestCase):
+    def setUp(self):
+        self.engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        SQLModel.metadata.create_all(self.engine)
+
+        with Session(self.engine) as session:
+            admin = User(
+                email="billing-admin@example.com",
+                display_name="園長",
+                staff_role="admin",
+            )
+            office = User(
+                email="billing-office@example.com",
+                display_name="事務",
+                staff_role="can_edit",
+                can_manage_billing_accounts=True,
+            )
+            teacher = User(
+                email="billing-teacher@example.com",
+                display_name="担任",
+                staff_role="can_edit",
+            )
+            viewer = User(
+                email="billing-viewer@example.com",
+                display_name="閲覧職員",
+                staff_role="view_only",
+                can_manage_billing_accounts=True,
+            )
+            family = Family(family_name="請求権限テスト家族")
+            session.add_all([admin, office, teacher, viewer, family])
+            session.flush()
+            child = Child(
+                last_name="請求",
+                first_name="花子",
+                last_name_kana="セイキュウ",
+                first_name_kana="ハナコ",
+                birth_date=date(2021, 4, 1),
+                enrollment_date=date(2024, 4, 1),
+                status=ChildStatus.enrolled,
+                family_id=family.id,
+            )
+            cycle = BillingCycle(
+                year_month="2026-08",
+                period_start=date(2026, 8, 1),
+                period_end=date(2026, 8, 31),
+                withdrawal_date=date(2026, 9, 27),
+                status=BillingCycleStatus.confirmed,
+            )
+            profile = FamilyBillingProfile(
+                family_id=family.id,
+                payment_method=BillingPaymentMethod.direct_debit,
+                direct_debit_status=DirectDebitStatus.active,
+                bank_code="0005",
+                bank_name_kana="SECRET BANK",
+                branch_code="123",
+                branch_name_kana="SECRET BRANCH",
+                account_type="1",
+                account_number="7654321",
+                account_holder_kana="SECRET HOLDER",
+                customer_number="00100000000000009999",
+                new_code="1",
+                note="SECRET NOTE",
+            )
+            session.add_all([child, cycle, profile])
+            session.commit()
+            self.admin_id = admin.id
+            self.office_id = office.id
+            self.teacher_id = teacher.id
+            self.viewer_id = viewer.id
+            self.child_id = child.id
+            self.cycle_id = cycle.id
+            self.profile_id = profile.id
+
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="担任",
+            user_id=self.teacher_id,
+        )
+        self.app = FastAPI()
+        self.app.include_router(billing_router_module.router)
+
+        def override_get_session():
+            with Session(self.engine) as session:
+                yield session
+
+        self.app.dependency_overrides[billing_router_module.get_session] = override_get_session
+        self.app.dependency_overrides[billing_router_module.get_current_staff_user] = (
+            lambda: self.current_user
+        )
+        self.client = TestClient(self.app)
+
+    def tearDown(self):
+        self.client.close()
+        self.engine.dispose()
+
+    @property
+    def page_url(self):
+        return f"/billing/cycles/{self.cycle_id}/child-charges/{self.child_id}"
+
+    @property
+    def update_url(self):
+        return f"{self.page_url}/profile"
+
+    @staticmethod
+    def _profile_form_data(**overrides):
+        values = {
+            "payment_method": "direct_debit",
+            "direct_debit_status": "active",
+            "bank_code": "0005",
+            "bank_name_kana": "UPDATED BANK",
+            "branch_code": "123",
+            "branch_name_kana": "UPDATED BRANCH",
+            "account_type": "1",
+            "account_number": "1111222",
+            "account_holder_kana": "UPDATED HOLDER",
+            "new_code": "2",
+            "mandate_received_on": "2026-08-11",
+            "note": "更新済み",
+        }
+        values.update(overrides)
+        return values
+
+    def test_teacher_cannot_see_sensitive_account_fields_or_update_profile(self):
+        page = self.client.get(self.page_url)
+
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("口座情報は管理者または請求・口座情報管理権限を持つ職員が管理します。", page.text)
+        self.assertIn("登録済み", page.text)
+        self.assertNotIn("SECRET BANK", page.text)
+        self.assertNotIn("7654321", page.text)
+        self.assertNotIn("SECRET HOLDER", page.text)
+        self.assertNotIn("SECRET NOTE", page.text)
+        self.assertNotIn('name="account_number"', page.text)
+
+        response = self.client.post(
+            self.update_url,
+            data=self._profile_form_data(),
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 403)
+        with Session(self.engine) as session:
+            profile = session.get(FamilyBillingProfile, self.profile_id)
+            logs = session.exec(select(FamilyBillingProfileChangeLog)).all()
+        self.assertEqual(profile.account_number, "7654321")
+        self.assertEqual(logs, [])
+
+    def test_office_can_edit_profile_and_change_is_audited(self):
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="事務",
+            user_id=self.office_id,
+        )
+        page = self.client.get(self.page_url)
+
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('name="account_number"', page.text)
+        self.assertIn("SECRET HOLDER", page.text)
+
+        response = self.client.post(
+            self.update_url,
+            data=self._profile_form_data(),
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            profile = session.get(FamilyBillingProfile, self.profile_id)
+            log = session.exec(select(FamilyBillingProfileChangeLog)).one()
+        self.assertEqual(profile.account_number, "1111222")
+        self.assertEqual(log.changed_by_user_id, self.office_id)
+        self.assertIn("account_number", log.changed_fields)
+        self.assertIn("account_holder_kana", log.changed_fields)
+
+    def test_account_management_navigation_is_visible_only_to_authorized_staff(self):
+        teacher_dashboard = self.client.get("/billing/")
+        teacher_accounts = self.client.get("/billing/accounts")
+        self.assertEqual(teacher_dashboard.status_code, 200)
+        self.assertNotIn('href="/billing/accounts"', teacher_dashboard.text)
+        self.assertEqual(teacher_accounts.status_code, 403)
+
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="事務",
+            user_id=self.office_id,
+        )
+        office_dashboard = self.client.get("/billing/")
+        office_accounts = self.client.get("/billing/accounts")
+
+        self.assertEqual(office_dashboard.status_code, 200)
+        self.assertIn('href="/billing/accounts"', office_dashboard.text)
+        self.assertEqual(office_accounts.status_code, 200)
+        self.assertIn("口座情報管理", office_accounts.text)
+        self.assertIn("請求 花子", office_accounts.text)
+        self.assertIn(
+            f'/billing/cycles/{self.cycle_id}/child-charges/{self.child_id}#account-profile',
+            office_accounts.text,
+        )
+
+        child_page = self.client.get(self.page_url)
+        self.assertIn('id="account-profile"', child_page.text)
+        self.assertIn("口座情報一覧へ戻る", child_page.text)
+
+    def test_admin_has_implicit_permission_and_revocation_is_immediate(self):
+        self.current_user = StaffUser(
+            role=Role.ADMIN,
+            name="園長",
+            user_id=self.admin_id,
+        )
+        admin_page = self.client.get(self.page_url)
+        self.assertEqual(admin_page.status_code, 200)
+        self.assertIn('name="account_number"', admin_page.text)
+
+        self.current_user = StaffUser(
+            role=Role.CAN_EDIT,
+            name="事務",
+            user_id=self.office_id,
+        )
+        allowed_page = self.client.get(self.page_url)
+        self.assertIn('name="account_number"', allowed_page.text)
+
+        with Session(self.engine) as session:
+            office = session.get(User, self.office_id)
+            office.can_manage_billing_accounts = False
+            session.add(office)
+            session.commit()
+
+        revoked_page = self.client.get(self.page_url)
+        revoked_update = self.client.post(
+            self.update_url,
+            data=self._profile_form_data(),
+            follow_redirects=False,
+        )
+        self.assertEqual(revoked_page.status_code, 200)
+        self.assertNotIn('name="account_number"', revoked_page.text)
+        self.assertEqual(revoked_update.status_code, 403)
+
+    def test_view_only_never_gets_business_permission(self):
+        self.current_user = StaffUser(
+            role=Role.VIEW_ONLY,
+            name="閲覧職員",
+            user_id=self.viewer_id,
+        )
+
+        page = self.client.get(self.page_url)
+        update = self.client.post(
+            self.update_url,
+            data=self._profile_form_data(),
+            follow_redirects=False,
+        )
+
+        self.assertEqual(page.status_code, 200)
+        self.assertNotIn('name="account_number"', page.text)
+        self.assertEqual(update.status_code, 403)
 
 
 if __name__ == "__main__":

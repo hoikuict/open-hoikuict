@@ -217,6 +217,10 @@
   </style>
   {% endif %}
   {% block head %}{% endblock %}
+  {% if request is defined and request and request.url.path.startswith('/parent-portal') %}
+  <link rel="manifest" href="/parent-portal/manifest.webmanifest">
+  <meta name="theme-color" content="#4338ca">
+  {% endif %}
   <meta name="csrf-token" content="{{ request.state.csrf_token if request is defined and request and request.state.csrf_token is defined else '' }}">
 </head>
 {% set is_parent_portal = (parent_portal_mode is defined and parent_portal_mode) or (current_parent_user is defined and current_parent_user) %}
@@ -238,6 +242,7 @@
         <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
         <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
         <a href="/parent-portal/surveys" class="text-sm hover:underline">アンケート</a>
+        <a href="/parent-portal/push-settings" class="text-sm hover:underline">通知設定</a>
         <div class="ml-auto flex items-center gap-3 text-sm">
           {% if current_parent_user is defined and current_parent_user %}
           <span class="text-indigo-100">{{ current_parent_user.display_name }}</span>
@@ -328,6 +333,7 @@
               <a href="/data-transfers/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/data-transfers') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">データ入出力</a>
               {% if staff_session_user and staff_session_user.is_admin %}
               <a href="/staff/users" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/staff/users') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">職員管理</a>
+              <a href="/staff/permissions" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/staff/permissions') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">権限設定</a>
               {% endif %}
               <a href="/parent-portal/login" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/parent-portal') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者画面確認</a>
             </div>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>プッシュ通知 capture</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; }
+    body { margin: 0; background: #f4f6f8; color: #18212b; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 32px auto 64px; }
+    header, article { background: white; border: 1px solid #dce2e8; border-radius: 12px; }
+    header { padding: 20px 24px; margin-bottom: 20px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    h2 { font-size: 1.1rem; margin-bottom: 6px; }
+    h3 { font-size: 1rem; }
+    .warning { color: #7a4100; background: #fff4d6; border-radius: 8px; padding: 10px 12px; }
+    .summary { color: #56616d; margin-bottom: 0; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 0 0 20px; }
+    .metric { background: white; border: 1px solid #dce2e8; border-radius: 10px; padding: 12px; }
+    .metric strong { display: block; font-size: 1.4rem; }
+    .metric span { color: #56616d; font-size: .8rem; }
+    article { padding: 18px 20px; margin-bottom: 14px; }
+    .meta, .times { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #56616d; font-size: .9rem; }
+    .target { border-top: 1px solid #e7ebef; margin-top: 16px; padding-top: 16px; }
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; background: #e8eef5; font-size: .82rem; }
+    pre { overflow-x: auto; background: #15202b; color: #e8f0f7; padding: 14px; border-radius: 8px; font-size: .82rem; }
+    .empty { text-align: center; color: #66717c; padding: 40px 20px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>保護者プッシュ通知 capture</h1>
+    <p class="warning">development 限定画面です。endpoint・購読鍵・receipt token は表示しません。</p>
+    <p class="summary">transport: <strong>{{ transport }}</strong> / 閲覧者: {{ current_user.name }} / 最新100配送</p>
+  </header>
+
+  <section class="metrics" aria-label="{{ metrics.day }} の配送指標">
+    <div class="metric"><strong>{{ metrics.notification_count }}</strong><span>通知作成</span></div>
+    <div class="metric"><strong>{{ metrics.push_delivery_count }}</strong><span>push配送</span></div>
+    <div class="metric"><strong>{{ metrics.target_count }}</strong><span>配送Target</span></div>
+    <div class="metric"><strong>{{ metrics.no_subscription_count }}</strong><span>対象購読なし</span></div>
+    <div class="metric"><strong>{{ metrics.accepted_count }}</strong><span>accepted</span></div>
+    <div class="metric"><strong>{{ metrics.shown_count }}</strong><span>shown</span></div>
+    <div class="metric"><strong>{{ metrics.clicked_count }}</strong><span>clicked</span></div>
+    <div class="metric"><strong>{{ metrics.terminal_failed_count }}</strong><span>終端失敗</span></div>
+    <div class="metric"><strong>{{ metrics.subscription_gone_count }}</strong><span>購読失効</span></div>
+    <div class="metric"><strong>{{ metrics.vapid_auth_failed_count }}</strong><span>VAPID認証異常</span></div>
+    <div class="metric"><strong>{{ metrics.retry_wait_count }}</strong><span>再試行待ち</span></div>
+  </section>
+  {% if metrics.oldest_retry_at %}<p class="summary">最古の次回再試行: {{ metrics.oldest_retry_at }}</p>{% endif %}
+
+  {% for item in items %}
+  <article>
+    <h2>配送 #{{ item.delivery.id }} · {{ item.notification.kind.value if item.notification else "unknown" }}</h2>
+    <div class="meta">
+      <span>{{ item.parent_label }}</span>
+      <span class="badge">{{ item.delivery.status.value }}</span>
+      <span>通知 #{{ item.delivery.notification_id }}</span>
+      <span>作成 {{ item.delivery.created_at }}</span>
+    </div>
+
+    {% if item.targets %}
+      {% for target_item in item.targets %}
+      <section class="target">
+        <h3>Target #{{ target_item.target.id }} · {{ target_item.device_label or "名称未設定端末" }}</h3>
+        <div class="meta">
+          <span class="badge">{{ target_item.target.status.value }}</span>
+          <span>購読状態 {{ target_item.subscription_status }}</span>
+          <span>試行 {{ target_item.target.attempt_count }} 回</span>
+          <span>transport {{ target_item.attempt.transport.value if target_item.attempt else "未試行" }}</span>
+          <span>HTTP {{ target_item.attempt.provider_status_code if target_item.attempt and target_item.attempt.provider_status_code else "—" }}</span>
+        </div>
+        <p class="times">
+          <span>attempted: {{ target_item.target.attempted_at or "—" }}</span>
+          <span>accepted: {{ target_item.target.accepted_at or "—" }}</span>
+          <span>shown: {{ target_item.target.shown_at or "—" }}</span>
+          <span>clicked: {{ target_item.target.clicked_at or "—" }}</span>
+          <span>next retry: {{ target_item.target.next_retry_at or "—" }}</span>
+        </p>
+        {% if target_item.target.last_error_code %}
+        <p>エラー: {{ target_item.target.last_error_code }} — {{ target_item.target.last_error_message or "詳細なし" }}</p>
+        {% endif %}
+        {% if target_item.payload_preview_json %}
+        <details>
+          <summary>安全化済み payload プレビュー</summary>
+          <pre>{{ target_item.payload_preview_json }}</pre>
+        </details>
+        {% endif %}
+      </section>
+      {% endfor %}
+    {% else %}
+      <p class="summary">配送対象はまだ作成されていません。</p>
+    {% endif %}
+  </article>
+  {% else %}
+  <article class="empty">プッシュ配送はまだありません。</article>
+  {% endfor %}
+</main>
+</body>
+</html>
