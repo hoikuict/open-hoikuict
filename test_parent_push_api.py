@@ -353,6 +353,8 @@ class ParentPushApiTests(unittest.TestCase):
             "/parent-portal/",
         )
         self.assertIn("safeActionUrl", worker.text)
+        self.assertIn("event.waitUntil(self.skipWaiting())", worker.text)
+        self.assertIn("event.waitUntil(clients.claim())", worker.text)
         self.assertIn("postReceipt(receiptData, 'shown')", worker.text)
         self.assertIn(
             "const navigationPromise = openActionUrl(actionUrl)",
