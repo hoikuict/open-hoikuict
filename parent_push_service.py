@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -33,6 +34,7 @@ from time_utils import ensure_utc, utc_now
 from security_config import parent_push_vapid_private_key, parent_push_vapid_subject
 
 
+logger = logging.getLogger(__name__)
 PUSH_SCHEMA_VERSION = 1
 SAFE_PUSH_TITLE = "保育園から確認のお願い"
 SAFE_PUSH_BODY = "確認が必要な連絡があります。保護者ポータルをご確認ください。"
@@ -182,6 +184,14 @@ def classify_web_push_response(
             provider_request_id=request_id,
             error_code=error_code,
             error_message="Push Serviceの一時的なエラーです",
+        )
+    if status_code in {401, 403}:
+        return ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.terminal_failed,
+            provider_status_code=status_code,
+            provider_request_id=request_id,
+            error_code="vapid_auth_failed",
+            error_message="Push ServiceがVAPID認証を拒否しました",
         )
     if status_code is not None and 400 <= status_code < 500:
         error_code = "payload_too_large" if status_code == 413 else "provider_rejected"
@@ -563,6 +573,17 @@ def process_claimed_target(
             result=ParentPushDeliveryAttemptResult.retryable_failed,
             error_code="transport_exception",
             error_message="transport送信中に例外が発生しました",
+        )
+
+    if send_result.error_code == "vapid_auth_failed":
+        logger.error(
+            "parent push VAPID authentication failed",
+            extra={
+                "push_delivery_id": delivery.id,
+                "push_target_id": target.id,
+                "push_attempt_id": attempt.id,
+                "provider_status_code": send_result.provider_status_code,
+            },
         )
 
     attempt.result = send_result.result

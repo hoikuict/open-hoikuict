@@ -342,6 +342,39 @@ class ParentPushWorkerTests(unittest.TestCase):
                 [],
             )
 
+    def test_vapid_auth_failure_is_persisted_and_logged_as_operational_error(self):
+        auth_failure = ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.terminal_failed,
+            provider_status_code=403,
+            error_code="vapid_auth_failed",
+            error_message="Push ServiceがVAPID認証を拒否しました",
+        )
+        with Session(self.engine) as session:
+            self._create_delivery(session)
+            plan_pending_deliveries(
+                session,
+                environment="development",
+                now=self.now,
+            )
+            target = claim_next_delivery_target(session, now=self.now)
+
+            with self.assertLogs("parent_push_service", level="ERROR") as logs:
+                process_claimed_target(
+                    session,
+                    target,
+                    transport=ScriptedTransport(
+                        [auth_failure],
+                        name=ParentPushTransport.webpush,
+                    ),
+                    environment="development",
+                    now=self.now,
+                )
+
+            attempt = session.exec(select(ParentPushDeliveryAttempt)).one()
+            self.assertEqual(attempt.error_code, "vapid_auth_failed")
+            self.assertEqual(attempt.provider_status_code, 403)
+            self.assertIn("VAPID authentication failed", logs.output[0])
+
     def test_expired_target_finishes_without_transport_attempt(self):
         with Session(self.engine) as session:
             delivery_id = self._create_delivery(session)

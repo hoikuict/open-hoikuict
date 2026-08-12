@@ -109,7 +109,8 @@ class ParentWebPushTransportTests(unittest.TestCase):
             500: (ParentPushDeliveryAttemptResult.retryable_failed, "provider_unavailable"),
             503: (ParentPushDeliveryAttemptResult.retryable_failed, "provider_unavailable"),
             400: (ParentPushDeliveryAttemptResult.terminal_failed, "provider_rejected"),
-            403: (ParentPushDeliveryAttemptResult.terminal_failed, "provider_rejected"),
+            401: (ParentPushDeliveryAttemptResult.terminal_failed, "vapid_auth_failed"),
+            403: (ParentPushDeliveryAttemptResult.terminal_failed, "vapid_auth_failed"),
             413: (ParentPushDeliveryAttemptResult.terminal_failed, "payload_too_large"),
         }
         for status_code, expected in cases.items():
@@ -123,6 +124,18 @@ class ParentWebPushTransportTests(unittest.TestCase):
             ParentPushDeliveryAttemptResult.retryable_failed,
         )
         self.assertEqual(missing_response.error_code, "transport_unavailable")
+
+    def test_vapid_auth_failure_has_alertable_code_and_sanitized_message(self):
+        for status_code in (401, 403):
+            with self.subTest(status_code=status_code):
+                result = classify_web_push_response(status_code)
+                self.assertEqual(
+                    result.result,
+                    ParentPushDeliveryAttemptResult.terminal_failed,
+                )
+                self.assertEqual(result.error_code, "vapid_auth_failed")
+                self.assertIn("VAPID認証", result.error_message)
+                self.assertNotIn(self.subscription.endpoint, result.error_message)
 
 
 if __name__ == "__main__":
