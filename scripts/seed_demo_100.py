@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import sys
+from collections import Counter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ from time_utils import local_today
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CSV_DIR = BASE_DIR / "demo_data" / "full"
+MAX_DUPLICATE_NAME_GROUPS = 2
 
 MODEL_ORDER = [
     ("classrooms", Classroom),
@@ -156,16 +158,44 @@ def parse_value(table: str, key: str, value: str) -> Any:
         return float(value)
     return value
 
+
+def validate_name_duplicates(table: str, rows: list[dict[str, Any]]) -> None:
+    """Keep accidental duplicate people names out of the bundled demo data."""
+
+    if table == "children":
+        names = [f"{row['last_name']} {row['first_name']}" for row in rows]
+    elif table == "parent_accounts":
+        names = [str(row["display_name"]).strip() for row in rows]
+    else:
+        return
+
+    duplicate_counts = {
+        name: count for name, count in Counter(names).items() if count > 1
+    }
+    over_repeated = {
+        name: count for name, count in duplicate_counts.items() if count > 2
+    }
+    if over_repeated or len(duplicate_counts) > MAX_DUPLICATE_NAME_GROUPS:
+        details = ", ".join(
+            f"{name} ({count}人)" for name, count in sorted(duplicate_counts.items())
+        )
+        raise ValueError(
+            f"{table} の同姓同名は最大{MAX_DUPLICATE_NAME_GROUPS}組、"
+            f"各2人までです: {details}"
+        )
+
 def load_rows(table: str) -> list[dict[str, Any]]:
     path = CSV_DIR / f"{table}.csv"
     if not path.exists():
         raise FileNotFoundError(path)
     with path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
-        return [
+        rows = [
             {key: parse_value(table, key, value) for key, value in row.items() if value != ""}
             for row in reader
         ]
+    validate_name_duplicates(table, rows)
+    return rows
 
 def wipe_all(session: Session) -> None:
     session.exec(text("PRAGMA foreign_keys=OFF"))
