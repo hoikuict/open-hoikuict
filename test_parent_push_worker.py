@@ -258,6 +258,38 @@ class ParentPushWorkerTests(unittest.TestCase):
                 self.now + timedelta(seconds=31),
             )
 
+    def test_retry_time_is_compared_after_normalizing_naive_datetime(self):
+        retryable = ParentPushSendResult(
+            result=ParentPushDeliveryAttemptResult.retryable_failed,
+            error_code="temporary_failure",
+        )
+        naive_now = self.now.replace(tzinfo=None)
+        with Session(self.engine) as session:
+            self._create_delivery(session)
+            plan_pending_deliveries(
+                session,
+                environment="development",
+                now=self.now,
+            )
+            target = claim_next_delivery_target(session, now=self.now)
+
+            process_claimed_target(
+                session,
+                target,
+                transport=ScriptedTransport([retryable]),
+                environment="development",
+                now=naive_now,
+            )
+
+            self.assertEqual(
+                target.status,
+                ParentPushDeliveryTargetStatus.retry_wait,
+            )
+            self.assertEqual(
+                ensure_utc(target.next_retry_at),
+                self.now + timedelta(seconds=30),
+            )
+
     def test_subscription_gone_disables_only_the_failed_subscription(self):
         gone = ParentPushSendResult(
             result=ParentPushDeliveryAttemptResult.terminal_failed,
