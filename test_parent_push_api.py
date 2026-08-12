@@ -354,6 +354,15 @@ class ParentPushApiTests(unittest.TestCase):
         )
         self.assertIn("safeActionUrl", worker.text)
         self.assertIn("postReceipt(receiptData, 'shown')", worker.text)
+        self.assertIn(
+            "const receiptPromise = postReceipt(event.notification.data, 'clicked')",
+            worker.text,
+        )
+        self.assertIn("Promise.allSettled([navigationPromise, receiptPromise])", worker.text)
+        self.assertNotIn(
+            "await postReceipt(event.notification.data, 'clicked')",
+            worker.text,
+        )
 
 
 if __name__ == "__main__":

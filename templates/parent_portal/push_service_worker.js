@@ -22,15 +22,26 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const actionUrl = safeActionUrl(event.notification.data?.action_url);
+  const actionUrl = new URL(
+    safeActionUrl(event.notification.data?.action_url),
+    self.location.origin
+  ).href;
   event.waitUntil((async () => {
-    await postReceipt(event.notification.data, 'clicked');
+    // Start receipt recording without delaying navigation. Chrome may reject
+    // openWindow after waiting for a network round trip because the click's
+    // transient user activation has already expired.
+    const receiptPromise = postReceipt(event.notification.data, 'clicked');
     const windows = await clients.matchAll({type: 'window', includeUncontrolled: true});
+    let navigationPromise;
     for (const client of windows) {
-      if ('navigate' in client) await client.navigate(actionUrl);
-      return client.focus();
+      navigationPromise = (async () => {
+        if ('navigate' in client) await client.navigate(actionUrl);
+        return client.focus();
+      })();
+      break;
     }
-    return clients.openWindow(actionUrl);
+    navigationPromise ||= clients.openWindow(actionUrl);
+    await Promise.allSettled([navigationPromise, receiptPromise]);
   })());
 });
 
