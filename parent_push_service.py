@@ -806,7 +806,7 @@ def _schedule_retry_or_finish(
     retry_at = now + timedelta(seconds=DEFAULT_RETRY_DELAYS_SECONDS[delay_index])
     expires_at = ensure_utc(delivery.expires_at)
     comparable_retry_at = ensure_utc(retry_at)
-    if expires_at and comparable_retry_at and retry_at >= expires_at:
+    if expires_at and comparable_retry_at and comparable_retry_at >= expires_at:
         target.status = ParentPushDeliveryTargetStatus.expired
         target.next_retry_at = None
         return
