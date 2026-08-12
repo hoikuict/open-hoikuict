@@ -27,23 +27,42 @@ self.addEventListener('notificationclick', event => {
     self.location.origin
   ).href;
   event.waitUntil((async () => {
-    // Start receipt recording without delaying navigation. Chrome may reject
-    // openWindow after waiting for a network round trip because the click's
-    // transient user activation has already expired.
+    // openWindow must be started directly from the click handler. Reusing an
+    // arbitrary existing tab can focus the demo top page without navigating.
+    const navigationPromise = openActionUrl(actionUrl);
     const receiptPromise = postReceipt(event.notification.data, 'clicked');
-    const windows = await clients.matchAll({type: 'window', includeUncontrolled: true});
-    let navigationPromise;
-    for (const client of windows) {
-      navigationPromise = (async () => {
-        if ('navigate' in client) await client.navigate(actionUrl);
-        return client.focus();
-      })();
-      break;
-    }
-    navigationPromise ||= clients.openWindow(actionUrl);
     await Promise.allSettled([navigationPromise, receiptPromise]);
   })());
 });
+
+async function openActionUrl(actionUrl) {
+  try {
+    const openedClient = await clients.openWindow(actionUrl);
+    if (openedClient) {
+      if ('focus' in openedClient) await openedClient.focus();
+      return;
+    }
+  } catch (_) {
+    // Fall back to an existing same-origin window when opening is unavailable.
+  }
+
+  const windows = await clients.matchAll({type: 'window', includeUncontrolled: true});
+  for (const client of windows) {
+    try {
+      if ('navigate' in client) {
+        const navigatedClient = await client.navigate(actionUrl);
+        if (navigatedClient) {
+          await navigatedClient.focus();
+          return;
+        }
+      }
+      await client.focus();
+      return;
+    } catch (_) {
+      // Try another controlled window if this one can no longer be used.
+    }
+  }
+}
 
 function safeActionUrl(value) {
   return typeof value === 'string' && value.startsWith('/parent-portal/') ? value : '/parent-portal/';

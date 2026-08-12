@@ -355,10 +355,20 @@ class ParentPushApiTests(unittest.TestCase):
         self.assertIn("safeActionUrl", worker.text)
         self.assertIn("postReceipt(receiptData, 'shown')", worker.text)
         self.assertIn(
+            "const navigationPromise = openActionUrl(actionUrl)",
+            worker.text,
+        )
+        self.assertIn(
             "const receiptPromise = postReceipt(event.notification.data, 'clicked')",
             worker.text,
         )
         self.assertIn("Promise.allSettled([navigationPromise, receiptPromise])", worker.text)
+        self.assertIn("const openedClient = await clients.openWindow(actionUrl)", worker.text)
+        self.assertIn("const navigatedClient = await client.navigate(actionUrl)", worker.text)
+        self.assertLess(
+            worker.text.index("const navigationPromise = openActionUrl(actionUrl)"),
+            worker.text.index("const receiptPromise = postReceipt(event.notification.data, 'clicked')"),
+        )
         self.assertNotIn(
             "await postReceipt(event.notification.data, 'clicked')",
             worker.text,
