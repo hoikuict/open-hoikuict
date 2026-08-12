@@ -1,13 +1,13 @@
 # 保護者向けプッシュ通知機能仕様書
 
 - 対象リポジトリ: open-hoikuict
-- ステータス: Draft / Step 1・Step 2・Step 3実装済み
+- ステータス: Draft / Step 1〜Step 4実装済み・実機確認未実施
 - 作成日: 2026-08-12
-- 実装状況: 一部実装（実Web Push transportとcapture確認画面まで）
+- 実装状況: Phase 1実装完了（PC・Android・iPhone/iPadの実機確認未実施）
 - 初期対象: 出欠未確認時の保護者確認依頼
 - 関連: 保護者ポータル、保護者アカウント、出欠確認、認証、セキュリティ
 
-> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture / Web Push transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、development確認画面は実装済みである。developmentのWeb Pushは、本人が設定画面から明示登録したテスト端末だけへ送信できる。一方、receipt API、実端末での送受信確認、保存期間処理は未実装である。未実装部分のモデル、URL、画面は実装案であり、現行機能として扱わない。
+> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture / Web Push transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、Target単位の表示・クリック確認API、development確認画面、日次運用指標、保存期間処理は実装済みである。developmentのWeb Pushは、本人が設定画面から明示登録したテスト端末だけへ送信できる。PC・Android・iPhone/iPadの実機による送受信確認は未実施であり、Phase 1の受入完了にはその記録が必要である。
 
 ---
 
@@ -626,6 +626,8 @@ development限定で `/dev/push-notifications` を追加する。productionで�
 
 ### 14.5 実送信確認手順
 
+詳細な端末別手順、異常系、証跡項目は[保護者向けプッシュ通知 実機確認ガイド](parent-push-real-device-test.md)に従う。
+
 1. `HOIKUICT_ENV=development` と開発用VAPID鍵を設定する
 2. HTTPSの安定した開発origin、または対応ブラウザのlocalhostでアプリを開く
 3. モック保護者としてログインする
@@ -776,17 +778,17 @@ Phase 1は以下をすべて満たしたとき完了とする。
 - [x] developmentの既定状態では外部へプッシュ送信しない
 - [x] capture画面で送信予定payloadと状態遷移を確認できる
 - [ ] 開発用テスト端末に実送信できる
-- [ ] `pending / accepted / shown / clicked` の各段階を区別して確認できる
-- [ ] 1保護者の複数端末を個別に追跡できる
-- [ ] 同一業務イベントから通知と配送が重複作成されない
-- [ ] Push Service障害が出欠確認の保存を失敗させない
+- [x] `pending / accepted / shown / clicked` の各段階を区別して確認できる
+- [x] 1保護者の複数端末を個別に追跡できる
+- [x] 同一業務イベントから通知と配送が重複作成されない
+- [x] Push Service障害が出欠確認の保存を失敗させない
 - [x] 無効な購読を自動停止できる
 - [x] 一時障害を有効期限内で再試行できる
-- [ ] プッシュ本文、画面、ログに禁止された個人情報を含めない
-- [ ] 他の保護者の購読を登録・解除・閲覧できない
-- [ ] productionで鍵、HTTPS、本番保護者認証が不足している場合はWeb Pushを有効化できない
+- [x] プッシュ本文、画面、ログに禁止された個人情報を含めない
+- [x] 他の保護者の購読を登録・解除・閲覧できない
+- [x] productionで鍵、HTTPS、本番保護者認証が不足している場合はWeb Pushを有効化できない
 - [x] 明示的なログアウトでは現在端末の購読を無効化し、セッション有効期限切れでは無効化しない
-- [ ] 自動テストとPC・Android・iPhone/iPadの実機確認手順が整備されている
+- [x] 自動テストとPC・Android・iPhone/iPadの実機確認手順が整備されている
 
 ---
 
@@ -814,12 +816,12 @@ Phase 1は以下をすべて満たしたとき完了とする。
 - 配送ワーカー、lease、再試行追加
 - 無効購読の自動停止追加
 
-### Step 4: 配送確認と運用
+### Step 4: 配送確認と運用（2026-08-12実装済み・実機確認未実施）
 
-- 表示・クリック確認API追加
+- Target単位の表示・クリック確認API追加（2026-08-12実装済み）
 - development確認画面追加（2026-08-12実装済み）
-- 実端末確認手順整備
-- 運用指標と保存期間処理追加
+- [実端末確認手順](parent-push-real-device-test.md)整備（2026-08-12整備済み）
+- 日次運用指標と90日保存期間処理追加（2026-08-12実装済み）
 
 ---
 
