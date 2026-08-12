@@ -71,6 +71,7 @@ from plan_docs.routers.documents import router as plan_docs_documents_router
 from plan_docs.routers.home import router as plan_docs_home_router
 from plan_docs.routers.plans import router as plan_docs_plans_router
 from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
+from parent_push_operations import apply_parent_push_retention
 from url_utils import safe_internal_redirect
 from auth import mock_auth_enabled, require_mock_staff_auth, staff_auth_http_exception_handler
 from csrf import CsrfTokenMiddleware, verify_csrf
@@ -83,6 +84,7 @@ def initialize_application() -> None:
     _cleanup_stale_previews()
     ensure_runtime_files()
     create_db_and_tables()
+    apply_parent_push_retention()
     seed_classroom_data()
     seed_extended_care_fee_rules()
     seed_sample_data()

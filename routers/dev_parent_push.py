@@ -17,6 +17,7 @@ from models import (
     ParentPushSubscription,
 )
 from parent_push_service import PUSH_SCHEMA_VERSION, SAFE_PUSH_BODY, SAFE_PUSH_TITLE
+from parent_push_operations import build_parent_push_daily_metrics
 from security_config import deployment_environment, parent_push_transport
 from template_utils import create_templates
 
@@ -41,12 +42,14 @@ def capture_dashboard(
         .limit(100)
     ).all()
     items = [_dashboard_item(session, delivery) for delivery in deliveries]
+    metrics = build_parent_push_daily_metrics(session)
     return templates.TemplateResponse(
         request,
         "dev/parent_push_capture.html",
         {
             "current_user": current_user,
             "transport": parent_push_transport(),
+            "metrics": metrics,
             "items": items,
         },
     )

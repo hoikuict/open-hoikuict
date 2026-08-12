@@ -16,6 +16,10 @@
     h3 { font-size: 1rem; }
     .warning { color: #7a4100; background: #fff4d6; border-radius: 8px; padding: 10px 12px; }
     .summary { color: #56616d; margin-bottom: 0; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 0 0 20px; }
+    .metric { background: white; border: 1px solid #dce2e8; border-radius: 10px; padding: 12px; }
+    .metric strong { display: block; font-size: 1.4rem; }
+    .metric span { color: #56616d; font-size: .8rem; }
     article { padding: 18px 20px; margin-bottom: 14px; }
     .meta, .times { display: flex; flex-wrap: wrap; gap: 8px 18px; color: #56616d; font-size: .9rem; }
     .target { border-top: 1px solid #e7ebef; margin-top: 16px; padding-top: 16px; }
@@ -31,6 +35,21 @@
     <p class="warning">development 限定画面です。endpoint・購読鍵・receipt token は表示しません。</p>
     <p class="summary">transport: <strong>{{ transport }}</strong> / 閲覧者: {{ current_user.name }} / 最新100配送</p>
   </header>
+
+  <section class="metrics" aria-label="{{ metrics.day }} の配送指標">
+    <div class="metric"><strong>{{ metrics.notification_count }}</strong><span>通知作成</span></div>
+    <div class="metric"><strong>{{ metrics.push_delivery_count }}</strong><span>push配送</span></div>
+    <div class="metric"><strong>{{ metrics.target_count }}</strong><span>配送Target</span></div>
+    <div class="metric"><strong>{{ metrics.no_subscription_count }}</strong><span>対象購読なし</span></div>
+    <div class="metric"><strong>{{ metrics.accepted_count }}</strong><span>accepted</span></div>
+    <div class="metric"><strong>{{ metrics.shown_count }}</strong><span>shown</span></div>
+    <div class="metric"><strong>{{ metrics.clicked_count }}</strong><span>clicked</span></div>
+    <div class="metric"><strong>{{ metrics.terminal_failed_count }}</strong><span>終端失敗</span></div>
+    <div class="metric"><strong>{{ metrics.subscription_gone_count }}</strong><span>購読失効</span></div>
+    <div class="metric"><strong>{{ metrics.vapid_auth_failed_count }}</strong><span>VAPID認証異常</span></div>
+    <div class="metric"><strong>{{ metrics.retry_wait_count }}</strong><span>再試行待ち</span></div>
+  </section>
+  {% if metrics.oldest_retry_at %}<p class="summary">最古の次回再試行: {{ metrics.oldest_retry_at }}</p>{% endif %}
 
   {% for item in items %}
   <article>
