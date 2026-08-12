@@ -106,6 +106,13 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                 self.assertIsNotNone(child)
                 self.assertNotEqual(child.last_name, "SessionOne")
 
+    def test_staff_login_renders_from_upgraded_demo_snapshot(self):
+        with TestClient(main.app) as client:
+            response = client.get("/staff/login?redirect=/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("職員ログイン", response.text)
+
     def test_database_dependency_uses_request_demo_session(self):
         main.initialize_application()
         session_id = "a" * 32
@@ -169,6 +176,21 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
                 )
             }
+            user_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(users)")
+            }
+            billing_line_columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(billing_charge_lines)"
+                )
+            }
+            extended_care_columns = {
+                row[1]
+                for row in connection.execute(
+                    "PRAGMA table_info(extended_care_charges)"
+                )
+            }
         finally:
             connection.close()
 
@@ -190,6 +212,17 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                 "parent_push_delivery_targets",
                 "parent_push_delivery_attempts",
             }.issubset(table_names)
+        )
+        self.assertIn("can_manage_billing_accounts", user_columns)
+        self.assertIn("source_reference", billing_line_columns)
+        self.assertTrue(
+            {
+                "billing_charge_line_id",
+                "transferred_amount",
+                "transferred_at",
+                "transferred_by_user_id",
+                "transferred_by_name",
+            }.issubset(extended_care_columns)
         )
 
     def test_worker_engine_enumeration_does_not_extend_session_ttl(self):

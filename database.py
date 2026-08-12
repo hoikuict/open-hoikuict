@@ -122,34 +122,90 @@ def _upgrade_parent_push_snapshot(db_path: Path) -> None:
 
 def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
     """Bring the packaged demo database up to the schema expected by this release."""
-    columns = {
+    review_columns = {
         row[1]
         for row in connection.execute("PRAGMA table_info(plan_review_notifications)")
     }
-    if not columns:
-        return
-    additions = {
-        "notification_kind": "VARCHAR NOT NULL DEFAULT 'review_request'",
-        "decision_status": "VARCHAR",
-        "decided_by_name": "VARCHAR",
-        "decision_comment": "VARCHAR",
+    if review_columns:
+        additions = {
+            "notification_kind": "VARCHAR NOT NULL DEFAULT 'review_request'",
+            "decision_status": "VARCHAR",
+            "decided_by_name": "VARCHAR",
+            "decision_comment": "VARCHAR",
+        }
+        for column_name, column_type in additions.items():
+            if column_name not in review_columns:
+                connection.execute(
+                    "ALTER TABLE plan_review_notifications "
+                    f"ADD COLUMN {column_name} {column_type}"
+                )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS "
+            "ix_plan_review_notifications_notification_kind "
+            "ON plan_review_notifications(notification_kind)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS "
+            "ix_plan_review_notifications_decision_status "
+            "ON plan_review_notifications(decision_status)"
+        )
+
+    user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
+    if user_columns and "can_manage_billing_accounts" not in user_columns:
+        connection.execute(
+            "ALTER TABLE users ADD COLUMN "
+            "can_manage_billing_accounts BOOLEAN DEFAULT 0 NOT NULL"
+        )
+        connection.execute(
+            "UPDATE users SET can_manage_billing_accounts = 1 "
+            "WHERE email IN ('office@example.com', 'office@demo.open-hoikuict.example')"
+        )
+
+    line_columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(billing_charge_lines)")
     }
-    for column_name, column_type in additions.items():
-        if column_name not in columns:
+    if line_columns and "source_reference" not in line_columns:
+        connection.execute(
+            "ALTER TABLE billing_charge_lines "
+            "ADD COLUMN source_reference VARCHAR(120)"
+        )
+    if line_columns:
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS "
+            "ux_billing_charge_lines_source_reference "
+            "ON billing_charge_lines (source_reference) "
+            "WHERE source_reference IS NOT NULL"
+        )
+
+    extended_care_columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(extended_care_charges)")
+    }
+    extended_care_additions = {
+        "billing_charge_line_id": "INTEGER REFERENCES billing_charge_lines(id)",
+        "transferred_amount": "INTEGER",
+        "transferred_at": "DATETIME",
+        "transferred_by_user_id": "CHAR(32) REFERENCES users(id)",
+        "transferred_by_name": "VARCHAR(100)",
+    }
+    for column_name, column_type in extended_care_additions.items():
+        if extended_care_columns and column_name not in extended_care_columns:
             connection.execute(
-                "ALTER TABLE plan_review_notifications "
+                "ALTER TABLE extended_care_charges "
                 f"ADD COLUMN {column_name} {column_type}"
             )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS "
-        "ix_plan_review_notifications_notification_kind "
-        "ON plan_review_notifications(notification_kind)"
-    )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS "
-        "ix_plan_review_notifications_decision_status "
-        "ON plan_review_notifications(decision_status)"
-    )
+    if extended_care_columns:
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS "
+            "ix_extended_care_charges_billing_charge_line_id "
+            "ON extended_care_charges (billing_charge_line_id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS "
+            "ix_extended_care_charges_transferred_by_user_id "
+            "ON extended_care_charges (transferred_by_user_id)"
+        )
     connection.commit()
 
 
