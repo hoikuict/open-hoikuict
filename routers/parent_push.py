@@ -95,6 +95,21 @@ def push_settings(
 ):
     parent = _require_parent_account(request, session)
     preference = get_parent_push_preference(session, parent_account_id=parent.id)
+    public_demo_mode = is_public_demo()
+    browser_subscription_owner_mismatch = False
+    if public_demo_mode:
+        subscription_id = read_parent_push_device_cookie(
+            request.cookies.get(PARENT_PUSH_DEVICE_COOKIE)
+        )
+        browser_subscription = (
+            session.get(ParentPushSubscription, subscription_id)
+            if subscription_id is not None
+            else None
+        )
+        browser_subscription_owner_mismatch = bool(
+            browser_subscription is not None
+            and browser_subscription.parent_account_id != parent.id
+        )
     return templates.TemplateResponse(
         request,
         "parent_portal/push_settings.html",
@@ -106,7 +121,10 @@ def push_settings(
             "test_device_mode": (
                 deployment_environment() == "development" or is_public_demo()
             ),
-            "public_demo_mode": is_public_demo(),
+            "public_demo_mode": public_demo_mode,
+            "browser_subscription_owner_mismatch": (
+                browser_subscription_owner_mismatch
+            ),
         },
     )
 
@@ -234,11 +252,27 @@ def delete_current_subscription(
             ParentPushSubscription.endpoint_hash == endpoint_hash(payload.endpoint),
         )
     ).first()
+    disabled_reason = "parent_unsubscribed"
+    if subscription is None and is_public_demo():
+        subscription_id = read_parent_push_device_cookie(
+            request.cookies.get(PARENT_PUSH_DEVICE_COOKIE)
+        )
+        previous_parent_subscription = (
+            session.get(ParentPushSubscription, subscription_id)
+            if subscription_id is not None
+            else None
+        )
+        if (
+            previous_parent_subscription is not None
+            and previous_parent_subscription.endpoint == payload.endpoint
+        ):
+            subscription = previous_parent_subscription
+            disabled_reason = "demo_parent_switch"
     if subscription is not None and subscription.endpoint == payload.endpoint:
         disable_parent_push_subscription(
             session,
             subscription,
-            reason="parent_unsubscribed",
+            reason=disabled_reason,
         )
         session.commit()
     clear_parent_push_device_cookie(response)

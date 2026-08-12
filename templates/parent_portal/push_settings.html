@@ -17,6 +17,9 @@
       <div class="rounded-lg bg-slate-50 p-3 sm:col-span-2"><dt class="text-slate-500">登録状態</dt><dd id="subscription-status" class="mt-1 font-medium">確認中</dd></div>
     </dl>
     <p id="push-message" class="mt-4 hidden rounded-lg px-4 py-3 text-sm"></p>
+    {% if public_demo_mode %}
+    <p id="demo-owner-warning" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800{% if not browser_subscription_owner_mismatch %} hidden{% endif %}">この端末の通知は、切替前の保護者に登録されています。下の解除ボタンでいったん解除してから、現在の保護者で登録し直してください。</p>
+    {% endif %}
     {% if not vapid_key_available %}
     <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">VAPID公開鍵が未設定のため、端末登録はまだ利用できません。</p>
     {% endif %}
@@ -56,9 +59,12 @@
   const enableButton = document.getElementById('enable-push');
   const disableButton = document.getElementById('disable-push');
   const messageEl = document.getElementById('push-message');
+  const demoOwnerWarning = document.getElementById('demo-owner-warning');
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const vapidKeyAvailable = {{ 'true' if vapid_key_available else 'false' }};
   let registration = null;
   let subscription = null;
+  let ownershipConflict = {{ 'true' if browser_subscription_owner_mismatch else 'false' }};
 
   const permissionLabel = value => ({default: '未確認', granted: '許可', denied: '拒否'})[value] || value;
   const showMessage = (text, error = false) => {
@@ -66,11 +72,14 @@
     messageEl.className = `mt-4 rounded-lg px-4 py-3 text-sm ${error ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`;
   };
   const updateStatus = () => {
+    const hasOwnershipConflict = ownershipConflict && Boolean(subscription);
     supportedEl.textContent = supported ? '対応' : '非対応';
     permissionEl.textContent = supported ? permissionLabel(Notification.permission) : '利用不可';
-    subscriptionEl.textContent = subscription ? 'この端末は登録済み' : '未登録';
+    subscriptionEl.textContent = hasOwnershipConflict ? '切替前の保護者に登録済み' : (subscription ? 'この端末は登録済み' : '未登録');
+    enableButton.disabled = !supported || !vapidKeyAvailable || hasOwnershipConflict;
     disableButton.disabled = !subscription;
-    if (!supported) enableButton.disabled = true;
+    disableButton.textContent = hasOwnershipConflict ? '切替前の保護者の通知を解除する' : 'この端末の通知を解除する';
+    demoOwnerWarning?.classList.toggle('hidden', !hasOwnershipConflict);
   };
   const applicationServerKey = value => {
     const padding = '='.repeat((4 - value.length % 4) % 4);
@@ -113,6 +122,7 @@
       if (!response.ok) throw new Error('端末登録を解除できませんでした。');
       await subscription.unsubscribe();
       subscription = null;
+      ownershipConflict = false;
       updateStatus();
       showMessage('この端末の通知を解除しました。');
     } catch (error) { showMessage(error.message || '端末解除に失敗しました。', true); }

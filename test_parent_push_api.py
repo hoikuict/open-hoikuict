@@ -243,6 +243,57 @@ class ParentPushApiTests(unittest.TestCase):
             self.assertEqual(subscription.status, ParentPushSubscriptionStatus.revoked)
             self.assertEqual(subscription.disabled_reason, "parent_unsubscribed")
 
+    def test_public_demo_can_reset_subscription_after_switching_parent(self):
+        self._login(self.first_parent_id)
+        registration = self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(),
+        )
+        subscription_id = registration.json()["id"]
+        self._login(self.second_parent_id)
+
+        with patch.dict(os.environ, {"PUBLIC_DEMO_MODE": "1"}):
+            settings = self.client.get("/parent-portal/push-settings")
+            response = self.client.request(
+                "DELETE",
+                "/parent-portal/push/subscriptions/current",
+                json={"endpoint": self.endpoint},
+            )
+
+        self.assertEqual(settings.status_code, 200)
+        self.assertIn("切替前の保護者に登録されています", settings.text)
+        self.assertIn("切替前の保護者の通知を解除する", settings.text)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "revoked"})
+        self.assertNotIn("parent_push_device", self.client.cookies)
+        with Session(self.engine) as session:
+            subscription = session.get(ParentPushSubscription, subscription_id)
+            self.assertEqual(subscription.status, ParentPushSubscriptionStatus.revoked)
+            self.assertEqual(subscription.disabled_reason, "demo_parent_switch")
+
+    def test_non_demo_cannot_reset_another_parents_subscription(self):
+        self._login(self.first_parent_id)
+        registration = self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(),
+        )
+        subscription_id = registration.json()["id"]
+        self._login(self.second_parent_id)
+
+        settings = self.client.get("/parent-portal/push-settings")
+        response = self.client.request(
+            "DELETE",
+            "/parent-portal/push/subscriptions/current",
+            json={"endpoint": self.endpoint},
+        )
+
+        self.assertEqual(settings.status_code, 200)
+        self.assertNotIn("切替前の保護者に登録されています", settings.text)
+        self.assertEqual(response.json(), {"status": "not_found"})
+        with Session(self.engine) as session:
+            subscription = session.get(ParentPushSubscription, subscription_id)
+            self.assertEqual(subscription.status, ParentPushSubscriptionStatus.active)
+
     def test_endpoint_must_use_https(self):
         self._login(self.first_parent_id)
 
