@@ -39,6 +39,7 @@ nav:
       - 延長保育料金・請求転送: extended-care-billing-transfer-spec.md
       - 職員ポータル: staff-personal-portal-spec.md
       - 職員権限・請求口座: staff-permissions-and-billing-accounts-spec.md
+      - オンプレ・閉域向け自前認証（計画）: local-authentication-spec.md
       - 保護者向けプッシュ通知: parent-push-notification-spec.md
       - 保護者向けプッシュ通知 実機確認: parent-push-real-device-test.md
       - 施設設定（計画）: facility-settings-spec.md
