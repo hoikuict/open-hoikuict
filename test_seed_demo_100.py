@@ -1,10 +1,66 @@
 import csv
 import unittest
 
-from scripts.seed_demo_100 import BASE_DIR, load_rows, validate_name_duplicates
+from sqlalchemy import text
+from sqlmodel import SQLModel, Session, create_engine, select
+
+from models import Classroom, Message, MessageAttachment
+from scripts.seed_demo_100 import (
+    BASE_DIR,
+    build_family_guardian_profiles,
+    load_rows,
+    validate_name_duplicates,
+    wipe_all,
+)
 
 
 class DemoSeedNameTests(unittest.TestCase):
+    def test_family_profiles_use_current_guardian_names(self):
+        profiles_by_family = build_family_guardian_profiles()
+
+        self.assertEqual(profiles_by_family[61][0]["first_name"], "由美")
+        self.assertEqual(profiles_by_family[61][0]["first_name_kana"], "ユミ")
+        self.assertEqual(len(profiles_by_family[61]), 2)
+
+    def test_wipe_all_removes_dependent_tables_without_foreign_key_violations(self):
+        test_engine = create_engine("sqlite://")
+        SQLModel.metadata.create_all(test_engine)
+        with Session(test_engine) as session:
+            session.exec(
+                text(
+                    "CREATE TABLE legacy_demo_rows ("
+                    "id INTEGER PRIMARY KEY, classroom_id INTEGER, "
+                    "FOREIGN KEY(classroom_id) REFERENCES classrooms(id))"
+                )
+            )
+            session.add(Classroom(id=1, name="テスト", display_order=1))
+            session.add(Message(id=1, room_id=1, author_name="テスト"))
+            session.add(
+                MessageAttachment(
+                    id=1,
+                    message_id=1,
+                    original_filename="test.txt",
+                    storage_path="test.txt",
+                )
+            )
+            session.commit()
+            session.exec(
+                text("INSERT INTO legacy_demo_rows (id, classroom_id) VALUES (1, 1)")
+            )
+            session.commit()
+
+            wipe_all(session)
+
+            self.assertEqual(session.exec(select(MessageAttachment)).all(), [])
+            self.assertEqual(session.exec(select(Message)).all(), [])
+            self.assertEqual(
+                session.exec(text("SELECT * FROM legacy_demo_rows")).all(), []
+            )
+            self.assertEqual(
+                session.exec(text("PRAGMA foreign_key_check")).all(), []
+            )
+        test_engine.dispose()
+
     def test_bundled_people_have_at_most_two_duplicate_name_groups(self):
         for table in ("children", "parent_accounts"):
             with self.subTest(table=table):

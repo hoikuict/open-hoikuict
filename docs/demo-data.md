@@ -42,7 +42,7 @@
 ## 使い方
 
 ```bash
-python scripts/seed_demo_100.py --wipe-all
+python -m scripts.seed_demo_100 --wipe-all
 uvicorn main:app --reload
 ```
 

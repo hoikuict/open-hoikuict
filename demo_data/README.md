@@ -21,7 +21,7 @@ demo_data/
 ## seed スクリプトで投入
 
 ```bash
-python scripts/seed_demo_100.py --wipe-all
+python -m scripts.seed_demo_100 --wipe-all
 ```
 
 `--wipe-all` は既存データを削除します。ローカル開発DB以外では使わないでください。

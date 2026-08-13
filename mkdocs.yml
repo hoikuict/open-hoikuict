@@ -33,6 +33,7 @@ nav:
       - 児童記録・児童票・保育要録: child-records-spec.md
       - 園児健康管理: health-record-spec-review.md
       - インポート・エクスポート: import-export-spec.md
+      - ベータ開始時の本番データ移行: beta-production-data-migration-spec.md
       - 認可施設帳票入力: ninka-input-screen-spec.md
       - 延長保育料金: extended-care-fee-spec.md
       - 延長保育料金・請求転送: extended-care-billing-transfer-spec.md

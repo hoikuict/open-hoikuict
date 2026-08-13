@@ -699,12 +699,6 @@ def _plan_children(
         target_last_kana = row["姓カナ"] or (child.last_name_kana if child else "")
         target_first_kana = row["名カナ"] or (child.first_name_kana if child else "")
         target_birth_date = birth_date or (child.birth_date if child else None)
-        if target_last_kana and target_first_kana and target_birth_date:
-            same_child = _find_child_by_natural(session, target_last_kana, target_first_kana, target_birth_date)
-            if same_child and (child is None or same_child.id != child.id):
-                result.errors.append(
-                    TransferMessage(row_number, "園児", f"{target_last_kana} {target_first_kana}", "同じ園児がすでに登録されています。")
-                )
 
         key = _row_key("children", row, fallback=f"{target_last_kana}|{target_first_kana}|{target_birth_date}")
         _check_duplicate_key(seen, key, row_number, "園児", key, result)
@@ -868,6 +862,23 @@ def _plan_parent_child_links(
 
         target_parent_id = parent.id if parent else (link.parent_account_id if link else None)
         target_child_id = child.id if child else (link.child_id if link else None)
+        target_parent = parent or (session.get(ParentAccount, target_parent_id) if target_parent_id else None)
+        target_child = child or (session.get(Child, target_child_id) if target_child_id else None)
+        if (
+            target_parent is not None
+            and target_child is not None
+            and target_parent.family_id is not None
+            and target_child.family_id is not None
+            and target_parent.family_id != target_child.family_id
+        ):
+            result.errors.append(
+                TransferMessage(
+                    row_number,
+                    "保護者・園児",
+                    f"保護者ID={target_parent.id}, 園児ID={target_child.id}",
+                    "保護者と園児が異なる家庭に所属しているため、紐づけできません。",
+                )
+            )
         if link is None and target_parent_id and target_child_id:
             link = session.exec(
                 select(ParentChildLink).where(
@@ -972,7 +983,14 @@ def _resolve_child_for_import(
         return child
     parsed_birth_date = _parse_date(row["生年月日"], row_number, "生年月日", result, required=False)
     if row["姓カナ"] and row["名カナ"] and parsed_birth_date:
-        return _find_child_by_natural(session, row["姓カナ"], row["名カナ"], parsed_birth_date)
+        return _resolve_unique_child_by_natural(
+            session,
+            row["姓カナ"],
+            row["名カナ"],
+            parsed_birth_date,
+            row_number,
+            result,
+        )
     return None
 
 
@@ -1095,8 +1113,16 @@ def _resolve_child_reference(
             if required:
                 result.errors.append(TransferMessage(row_number, "園児", "", "園児IDまたは園児姓カナ・園児名カナ・園児生年月日が必須です。"))
             return None
-        child = _find_child_by_natural(session, row["園児姓カナ"], row["園児名カナ"], birth_date)
-        if child is None:
+        start_errors = len(result.errors)
+        child = _resolve_unique_child_by_natural(
+            session,
+            row["園児姓カナ"],
+            row["園児名カナ"],
+            birth_date,
+            row_number,
+            result,
+        )
+        if child is None and len(result.errors) == start_errors:
             result.errors.append(TransferMessage(row_number, "園児", f"{row['園児姓カナ']} {row['園児名カナ']}", "指定された園児が見つかりません。"))
         return child
 
@@ -1113,14 +1139,43 @@ def _resolve_child_reference(
     return child
 
 
-def _find_child_by_natural(session: Session, last_name_kana: str, first_name_kana: str, birth_date: date) -> Optional[Child]:
-    return session.exec(
-        select(Child).where(
-            Child.last_name_kana == last_name_kana,
-            Child.first_name_kana == first_name_kana,
-            Child.birth_date == birth_date,
+def _find_children_by_natural(
+    session: Session,
+    last_name_kana: str,
+    first_name_kana: str,
+    birth_date: date,
+) -> list[Child]:
+    return list(
+        session.exec(
+            select(Child).where(
+                Child.last_name_kana == last_name_kana,
+                Child.first_name_kana == first_name_kana,
+                Child.birth_date == birth_date,
+            )
+        ).all()
+    )
+
+
+def _resolve_unique_child_by_natural(
+    session: Session,
+    last_name_kana: str,
+    first_name_kana: str,
+    birth_date: date,
+    row_number: int,
+    result: ImportPreviewResult,
+) -> Optional[Child]:
+    matches = _find_children_by_natural(session, last_name_kana, first_name_kana, birth_date)
+    if len(matches) > 1:
+        result.errors.append(
+            TransferMessage(
+                row_number,
+                "園児",
+                f"{last_name_kana} {first_name_kana} {birth_date.isoformat()}",
+                "姓カナ・名カナ・生年月日が一致する園児が複数いるため、一意に特定できません。園児IDを指定してください。",
+            )
         )
-    ).first()
+        return None
+    return matches[0] if matches else None
 
 
 def _parse_int(

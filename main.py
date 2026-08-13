@@ -21,13 +21,6 @@ from database import (
     bootstrap_health_records,
     bootstrap_family_records,
     create_db_and_tables,
-    seed_calendar_data,
-    seed_classroom_data,
-    seed_debug_demo_data,
-    seed_extended_care_fee_rules,
-    seed_parent_portal_data,
-    seed_sample_data,
-    seed_staff_classroom_assignments,
 )
 from routers.attendance import router as attendance_router
 from routers.attendance_checks import router as attendance_checks_router
@@ -85,16 +78,8 @@ def initialize_application() -> None:
     ensure_runtime_files()
     create_db_and_tables()
     apply_parent_push_retention()
-    seed_classroom_data()
-    seed_extended_care_fee_rules()
-    seed_sample_data()
     bootstrap_family_records()
     bootstrap_health_records()
-    seed_parent_portal_data()
-    seed_calendar_data()
-    seed_staff_classroom_assignments()
-    if mock_auth_enabled():
-        seed_debug_demo_data()
 
 
 @asynccontextmanager

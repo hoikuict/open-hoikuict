@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, text
-from sqlmodel import Session, select
+from sqlalchemy import inspect, text
+from sqlmodel import SQLModel, Session, select
 
 from child_profile_changes import build_child_profile_change_details, resolve_child_profile_change_payload
 from child_profile_history import ensure_initial_child_profile_history
@@ -22,7 +22,7 @@ from models import (
     AttendanceAlarmHistory, AttendanceAlarmState, AttendanceRecord,
     AttendanceVerification, AttendanceVerificationHistory, Calendar,
     CalendarMember, CalendarUserPreference, Child, ChildAllergy, DailyContactEntry,
-    ChildHealthProfile, ChildProfileChangeRequest, ChildProfileHistory, Classroom, Event,
+    ChildHealthProfile, ChildProfileChangeRequest, Classroom, Event,
     ExtendedCareCharge, ExtendedCareChargeStatus, ExtendedCareFeeRule,
     Family, Guardian, HealthCheckRecord, Message, Notice, NoticeRead,
     NoticeTarget, ParentAccount, ParentChildLink, ProfileChangeNotification,
@@ -69,13 +69,6 @@ MODEL_ORDER = [
     ("survey_responses", SurveyResponse),
     ("profile_change_notifications", ProfileChangeNotification),
     ("child_profile_change_requests", ChildProfileChangeRequest),
-]
-
-WIPE_ORDER = [
-    ChildProfileHistory,
-    ExtendedCareCharge,
-    ExtendedCareFeeRule,
-    *list(reversed([model for _, model in MODEL_ORDER])),
 ]
 
 # These tables are generated relative to the seed execution date instead of
@@ -128,6 +121,18 @@ INT_FIELDS = {
     "billable_units", "auto_amount", "adjustment_amount", "final_amount",
 }
 FLOAT_FIELDS = {"height_cm", "weight_kg", "head_circumference_cm", "chest_circumference_cm"}
+GUARDIAN_PROFILE_FIELDS = (
+    "order",
+    "last_name",
+    "first_name",
+    "last_name_kana",
+    "first_name_kana",
+    "relationship",
+    "phone",
+    "workplace",
+    "workplace_address",
+    "workplace_phone",
+)
 
 # Fields named id in UUID models must parse as UUID, not int.
 UUID_MODEL_TABLES = {
@@ -197,10 +202,47 @@ def load_rows(table: str) -> list[dict[str, Any]]:
     validate_name_duplicates(table, rows)
     return rows
 
+
+def build_family_guardian_profiles() -> dict[int, list[dict[str, Any]]]:
+    """Build canonical family profiles from guardian rows, deduplicating siblings."""
+
+    family_id_by_child_id = {
+        row["id"]: row["family_id"] for row in load_rows("children")
+    }
+    profiles_by_family: dict[int, list[dict[str, Any]]] = {}
+    seen_identities_by_family: dict[int, set[tuple[Any, ...]]] = {}
+    for guardian in load_rows("guardians"):
+        family_id = family_id_by_child_id[guardian["child_id"]]
+        phone = str(guardian.get("phone", "")).strip()
+        identity = (
+            ("phone", phone)
+            if phone
+            else tuple(guardian.get(field) for field in GUARDIAN_PROFILE_FIELDS)
+        )
+        seen_identities = seen_identities_by_family.setdefault(family_id, set())
+        if identity in seen_identities:
+            continue
+        seen_identities.add(identity)
+        profiles_by_family.setdefault(family_id, []).append(
+            {
+                field: guardian.get(field, "")
+                for field in GUARDIAN_PROFILE_FIELDS
+            }
+        )
+
+    for profiles in profiles_by_family.values():
+        profiles.sort(key=lambda profile: int(profile.get("order", 99)))
+    return profiles_by_family
+
 def wipe_all(session: Session) -> None:
+    # --wipe-all is intended to rebuild a disposable local/demo database.  Use
+    # every table actually present in SQLite so newly added or legacy dependent
+    # tables cannot be left pointing at rows replaced by the seed.
     session.exec(text("PRAGMA foreign_keys=OFF"))
-    for model in WIPE_ORDER:
-        session.exec(delete(model))
+    table_names = inspect(session.get_bind()).get_table_names()
+    for table_name in reversed(table_names):
+        quoted_name = table_name.replace('"', '""')
+        session.exec(text(f'DELETE FROM "{quoted_name}"'))
     session.commit()
     session.exec(text("PRAGMA foreign_keys=ON"))
 
@@ -271,12 +313,22 @@ def seed_extended_care_demo_data(
 
 
 def seed(wipe: bool = False) -> dict[str, int]:
+    # A previous/partial seed can leave foreign-key violations behind.  In
+    # wipe mode, remove the old demo rows before the normal startup validation
+    # so the seed command can repair that database itself.
+    if wipe:
+        import child_records.models  # noqa: F401
+        import plan_docs.db_models  # noqa: F401
+
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            wipe_all(session)
+
     create_db_and_tables()
     counts: dict[str, int] = {}
+    guardian_profiles_by_family = build_family_guardian_profiles()
     with Session(engine) as session:
-        if wipe:
-            wipe_all(session)
-        else:
+        if not wipe:
             existing = session.get(Classroom, 1)
             if existing:
                 raise RuntimeError(
@@ -289,6 +341,11 @@ def seed(wipe: bool = False) -> dict[str, int]:
             if table in DYNAMIC_DEMO_TABLES:
                 continue
             rows = load_rows(table)
+            if table == "families":
+                for row in rows:
+                    row["shared_profile"] = {
+                        "guardians": guardian_profiles_by_family.get(row["id"], [])
+                    }
             if table == "users":
                 for row in rows:
                     row.setdefault("provisioning_source", USER_SOURCE_WEB_DEMO)

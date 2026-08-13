@@ -18,7 +18,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import Role, StaffUser
 import routers.data_transfers as data_transfers_module
-from models import Child, ChildStatus, Classroom, DataTransferLog, Family
+from models import Child, ChildStatus, Classroom, DataTransferLog, Family, ParentAccount, ParentChildLink
 
 
 def _csv_bytes(rows):
@@ -294,6 +294,156 @@ class DataTransferTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("家庭IDの家庭名と一致しません", response.text)
+
+    def test_child_natural_key_ambiguity_is_validation_error(self):
+        with Session(self.engine) as session:
+            session.add(
+                Child(
+                    last_name="田中",
+                    first_name="さくら",
+                    last_name_kana="タナカ",
+                    first_name_kana="サクラ",
+                    birth_date=date(2021, 4, 5),
+                    enrollment_date=date(2024, 4, 1),
+                    status=ChildStatus.enrolled,
+                    classroom_id=self.classroom_id,
+                    family_id=self.family_id,
+                    extra_data={"allergy": [], "medical_notes": ""},
+                )
+            )
+            session.commit()
+
+        rows = [
+            ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号"],
+            ["", "田中", "さくら", "タナカ", "サクラ", "2021-04-05", "2024-04-01", "", "在園", "ひよこ組", str(self.family_id), "田中家", "", ""],
+        ]
+        response = self.client.post(
+            "/data-transfers/import/children/preview",
+            files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("一致する園児が複数いるため、一意に特定できません", response.text)
+
+    def test_child_id_disambiguates_duplicate_natural_key(self):
+        with Session(self.engine) as session:
+            session.add(
+                Child(
+                    last_name="田中",
+                    first_name="さくら",
+                    last_name_kana="タナカ",
+                    first_name_kana="サクラ",
+                    birth_date=date(2021, 4, 5),
+                    enrollment_date=date(2024, 4, 1),
+                    status=ChildStatus.enrolled,
+                    classroom_id=self.classroom_id,
+                    family_id=self.family_id,
+                    extra_data={"allergy": [], "medical_notes": ""},
+                )
+            )
+            session.commit()
+
+        rows = [
+            ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号"],
+            [str(self.child_id), "田中", "さくら", "タナカ", "サクラ", "2021-04-05", "2024-04-01", "", "", "ひよこ組", str(self.family_id), "田中家", "東京都", ""],
+        ]
+        response = self.client.post(
+            "/data-transfers/import/children/commit",
+            files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            child = session.get(Child, self.child_id)
+        self.assertEqual(child.home_address, "東京都")
+
+    def test_parent_child_link_natural_key_ambiguity_is_validation_error(self):
+        with Session(self.engine) as session:
+            session.add(
+                Child(
+                    last_name="田中",
+                    first_name="さくら",
+                    last_name_kana="タナカ",
+                    first_name_kana="サクラ",
+                    birth_date=date(2021, 4, 5),
+                    enrollment_date=date(2024, 4, 1),
+                    status=ChildStatus.enrolled,
+                    classroom_id=self.classroom_id,
+                    family_id=self.family_id,
+                    extra_data={"allergy": [], "medical_notes": ""},
+                )
+            )
+            session.add(
+                ParentAccount(
+                    display_name="田中 保護者",
+                    email="guardian@example.com",
+                    family_id=self.family_id,
+                )
+            )
+            session.commit()
+
+        rows = [
+            ["ID", "保護者ID", "保護者メールアドレス", "園児ID", "園児姓カナ", "園児名カナ", "園児生年月日", "続柄", "主連絡先"],
+            ["", "", "guardian@example.com", "", "タナカ", "サクラ", "2021-04-05", "母", "true"],
+        ]
+        response = self.client.post(
+            "/data-transfers/import/parent_child_links/preview",
+            files={"file": ("parent_child_links.csv", _csv_bytes(rows), "text/csv")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("一致する園児が複数いるため、一意に特定できません", response.text)
+        self.assertNotIn("指定された園児が見つかりません", response.text)
+
+    def test_parent_child_link_rejects_members_of_different_families(self):
+        with Session(self.engine) as session:
+            other_family = Family(family_name="佐藤家", home_phone="03-2222-2222")
+            session.add(other_family)
+            session.flush()
+            other_child = Child(
+                last_name="佐藤",
+                first_name="みお",
+                last_name_kana="サトウ",
+                first_name_kana="ミオ",
+                birth_date=date(2022, 5, 6),
+                enrollment_date=date(2025, 4, 1),
+                status=ChildStatus.enrolled,
+                classroom_id=self.classroom_id,
+                family_id=other_family.id,
+                extra_data={"allergy": [], "medical_notes": ""},
+            )
+            parent = ParentAccount(
+                display_name="田中 保護者",
+                email="guardian@example.com",
+                family_id=self.family_id,
+            )
+            session.add(other_child)
+            session.add(parent)
+            session.commit()
+            other_child_id = other_child.id
+            parent_id = parent.id
+
+        rows = [
+            ["ID", "保護者ID", "保護者メールアドレス", "園児ID", "園児姓カナ", "園児名カナ", "園児生年月日", "続柄", "主連絡先"],
+            ["", str(parent_id), "guardian@example.com", str(other_child_id), "サトウ", "ミオ", "2022-05-06", "母", "true"],
+        ]
+        response = self.client.post(
+            "/data-transfers/import/parent_child_links/commit",
+            files={"file": ("parent_child_links.csv", _csv_bytes(rows), "text/csv")},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("保護者と園児が異なる家庭に所属しているため", response.text)
+        with Session(self.engine) as session:
+            link = session.exec(
+                select(ParentChildLink).where(
+                    ParentChildLink.parent_account_id == parent_id,
+                    ParentChildLink.child_id == other_child_id,
+                )
+            ).first()
+        self.assertIsNone(link)
 
     def test_import_rejects_duplicate_headers(self):
         rows = [
