@@ -71,7 +71,7 @@ class SecurityControlTests(unittest.TestCase):
             self.assertEqual(browser_response.status_code, 303)
             self.assertEqual(
                 browser_response.headers["location"],
-                "/staff/login",
+                "/staff/login?redirect=%2Fprotected%3Fpage%3D2",
             )
             api_response = client.get("/protected", headers={"Accept": "application/json"})
             self.assertEqual(api_response.status_code, 401)
@@ -141,8 +141,14 @@ class SecurityControlTests(unittest.TestCase):
         settings = {
             "HOIKUICT_ENV": "production",
             "HOIKUICT_SECRET_KEY": "s" * 40,
+            "HOIKUICT_STAFF_AUTH_MODE": "local_password",
+            "HOIKUICT_LOGIN_THROTTLE_HMAC_KEY": "t" * 40,
+            "HOIKUICT_PASSWORD_BLOCKLIST_PATH": "password-blocklist.txt",
         }
-        with patch.dict(os.environ, settings, clear=True):
+        with patch.dict(os.environ, settings, clear=True), patch(
+            "security_config.os.path.isfile",
+            return_value=True,
+        ):
             self.assertTrue(secure_cookie_enabled())
             self.assertTrue(csrf_enforced())
             validate_runtime_security()

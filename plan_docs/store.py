@@ -279,6 +279,23 @@ class SqlModelDocumentRepository:
             ).all()
         )
 
+    def latest_action(
+        self,
+        document_id: int,
+        action: str,
+    ) -> PlanDocumentAction | None:
+        return self.session.exec(
+            select(PlanDocumentAction)
+            .where(
+                PlanDocumentAction.document_id == document_id,
+                PlanDocumentAction.action == action,
+            )
+            .order_by(
+                PlanDocumentAction.created_at.desc(),
+                PlanDocumentAction.id.desc(),
+            )
+        ).first()
+
     def update_document(
         self,
         document_id: int,
@@ -406,6 +423,7 @@ class SqlModelDocumentRepository:
                 action=status.value,
                 comment=comment,
                 actor_ref=actor_ref,
+                actor_name=actor_name,
             )
         )
         self.session.commit()

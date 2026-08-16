@@ -10,10 +10,12 @@
   <div class="no-print flex items-center gap-2 flex-wrap">
     <button
       type="button"
+      id="attendance-search-toggle"
+      aria-controls="attendance-search-panel"
+      aria-expanded="false"
       class="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50"
-      onclick="const panel = document.getElementById('attendance-search-panel'); panel.classList.toggle('hidden');"
     >
-      検索詳細
+      検索詳細{% if filters.has_search_filters %}（条件適用中）{% endif %}
     </button>
     <a href="/attendance/export.csv?{{ current_query_string }}" class="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700">CSV出力</a>
     <a href="/attendance/export.xlsx?{{ current_query_string }}" class="px-3 py-1.5 bg-sky-600 text-white text-sm rounded hover:bg-sky-700">Excel出力</a>
@@ -35,7 +37,8 @@
     <form method="get" action="/attendance" class="flex items-center gap-2 flex-wrap">
       <input type="hidden" name="start_date" value="{{ filters.start_date.isoformat() }}">
       <input type="hidden" name="end_date" value="{{ filters.end_date.isoformat() }}">
-      <input type="hidden" name="child_name" value="{{ filters.child_name }}">
+      <input type="hidden" name="child_id" value="{{ filters.child_id_value }}">
+      {% if filters.child_name and not filters.child_id %}<input type="hidden" name="child_name" value="{{ filters.child_name }}">{% endif %}
       <input type="hidden" name="classroom_id" value="{{ filters.classroom_id_value }}">
       <input type="hidden" name="time_field" value="{{ filters.time_field }}">
       <input type="hidden" name="time_from" value="{{ filters.time_from_value }}">
@@ -56,7 +59,7 @@
   </div>
 </div>
 
-<div id="attendance-search-panel" class="no-print mb-4 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden {% if not filters.has_search_filters %}hidden{% endif %}">
+<div id="attendance-search-panel" class="hidden no-print mb-4 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
   <div class="px-4 py-3 bg-gray-50 text-sm font-medium text-gray-700 border-b border-gray-200">
     検索詳細
   </div>
@@ -86,17 +89,6 @@
         >
       </div>
       <div>
-        <label for="child-name" class="block text-sm text-gray-600 mb-1">園児名</label>
-        <input
-          id="child-name"
-          type="text"
-          name="child_name"
-          value="{{ filters.child_name }}"
-          placeholder="例: 太郎"
-          class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-        >
-      </div>
-      <div>
         <label for="classroom-id" class="block text-sm text-gray-600 mb-1">クラス</label>
         <select id="classroom-id" name="classroom_id" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
           <option value="">すべて</option>
@@ -104,6 +96,16 @@
           <option value="{{ classroom.id }}" {% if filters.classroom_id == classroom.id %}selected{% endif %}>{{ classroom.name }}</option>
           {% endfor %}
         </select>
+      </div>
+      <div>
+        <label for="child-id" class="block text-sm text-gray-600 mb-1">園児名</label>
+        <select id="child-id" name="child_id" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+          <option value="">すべて</option>
+          {% for child in child_options %}
+          <option value="{{ child.id }}" data-classroom-id="{{ child.classroom_id or '' }}" {% if filters.classroom_id and child.classroom_id != filters.classroom_id %}hidden disabled{% endif %} {% if filters.child_id == child.id %}selected{% endif %}>{{ child.full_name }}</option>
+          {% endfor %}
+        </select>
+        <p id="child-select-help" class="mt-1 text-xs text-gray-500">クラスを選ぶと、そのクラスの園児だけを表示します。</p>
       </div>
       <div>
         <label for="time-field" class="block text-sm text-gray-600 mb-1">時間帯の対象</label>
@@ -144,6 +146,38 @@
     </div>
   </form>
 </div>
+
+<script>
+(() => {
+  const toggle = document.getElementById("attendance-search-toggle");
+  const panel = document.getElementById("attendance-search-panel");
+  const classroomSelect = document.getElementById("classroom-id");
+  const childSelect = document.getElementById("child-id");
+
+  toggle?.addEventListener("click", () => {
+    const willOpen = panel?.classList.contains("hidden") ?? false;
+    panel?.classList.toggle("hidden");
+    toggle.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) classroomSelect?.focus();
+  });
+
+  const syncChildOptions = () => {
+    if (!classroomSelect || !childSelect) return;
+    const selectedClassroomId = classroomSelect.value;
+    for (const option of childSelect.options) {
+      if (!option.value) continue;
+      const belongsToSelectedClass =
+        !selectedClassroomId || option.dataset.classroomId === selectedClassroomId;
+      option.hidden = !belongsToSelectedClass;
+      option.disabled = !belongsToSelectedClass;
+      if (!belongsToSelectedClass && option.selected) childSelect.value = "";
+    }
+  };
+
+  classroomSelect?.addEventListener("change", syncChildOptions);
+  syncChildOptions();
+})();
+</script>
 
 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
   <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">

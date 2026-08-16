@@ -1,5 +1,8 @@
 import unittest
+import tempfile
 from datetime import date, timedelta
+from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -16,6 +19,7 @@ from models import (
     DailyContactReplyStatus,
     Family,
     Notice,
+    NoticeAttachment,
     NoticePriority,
     NoticeRead,
     NoticeStatus,
@@ -28,6 +32,7 @@ from models import (
     ParentNotificationKind,
     ProfileChangeNotification,
 )
+import notice_content
 from time_utils import utc_now
 import routers.daily_contacts as daily_contacts_module
 import routers.notices as notices_module
@@ -526,6 +531,62 @@ class ParentPortalTests(unittest.TestCase):
                 )
             ).first()
         self.assertIsNotNone(read)
+
+    def test_parent_can_view_rich_notice_attachment_but_not_other_family_attachment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            upload_root = Path(directory) / "notice-attachments"
+            upload_root.mkdir(parents=True)
+            (upload_root / "public.pdf").write_bytes(b"%PDF-1.7\npublic")
+            (upload_root / "hidden.pdf").write_bytes(b"%PDF-1.7\nhidden")
+            with Session(self.engine) as session:
+                public_notice = session.get(Notice, self.public_notice_id)
+                hidden_notice = session.exec(
+                    select(Notice).where(Notice.title == "限定連絡")
+                ).one()
+                public_notice.body_html = (
+                    '<h2>持ち物</h2><span style="background-color: #fff3bf">水筒</span>'
+                )
+                session.add(public_notice)
+                public_attachment = NoticeAttachment(
+                    notice_id=public_notice.id,
+                    original_filename="遠足案内.pdf",
+                    storage_path="public.pdf",
+                    content_type="application/pdf",
+                    file_size=15,
+                )
+                hidden_attachment = NoticeAttachment(
+                    notice_id=hidden_notice.id,
+                    original_filename="限定案内.pdf",
+                    storage_path="hidden.pdf",
+                    content_type="application/pdf",
+                    file_size=15,
+                )
+                session.add(public_attachment)
+                session.add(hidden_attachment)
+                session.commit()
+                session.refresh(public_attachment)
+                session.refresh(hidden_attachment)
+                public_attachment_id = public_attachment.id
+                hidden_attachment_id = hidden_attachment.id
+
+            self._login_parent(self.parent_account_id)
+            with patch.object(notice_content, "NOTICE_UPLOAD_ROOT", upload_root):
+                detail = self.client.get(
+                    f"/parent-portal/notices/{self.public_notice_id}"
+                )
+                allowed = self.client.get(
+                    f"/parent-portal/notices/attachments/{public_attachment_id}"
+                )
+                denied = self.client.get(
+                    f"/parent-portal/notices/attachments/{hidden_attachment_id}"
+                )
+
+            self.assertEqual(detail.status_code, 200, detail.text)
+            self.assertIn("background-color: #fff3bf", detail.text)
+            self.assertIn("遠足案内.pdf", detail.text)
+            self.assertEqual(allowed.status_code, 200)
+            self.assertEqual(allowed.headers["content-type"], "application/pdf")
+            self.assertEqual(denied.status_code, 404)
 
     def test_staff_can_create_parent_account_for_family(self):
         response = self.client.post(

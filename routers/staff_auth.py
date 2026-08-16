@@ -12,7 +12,9 @@ from auth import (
     get_current_staff_user,
     get_optional_current_staff_user,
     require_admin,
+    require_local_staff_auth,
     require_mock_staff_auth,
+    set_local_staff_session_cookie,
     set_staff_cookies,
 )
 from database import get_session
@@ -24,10 +26,27 @@ from models import (
     USER_SOURCE_SYSTEM,
     USER_SOURCE_WEB_DEMO,
     Classroom,
+    PasswordCredential,
     StaffClassroomAssignment,
     StaffClassroomAssignmentRole,
     StaffPermissionChangeLog,
     User,
+)
+from local_auth import (
+    ACTION_CODE_TTL_MINUTES,
+    ACTIVATION_FAILURE_MESSAGE,
+    LOGIN_FAILURE_MESSAGE,
+    RESET_FAILURE_MESSAGE,
+    AuthenticationFailed,
+    LoginThrottled,
+    PasswordPolicyError,
+    activate_staff_password,
+    authenticate_staff,
+    disable_staff_authentication,
+    get_staff_activation_details,
+    issue_existing_staff_activation,
+    issue_staff_password_reset,
+    reset_staff_password,
 )
 from staff_permissions import (
     STAFF_PERMISSION_DEFINITIONS,
@@ -41,6 +60,7 @@ from url_utils import safe_internal_redirect
 
 router = APIRouter(prefix="/staff", tags=["staff-auth"])
 mock_login_router = APIRouter(prefix="/staff", tags=["staff-auth-mock"])
+local_login_router = APIRouter(prefix="/staff", tags=["staff-auth-local"])
 from template_utils import create_templates
 
 templates = create_templates()
@@ -87,6 +107,16 @@ def _normalize_staff_role(raw_role: str) -> str:
 
 def _checked(raw_value: str | None) -> bool:
     return raw_value in {"1", "true", "on", "yes"}
+
+
+def _credential_status(credential: PasswordCredential | None) -> str:
+    if credential is None:
+        return "not_configured"
+    if credential.disabled_at is not None:
+        return "disabled"
+    if credential.password_hash is None:
+        return "activation_pending"
+    return "configured"
 
 
 def _normalize_source_filter(raw_source: str) -> str:
@@ -204,6 +234,275 @@ def _render_staff_user_form(
     )
 
 
+def _no_store(response):
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@local_login_router.get(
+    "/login",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_login_page(
+    request: Request,
+    redirect: str = DEFAULT_STAFF_REDIRECT,
+    current_user=Depends(get_optional_current_staff_user),
+):
+    target = safe_internal_redirect(redirect, DEFAULT_STAFF_REDIRECT)
+    if current_user is not None:
+        return _no_store(RedirectResponse(url=target, status_code=303))
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/login_password.html",
+            {
+                "request": request,
+                "redirect_to": target,
+                "login_id": "",
+                "form_error": "",
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+        )
+    )
+
+
+@local_login_router.post(
+    "/login",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_login(
+    request: Request,
+    login_id: str = Form(""),
+    password: str = Form(""),
+    redirect_to: str = Form(DEFAULT_STAFF_REDIRECT),
+    session: Session = Depends(get_session),
+):
+    target = safe_internal_redirect(redirect_to, DEFAULT_STAFF_REDIRECT)
+    try:
+        result = authenticate_staff(
+            session,
+            login_id=login_id,
+            password=password,
+            request=request,
+        )
+    except (AuthenticationFailed, LoginThrottled):
+        response = templates.TemplateResponse(
+            request,
+            "staff_auth/login_password.html",
+            {
+                "request": request,
+                "redirect_to": target,
+                "login_id": login_id,
+                "form_error": LOGIN_FAILURE_MESSAGE,
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+            status_code=400,
+        )
+        return _no_store(response)
+
+    target = _login_redirect_for_user(result.user, target)
+    response = RedirectResponse(url=target, status_code=303)
+    set_local_staff_session_cookie(response, result.session_token)
+    return _no_store(response)
+
+
+@local_login_router.get(
+    "/activate",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_activation_page(request: Request):
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/activate.html",
+            {
+                "request": request,
+                "form_error": "",
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+        )
+    )
+
+
+def _render_staff_activation_confirmation(
+    request: Request,
+    *,
+    activation_code: str,
+    login_id: str,
+    target_name: str,
+    form_error: str = "",
+    status_code: int = 200,
+):
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/activate_confirm.html",
+            {
+                "request": request,
+                "activation_code": activation_code,
+                "login_id": login_id,
+                "target_name": target_name,
+                "form_error": form_error,
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+            status_code=status_code,
+        )
+    )
+
+
+@local_login_router.post(
+    "/activate/check",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_activation_check(
+    request: Request,
+    activation_code: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    try:
+        details = get_staff_activation_details(
+            session,
+            activation_code=activation_code,
+            request=request,
+        )
+    except AuthenticationFailed:
+        response = templates.TemplateResponse(
+            request,
+            "staff_auth/activate.html",
+            {
+                "request": request,
+                "form_error": ACTIVATION_FAILURE_MESSAGE,
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+            status_code=400,
+        )
+        return _no_store(response)
+    return _render_staff_activation_confirmation(
+        request,
+        activation_code=activation_code,
+        login_id=details.credential.login_id,
+        target_name=details.user.display_name,
+    )
+
+
+@local_login_router.post(
+    "/activate",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_activation(
+    request: Request,
+    activation_code: str = Form(""),
+    login_id: str = Form(""),
+    password: str = Form(""),
+    password_confirmation: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    try:
+        details = get_staff_activation_details(
+            session,
+            activation_code=activation_code,
+            request=request,
+        )
+        activate_staff_password(
+            session,
+            activation_code=activation_code,
+            login_id=login_id,
+            password=password,
+            password_confirmation=password_confirmation,
+        )
+    except AuthenticationFailed:
+        response = templates.TemplateResponse(
+            request,
+            "staff_auth/activate.html",
+            {
+                "request": request,
+                "form_error": ACTIVATION_FAILURE_MESSAGE,
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+            status_code=400,
+        )
+        return _no_store(response)
+    except PasswordPolicyError as exc:
+        return _render_staff_activation_confirmation(
+            request,
+            activation_code=activation_code,
+            login_id=login_id,
+            target_name=details.user.display_name,
+            form_error=str(exc),
+            status_code=400,
+        )
+    else:
+        return _no_store(
+            RedirectResponse(url="/staff/login?activated=1", status_code=303)
+        )
+
+
+@local_login_router.get(
+    "/reset-password",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_password_reset_page(request: Request):
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/reset_password.html",
+            {
+                "request": request,
+                "form_error": "",
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+        )
+    )
+
+
+@local_login_router.post(
+    "/reset-password",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_local_staff_auth)],
+)
+def local_staff_password_reset(
+    request: Request,
+    reset_code: str = Form(""),
+    password: str = Form(""),
+    password_confirmation: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    try:
+        reset_staff_password(
+            session,
+            reset_code=reset_code,
+            password=password,
+            password_confirmation=password_confirmation,
+            request=request,
+        )
+    except AuthenticationFailed:
+        form_error = RESET_FAILURE_MESSAGE
+    except PasswordPolicyError as exc:
+        form_error = str(exc)
+    else:
+        return _no_store(
+            RedirectResponse(url="/staff/login?password_reset=1", status_code=303)
+        )
+
+    response = templates.TemplateResponse(
+        request,
+        "staff_auth/reset_password.html",
+        {
+            "request": request,
+            "form_error": form_error,
+            "csrf_token": getattr(request.state, "csrf_token", ""),
+        },
+        status_code=400,
+    )
+    return _no_store(response)
+
+
 @mock_login_router.get(
     "/login",
     response_class=HTMLResponse,
@@ -256,11 +555,14 @@ def staff_login(
 
 
 @router.post("/logout")
-def staff_logout(redirect_to: str = Form(DEFAULT_LOGOUT_REDIRECT)):
+def staff_logout(
+    request: Request,
+    redirect_to: str = Form(DEFAULT_LOGOUT_REDIRECT),
+):
     target = safe_internal_redirect(redirect_to, DEFAULT_LOGOUT_REDIRECT)
     response = RedirectResponse(url=target, status_code=303)
-    clear_staff_cookies(response)
-    return response
+    clear_staff_cookies(response, request)
+    return _no_store(response)
 
 
 @router.get("/users", response_class=HTMLResponse)
@@ -278,6 +580,15 @@ def staff_user_list(
     users = session.exec(
         statement.order_by(User.staff_sort_order, User.display_name, User.email)
     ).all()
+    credentials_by_user_id = {
+        credential.staff_user_id: credential
+        for credential in session.exec(
+            select(PasswordCredential).where(
+                PasswordCredential.principal_type == "staff"
+            )
+        ).all()
+        if credential.staff_user_id is not None
+    }
     return templates.TemplateResponse(
         request,
         "staff_auth/users.html",
@@ -285,10 +596,169 @@ def staff_user_list(
             "request": request,
             "current_user": current_user,
             "users": users,
+            "credentials_by_user_id": credentials_by_user_id,
+            "credential_status": _credential_status,
             "source_filter": selected_source,
             "source_filter_options": STAFF_SOURCE_FILTER_OPTIONS,
             "source_counts": _staff_source_counts(session),
         },
+    )
+
+
+def _staff_credential_for_user(
+    session: Session,
+    user_id: UUID,
+) -> PasswordCredential | None:
+    return session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.principal_type == "staff",
+            PasswordCredential.staff_user_id == user_id,
+        )
+    ).first()
+
+
+def _render_staff_authentication_page(
+    request: Request,
+    *,
+    current_user,
+    user: User,
+    credential: PasswordCredential | None,
+    form_error: str = "",
+    status_code: int = 200,
+):
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/authentication.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "user": user,
+                "credential": credential,
+                "auth_status": _credential_status(credential),
+                "form_error": form_error,
+                "csrf_token": getattr(request.state, "csrf_token", ""),
+            },
+            status_code=status_code,
+        )
+    )
+
+
+@router.get("/users/{user_id}/authentication", response_class=HTMLResponse)
+def staff_authentication_page(
+    request: Request,
+    user_id: UUID,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_live_admin(session, current_user)
+    user = session.get(User, user_id)
+    if user is None:
+        return RedirectResponse(url="/staff/users", status_code=303)
+    return _render_staff_authentication_page(
+        request,
+        current_user=current_user,
+        user=user,
+        credential=_staff_credential_for_user(session, user_id),
+    )
+
+
+@router.post("/users/{user_id}/authentication/activate", response_class=HTMLResponse)
+def issue_staff_activation_from_admin(
+    request: Request,
+    user_id: UUID,
+    login_id: str = Form(""),
+    reason: str = Form(""),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    actor = require_live_admin(session, current_user)
+    user = session.get(User, user_id)
+    if user is None:
+        return RedirectResponse(url="/staff/users", status_code=303)
+    credential = _staff_credential_for_user(session, user_id)
+    target_name = user.display_name
+    try:
+        _, activation_code = issue_existing_staff_activation(
+            session,
+            user=user,
+            login_id=login_id,
+            reason=reason,
+            actor=actor.display_name,
+            approver=actor.display_name,
+        )
+    except ValueError as exc:
+        return _render_staff_authentication_page(
+            request,
+            current_user=current_user,
+            user=user,
+            credential=credential,
+            form_error=str(exc),
+            status_code=400,
+        )
+
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/action_code.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "target_name": target_name,
+                "action_label": "初期設定",
+                "action_code": activation_code,
+                "expires_label": f"{ACTION_CODE_TTL_MINUTES}分",
+                "destination": "/staff/activate",
+            },
+        )
+    )
+
+
+@router.post("/users/{user_id}/authentication/reset", response_class=HTMLResponse)
+def issue_staff_password_reset_from_admin(
+    request: Request,
+    user_id: UUID,
+    reason: str = Form(""),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    actor = require_live_admin(session, current_user)
+    user = session.get(User, user_id)
+    if user is None:
+        return RedirectResponse(url="/staff/users", status_code=303)
+    credential = _staff_credential_for_user(session, user_id)
+    target_name = user.display_name
+    try:
+        reset_code = issue_staff_password_reset(
+            session,
+            user=user,
+            reason=reason,
+            actor_user=actor,
+        )
+    except ValueError as exc:
+        return _render_staff_authentication_page(
+            request,
+            current_user=current_user,
+            user=user,
+            credential=credential,
+            form_error=str(exc),
+            status_code=400,
+        )
+
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            "staff_auth/action_code.html",
+            {
+                "request": request,
+                "current_user": current_user,
+                "target_name": target_name,
+                "action_label": "パスワード再設定",
+                "action_code": reset_code,
+                "expires_label": f"{ACTION_CODE_TTL_MINUTES}分",
+                "destination": "/staff/reset-password",
+            },
+        )
     )
 
 
@@ -477,7 +947,10 @@ def create_staff_user(
     )
     session.add(user)
     session.commit()
-    return RedirectResponse(url="/staff/users", status_code=303)
+    return RedirectResponse(
+        url=f"/staff/users/{user.id}/authentication",
+        status_code=303,
+    )
 
 
 @router.get("/users/{user_id}/edit", response_class=HTMLResponse)
@@ -564,9 +1037,16 @@ def update_staff_user(
     user.can_manage_child_records = next_can_manage_child_records
     user.staff_sort_order = staff_sort_order
     user.is_calendar_admin = next_role == "admin"
+    was_active = user.is_active
     user.is_active = next_is_active
     user.updated_at = utc_now()
     session.add(user)
+    if was_active and not next_is_active:
+        disable_staff_authentication(
+            session,
+            user=user,
+            changed_by_user_id=current_user.user_id,
+        )
     session.commit()
     return RedirectResponse(url="/staff/users", status_code=303)
 

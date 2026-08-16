@@ -33,15 +33,20 @@
         <th class="px-4 py-3 font-semibold">請求・口座</th>
         <th class="px-4 py-3 font-semibold">表示順</th>
         <th class="px-4 py-3 font-semibold">状態</th>
+        <th class="px-4 py-3 font-semibold">認証</th>
         <th class="px-4 py-3 font-semibold">操作</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-slate-100">
       {% for user in users %}
+      {% set credential = credentials_by_user_id.get(user.id) %}
       <tr>
         <td class="px-4 py-3">
           <div class="font-medium text-slate-800">{{ user.display_name }}</div>
-          <div class="text-xs text-slate-500">{{ user.email }}</div>
+          {% if credential %}
+          <div class="mt-1 text-xs font-medium text-indigo-700">ログインID: {{ credential.login_id }}</div>
+          {% endif %}
+          <div class="mt-1 text-xs text-slate-500">メール: {{ user.email }}</div>
         </td>
         <td class="px-4 py-3">
           {% if user.provisioning_source == 'web_demo' %}
@@ -80,7 +85,20 @@
           {% endif %}
         </td>
         <td class="px-4 py-3">
+          {% set auth_status = credential_status(credential) %}
+          {% if auth_status == 'configured' %}
+          <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">設定済み</span>
+          {% elif auth_status == 'activation_pending' %}
+          <span class="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">有効化待ち</span>
+          {% elif auth_status == 'disabled' %}
+          <span class="rounded-full bg-rose-50 px-2 py-1 text-xs text-rose-700">停止中</span>
+          {% else %}
+          <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500">未設定</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
           <div class="flex flex-wrap gap-2">
+            <a href="/staff/users/{{ user.id }}/authentication" class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100">認証管理</a>
             <a href="/staff/users/{{ user.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
             <a href="/staff/users/{{ user.id }}/classrooms" class="rounded border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-100">担当クラス</a>
           </div>
@@ -88,7 +106,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="8" class="px-4 py-10 text-center text-slate-400">職員が登録されていません。</td>
+        <td colspan="9" class="px-4 py-10 text-center text-slate-400">職員が登録されていません。</td>
       </tr>
       {% endfor %}
     </tbody>

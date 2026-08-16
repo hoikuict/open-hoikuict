@@ -1,21 +1,28 @@
 import unittest
+import tempfile
 from datetime import date, datetime, timedelta
+from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from auth import Role
 from models import (
     Child,
     ChildStatus,
     Classroom,
     Notice,
+    NoticeAttachment,
     NoticePriority,
     NoticeStatus,
     NoticeTarget,
     NoticeTargetType,
+    NoticeWorkflowAction,
 )
+import notice_content
 import routers.notices as notices_module
 from testing_helpers import authenticate_mock_staff
 from time_utils import utc_now
@@ -167,6 +174,236 @@ class NoticeRouterTests(unittest.TestCase):
         self.assertNotIn("来月の予定", high_only.text)
         self.assertLess(priority_sorted.text.index("緊急連絡網"), priority_sorted.text.index("来月の予定"))
         self.assertLess(status_sorted.text.index("避難訓練のお知らせ"), status_sorted.text.index("来月の予定"))
+
+    def test_rich_text_and_image_pdf_attachments_are_sanitized_and_saved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            upload_root = Path(directory) / "notice-attachments"
+            with patch.object(notice_content, "NOTICE_UPLOAD_ROOT", upload_root):
+                response = self.client.post(
+                    "/notices/",
+                    data={
+                        "title": "装飾付きのお知らせ",
+                        "body": "重要なお知らせ",
+                        "body_html": (
+                            '<h2>重要なお知らせ</h2><b><font color="#ff0000" size="5">確認</font></b>'
+                            '<span style="background-color: #fff3bf">してください</span>'
+                            '<a href="javascript:alert(1)" onclick="alert(1)">危険なリンク</a>'
+                            '<script>alert(1)</script>'
+                        ),
+                        "new_image_size": "large",
+                    },
+                    files=[
+                        ("attachments", ("photo.png", b"\x89PNG\r\n\x1a\nimage-data", "image/png")),
+                        ("attachments", ("guide.pdf", b"%PDF-1.7\nnotice", "application/pdf")),
+                    ],
+                    follow_redirects=False,
+                )
+                self.assertEqual(response.status_code, 303, response.text)
+
+                with Session(self.engine) as session:
+                    notice = session.exec(
+                        select(Notice).where(Notice.title == "装飾付きのお知らせ")
+                    ).one()
+                    attachments = session.exec(
+                        select(NoticeAttachment)
+                        .where(NoticeAttachment.notice_id == notice.id)
+                        .order_by(NoticeAttachment.display_order)
+                    ).all()
+                    notice_id = notice.id
+                    image_id = attachments[0].id
+                    pdf_id = attachments[1].id
+                    self.assertIn('<font color="#ff0000" size="5">', notice.body_html)
+                    self.assertIn("<b>", notice.body_html)
+                    self.assertIn("background-color: #fff3bf", notice.body_html)
+                    self.assertNotIn("javascript:", notice.body_html)
+                    self.assertNotIn("onclick", notice.body_html)
+                    self.assertNotIn("alert(1)", notice.body_html)
+                    self.assertEqual(notice.body, "重要なお知らせ\n確認してください危険なリンク")
+                    self.assertEqual(len(attachments), 2)
+                    self.assertEqual(attachments[0].display_size, "large")
+                    self.assertTrue(attachments[0].is_image)
+                    self.assertEqual(attachments[1].content_type, "application/pdf")
+
+                edit_page = self.client.get(f"/notices/{notice_id}/edit")
+                self.assertEqual(edit_page.status_code, 200, edit_page.text)
+                self.assertIn("文字色", edit_page.text)
+                self.assertIn("背景色", edit_page.text)
+                self.assertIn("photo.png", edit_page.text)
+
+                image_response = self.client.get(f"/notices/attachments/{image_id}")
+                pdf_response = self.client.get(f"/notices/attachments/{pdf_id}?download=true")
+                self.assertEqual(image_response.status_code, 200)
+                self.assertEqual(image_response.headers["content-type"], "image/png")
+                self.assertIn("attachment", pdf_response.headers["content-disposition"])
+
+                updated = self.client.post(
+                    f"/notices/{notice_id}/edit",
+                    data={
+                        "title": "装飾付きのお知らせ",
+                        "body": "更新本文",
+                        "body_html": "<p>更新本文</p>",
+                        "attachment_size_ids": str(image_id),
+                        "attachment_sizes": "small",
+                        "remove_attachment_ids": str(pdf_id),
+                    },
+                    follow_redirects=False,
+                )
+                self.assertEqual(updated.status_code, 303, updated.text)
+                with Session(self.engine) as session:
+                    remaining = session.exec(
+                        select(NoticeAttachment).where(
+                            NoticeAttachment.notice_id == notice_id
+                        )
+                    ).all()
+                self.assertEqual(len(remaining), 1)
+                self.assertEqual(remaining[0].display_size, "small")
+                self.assertFalse((upload_root / attachments[1].storage_path).exists())
+
+    def test_notice_attachment_rejects_unsupported_file_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(
+                notice_content,
+                "NOTICE_UPLOAD_ROOT",
+                Path(directory) / "notice-attachments",
+            ):
+                response = self.client.post(
+                    "/notices/",
+                    data={"title": "不正添付", "body": "本文", "body_html": "<p>本文</p>"},
+                    files={"attachments": ("malware.pdf", b"not-a-real-pdf", "application/pdf")},
+                    follow_redirects=False,
+                )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("PDF・JPEG・PNG・WebP", response.text)
+
+    def test_notice_requires_admin_approval_before_publishing(self):
+        created = self.client.post(
+            "/notices/",
+            data={
+                "title": "承認対象のお知らせ",
+                "body": "確認してから公開します。",
+                "body_html": "<p>確認してから公開します。</p>",
+                "status": "published",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(created.status_code, 303, created.text)
+        notice_id = int(created.headers["location"].split("/")[2])
+        with Session(self.engine) as session:
+            notice = session.get(Notice, notice_id)
+            self.assertEqual(notice.status, NoticeStatus.draft)
+
+        preview = self.client.get(created.headers["location"])
+        self.assertEqual(preview.status_code, 200, preview.text)
+        self.assertIn("承認申請する", preview.text)
+
+        submitted = self.client.post(
+            f"/notices/{notice_id}/submit",
+            follow_redirects=False,
+        )
+        self.assertEqual(submitted.status_code, 303, submitted.text)
+        with Session(self.engine) as session:
+            notice = session.get(Notice, notice_id)
+            self.assertEqual(notice.status, NoticeStatus.pending_approval)
+
+        editor_approval = self.client.post(
+            f"/notices/{notice_id}/approve",
+            follow_redirects=False,
+        )
+        editor_edit = self.client.get(f"/notices/{notice_id}/edit")
+        editor_direct_update = self.client.post(
+            f"/notices/{notice_id}/edit",
+            data={"title": "迂回更新", "body": "本文"},
+            follow_redirects=False,
+        )
+        self.assertEqual(editor_approval.status_code, 403)
+        self.assertEqual(editor_edit.status_code, 409)
+        self.assertEqual(editor_direct_update.status_code, 409)
+
+        authenticate_mock_staff(
+            self.client,
+            role=Role.ADMIN,
+            name="承認者 園長",
+        )
+        admin_preview = self.client.get(f"/notices/{notice_id}/preview")
+        self.assertIn("承認して公開", admin_preview.text)
+        approved = self.client.post(
+            f"/notices/{notice_id}/approve",
+            data={"comment": "内容を確認しました。"},
+            follow_redirects=False,
+        )
+        self.assertEqual(approved.status_code, 303, approved.text)
+
+        with Session(self.engine) as session:
+            notice = session.get(Notice, notice_id)
+            actions = session.exec(
+                select(NoticeWorkflowAction)
+                .where(NoticeWorkflowAction.notice_id == notice_id)
+                .order_by(NoticeWorkflowAction.id)
+            ).all()
+        self.assertEqual(notice.status, NoticeStatus.published)
+        self.assertEqual([action.action for action in actions], ["submitted", "approved"])
+        self.assertEqual(actions[0].actor_name, "テスト職員")
+        self.assertEqual(actions[1].actor_name, "承認者 園長")
+        self.assertEqual(actions[1].comment, "内容を確認しました。")
+
+        approved_preview = self.client.get(f"/notices/{notice_id}/preview")
+        self.assertIn("申請・承認履歴", approved_preview.text)
+        self.assertIn("承認者 園長", approved_preview.text)
+        self.assertIn("内容を確認しました。", approved_preview.text)
+        self.assertEqual(self.client.get(f"/notices/{notice_id}/edit").status_code, 409)
+
+        unpublished = self.client.post(
+            f"/notices/{notice_id}/unpublish",
+            data={"reason": "内容を更新するため"},
+            follow_redirects=False,
+        )
+        self.assertEqual(unpublished.status_code, 303)
+        with Session(self.engine) as session:
+            notice = session.get(Notice, notice_id)
+            latest_action = session.exec(
+                select(NoticeWorkflowAction)
+                .where(NoticeWorkflowAction.notice_id == notice_id)
+                .order_by(NoticeWorkflowAction.id.desc())
+            ).first()
+        self.assertEqual(notice.status, NoticeStatus.draft)
+        self.assertEqual(latest_action.action, "unpublished")
+        self.assertEqual(self.client.get(f"/notices/{notice_id}/edit").status_code, 200)
+
+    def test_admin_rejection_requires_reason_and_returns_notice_to_draft(self):
+        created = self.client.post(
+            "/notices/",
+            data={"title": "差戻し対象", "body": "確認本文"},
+            follow_redirects=False,
+        )
+        notice_id = int(created.headers["location"].split("/")[2])
+        self.client.post(f"/notices/{notice_id}/submit", follow_redirects=False)
+        authenticate_mock_staff(self.client, role=Role.ADMIN, name="主任")
+
+        missing_reason = self.client.post(
+            f"/notices/{notice_id}/reject",
+            follow_redirects=False,
+        )
+        rejected = self.client.post(
+            f"/notices/{notice_id}/reject",
+            data={"reason": "公開対象クラスを確認してください。"},
+            follow_redirects=False,
+        )
+        self.assertEqual(missing_reason.status_code, 400)
+        self.assertEqual(rejected.status_code, 303)
+
+        with Session(self.engine) as session:
+            notice = session.get(Notice, notice_id)
+            rejection = session.exec(
+                select(NoticeWorkflowAction).where(
+                    NoticeWorkflowAction.notice_id == notice_id,
+                    NoticeWorkflowAction.action == "rejected",
+                )
+            ).one()
+        self.assertEqual(notice.status, NoticeStatus.draft)
+        self.assertEqual(rejection.actor_name, "主任")
+        self.assertEqual(rejection.comment, "公開対象クラスを確認してください。")
+        preview = self.client.get(f"/notices/{notice_id}/preview")
+        self.assertIn("公開対象クラスを確認してください。", preview.text)
 
 
 if __name__ == "__main__":

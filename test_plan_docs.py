@@ -6,7 +6,7 @@ from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -20,6 +20,7 @@ from models import Child, ChildStatus, Classroom, User
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from plan_docs.contracts import DocumentType
 from plan_docs.db_models import (
+    PlanDocumentAction,
     PlanDocumentHeadRow,
     PlanDocumentRow,
     PlanDailyReflectionRow,
@@ -711,6 +712,38 @@ class PlanDocsIntegrationTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(approve.status_code, 303)
+
+        detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn("承認者: Test Staff", detail.text)
+        self.assertIn("承認日時:", detail.text)
+        self.assertIn("JST", detail.text)
+
+        with Session(self.engine) as session:
+            approval_action = session.exec(
+                select(PlanDocumentAction).where(
+                    PlanDocumentAction.document_id == document_id,
+                    PlanDocumentAction.action == "approved",
+                )
+            ).one()
+            self.assertEqual(approval_action.actor_name, "Test Staff")
+
+            approver_id = UUID(approval_action.actor_ref.removeprefix("staff:"))
+            session.add(
+                User(
+                    id=approver_id,
+                    email="historical-approver@example.test",
+                    display_name="履歴上の園長",
+                    staff_role="admin",
+                )
+            )
+            approval_action.actor_name = None
+            session.add(approval_action)
+            session.commit()
+
+        historical_detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertEqual(historical_detail.status_code, 200, historical_detail.text)
+        self.assertIn("承認者: 履歴上の園長", historical_detail.text)
 
         with Session(self.engine) as session:
             head_before = session.exec(

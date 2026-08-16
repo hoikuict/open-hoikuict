@@ -286,10 +286,13 @@ class StaffAuthRouterTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers["location"], "/staff/users")
         with Session(self.engine) as session:
             user = session.exec(select(User).where(User.email == "records@example.com")).first()
         self.assertIsNotNone(user)
+        self.assertEqual(
+            response.headers["location"],
+            f"/staff/users/{user.id}/authentication",
+        )
         self.assertEqual(user.staff_role, "can_edit")
         self.assertFalse(user.can_manage_child_records)
         self.assertEqual(user.provisioning_source, USER_SOURCE_MANUAL)
@@ -421,6 +424,24 @@ class StaffAuthRouterTests(unittest.TestCase):
 
         self.assertEqual(page.status_code, 403)
         self.assertEqual(update.status_code, 403)
+
+    def test_non_admin_cannot_manage_staff_authentication(self):
+        response = self.client.post(
+            "/staff/login",
+            data={"user_id": str(self.part_timer_id), "redirect_to": "/"},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+
+        page = self.client.get(
+            f"/staff/users/{self.principal_id}/authentication"
+        )
+        reset = self.client.post(
+            f"/staff/users/{self.principal_id}/authentication/reset",
+            data={"reason": "不正な操作"},
+        )
+        self.assertEqual(page.status_code, 403)
+        self.assertEqual(reset.status_code, 403)
 
     def test_admin_can_add_staff_classroom_assignment(self):
         with Session(self.engine) as session:

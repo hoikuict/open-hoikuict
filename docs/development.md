@@ -76,6 +76,29 @@ $env:HOIKUICT_KIOSK_ACCESS_MODE = "open"
 $env:HOIKUICT_CSRF_ENFORCE = "0"
 ```
 
+### 職員ローカル認証を試す
+
+モックの代わりにArgon2idの職員認証を使う場合は、開発用DBを用意して次を設定します。
+
+```powershell
+$env:HOIKUICT_ENABLE_MOCK_AUTH = "0"
+$env:HOIKUICT_STAFF_AUTH_MODE = "local_password"
+$env:HOIKUICT_LOGIN_THROTTLE_HMAC_KEY = python -c "import secrets; print(secrets.token_urlsafe(32))"
+$env:HOIKUICT_COOKIE_SECURE = "0"
+python -m scripts.auth_user bootstrap-admin
+uvicorn main:app --reload
+```
+
+CLIはパスワードを受け取りません。一度だけ表示される6文字・30分有効の有効化コードを管理者本人が `/staff/activate` へ入力し、表示されたログインIDを確認・必要に応じて修正してから、8文字以上のパスワードを設定します。productionではHTTPS、CSRF、32バイト以上のHMAC鍵、施設承認済みのローカルパスワード禁止リストを必ず設定してください。
+
+既に職員やデモ管理者が存在するDBでは、`bootstrap-admin`は追加管理者を作らず停止します。その場合は既存職員を選択して有効化コードを発行します。
+
+```powershell
+python -m scripts.auth_user activate-staff
+```
+
+ローカル認証で管理者ログイン後は、`/staff/users` の「認証管理」から初期設定コードとパスワード再設定コードを発行できます。管理者は本人の新しいパスワードを設定・閲覧せず、一回限りのコードだけを本人へ渡します。
+
 ## 開発上の時刻規約
 
 - 園の業務日付は `time_utils.local_today()` を使う。

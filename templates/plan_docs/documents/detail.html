@@ -115,7 +115,15 @@
         {% if document.target_week %}{{ document.target_week }}（{{ document.week_start_date }}〜）{% endif %}
         {% if document.target_date %}{{ document.target_date }}{% endif %}
       </span>
-      <span>{{ document.status_label }}</span>
+      <span class="report-sheet__approval">
+        <strong>{{ document.status_label }}</strong>
+        {% if approval_details %}
+          <small>承認者: {{ approval_details.actor_name }}</small>
+          <small>承認日時: {{ approval_details.approved_at|jst_datetime("%Y年%m月%d日 %H:%M") }} JST</small>
+        {% elif document.status.value == "approved" %}
+          <small>承認履歴: 記録なし</small>
+        {% endif %}
+      </span>
     </header>
     {% set is_daily_timeline = document.schedule and document.schedule.layout == "daily_timeline" %}
     {% if is_daily_timeline %}

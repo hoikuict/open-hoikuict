@@ -133,8 +133,10 @@
     .plan-docs-content .review-notification__meta strong { color: #8a5a00; }
     .plan-docs-content .report-sheet { overflow: hidden; }
     .plan-docs-content .report-sheet__meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--plan-line); border-bottom: 1px solid var(--plan-line); }
-    .plan-docs-content .report-sheet__meta span,
+    .plan-docs-content .report-sheet__meta > span,
     .plan-docs-content .report-section { padding: .9rem 1rem; background: white; }
+    .plan-docs-content .report-sheet__approval { display: grid; gap: .2rem; }
+    .plan-docs-content .report-sheet__approval small { color: var(--plan-muted); font-size: .78rem; font-weight: 500; }
     .plan-docs-content .report-section { border-bottom: 1px solid var(--plan-line); }
     .plan-docs-content .report-section p { white-space: pre-wrap; }
     .plan-docs-content .schedule-scroll { overflow-x: auto; }

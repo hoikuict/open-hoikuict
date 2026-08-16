@@ -70,9 +70,11 @@ def create_db_and_tables() -> None:
     _migrate_add_family_columns()
     _migrate_add_message_columns()
     _migrate_add_meeting_note_columns()
+    _migrate_notice_columns()
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
+    _migrate_plan_document_action_columns()
     _migrate_plan_review_notification_columns()
     _migrate_parent_push_delivery_columns()
     _migrate_billing_fee_labels()
@@ -298,6 +300,17 @@ def _migrate_add_meeting_note_columns() -> None:
         _log_migration_skip("meeting note column", exc)
 
 
+def _migrate_notice_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("notices")
+            if columns and "body_html" not in columns:
+                conn.execute(text("ALTER TABLE notices ADD COLUMN body_html VARCHAR"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("notice column", exc)
+
+
 def _migrate_add_calendar_columns() -> None:
     try:
         with engine.connect() as conn:
@@ -418,6 +431,24 @@ def _migrate_plan_document_child_record_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("plan document child record columns", exc)
+
+
+def _migrate_plan_document_action_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("plan_document_actions")
+            if not columns:
+                return
+            if "actor_name" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE plan_document_actions "
+                        "ADD COLUMN actor_name VARCHAR"
+                    )
+                )
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("plan document action columns", exc)
 
 
 def _migrate_plan_review_notification_columns() -> None:

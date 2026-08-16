@@ -49,6 +49,7 @@ from routers.parent_portal import router as parent_portal_router
 from routers.parent_push import router as parent_push_router
 from routers.parent_push import settings_router as parent_push_settings_router
 from routers.staff_auth import mock_login_router as staff_mock_login_router
+from routers.staff_auth import local_login_router as staff_local_login_router
 from routers.staff_auth import router as staff_auth_router
 from routers.staff_portal import router as staff_portal_router
 from routers.staff_rooms import router as staff_rooms_router
@@ -66,14 +67,20 @@ from plan_docs.routers.plans import router as plan_docs_plans_router
 from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
 from parent_push_operations import apply_parent_push_retention
 from url_utils import safe_internal_redirect
-from auth import mock_auth_enabled, require_mock_staff_auth, staff_auth_http_exception_handler
+from auth import (
+    configure_auth_backends_from_environment,
+    mock_auth_enabled,
+    require_mock_staff_auth,
+    staff_auth_http_exception_handler,
+)
 from csrf import CsrfTokenMiddleware, verify_csrf
-from security_config import deployment_environment, validate_runtime_security
+from security_config import deployment_environment, staff_auth_mode, validate_runtime_security
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 def initialize_application() -> None:
     validate_runtime_security()
+    configure_auth_backends_from_environment()
     _cleanup_stale_previews()
     ensure_runtime_files()
     create_db_and_tables()
@@ -149,6 +156,8 @@ if mock_auth_enabled():
     app.include_router(staff_mock_login_router)
     app.include_router(parent_portal_mock_login_router)
     app.include_router(calendar_mock_login_router)
+if staff_auth_mode() == "local_password":
+    app.include_router(staff_local_login_router)
 app.include_router(plan_docs_home_router, prefix="/plans")
 app.include_router(plan_docs_plans_router, prefix="/plans")
 app.include_router(plan_docs_documents_router, prefix="/plans")

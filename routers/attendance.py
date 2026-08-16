@@ -44,6 +44,8 @@ NOTICE_MESSAGES = {
 class AttendanceFilterParams:
     start_date: date
     end_date: date
+    child_id: Optional[int]
+    child_id_value: str
     child_name: str
     classroom_id: Optional[int]
     classroom_id_value: str
@@ -70,6 +72,7 @@ class AttendanceFilterParams:
             [
                 self.start_date != today,
                 self.end_date != today,
+                self.child_id is not None,
                 bool(self.child_name),
                 self.classroom_id is not None,
                 self.time_field != "either",
@@ -85,7 +88,9 @@ class AttendanceFilterParams:
             "sort_by": self.sort_by,
             "sort_order": self.sort_order,
         }
-        if self.child_name:
+        if self.child_id_value:
+            params["child_id"] = self.child_id_value
+        elif self.child_name:
             params["child_name"] = self.child_name
         if self.classroom_id_value:
             params["classroom_id"] = self.classroom_id_value
@@ -164,6 +169,7 @@ def _build_filters(
     target_date: Optional[str],
     start_date: Optional[str],
     end_date: Optional[str],
+    child_id: Optional[str],
     child_name: Optional[str],
     classroom_id: Optional[str],
     time_field: Optional[str],
@@ -196,10 +202,13 @@ def _build_filters(
     normalized_sort_by = sort_by if sort_by in VALID_SORT_FIELDS else "attendance_date"
     normalized_sort_order = sort_order if sort_order in VALID_SORT_ORDERS else "asc"
     normalized_classroom_id = _parse_optional_int(classroom_id)
+    normalized_child_id = _parse_optional_int(child_id)
 
     return AttendanceFilterParams(
         start_date=start,
         end_date=end,
+        child_id=normalized_child_id,
+        child_id_value=str(normalized_child_id) if normalized_child_id is not None else "",
         child_name=(child_name or "").strip(),
         classroom_id=normalized_classroom_id,
         classroom_id_value=str(normalized_classroom_id) if normalized_classroom_id is not None else "",
@@ -284,6 +293,12 @@ def _matches_child_name(row: AttendanceReportRow, child_name: str) -> bool:
         row.child_name_kana.replace(" ", ""),
     ]
     return any(needle in _normalize_text(value) for value in haystacks)
+
+
+def _matches_child(row: AttendanceReportRow, filters: AttendanceFilterParams) -> bool:
+    if filters.child_id is not None:
+        return row.child_id == filters.child_id
+    return _matches_child_name(row, filters.child_name)
 
 
 def _matches_classroom(row: AttendanceReportRow, classroom_id: Optional[int]) -> bool:
@@ -439,7 +454,7 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
     filtered_rows = [
         row
         for row in rows
-        if _matches_child_name(row, filters.child_name)
+        if _matches_child(row, filters)
         and _matches_classroom(row, filters.classroom_id)
         and _matches_time_range(row, filters)
     ]
@@ -625,6 +640,7 @@ def attendance_list(
     target_date: Optional[str] = Query(default=None, alias="date"),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    child_id: Optional[str] = Query(default=None),
     child_name: Optional[str] = Query(default=None),
     classroom_id: Optional[str] = Query(default=None),
     time_field: Optional[str] = Query(default="either"),
@@ -640,6 +656,7 @@ def attendance_list(
         target_date=target_date,
         start_date=start_date,
         end_date=end_date,
+        child_id=child_id,
         child_name=child_name,
         classroom_id=classroom_id,
         time_field=time_field,
@@ -651,6 +668,9 @@ def attendance_list(
     rows = _build_report_rows(session, filters)
     summary = _build_summary(rows)
     classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+    children = session.exec(
+        select(Child).order_by(Child.last_name_kana, Child.first_name_kana, Child.id)
+    ).all()
 
     return templates.TemplateResponse(
         request,
@@ -668,6 +688,7 @@ def attendance_list(
             "checked_out_count": summary["checked_out_count"],
             "not_checked_in_count": summary["not_checked_in_count"],
             "classroom_options": classrooms,
+            "child_options": children,
             "time_field_options": [
                 {"value": "either", "label": "登園・降園どちらか"},
                 {"value": "check_in", "label": "登園のみ"},
@@ -696,6 +717,7 @@ def export_attendance_csv(
     target_date: Optional[str] = Query(default=None, alias="date"),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    child_id: Optional[str] = Query(default=None),
     child_name: Optional[str] = Query(default=None),
     classroom_id: Optional[str] = Query(default=None),
     time_field: Optional[str] = Query(default="either"),
@@ -713,6 +735,7 @@ def export_attendance_csv(
         target_date=target_date,
         start_date=start_date,
         end_date=end_date,
+        child_id=child_id,
         child_name=child_name,
         classroom_id=classroom_id,
         time_field=time_field,
@@ -737,6 +760,7 @@ def export_attendance_xlsx(
     target_date: Optional[str] = Query(default=None, alias="date"),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    child_id: Optional[str] = Query(default=None),
     child_name: Optional[str] = Query(default=None),
     classroom_id: Optional[str] = Query(default=None),
     time_field: Optional[str] = Query(default="either"),
@@ -754,6 +778,7 @@ def export_attendance_xlsx(
         target_date=target_date,
         start_date=start_date,
         end_date=end_date,
+        child_id=child_id,
         child_name=child_name,
         classroom_id=classroom_id,
         time_field=time_field,

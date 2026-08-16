@@ -38,6 +38,28 @@
     min-height: 28rem;
   }
 
+  .meeting-editor .ql-editor img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .meeting-editor .ql-editor img[width="25%"] { width: 25%; }
+  .meeting-editor .ql-editor img[width="50%"] { width: 50%; }
+  .meeting-editor .ql-editor img[width="75%"] { width: 75%; }
+  .meeting-editor .ql-editor img[width="100%"] { width: 100%; }
+
+  .meeting-editor .ql-editor img.is-size-selected {
+    border-radius: 0.25rem;
+    outline: 3px solid rgb(99 102 241 / 0.55);
+    outline-offset: 3px;
+  }
+
+  .meeting-image-size-toolbar {
+    position: fixed;
+    z-index: 70;
+    max-width: calc(100vw - 1rem);
+  }
+
   .meeting-editor .yjs-cursor {
     position: absolute;
     margin-left: -1px;
@@ -117,6 +139,24 @@
   <section class="meeting-editor rounded-2xl bg-white shadow">
     <div id="editor"></div>
   </section>
+
+  {% if current_user.can_edit %}
+  <div
+    id="meeting-image-size-toolbar"
+    class="meeting-image-size-toolbar hidden rounded-xl border border-slate-300 bg-white p-2 shadow-xl"
+    role="toolbar"
+    aria-label="写真のサイズ"
+  >
+    <div class="flex max-w-full flex-wrap items-center gap-1.5">
+      <span class="px-2 text-xs font-semibold text-slate-600">写真サイズ</span>
+      <button type="button" data-image-width="25%" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50">小</button>
+      <button type="button" data-image-width="50%" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50">中</button>
+      <button type="button" data-image-width="75%" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50">大</button>
+      <button type="button" data-image-width="100%" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50">幅いっぱい</button>
+      <button type="button" data-image-width="" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50">原寸</button>
+    </div>
+  </div>
+  {% endif %}
 
   <section id="markings" class="space-y-5 rounded-2xl bg-white p-5 shadow">
     <div>
@@ -252,6 +292,8 @@
   const highlightExcerpt = document.getElementById('highlight-excerpt');
   const highlightSeriesId = document.getElementById('highlight-series-id');
   const highlightFiscalYear = document.getElementById('highlight-fiscal-year');
+  const imageSizeToolbar = document.getElementById('meeting-image-size-toolbar');
+  const DEFAULT_IMAGE_WIDTH = '50%';
 
   Quill.register('modules/cursors', QuillCursors);
 
@@ -309,12 +351,99 @@
 
   if (canEdit) {
     const floatingToolbar = editor.getModule('toolbar').container;
+    let selectedImageElement = null;
+    let selectedImageIndex = null;
     floatingToolbar.setAttribute('role', 'toolbar');
     floatingToolbar.setAttribute('aria-label', '書式オプション');
 
     function hideFloatingToolbar() {
       floatingToolbar.classList.remove('is-visible');
     }
+
+    function hideImageSizeToolbar() {
+      selectedImageElement?.classList.remove('is-size-selected');
+      selectedImageElement = null;
+      selectedImageIndex = null;
+      imageSizeToolbar?.classList.add('hidden');
+    }
+
+    function updateImageSizeButtons(imageElement) {
+      if (!imageSizeToolbar) return;
+      const currentWidth = imageElement.getAttribute('width') || '';
+      for (const button of imageSizeToolbar.querySelectorAll('[data-image-width]')) {
+        const isCurrent = button.dataset.imageWidth === currentWidth;
+        button.setAttribute('aria-pressed', String(isCurrent));
+        button.classList.toggle('border-indigo-500', isCurrent);
+        button.classList.toggle('bg-indigo-50', isCurrent);
+        button.classList.toggle('text-indigo-700', isCurrent);
+      }
+    }
+
+    function positionImageSizeToolbar(pointerX, pointerY) {
+      if (!imageSizeToolbar) return;
+      imageSizeToolbar.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        const bounds = imageSizeToolbar.getBoundingClientRect();
+        let left = pointerX - (bounds.width / 2);
+        let top = pointerY + 12;
+        left = Math.max(8, Math.min(left, window.innerWidth - bounds.width - 8));
+        if (top + bounds.height > window.innerHeight - 8) {
+          top = pointerY - bounds.height - 12;
+        }
+        imageSizeToolbar.style.left = `${left}px`;
+        imageSizeToolbar.style.top = `${Math.max(8, top)}px`;
+      });
+    }
+
+    function selectImage(imageElement, pointerX, pointerY) {
+      selectedImageElement?.classList.remove('is-size-selected');
+      const imageBlot = Quill.find(imageElement);
+      if (!imageBlot) return;
+      selectedImageElement = imageElement;
+      selectedImageIndex = editor.getIndex(imageBlot);
+      selectedImageElement.classList.add('is-size-selected');
+      updateImageSizeButtons(imageElement);
+      hideFloatingToolbar();
+      positionImageSizeToolbar(pointerX, pointerY);
+    }
+
+    imageSizeToolbar?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-image-width]');
+      if (!button || selectedImageIndex === null || !selectedImageElement) return;
+      const width = button.dataset.imageWidth || false;
+      editor.formatText(selectedImageIndex, 1, 'width', width, Quill.sources.USER);
+      editor.formatText(selectedImageIndex, 1, 'height', false, Quill.sources.USER);
+      updateImageSizeButtons(selectedImageElement);
+    });
+
+    editor.root.addEventListener('click', (event) => {
+      if (event.target instanceof HTMLImageElement) {
+        selectImage(event.target, event.clientX, event.clientY);
+      }
+    });
+
+    editor.on('text-change', (delta, _oldDelta, source) => {
+      if (source !== Quill.sources.USER) return;
+      let documentIndex = 0;
+      const insertedImageIndexes = [];
+      for (const operation of delta.ops || []) {
+        if (operation.retain) documentIndex += operation.retain;
+        if (operation.insert) {
+          if (operation.insert.image && !operation.attributes?.width) {
+            insertedImageIndexes.push(documentIndex);
+          }
+          documentIndex += typeof operation.insert === 'string' ? operation.insert.length : 1;
+        }
+      }
+      requestAnimationFrame(() => {
+        for (const imageIndex of insertedImageIndexes) {
+          const [leaf] = editor.getLeaf(imageIndex);
+          if (leaf?.domNode instanceof HTMLImageElement && !leaf.domNode.hasAttribute('width')) {
+            editor.formatText(imageIndex, 1, 'width', DEFAULT_IMAGE_WIDTH, Quill.sources.USER);
+          }
+        }
+      });
+    });
 
     function positionFloatingToolbar(range) {
       if (!range) {
@@ -365,18 +494,31 @@
     editor.root.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         hideFloatingToolbar();
+        hideImageSizeToolbar();
       }
     });
 
     document.addEventListener('pointerdown', (event) => {
-      if (floatingToolbar.contains(event.target) || editor.root.contains(event.target)) {
+      if (floatingToolbar.contains(event.target) || imageSizeToolbar?.contains(event.target)) {
         return;
       }
+      if (!editor.root.contains(event.target)) {
+        hideImageSizeToolbar();
+      } else if (!(event.target instanceof HTMLImageElement)) {
+        hideImageSizeToolbar();
+      }
+      if (editor.root.contains(event.target)) return;
       hideFloatingToolbar();
     });
 
-    window.addEventListener('resize', showToolbarAtCurrentSelection);
-    window.addEventListener('scroll', showToolbarAtCurrentSelection, true);
+    window.addEventListener('resize', () => {
+      showToolbarAtCurrentSelection();
+      hideImageSizeToolbar();
+    });
+    window.addEventListener('scroll', () => {
+      showToolbarAtCurrentSelection();
+      hideImageSizeToolbar();
+    }, true);
   }
 
   const ydoc = new Y.Doc();

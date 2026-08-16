@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 
 from child_records.access import can_create_progress_record, can_view_progress_records
 from child_records.settings import effective_config
-from models import Child
+from models import Child, User
 from time_utils import ensure_utc_from_local, local_naive_now, parse_local_datetime_input
 
 from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_edit
@@ -206,6 +207,28 @@ def _reflection_status_html(reflection) -> str:
     )
 
 
+def _approval_details(repository: DocumentRepositoryDep, document_id: int) -> dict | None:
+    action = repository.latest_action(document_id, DocumentStatus.APPROVED.value)
+    if action is None:
+        return None
+
+    actor_name = (action.actor_name or "").strip()
+    if not actor_name and action.actor_ref.startswith("staff:"):
+        try:
+            user_id = UUID(action.actor_ref.removeprefix("staff:"))
+        except ValueError:
+            user_id = None
+        if user_id is not None:
+            approving_user = repository.session.get(User, user_id)
+            if approving_user is not None:
+                actor_name = approving_user.display_name
+
+    return {
+        "actor_name": actor_name or "不明",
+        "approved_at": action.created_at,
+    }
+
+
 @router.get("/documents/")
 def list_documents(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     classroom_refs = None if user.is_admin else user.classroom_refs
@@ -246,6 +269,7 @@ def document_detail(
         lock_version=head.lock_version if head else 0,
         revisions=repository.revisions(document_id),
         execution_changes=repository.list_execution_changes(document_id),
+        approval_details=_approval_details(repository, document_id),
         reason_labels=REASON_LABELS,
         impact_labels=IMPACT_LABELS,
         changed_at_default=local_naive_now().strftime("%Y-%m-%dT%H:%M"),

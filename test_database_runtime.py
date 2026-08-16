@@ -95,6 +95,18 @@ class DatabaseRuntimeTests(unittest.TestCase):
                                 text("PRAGMA table_info(plan_review_notifications)")
                             )
                         }
+                        notice_columns = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA table_info(notices)")
+                            )
+                        }
+                        action_columns = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA table_info(plan_document_actions)")
+                            )
+                        }
                         parent_delivery_columns = {
                             row[1]
                             for row in connection.execute(
@@ -110,6 +122,7 @@ class DatabaseRuntimeTests(unittest.TestCase):
                 self.assertIn("submitted_at", export_columns)
                 self.assertIn("new_code_consumed_by_export_id", profile_columns)
                 self.assertIn("search_text", meeting_note_columns)
+                self.assertIn("body_html", notice_columns)
                 self.assertTrue(
                     {
                         "period_start",
@@ -119,6 +132,7 @@ class DatabaseRuntimeTests(unittest.TestCase):
                     }.issubset(plan_document_columns)
                 )
                 self.assertIn("uq_plan_document_child_cycle", plan_document_indexes)
+                self.assertIn("actor_name", action_columns)
                 self.assertTrue(
                     {
                         "notification_kind",
@@ -144,6 +158,8 @@ class DatabaseRuntimeTests(unittest.TestCase):
                         "parent_push_preferences",
                         "parent_push_delivery_targets",
                         "parent_push_delivery_attempts",
+                        "notice_attachments",
+                        "notice_workflow_actions",
                     }.issubset(table_names)
                 )
             finally:

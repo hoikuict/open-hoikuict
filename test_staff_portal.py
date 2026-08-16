@@ -16,10 +16,16 @@ from models import (
     CalendarMember,
     CalendarMemberRole,
     Child,
+    ChildProfileChangeRequest,
+    ChildProfileChangeRequestStatus,
     ChildStatus,
     Classroom,
     Event,
     Message,
+    Notice,
+    NoticeStatus,
+    NoticeWorkflowAction,
+    ParentAccount,
     StaffClassroomAssignment,
     StaffClassroomAssignmentRole,
     Survey,
@@ -111,10 +117,90 @@ class StaffPortalTests(unittest.TestCase):
         response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("指導計画・児童票の承認待ち", response.text)
+        self.assertIn("すべての承認待ち", response.text)
         self.assertIn("承認待ち", response.text)
         self.assertIn("8月 ひよこ組 月案", response.text)
         self.assertIn("ひよこ組担任さんから承認依頼", response.text)
+
+    def test_admin_home_combines_all_approval_request_types(self):
+        today = local_today()
+        with Session(self.engine) as session:
+            admin = User(
+                email="approval-admin@example.com",
+                display_name="園長",
+                staff_role="admin",
+            )
+            child = Child(
+                last_name="佐藤",
+                first_name="花",
+                last_name_kana="サトウ",
+                first_name_kana="ハナ",
+                birth_date=today - timedelta(days=365 * 3),
+                enrollment_date=today - timedelta(days=30),
+                status=ChildStatus.enrolled,
+            )
+            parent = ParentAccount(
+                display_name="佐藤 保護者",
+                email="approval-parent@example.com",
+            )
+            session.add_all([admin, child, parent])
+            session.flush()
+            notice = Notice(
+                title="運動会のお知らせ",
+                body="開催案内",
+                status=NoticeStatus.pending_approval,
+                created_by="主任",
+            )
+            session.add(notice)
+            session.flush()
+            session.add(
+                NoticeWorkflowAction(
+                    notice_id=notice.id,
+                    action="submitted",
+                    actor_name="主任",
+                )
+            )
+            session.add(
+                ChildProfileChangeRequest(
+                    child_id=child.id,
+                    parent_account_id=parent.id,
+                    status=ChildProfileChangeRequestStatus.pending,
+                    change_summary="住所変更",
+                )
+            )
+            session.add(
+                PlanDocumentRow(
+                    document_type="monthly_plan",
+                    status="in_review",
+                    title="9月 ひよこ組 月案",
+                    nursery_ref=DEFAULT_NURSERY_REF,
+                    classroom_ref="ひよこ組",
+                    actor_ref="staff:teacher",
+                    owner_name="ひよこ組担任",
+                )
+            )
+            session.commit()
+            admin_id = admin.id
+            notice_id = notice.id
+
+        authenticate_mock_staff(
+            self.client,
+            role=Role.ADMIN,
+            user_id=admin_id,
+            name="園長",
+        )
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(">3件<", response.text)
+        self.assertIn("9月 ひよこ組 月案", response.text)
+        self.assertIn("月案", response.text)
+        self.assertIn("運動会のお知らせ", response.text)
+        self.assertIn(f'href="/notices/{notice_id}/preview"', response.text)
+        self.assertIn("佐藤 花さんの変更申請", response.text)
+        self.assertIn("佐藤 保護者さんから承認依頼", response.text)
+        self.assertIn("お知らせ", response.text)
+        self.assertIn("園児情報変更", response.text)
 
     def test_creator_home_shows_child_record_review_outcome(self):
         with Session(self.engine) as session:

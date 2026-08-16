@@ -5,12 +5,19 @@ import os
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlmodel import Session
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, select
 
 from auth import get_optional_current_staff_user
 from calendar_service import localize_datetime
 from database import get_session
-from models import User
+from models import (
+    ChildProfileChangeRequest,
+    ChildProfileChangeRequestStatus,
+    Notice,
+    NoticeStatus,
+    User,
+)
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from plan_docs.contracts import DOCUMENT_TYPE_LABELS
 from plan_docs.services.review_notifications import (
@@ -79,10 +86,13 @@ def _render_staff_home(
     attention_error = ""
     timeline_error = ""
     plan_notification_error = ""
+    approval_queue_errors = []
     schedule_remaining_count = 0
     survey_pending_count = 0
     plan_notifications = []
     pending_plan_documents = []
+    pending_notices = []
+    pending_child_change_requests = []
 
     try:
         classrooms, assignment_views = classroom_scope(
@@ -154,6 +164,105 @@ def _render_staff_home(
             extra={"staff_user_id": str(staff_user.id)},
         )
         plan_notification_error = "帳票通知を取得できませんでした。再読み込みしてください。"
+        if staff_user.staff_role == "admin":
+            approval_queue_errors.append(plan_notification_error)
+
+    if staff_user.staff_role == "admin":
+        try:
+            pending_notices = session.exec(
+                select(Notice)
+                .options(selectinload(Notice.workflow_actions))
+                .where(Notice.status == NoticeStatus.pending_approval)
+                .order_by(Notice.updated_at.desc())
+            ).all()
+        except Exception:
+            logger.exception(
+                "staff portal notice approval queue load failed",
+                extra={"staff_user_id": str(staff_user.id)},
+            )
+            approval_queue_errors.append("お知らせの承認依頼を取得できませんでした。")
+
+        try:
+            pending_child_change_requests = session.exec(
+                select(ChildProfileChangeRequest)
+                .options(
+                    selectinload(ChildProfileChangeRequest.child),
+                    selectinload(ChildProfileChangeRequest.parent_account),
+                )
+                .where(
+                    ChildProfileChangeRequest.status
+                    == ChildProfileChangeRequestStatus.pending
+                )
+                .order_by(ChildProfileChangeRequest.submitted_at.desc())
+            ).all()
+        except Exception:
+            logger.exception(
+                "staff portal child profile approval queue load failed",
+                extra={"staff_user_id": str(staff_user.id)},
+            )
+            approval_queue_errors.append("園児情報変更の承認依頼を取得できませんでした。")
+
+    approval_queue_items = []
+    for document in pending_plan_documents:
+        approval_queue_items.append(
+            {
+                "kind": "plan",
+                "kind_label": DOCUMENT_TYPE_LABELS.get(document.document_type, document.document_type),
+                "title": document.title,
+                "requester_name": document.owner_name,
+                "requested_at": document.updated_at,
+                "url": f"/plans/documents/{document.id}",
+            }
+        )
+    for notice in pending_notices:
+        submitted_actions = [
+            action for action in notice.workflow_actions if action.action == "submitted"
+        ]
+        latest_submission = max(
+            submitted_actions,
+            key=lambda action: (action.created_at, action.id or 0),
+            default=None,
+        )
+        approval_queue_items.append(
+            {
+                "kind": "notice",
+                "kind_label": "お知らせ",
+                "title": notice.title,
+                "requester_name": (
+                    latest_submission.actor_name
+                    if latest_submission is not None
+                    else notice.created_by or "職員"
+                ),
+                "requested_at": (
+                    latest_submission.created_at
+                    if latest_submission is not None
+                    else notice.updated_at
+                ),
+                "url": f"/notices/{notice.id}/preview",
+            }
+        )
+    for change_request in pending_child_change_requests:
+        child_name = (
+            change_request.child.full_name
+            if change_request.child is not None
+            else f"園児ID {change_request.child_id}"
+        )
+        requester_name = (
+            change_request.parent_account.display_name
+            if change_request.parent_account is not None
+            else "保護者"
+        )
+        approval_queue_items.append(
+            {
+                "kind": "child_change",
+                "kind_label": "園児情報変更",
+                "title": f"{child_name}さんの変更申請",
+                "requester_name": requester_name,
+                "requested_at": change_request.submitted_at,
+                "url": f"/child-change-requests/{change_request.id}",
+            }
+        )
+    approval_queue_items.sort(key=lambda item: item["requested_at"], reverse=True)
 
     attendance_attention_count = sum(item.attention_count for item in attendance_summaries)
     attention_count = attendance_attention_count + survey_pending_count
@@ -192,12 +301,9 @@ def _render_staff_home(
                 1 for notification in plan_notifications if notification.read_at is None
             ),
             "plan_notification_error": plan_notification_error,
-            "pending_plan_documents": pending_plan_documents,
-            "pending_plan_document_count": len(pending_plan_documents),
-            "plan_document_type_labels": {
-                document_type.value: label
-                for document_type, label in DOCUMENT_TYPE_LABELS.items()
-            },
+            "approval_queue_items": approval_queue_items,
+            "approval_queue_count": len(approval_queue_items),
+            "approval_queue_errors": approval_queue_errors,
             "present_count": sum(item.present_count for item in attendance_summaries),
             "show_all": show_all,
             "can_show_all": staff_user.staff_role == "admin",

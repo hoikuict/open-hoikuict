@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -32,6 +32,7 @@ from models import (
     DailyContactReplyStatus,
     Family,
     Notice,
+    NoticeAttachment,
     NoticeRead,
     NoticeStatus,
     ParentAccount,
@@ -47,6 +48,7 @@ from models import (
     SurveyQuestion,
     SurveyStatus,
 )
+from notice_content import notice_attachment_path, render_notice_body_html
 from parent_push_subscription_service import (
     PARENT_PUSH_DEVICE_COOKIE,
     clear_parent_push_device_cookie,
@@ -1551,7 +1553,11 @@ def parent_notice_detail(
 
     notice = session.exec(
         select(Notice)
-        .options(selectinload(Notice.targets), selectinload(Notice.reads))
+        .options(
+            selectinload(Notice.targets),
+            selectinload(Notice.reads),
+            selectinload(Notice.attachments),
+        )
         .where(Notice.id == notice_id)
     ).first()
     if not notice or not _notice_is_active(notice, utc_now()) or not _notice_matches_account(notice, current_parent_user):
@@ -1581,5 +1587,43 @@ def parent_notice_detail(
             "current_parent_user": current_parent_user,
             "parent_portal_mode": True,
             "notice": notice,
+            "notice_body_html": render_notice_body_html(notice.body, notice.body_html),
         },
+    )
+
+
+@router.get("/notices/attachments/{attachment_id}")
+def parent_notice_attachment(
+    request: Request,
+    attachment_id: int,
+    download: bool = Query(default=False),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    attachment = session.get(NoticeAttachment, attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="添付ファイルが見つかりません。")
+    notice = session.exec(
+        select(Notice)
+        .options(selectinload(Notice.targets))
+        .where(Notice.id == attachment.notice_id)
+    ).first()
+    if (
+        notice is None
+        or not _notice_is_active(notice, utc_now())
+        or not _notice_matches_account(notice, current_parent_user)
+    ):
+        raise HTTPException(status_code=404, detail="添付ファイルが見つかりません。")
+
+    path = notice_attachment_path(attachment.storage_path)
+    if path is None or not path.exists():
+        raise HTTPException(status_code=404, detail="添付ファイルの保存先が見つかりません。")
+    return FileResponse(
+        path,
+        media_type=attachment.content_type,
+        filename=attachment.original_filename,
+        content_disposition_type="attachment" if download else "inline",
     )

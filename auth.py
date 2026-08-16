@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Literal, Optional, Protocol
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlencode
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import HTTPConnection
 
 from csrf import rotate_csrf_token
-from security_config import secure_cookie_enabled
+from security_config import secure_cookie_enabled, staff_auth_mode
 from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 
 
@@ -33,6 +33,8 @@ MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 MOCK_CALENDAR_USER_COOKIE = "mock_calendar_user_id"
 MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
 MOCK_CHILD_RECORDS_PERMISSION_COOKIE = "mock_can_manage_child_records"
+LOCAL_STAFF_SESSION_COOKIE = "hoikuict_staff_session"
+PRODUCTION_STAFF_SESSION_COOKIE = "__Host-hoikuict_staff_session"
 
 
 def _auth_cookie_kwargs() -> dict[str, object]:
@@ -93,13 +95,17 @@ class StaffSessionSubject:
 
 
 class StaffAuthBackend(Protocol):
-    mode: Literal["mock", "external"]
+    mode: Literal["mock", "local_password", "external", "disabled"]
 
     def resolve_principal(self, connection: HTTPConnection) -> StaffUser | None: ...
 
     def establish_session(self, response: Response, subject: StaffSessionSubject) -> None: ...
 
-    def clear_session(self, response: Response) -> None: ...
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None: ...
 
 
 class ParentPortalAuthBackend(Protocol):
@@ -171,7 +177,11 @@ class MockStaffAuthBackend:
         )
         rotate_csrf_token(response)
 
-    def clear_session(self, response: Response) -> None:
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
         for cookie_name in (
             MOCK_ROLE_COOKIE,
             MOCK_STAFF_NAME_COOKIE,
@@ -180,6 +190,95 @@ class MockStaffAuthBackend:
         ):
             response.delete_cookie(cookie_name, path="/")
         rotate_csrf_token(response)
+
+
+class LocalPasswordStaffAuthBackend:
+    mode: Literal["local_password"] = "local_password"
+
+    @property
+    def cookie_name(self) -> str:
+        return (
+            PRODUCTION_STAFF_SESSION_COOKIE
+            if secure_cookie_enabled()
+            else LOCAL_STAFF_SESSION_COOKIE
+        )
+
+    def resolve_principal(self, connection: HTTPConnection) -> StaffUser | None:
+        raw_token = connection.cookies.get(self.cookie_name)
+        if not raw_token:
+            return None
+        import database
+        from local_auth import resolve_staff_session
+        from sqlmodel import Session
+
+        with Session(database.engine) as session:
+            user = resolve_staff_session(session, raw_token)
+            if user is None:
+                return None
+            try:
+                role = Role(user.staff_role)
+            except ValueError:
+                role = Role.CAN_EDIT
+            return StaffUser(
+                role=role,
+                name=user.display_name,
+                user_id=user.id,
+                can_manage_child_records=user.can_manage_child_records_effective,
+            )
+
+    def establish_session(self, response: Response, subject: StaffSessionSubject) -> None:
+        raise RuntimeError("local password sessionには認証済みopaque tokenが必要です")
+
+    def set_session_token(self, response: Response, raw_token: str) -> None:
+        from local_auth import staff_session_cookie_max_age
+
+        response.set_cookie(
+            self.cookie_name,
+            raw_token,
+            max_age=staff_session_cookie_max_age(),
+            **_auth_cookie_kwargs(),
+        )
+        rotate_csrf_token(response)
+
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
+        if connection is not None:
+            raw_token = connection.cookies.get(self.cookie_name)
+            if raw_token:
+                import database
+                from local_auth import revoke_session_token
+                from sqlmodel import Session
+
+                with Session(database.engine) as session:
+                    revoke_session_token(session, raw_token)
+        response.delete_cookie(
+            self.cookie_name,
+            path="/",
+            secure=secure_cookie_enabled(),
+            httponly=True,
+            samesite="lax",
+        )
+        rotate_csrf_token(response)
+
+
+class DisabledStaffAuthBackend:
+    mode: Literal["disabled"] = "disabled"
+
+    def resolve_principal(self, connection: HTTPConnection) -> StaffUser | None:
+        return None
+
+    def establish_session(self, response: Response, subject: StaffSessionSubject) -> None:
+        raise RuntimeError("職員認証は無効です")
+
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
+        return None
 
 
 class MockParentPortalAuthBackend:
@@ -229,8 +328,22 @@ def reset_auth_backends() -> None:
     configure_parent_portal_auth_backend(MockParentPortalAuthBackend())
 
 
+def configure_auth_backends_from_environment() -> None:
+    mode = staff_auth_mode()
+    if mode == "mock":
+        configure_staff_auth_backend(MockStaffAuthBackend())
+    elif mode == "local_password":
+        configure_staff_auth_backend(LocalPasswordStaffAuthBackend())
+    else:
+        configure_staff_auth_backend(DisabledStaffAuthBackend())
+
+
 def staff_auth_is_mock() -> bool:
     return getattr(_staff_auth_backend, "mode", None) == "mock"
+
+
+def staff_auth_is_local_password() -> bool:
+    return getattr(_staff_auth_backend, "mode", None) == "local_password"
 
 
 def parent_auth_is_mock() -> bool:
@@ -239,6 +352,11 @@ def parent_auth_is_mock() -> bool:
 
 def require_mock_staff_auth() -> None:
     if not mock_auth_enabled() or not staff_auth_is_mock():
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
+def require_local_staff_auth() -> None:
+    if not staff_auth_is_local_password():
         raise HTTPException(status_code=404, detail="Not Found")
 
 
@@ -252,14 +370,21 @@ async def staff_auth_http_exception_handler(
     exc: StarletteHTTPException,
 ):
     accepts_html = "text/html" in request.headers.get("accept", "").lower()
+    login_available = staff_auth_is_local_password() or (
+        staff_auth_is_mock() and mock_auth_enabled()
+    )
     if (
         exc.status_code == 401
         and request.method.upper() == "GET"
         and accepts_html
-        and mock_auth_enabled()
-        and staff_auth_is_mock()
+        and request.url.path != "/staff/login"
+        and login_available
     ):
-        return RedirectResponse(url="/staff/login", status_code=303)
+        original_path = request.url.path
+        if request.url.query:
+            original_path = f"{original_path}?{request.url.query}"
+        query = urlencode({"redirect": original_path})
+        return RedirectResponse(url=f"/staff/login?{query}", status_code=303)
     return await http_exception_handler(request, exc)
 
 
@@ -339,8 +464,25 @@ def set_staff_cookies(
     )
 
 
-def clear_staff_cookies(response: Response) -> None:
-    _staff_auth_backend.clear_session(response)
+def set_local_staff_session_cookie(response: Response, raw_token: str) -> None:
+    if not isinstance(_staff_auth_backend, LocalPasswordStaffAuthBackend):
+        raise RuntimeError("local password職員認証が有効ではありません")
+    _staff_auth_backend.set_session_token(response, raw_token)
+
+
+def clear_staff_cookies(
+    response: Response,
+    connection: HTTPConnection | None = None,
+) -> None:
+    if connection is None:
+        _staff_auth_backend.clear_session(response)
+        return
+    try:
+        _staff_auth_backend.clear_session(response, connection)
+    except TypeError:
+        # Preserve compatibility with existing external adapters that implement
+        # the original one-argument clear_session contract.
+        _staff_auth_backend.clear_session(response)
 
 
 MockUser = StaffUser

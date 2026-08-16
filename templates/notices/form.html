@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 {% block title %}お知らせ編集 | open-hoikuict{% endblock %}
 
+{% block head %}
+<style>
+  .notice-editor-surface { min-height: 18rem; }
+  .notice-editor-surface:empty::before { color: #94a3b8; content: attr(data-placeholder); pointer-events: none; }
+  .notice-rich-body h2, .notice-editor-surface h2 { margin: 1.25rem 0 .5rem; font-size: 1.5rem; font-weight: 700; }
+  .notice-rich-body h3, .notice-editor-surface h3 { margin: 1rem 0 .4rem; font-size: 1.25rem; font-weight: 700; }
+  .notice-rich-body p, .notice-editor-surface p { margin: .45rem 0; }
+  .notice-rich-body ul, .notice-editor-surface ul { margin: .6rem 0; list-style: disc; padding-left: 1.5rem; }
+  .notice-rich-body ol, .notice-editor-surface ol { margin: .6rem 0; list-style: decimal; padding-left: 1.5rem; }
+  .notice-rich-body blockquote, .notice-editor-surface blockquote { margin: .75rem 0; border-left: 4px solid #c7d2fe; padding-left: 1rem; color: #475569; }
+  .notice-rich-body a, .notice-editor-surface a { color: #4f46e5; text-decoration: underline; }
+  .notice-rich-body font[size="1"], .notice-editor-surface font[size="1"] { font-size: .875rem; }
+  .notice-rich-body font[size="2"], .notice-editor-surface font[size="2"] { font-size: 1rem; }
+  .notice-rich-body font[size="3"], .notice-editor-surface font[size="3"] { font-size: 1rem; }
+  .notice-rich-body font[size="4"], .notice-editor-surface font[size="4"] { font-size: 1.25rem; }
+  .notice-rich-body font[size="5"], .notice-editor-surface font[size="5"] { font-size: 1.5rem; }
+  .notice-rich-body font[size="6"], .notice-editor-surface font[size="6"] { font-size: 2rem; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="mx-auto max-w-4xl">
   <div class="mb-5 flex items-center justify-between">
@@ -11,7 +31,7 @@
     <a href="/notices/" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
   </div>
 
-  <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+  <form id="notice-form" method="post" action="{{ action_url }}" enctype="multipart/form-data" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <div>
       <label class="mb-1 block text-sm font-medium text-gray-600">タイトル</label>
       <input type="text" name="title" required value="{{ notice.title if notice else '' }}" class="w-full rounded border border-gray-300 px-3 py-2">
@@ -19,17 +39,104 @@
 
     <div>
       <label class="mb-1 block text-sm font-medium text-gray-600">本文</label>
-      <textarea name="body" rows="8" class="w-full rounded border border-gray-300 px-3 py-2" required>{{ notice.body if notice else '' }}</textarea>
+      <div class="overflow-hidden rounded-lg border border-gray-300 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+        <div id="notice-editor-toolbar" class="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 p-2" aria-label="本文の書式設定">
+          <select id="notice-block-format" class="rounded border border-gray-300 bg-white px-2 py-1.5 text-sm" aria-label="段落形式">
+            <option value="p">本文</option>
+            <option value="h2">大見出し</option>
+            <option value="h3">小見出し</option>
+            <option value="blockquote">引用</option>
+          </select>
+          <select id="notice-font-size" class="rounded border border-gray-300 bg-white px-2 py-1.5 text-sm" aria-label="文字サイズ">
+            <option value="2">小</option>
+            <option value="3" selected>標準</option>
+            <option value="5">大</option>
+            <option value="6">特大</option>
+          </select>
+          <button type="button" data-command="bold" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-bold" title="太字">B</button>
+          <button type="button" data-command="underline" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm underline" title="下線">U</button>
+          <button type="button" data-command="insertUnorderedList" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm" title="箇条書き">・一覧</button>
+          <button type="button" data-command="insertOrderedList" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm" title="番号付き一覧">1. 一覧</button>
+          <label class="flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-600">
+            文字色
+            <input id="notice-text-color" type="color" value="#1f2937" class="h-6 w-7 cursor-pointer border-0 bg-transparent p-0">
+          </label>
+          <label class="flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-600">
+            背景色
+            <input id="notice-background-color" type="color" value="#fff3bf" class="h-6 w-7 cursor-pointer border-0 bg-transparent p-0">
+          </label>
+          <button type="button" id="notice-link-button" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm">リンク</button>
+          <button type="button" data-command="removeFormat" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm">書式解除</button>
+        </div>
+        <div
+          id="notice-editor"
+          class="notice-editor-surface notice-rich-body bg-white px-4 py-3 text-gray-800 outline-none"
+          contenteditable="true"
+          role="textbox"
+          aria-multiline="true"
+          data-placeholder="保護者へ伝える内容を入力してください"
+        >{{ editor_body_html|safe }}</div>
+      </div>
+      <textarea id="notice-body" name="body" class="hidden" aria-hidden="true">{{ notice.body if notice else '' }}</textarea>
+      <textarea id="notice-body-html" name="body_html" class="hidden" aria-hidden="true"></textarea>
+      <p class="mt-2 text-xs text-gray-500">文字を選択してから、サイズ・色・背景色などを指定します。</p>
+    </div>
+
+    <div class="border-t border-gray-200 pt-5">
+      <h2 class="text-sm font-semibold text-gray-700">写真・PDFの添付</h2>
+      <p class="mt-1 text-xs text-gray-500">PDF・JPEG・PNG・WebP、最大5件、1件10MBまで添付できます。</p>
+      <div class="mt-3 grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
+        <label class="block text-sm text-gray-700">
+          <span class="mb-1 block font-medium">ファイルを選択</span>
+          <input id="notice-attachments" type="file" name="attachments" multiple accept="application/pdf,image/jpeg,image/png,image/webp" class="block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm">
+        </label>
+        <label class="block text-sm text-gray-700">
+          <span class="mb-1 block font-medium">新しい写真の表示サイズ</span>
+          <select name="new_image_size" class="w-full rounded border border-gray-300 bg-white px-3 py-2">
+            <option value="small">小</option>
+            <option value="medium" selected>中</option>
+            <option value="large">大</option>
+            <option value="full">横幅いっぱい</option>
+          </select>
+        </label>
+      </div>
+      <ul id="notice-file-list" class="mt-3 space-y-1 text-xs text-gray-600"></ul>
+
+      {% if notice and notice.attachments %}
+      <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        {% for attachment in notice.attachments|sort(attribute='display_order') %}
+        <article class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          {% if attachment.is_image %}
+          <img src="/notices/attachments/{{ attachment.id }}" alt="{{ attachment.original_filename }}" class="mb-3 h-32 w-full rounded bg-white object-contain">
+          <input type="hidden" name="attachment_size_ids" value="{{ attachment.id }}">
+          <label class="block text-xs text-gray-600">
+            表示サイズ
+            <select name="attachment_sizes" class="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5">
+              <option value="small" {% if attachment.display_size == 'small' %}selected{% endif %}>小</option>
+              <option value="medium" {% if attachment.display_size == 'medium' %}selected{% endif %}>中</option>
+              <option value="large" {% if attachment.display_size == 'large' %}selected{% endif %}>大</option>
+              <option value="full" {% if attachment.display_size == 'full' %}selected{% endif %}>横幅いっぱい</option>
+            </select>
+          </label>
+          {% else %}
+          <a href="/notices/attachments/{{ attachment.id }}" target="_blank" rel="noopener" class="text-sm font-medium text-indigo-600 hover:underline">PDFを表示</a>
+          {% endif %}
+          <p class="mt-2 break-all text-xs text-gray-600">{{ attachment.original_filename }}（{{ (attachment.file_size / 1024)|round(1) }} KB）</p>
+          <label class="mt-3 flex items-center gap-2 text-xs font-medium text-rose-700">
+            <input type="checkbox" name="remove_attachment_ids" value="{{ attachment.id }}">
+            この添付を削除
+          </label>
+        </article>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
 
     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-600">状態</label>
-        <select name="status" class="w-full rounded border border-gray-300 px-3 py-2">
-          {% for option in status_options %}
-          <option value="{{ option.value }}" {% if (notice and notice.status.value == option.value) or (not notice and option.value == 'draft') %}selected{% endif %}>{{ option.label }}</option>
-          {% endfor %}
-        </select>
+        <div class="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700">下書き</div>
+        <p class="mt-1 text-xs text-gray-500">保存後の確認画面から承認申請します。</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-gray-600">優先度</label>
@@ -87,8 +194,86 @@
 
     <div class="flex gap-3">
       <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
+      {% if notice %}
+      <a href="/notices/{{ notice.id }}/preview" class="rounded border border-indigo-300 px-4 py-2 text-indigo-700 hover:bg-indigo-50">確認画面</a>
+      {% endif %}
       <a href="/notices/" class="rounded border border-gray-300 px-4 py-2 hover:bg-gray-50">キャンセル</a>
     </div>
   </form>
 </div>
+
+<script>
+(() => {
+  const form = document.getElementById('notice-form');
+  const editor = document.getElementById('notice-editor');
+  const bodyInput = document.getElementById('notice-body');
+  const htmlInput = document.getElementById('notice-body-html');
+  const fileInput = document.getElementById('notice-attachments');
+  const fileList = document.getElementById('notice-file-list');
+  let savedRange = null;
+
+  const rememberSelection = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount && editor.contains(selection.anchorNode)) {
+      savedRange = selection.getRangeAt(0).cloneRange();
+    }
+  };
+  const restoreSelection = () => {
+    editor.focus();
+    if (!savedRange) return;
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(savedRange);
+  };
+  const runCommand = (command, value = null) => {
+    restoreSelection();
+    document.execCommand(command, false, value);
+    rememberSelection();
+  };
+
+  editor.addEventListener('keyup', rememberSelection);
+  editor.addEventListener('mouseup', rememberSelection);
+  editor.addEventListener('input', rememberSelection);
+
+  document.querySelectorAll('[data-command]').forEach((button) => {
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => runCommand(button.dataset.command));
+  });
+  document.getElementById('notice-block-format').addEventListener('change', (event) => {
+    runCommand('formatBlock', event.target.value);
+  });
+  document.getElementById('notice-font-size').addEventListener('change', (event) => {
+    runCommand('fontSize', event.target.value);
+  });
+  document.getElementById('notice-text-color').addEventListener('change', (event) => {
+    runCommand('foreColor', event.target.value);
+  });
+  document.getElementById('notice-background-color').addEventListener('change', (event) => {
+    restoreSelection();
+    if (!document.execCommand('hiliteColor', false, event.target.value)) {
+      document.execCommand('backColor', false, event.target.value);
+    }
+    rememberSelection();
+  });
+  document.getElementById('notice-link-button').addEventListener('mousedown', (event) => event.preventDefault());
+  document.getElementById('notice-link-button').addEventListener('click', () => {
+    const url = window.prompt('リンク先URLを入力してください（https://...）');
+    if (url) runCommand('createLink', url.trim());
+  });
+
+  fileInput.addEventListener('change', () => {
+    fileList.replaceChildren();
+    Array.from(fileInput.files).forEach((file) => {
+      const item = document.createElement('li');
+      item.textContent = `${file.name}（${Math.ceil(file.size / 1024)} KB）`;
+      fileList.appendChild(item);
+    });
+  });
+
+  form.addEventListener('submit', () => {
+    htmlInput.value = editor.innerHTML;
+    bodyInput.value = editor.innerText.trim();
+  });
+})();
+</script>
 {% endblock %}
