@@ -15,6 +15,8 @@
     "home_address": "自宅住所",
     "home_phone": "自宅電話番号",
     "guardians": "保護者",
+    "care_time_category": "保育必要量",
+    "care_need_reasons": "認定要件",
     "siblings": "兄弟姉妹",
     "allergy": "アレルギー",
     "medical_notes": "医療メモ"
@@ -25,22 +27,22 @@
   <div class="border-b border-slate-100 px-4 py-2 text-sm text-slate-500">{{ total }} 名</div>
 
   <div class="overflow-x-auto">
-    <table class="min-w-full text-sm">
+    <table class="w-max table-auto text-sm">
       <thead class="bg-indigo-50 text-indigo-800">
         <tr>
           {% for key in selected_fields %}
-          <th class="whitespace-nowrap px-4 py-2 text-left font-medium">{{ field_labels.get(key, key) }}</th>
+          <th class="whitespace-nowrap px-3 py-2 text-left font-medium">{{ field_labels.get(key, key) }}</th>
           {% endfor %}
           {% if current_user %}
-          <th class="no-print whitespace-nowrap px-4 py-2 text-left font-medium">操作</th>
+          <th class="no-print sticky right-0 z-10 whitespace-nowrap border-l border-indigo-100 bg-indigo-50 px-3 py-2 text-left font-medium shadow-sm">操作</th>
           {% endif %}
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         {% for child in children %}
-        <tr class="hover:bg-slate-50">
+        <tr class="group hover:bg-slate-50">
           {% for key in selected_fields %}
-          <td class="whitespace-nowrap px-4 py-2">
+          <td class="whitespace-nowrap px-3 py-2">
             {% if key == "status" %}
               {% if child.status.value == "enrolled" %}
               <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">在園</span>
@@ -68,6 +70,30 @@
             {% elif key == "medical_notes" %}
               {% set notes = child.extra_data.medical_notes if child.extra_data else "" %}
               {{ notes if notes else "-" }}
+            {% elif key == "care_time_category" %}
+              {% set certification = current_certifications.get(child.id) if current_certifications is defined else none %}
+              {% if certification %}
+                {% if certification.care_time_category.value == "standard" %}
+                <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">標準</span>
+                {% else %}
+                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">短時間</span>
+                {% endif %}
+              {% else %}
+              <span class="text-xs text-slate-400">未登録</span>
+              {% endif %}
+            {% elif key == "care_need_reasons" %}
+              {% set certification = current_certifications.get(child.id) if current_certifications is defined else none %}
+              {% if certification and certification.reasons %}
+              <div class="min-w-48 space-y-1 whitespace-normal">
+                {% for reason in certification.reasons|sort(attribute="guardian_order") %}
+                <div class="text-xs text-slate-700">
+                  <span class="font-medium">{{ reason.relationship_snapshot or reason.guardian_name_snapshot or ("保護者" ~ reason.guardian_order) }}</span>：{{ reason.other_reason_detail if reason.reason.value == "other_municipal" and reason.other_reason_detail else reason.reason.label }}
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <span class="text-xs text-slate-400">未登録</span>
+              {% endif %}
             {% elif key == "age" %}
               {{ child.age }}歳
             {% else %}
@@ -76,11 +102,11 @@
           </td>
           {% endfor %}
           {% if current_user %}
-          <td class="no-print whitespace-nowrap px-4 py-2">
+          <td class="no-print sticky right-0 z-10 whitespace-nowrap border-l border-slate-100 bg-white px-3 py-2 shadow-sm group-hover:bg-slate-50">
             <a href="/children/{{ child.id }}" class="text-sm font-medium text-indigo-600 hover:underline">詳細</a>
             {% if current_user.can_manage_child_records %}
             <a href="/children/{{ child.id }}/edit" class="ml-3 text-sm text-indigo-600 hover:underline">編集</a>
-            <a href="/children/new?sibling_id={{ child.id }}" class="ml-3 text-sm text-indigo-600 hover:underline">兄弟として追加</a>
+            <a href="/children/new?sibling_id={{ child.id }}" class="ml-3 text-sm text-indigo-600 hover:underline">兄弟追加</a>
             {% endif %}
           </td>
           {% endif %}

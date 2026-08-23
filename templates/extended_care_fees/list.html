@@ -177,10 +177,10 @@
           <tr class="bg-amber-50/40">
             <td class="px-4 py-2 font-medium text-gray-800 whitespace-nowrap">{{ summary.child_name }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ summary.classroom_name or "—" }}</td>
-            <td class="px-4 py-2 whitespace-nowrap">{{ detail.target_date.strftime("%Y-%m-%d") }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ detail.target_date.strftime("%Y-%m-%d") }}<div class="text-xs text-gray-500">{{ detail.care_time_category_label }}{% if detail.normal_time_label %} {{ detail.normal_time_label }}{% endif %}</div></td>
             <td class="px-4 py-2 whitespace-nowrap">{{ detail.check_out_at.strftime("%H:%M") if detail.check_out_at else "—" }}</td>
             <td class="px-4 py-2 whitespace-nowrap">{{ detail.charge_start_at.strftime("%H:%M") }}</td>
-            <td class="px-4 py-2 text-right whitespace-nowrap">{{ detail.extended_minutes }}分</td>
+            <td class="px-4 py-2 text-right whitespace-nowrap">{{ detail.extended_minutes }}分<div class="text-xs text-gray-500">朝{{ detail.morning_extended_minutes }}／夕{{ detail.evening_extended_minutes }}</div></td>
             <td class="px-4 py-2 text-right whitespace-nowrap">{{ "{:,}".format(detail.auto_amount) }}円</td>
             <td class="px-4 py-2 text-right font-semibold text-blue-700 whitespace-nowrap">{{ "{:,}".format(detail.final_amount) }}円</td>
             {% if current_user.can_edit %}
@@ -264,13 +264,14 @@
                     <tr class="{% if detail.needs_confirmation %}bg-amber-50{% endif %}">
                       <td class="px-3 py-2 whitespace-nowrap">
                         {{ detail.target_date.strftime("%Y-%m-%d") }}
+                        <div class="text-xs text-gray-500">{{ detail.care_time_category_label }}{% if detail.normal_time_label %} {{ detail.normal_time_label }}{% endif %}</div>
                         {% if detail.warning %}<div class="text-red-700">{{ detail.warning }}</div>{% endif %}
                       </td>
                       <td class="px-3 py-2 whitespace-nowrap">{{ detail.check_in_at.strftime("%H:%M") if detail.check_in_at else "—" }}</td>
                       <td class="px-3 py-2 whitespace-nowrap">{{ detail.check_out_at.strftime("%H:%M") if detail.check_out_at else "—" }}</td>
                       <td class="px-3 py-2 whitespace-nowrap">{{ detail.charge_start_at.strftime("%H:%M") }}</td>
-                      <td class="px-3 py-2 text-right whitespace-nowrap">{{ detail.extended_minutes }} 分</td>
-                      <td class="px-3 py-2 text-right whitespace-nowrap">{{ "{:,}".format(detail.auto_amount) }} 円</td>
+                      <td class="px-3 py-2 text-right whitespace-nowrap">{{ detail.extended_minutes }} 分<div class="text-xs text-gray-500">朝{{ detail.morning_extended_minutes }}／夕{{ detail.evening_extended_minutes }}</div></td>
+                      <td class="px-3 py-2 text-right whitespace-nowrap">{{ "{:,}".format(detail.auto_amount) }} 円<div class="text-xs text-gray-500">朝{{ "{:,}".format(detail.morning_amount) }}／夕{{ "{:,}".format(detail.evening_amount) }}</div></td>
                       <td class="px-3 py-2 text-right whitespace-nowrap">{{ "{:,}".format(detail.adjustment_amount) }} 円</td>
                       <td class="px-3 py-2 text-right font-semibold whitespace-nowrap">{{ "{:,}".format(detail.final_amount) }} 円</td>
                       <td class="px-3 py-2 whitespace-nowrap">

@@ -10,8 +10,9 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from billing_calculation_service import recalculate_claim_total
-from extended_care_fee_service import parse_month
+from extended_care_fee_service import parse_month, resolve_calculation_context
 from models import (
+    AttendanceRecord,
     BillingChargeLine,
     BillingChargeSourceType,
     BillingClaim,
@@ -195,6 +196,22 @@ def build_extended_care_transfer_preview(
             ExtendedCareCharge.target_date <= end_date,
         )
     ).all()
+    charged_record_ids = {charge.attendance_record_id for charge in charges}
+    completed_records = session.exec(
+        select(AttendanceRecord).where(
+            AttendanceRecord.attendance_date >= start_date,
+            AttendanceRecord.attendance_date <= end_date,
+            AttendanceRecord.check_out_at.is_not(None),
+        )
+    ).all()
+    for record in completed_records:
+        if record.id in charged_record_ids:
+            continue
+        _, _, issue = resolve_calculation_context(session, record)
+        errors.append(
+            f"園児ID {record.child_id}（{record.attendance_date.isoformat()}）の延長保育料金が未計算です"
+            + (f": {issue}" if issue else "。")
+        )
     child_ids = sorted({charge.child_id for charge in charges})
     children = []
     if child_ids:

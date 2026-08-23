@@ -9,7 +9,18 @@ from sqlmodel import SQLModel, Session, create_engine
 from auth import Role, StaffUser
 from child_records.models import ChildRecordSettingVersion
 from child_records.settings import default_config
-from models import Child, ChildStatus, Classroom, Family, ParentAccount, ParentAccountStatus
+from models import (
+    CareNeedReason,
+    CareTimeCategory,
+    Child,
+    ChildCareCertification,
+    ChildCareNeedReason,
+    ChildStatus,
+    Classroom,
+    Family,
+    ParentAccount,
+    ParentAccountStatus,
+)
 from time_utils import utc_now
 import routers.children as children_module
 
@@ -140,6 +151,12 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
         self.assertIn(f'href="/children/{self.child_id}"', default_response.text)
         self.assertIn("詳細", default_response.text)
         self.assertIn(f'/children/{self.child_id}/edit', default_response.text)
+        self.assertIn("表示項目を変更", default_response.text)
+        self.assertIn("sticky right-0", default_response.text)
+        self.assertIn("兄弟追加", default_response.text)
+        self.assertNotIn('value="last_name_kana" checked', default_response.text)
+        self.assertNotIn('value="first_name_kana" checked', default_response.text)
+        self.assertNotIn('value="guardians" checked', default_response.text)
 
         name_desc_response = self.client.get("/children/?sort_by=name&sort_order=desc")
         self.assertEqual(name_desc_response.status_code, 200)
@@ -147,6 +164,42 @@ class ChildrenParentLinkDisplayTests(unittest.TestCase):
             name_desc_response.text.find(f"/children/{self.child_id}/edit"),
             name_desc_response.text.find(f"/children/{self.sibling_id}/edit"),
         )
+
+    def test_children_list_shows_current_care_category_and_reasons(self):
+        with Session(self.engine) as session:
+            certification = ChildCareCertification(
+                child_id=self.child_id,
+                care_time_category=CareTimeCategory.short,
+                effective_from=date(2020, 4, 1),
+            )
+            session.add(certification)
+            session.flush()
+            session.add(
+                ChildCareNeedReason(
+                    certification_id=certification.id,
+                    guardian_order=1,
+                    guardian_name_snapshot="Tanaka Hanako",
+                    relationship_snapshot="母",
+                    reason=CareNeedReason.employment,
+                )
+            )
+            session.commit()
+
+        response = self.client.get("/children/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("保育必要量", response.text)
+        self.assertIn("認定要件", response.text)
+        self.assertIn("短時間", response.text)
+        self.assertIn("母</span>：就労", response.text)
+        self.assertIn("未登録", response.text)
+
+        partial = self.client.get(
+            "/children/table?fields=care_time_category&fields=care_need_reasons"
+        )
+        self.assertEqual(partial.status_code, 200)
+        self.assertIn("短時間", partial.text)
+        self.assertIn("母</span>：就労", partial.text)
 
         birth_desc_response = self.client.get("/children/?sort_by=birth_date&sort_order=desc")
         self.assertEqual(birth_desc_response.status_code, 200)

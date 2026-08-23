@@ -6,9 +6,9 @@
 |---|---:|---|
 | `classrooms` | 6 | id, name, display_order |
 | `families` | 84 | id, family_name, home_address, home_phone, shared_profile, created_at, updated_at |
-| `children` | 100 | id, last_name, first_name, last_name_kana, first_name_kana, birth_date, enrollment_date, withdrawal_date, status, classroom_id, family_id, home_address, home_phone, older_sibling_id, extra_data, created_at, updated_at |
+| `children` | 100 | id, last_name, first_name, last_name_kana, first_name_kana, registration_verification_name, registration_verification_name_type, birth_date, enrollment_date, withdrawal_date, status, classroom_id, family_id, home_address, home_phone, older_sibling_id, extra_data, created_at, updated_at |
 | `guardians` | 210 | id, child_id, last_name, first_name, last_name_kana, first_name_kana, relationship, phone, workplace, workplace_address, workplace_phone, order |
-| `parent_accounts` | 156 | id, display_name, email, phone, home_address, workplace, workplace_address, workplace_phone, family_id, status, password_hash, invited_at, last_login_at, created_at, updated_at |
+| `parent_accounts` | 156 | id, display_name, registration_verification_name, registration_verification_name_type, email, phone, home_address, workplace, workplace_address, workplace_phone, family_id, status, password_hash, invited_at, last_login_at, created_at, updated_at |
 | `parent_child_links` | 186 | id, parent_account_id, child_id, relationship_label, is_primary_contact, created_at |
 | `child_health_profiles` | 100 | id, child_id, blood_type, primary_doctor_name, primary_doctor_phone, primary_doctor_address, hospital_name, hospital_phone, requires_medical_care, medical_care_details, epipen_required, epipen_storage_location, medical_history, disability_info, current_medications, sids_risk_flag, sids_notes, breastfed, formula_type, food_texture_level, religious_dietary, other_dietary_restrictions, developmental_notes, psychological_notes, family_health_notes, other_notes, extra_data, created_by, updated_by, created_at, updated_at |
 | `child_allergies` | 9 | id, child_id, allergen_category, allergen_name, severity, symptoms, diagnosis_confirmed, diagnosis_date, treating_doctor, removal_required, substitute_food, action_plan, source_document, source_document_date, valid_until, is_active, notes, created_by, updated_by, created_at, updated_at |

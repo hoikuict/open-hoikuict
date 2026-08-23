@@ -5,6 +5,8 @@
 
 `ExtendedCareFeeRule`、`ExtendedCareCharge`、`extended_care_fee_service.py`、`routers/extended_care_fees.py`により、日別自動計算、再計算、確定・調整・対象外、月次表示、CSV、料金ルール設定を提供する。請求への月次転送は[延長保育料金・請求転送仕様](extended-care-billing-transfer-spec.md)を参照する。
 
+保護者の事由、保育標準時間／保育短時間、区分別の朝夕延長料金への拡張は、一部実装済みの[保育認定・保育必要量・延長保育料金連携仕様](care-need-certification-spec.md)を参照する。本書の単一区分計算は後方互換のためレガシー仕様として残す。
+
 ## 目的
 
 降園打刻時刻をもとに、延長保育の利用時間と料金を自動計算できるようにする。

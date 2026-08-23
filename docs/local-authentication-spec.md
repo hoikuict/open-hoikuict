@@ -4,9 +4,9 @@
 - 初版作成日: 2026-08-13
 - 認証方式: Argon2idによるローカルパスワード認証
 - 初期実装範囲: 職員・保護者認証、ローカルセッション、資格情報ライフサイクル、管理者MFA
-- 関連文書: [セキュリティ最低ライン](security.md)、[職員ポータル仕様](staff-personal-portal-spec.md)、[連携契約](integration-contract.md)、[運用責任](operations.md)
+- 関連文書: [オンプレ保護者認証](parent-local-authentication-spec.md)、[セキュリティ最低ライン](security.md)、[職員ポータル仕様](staff-personal-portal-spec.md)、[連携契約](integration-contract.md)、[運用責任](operations.md)
 
-2026年8月16日時点で、職員のArgon2id資格情報、opaque session、login throttle、認証監査、初期有効化、管理者発行のパスワード再設定コード、初期管理者CLIまでを実装した。保護者ローカル認証、認証済み職員本人によるパスワード変更、TOTP MFAと回復コードは後続実装であり、本仕様全体の受入完了には含めない。
+2026年8月23日時点で、職員のArgon2id資格情報、opaque session、login throttle、認証監査、初期有効化、管理者発行のパスワード再設定コード、初期管理者CLIまでを実装した。保護者ローカル認証、認証済み職員本人によるパスワード変更、TOTP MFAと回復コードは後続実装であり、本仕様全体の受入完了には含めない。保護者固有の画面、ライフサイクル、園児認可境界、β導入順序は[オンプレ保護者認証](parent-local-authentication-spec.md)を優先する。
 
 ## 1. 目的
 
@@ -28,9 +28,9 @@ open-hoikuict自身が次を担当する。
 
 ### 2.1 オフライン完結
 
-- 通常のログイン、ログアウト、MFA、初期設定、再設定は外部SaaSへ通信しない。
+- 通常のログイン、ログアウト、MFA、管理者交付コードによる初期設定・再設定は外部SaaSへ通信しない。保護者の通常の初回登録は[オンプレ保護者認証](parent-local-authentication-spec.md)に従い、設定済みSMTPへ招待メールを送る。
 - DNS、インターネット、外部メール配信が停止していても管理者手順で資格情報を復旧できる。
-- SMTP通知は任意拡張とし、認証の必須依存にしない。
+- SMTP停止時も既存利用者の認証と管理者交付コードによる救済を利用できるようにする。
 - CDN上のJavaScript、外部CAPTCHA、外部漏えいパスワード照会APIをログイン時に呼ばない。
 
 ### 2.2 認証と認可の分離
@@ -385,7 +385,7 @@ productionでは職員と保護者のsession Cookieを分ける。
 
 - account bucketで5回連続失敗後、30秒の遅延を開始する。
 - 以降は失敗に応じて指数的に延長し、最大15分とする。
-- network bucketは5分間に30回を超える失敗を一時拒否する。
+- network bucketは15分間に20回以上失敗すると一時拒否する。
 - 成功時はaccount連続失敗をresetするが、監査イベントは保持する。
 - 永久lockは行わず、攻撃者によるアカウント固定を避ける。
 - 管理者はthrottle状態を確認・解除できるが、解除操作を監査する。
@@ -452,9 +452,9 @@ CLIは氏名、login ID、連絡先、実行理由を受け取り、`User`、`Pa
 
 ### 11.3 保護者追加
 
-`ParentAccount` と対象園児の `ParentChildLink` を管理者が確認した後、保護者用activation codeを発行する。codeは本人確認済みの対面、封書、電話等の施設承認済み経路で渡し、通常の園児連絡本文や共有掲示へ記載しない。
+通常は[オンプレ保護者認証](parent-local-authentication-spec.md)に従い、登録済みメールアドレスへの招待、保護者・園児情報の照合申請、園の承認、本人によるpassword設定の順に行う。メールを利用できない場合だけ、管理者が本人確認後に保護者用activation codeを発行する。codeは対面、封書、電話等の施設承認済み経路で渡し、通常の園児連絡本文や共有掲示へ記載しない。
 
-保護者は `/parent-portal/activate` でcodeと新passwordを設定する。activation成功だけでは閲覧園児を増やさず、アクセス範囲は既存の明示的な `ParentChildLink` に限定する。
+どちらの経路でもactivation成功だけでは閲覧園児を増やさず、アクセス範囲は既存の明示的な `ParentChildLink` に限定する。
 
 ### 11.4 認証済み変更
 
@@ -470,7 +470,7 @@ CLIは氏名、login ID、連絡先、実行理由を受け取り、`User`、`Pa
 
 閉域標準では職員・保護者が施設管理者へ連絡し、管理者が対象principal用の30分reset codeを発行する。管理者は新passwordを指定できず、利用者本人が各専用入口でcodeと新passwordを入力する。
 
-ログイン画面の「パスワードを忘れた場合」はアカウント存在を判定せず、施設管理者への連絡方法だけを表示する。任意SMTPを導入するまで、公開フォームからメールを自動送信しない。
+ログイン画面の「パスワードを忘れた場合」はアカウント存在を判定せず、施設管理者への連絡方法だけを表示する。初回招待にSMTPを使用していても、初期フェーズでは公開フォームから再設定メールを自動送信しない。
 
 ### 11.6 緊急復旧
 
@@ -523,6 +523,8 @@ DB backupにはpassword hash、暗号化済みTOTP secret、session hash、監�
 | --- | --- | --- |
 | `HOIKUICT_STAFF_AUTH_MODE` | 常時 | `mock` / `local_password` / `disabled` |
 | `HOIKUICT_PARENT_AUTH_MODE` | 常時 | `mock` / `local_password` / `disabled` |
+| `HOIKUICT_PARENT_MAIL_TRANSPORT` | 保護者初回登録時 | `capture` / `smtp` / `disabled` |
+| `HOIKUICT_PARENT_REGISTRATION_BASE_URL` | 保護者メール招待時 | 招待リンクのHTTPS公開base URL |
 | `HOIKUICT_STAFF_SESSION_IDLE_MINUTES` | 任意 | 既定30、許容5〜480 |
 | `HOIKUICT_STAFF_SESSION_ABSOLUTE_HOURS` | 任意 | 既定12、許容1〜24 |
 | `HOIKUICT_PARENT_SESSION_IDLE_HOURS` | 任意 | 既定12、許容1〜168 |
@@ -540,6 +542,8 @@ productionでは次を満たさなければ起動を拒否する。
 - `HOIKUICT_ENABLE_MOCK_AUTH` が有効でない
 - `HOIKUICT_STAFF_AUTH_MODE=local_password`
 - `HOIKUICT_PARENT_AUTH_MODE=local_password`
+- `HOIKUICT_PARENT_MAIL_TRANSPORT=smtp`
+- `HOIKUICT_PARENT_REGISTRATION_BASE_URL` がHTTPS URL
 - `HOIKUICT_KIOSK_ACCESS_MODE` が `disabled` または `token`
 - kiosk modeが `token` の場合、`HOIKUICT_KIOSK_TOKEN` が空でない
 - secure CookieとCSRF保護が有効
@@ -657,7 +661,7 @@ productionでは次を満たさなければ起動を拒否する。
 3. blocklist、HMAC key、TOTP暗号鍵、backup手順を設定する。
 4. 初期管理者をCLIで作り、activation、password、TOTP、回復コードを確認する。
 5. ステージングで職員・保護者双方のlogin、logout、権限境界、無効化、reset、MFA、push logout、復旧を確認する。
-6. 対象職員・保護者へprincipal別のactivation codeを発行する。
+6. 対象職員へactivation codeを発行し、対象保護者へ登録メールによる招待を送る。保護者用activation codeはメールを利用できない場合の救済に限定する。
 7. maintenance windowでstaff auth modeとparent auth modeを同時に `local_password` へ変更する。
 8. 管理者loginを最初に確認し、テスト保護者のアクセス境界を確認してから全利用者を開放する。
 9. 職員・保護者別のlogin成功率、失敗理由、throttle、Argon2 latency、session失効を監視する。

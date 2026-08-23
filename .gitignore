@@ -30,6 +30,10 @@ env/
 *.sqlite3
 hoikuict.db
 data/
+.db-wal
+.db-shm
+*.db-wal
+*.db-shm
 
 # Environment / secrets
 .env

@@ -15,6 +15,7 @@ from child_records.access import (
 )
 from child_records.settings import effective_config
 from child_health_service import sync_health_records_from_legacy_extra_data
+from child_care_certification_service import current_certification, list_certifications
 from child_profile_changes import RELATIONSHIP_OPTIONS
 from child_profile_history import (
     allergy_change_labels,
@@ -40,14 +41,17 @@ from family_support import (
 )
 from models import (
     CHILD_FIELDS,
+    CareNeedReason,
+    CareTimeCategory,
     Child,
+    ChildCareCertification,
     ChildProfileHistory,
     ChildStatus,
     Classroom,
     Family,
     ParentChildLink,
 )
-from time_utils import format_jst_datetime, utc_now
+from time_utils import format_jst_datetime, local_today, utc_now
 
 router = APIRouter(prefix="/children", tags=["children"])
 from template_utils import create_templates
@@ -61,6 +65,39 @@ SORT_ORDER_OPTIONS = {
     "asc": "昇順",
     "desc": "降順",
 }
+
+
+def _current_certifications_for_children(
+    session: Session,
+    children: list[Child],
+) -> dict[int, ChildCareCertification]:
+    child_ids = [child.id for child in children if child.id is not None]
+    if not child_ids:
+        return {}
+
+    target_date = local_today()
+    rows = session.exec(
+        select(ChildCareCertification)
+        .options(selectinload(ChildCareCertification.reasons))
+        .where(
+            ChildCareCertification.child_id.in_(child_ids),
+            ChildCareCertification.is_active == True,  # noqa: E712
+            ChildCareCertification.effective_from <= target_date,
+        )
+        .order_by(ChildCareCertification.effective_from.desc(), ChildCareCertification.id.desc())
+    ).all()
+
+    candidates: dict[int, list[ChildCareCertification]] = {}
+    for certification in rows:
+        if certification.effective_to is None or certification.effective_to >= target_date:
+            candidates.setdefault(certification.child_id, []).append(certification)
+
+    # 重複認定は不正状態のため、料金計算と同様に有効認定なしとして表示する。
+    return {
+        child_id: matches[0]
+        for child_id, matches in candidates.items()
+        if len(matches) == 1
+    }
 
 
 def _parse_date(raw: Optional[str]) -> Optional[date]:
@@ -274,6 +311,7 @@ def list_children(
         stmt = stmt.where(Child.status == status)
     stmt = _apply_child_sort(stmt, sort_by, sort_order)
     children = session.exec(stmt).all()
+    current_certifications = _current_certifications_for_children(session, children)
 
     if not fields:
         fields = [field["key"] for field in CHILD_FIELDS if field["default"]]
@@ -284,6 +322,7 @@ def list_children(
         {
             "request": request,
             "children": children,
+            "current_certifications": current_certifications,
             "all_fields": CHILD_FIELDS,
             "selected_fields": fields,
             "current_status": status,
@@ -318,6 +357,7 @@ def children_table(
         stmt = stmt.where(Child.status == status)
     stmt = _apply_child_sort(stmt, sort_by, sort_order)
     children = session.exec(stmt).all()
+    current_certifications = _current_certifications_for_children(session, children)
 
     if not fields:
         fields = [field["key"] for field in CHILD_FIELDS if field["default"]]
@@ -329,6 +369,7 @@ def children_table(
         {
             "request": request,
             "children": children,
+            "current_certifications": current_certifications,
             "selected_fields": fields,
             "field_labels": field_labels,
             "total": len(children),
@@ -866,6 +907,8 @@ def child_detail(
     request: Request,
     child_id: int,
     child_records_denied: bool = Query(default=False),
+    care_message: str = Query(default=""),
+    care_error: str = Query(default=""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -880,6 +923,8 @@ def child_detail(
         else []
     )
     guardian_profiles = child.family.guardian_profiles() if child.family else []
+    care_certifications = list_certifications(session, child.id)
+    active_care_certification = current_certification(session, child.id)
     config, _ = effective_config(session)
 
     return templates.TemplateResponse(
@@ -890,6 +935,12 @@ def child_detail(
             "child": child,
             "current_user": current_user,
             "guardian_profiles": guardian_profiles,
+            "care_certifications": care_certifications,
+            "active_care_certification": active_care_certification,
+            "care_time_categories": list(CareTimeCategory),
+            "care_need_reasons": list(CareNeedReason),
+            "care_message": care_message,
+            "care_error": care_error,
             "family_children": family_children,
             "family_parent_accounts": family_parent_accounts,
             "can_access_observation_records": can_view_observation_records(

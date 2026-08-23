@@ -38,6 +38,16 @@ python -m uvicorn main:app --reload
 
 起動後、ブラウザで <http://127.0.0.1:8000/> を開きます。
 
+### ローカル認証版βを起動する
+
+モック環境とDBを分離したパスワード認証版は、`.env.beta.example` を基にGit管理外の `.env.beta.local` を用意して起動します。
+
+```powershell
+.\scripts\start_beta.ps1
+```
+
+既定URLは <http://127.0.0.1:8001/> です。DBや管理者を起動時に作り直さないため、一度設定した認証情報と業務データは再起動後も保持されます。詳細は [`docs/environment-profiles.md`](docs/environment-profiles.md) を参照してください。
+
 ## 100人規模デモデータを投入する
 
 このリポジトリには、定員100人規模の認可保育園を想定したデモデータを同梱しています。

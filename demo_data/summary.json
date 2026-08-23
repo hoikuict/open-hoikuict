@@ -1,6 +1,15 @@
 {
   "generated_at": "2026-05-16T09:00:00",
   "facility_model": "capacity_100_nursery_school",
+  "identity_scenarios": {
+    "foreign_scenario_families": 9,
+    "foreign_scenario_percentage": 10.7,
+    "mixed_name_type_families": 2,
+    "foreign_sibling_families": 3,
+    "latin_children": 12,
+    "latin_parent_accounts": 14,
+    "fixed_family_ids": [4, 8, 12, 17, 28, 39, 50, 63, 79]
+  },
   "service_days": [
     "2026-04-13",
     "2026-04-14",
@@ -71,6 +80,7 @@
     "氏名、住所、電話番号、メールアドレスはすべて架空です。",
     "園児名と保護者アカウント名の同姓同名は、それぞれ最大2組・各2人までです。",
     "保護者メールアドレスには demo.open-hoikuict.example ドメインを使用しています。",
+    "84家庭中9家庭（10.7%）を外国籍想定の固定シナリオとし、照合用氏名はカナまたは英字です。",
     "登降園・日次連絡の対象期間は 2026-04-13 から 2026-05-15 までです。土日と一部の祝日を除いています。",
     "延長保育料金は seed 時に登降園記録から生成され、18:00 開始、5分猶予、15分単位、100円単価のデモルールで計算済みです。"
   ]

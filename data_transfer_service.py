@@ -33,6 +33,11 @@ class DatasetDefinition:
     label: str
     sheet_name: str
     headers: tuple[str, ...]
+    optional_headers: tuple[str, ...] = ()
+
+    @property
+    def all_headers(self) -> tuple[str, ...]:
+        return self.headers + self.optional_headers
 
 
 @dataclass
@@ -101,6 +106,7 @@ DATASETS: dict[str, DatasetDefinition] = {
             "住所",
             "電話番号",
         ),
+        optional_headers=("照合用氏名", "照合用氏名種別"),
     ),
     "parent_accounts": DatasetDefinition(
         id="parent_accounts",
@@ -119,6 +125,7 @@ DATASETS: dict[str, DatasetDefinition] = {
             "家庭名",
             "状態",
         ),
+        optional_headers=("照合用氏名", "照合用氏名種別"),
     ),
     "parent_child_links": DatasetDefinition(
         id="parent_child_links",
@@ -155,6 +162,7 @@ PARENT_STATUS_INPUTS = {
     "停止中": ParentAccountStatus.inactive,
     "停止": ParentAccountStatus.inactive,
 }
+REGISTRATION_NAME_TYPE_INPUTS = {"kana", "latin"}
 
 TRUE_INPUTS = {"true", "1", "yes", "y", "はい", "有", "あり"}
 FALSE_INPUTS = {"false", "0", "no", "n", "いいえ", "無", "なし"}
@@ -172,7 +180,7 @@ def get_dataset(dataset: str) -> DatasetDefinition:
 
 
 def template_rows(dataset: str) -> list[list[str]]:
-    return [list(get_dataset(dataset).headers)]
+    return [list(get_dataset(dataset).all_headers)]
 
 
 def build_csv_content(rows: list[list[str]]) -> bytes:
@@ -328,6 +336,8 @@ def _export_children(session: Session, *, classroom_id: str = "", status: str = 
             child.family.family_name if child.family else "",
             _text(child.home_address),
             _text(child.home_phone),
+            _text(child.registration_verification_name),
+            _text(child.registration_verification_name_type),
         ]
         for child in children
     ]
@@ -352,6 +362,8 @@ def _export_parent_accounts(session: Session, *, status: str = "") -> list[list[
             _text(account.family_id),
             account.family.family_name if account.family else "",
             account.status.label,
+            _text(account.registration_verification_name),
+            _text(account.registration_verification_name_type),
         ]
         for account in accounts
     ]
@@ -424,7 +436,7 @@ def parse_import_file(dataset: str, filename: str, content: bytes) -> ParsedImpo
     skipped_count = 0
     for row_number, raw_row in enumerate(matrix[1:], start=2):
         values = {header: _normalize_cell(raw_row[index] if index < len(raw_row) else "") for index, header in enumerate(headers)}
-        expected_values = {header: values.get(header, "") for header in definition.headers}
+        expected_values = {header: values.get(header, "") for header in definition.all_headers}
         if not any(expected_values.values()):
             skipped_count += 1
             continue
@@ -691,6 +703,9 @@ def _plan_children(
         enrollment_date = _parse_date(row["入園日"], row_number, "入園日", result, required=child is None)
         withdrawal_date = _parse_date(row["退園日"], row_number, "退園日", result, required=False)
         status = _parse_child_status(row["在園状態"], row_number, result, required=False)
+        verification_name, verification_name_type = _parse_registration_name_fields(
+            row, row_number, result
+        )
 
         for header in ("姓", "名", "姓カナ", "名カナ"):
             if child is None and not row[header]:
@@ -714,6 +729,11 @@ def _plan_children(
                     first_name=row["名"],
                     last_name_kana=row["姓カナ"],
                     first_name_kana=row["名カナ"],
+                    registration_verification_name=(
+                        verification_name
+                        or f"{row['姓カナ']} {row['名カナ']}".strip()
+                    ),
+                    registration_verification_name_type=verification_name_type or "kana",
                     birth_date=birth_date,
                     enrollment_date=enrollment_date,
                     withdrawal_date=withdrawal_date,
@@ -737,6 +757,9 @@ def _plan_children(
                 _set_if_present(child, "first_name", row["名"])
                 _set_if_present(child, "last_name_kana", row["姓カナ"])
                 _set_if_present(child, "first_name_kana", row["名カナ"])
+                if verification_name and verification_name_type:
+                    child.registration_verification_name = verification_name
+                    child.registration_verification_name_type = verification_name_type
                 if birth_date is not None:
                     child.birth_date = birth_date
                 if enrollment_date is not None:
@@ -776,6 +799,9 @@ def _plan_parent_accounts(
         account = _resolve_parent_account_for_import(session, row, row_number, result)
         family = _resolve_family_reference(session, row, row_number, result)
         status = _parse_parent_status(row["状態"], row_number, result, required=False)
+        verification_name, verification_name_type = _parse_registration_name_fields(
+            row, row_number, result
+        )
 
         if account is None:
             for header in ("表示名", "メールアドレス"):
@@ -799,6 +825,8 @@ def _plan_parent_accounts(
             if commit:
                 account = ParentAccount(
                     display_name=row["表示名"],
+                    registration_verification_name=verification_name,
+                    registration_verification_name_type=verification_name_type,
                     email=row["メールアドレス"],
                     phone=row["電話番号"] or None,
                     home_address=row["住所"] or None,
@@ -819,6 +847,9 @@ def _plan_parent_accounts(
             if commit:
                 old_family_id = account.family_id
                 _set_if_present(account, "display_name", row["表示名"])
+                if verification_name and verification_name_type:
+                    account.registration_verification_name = verification_name
+                    account.registration_verification_name_type = verification_name_type
                 _set_if_present(account, "email", row["メールアドレス"])
                 _set_if_present(account, "phone", row["電話番号"])
                 _set_if_present(account, "home_address", row["住所"])
@@ -1261,6 +1292,56 @@ def _parse_parent_status(
 
 def _parse_parent_status_value(value: str) -> Optional[ParentAccountStatus]:
     return PARENT_STATUS_INPUTS.get((value or "").strip())
+
+
+def _parse_registration_name_fields(
+    row: dict[str, str],
+    row_number: int,
+    result: ImportPreviewResult,
+) -> tuple[str, Optional[str]]:
+    name = (row.get("照合用氏名") or "").strip()
+    name_type = (row.get("照合用氏名種別") or "").strip().lower()
+    if bool(name) != bool(name_type):
+        result.errors.append(
+            TransferMessage(
+                row_number,
+                "照合用氏名",
+                name or name_type,
+                "照合用氏名と照合用氏名種別は両方入力してください。",
+            )
+        )
+        return name, None
+    if not name:
+        return "", None
+    if name_type not in REGISTRATION_NAME_TYPE_INPUTS:
+        result.errors.append(
+            TransferMessage(
+                row_number,
+                "照合用氏名種別",
+                name_type,
+                "kana または latin で入力してください。",
+            )
+        )
+        return name, None
+    if name_type == "kana" and not re.search(r"[ァ-ヶー]", name):
+        result.errors.append(
+            TransferMessage(
+                row_number,
+                "照合用氏名",
+                name,
+                "kana の照合用氏名にはカタカナを入力してください。",
+            )
+        )
+    if name_type == "latin" and not re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", name):
+        result.errors.append(
+            TransferMessage(
+                row_number,
+                "照合用氏名",
+                name,
+                "latin の照合用氏名には英字を入力してください。",
+            )
+        )
+    return name, name_type
 
 
 def _parse_bool(

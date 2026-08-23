@@ -79,6 +79,7 @@ def create_db_and_tables() -> None:
     _migrate_parent_push_delivery_columns()
     _migrate_billing_fee_labels()
     _migrate_zengin_workflow()
+    _migrate_care_certification_and_extended_care_columns()
     _migrate_extended_care_billing_transfer()
     _validate_sqlite_foreign_keys()
 
@@ -144,6 +145,10 @@ def _migrate_add_child_columns() -> None:
                 conn.execute(text("ALTER TABLE children ADD COLUMN older_sibling_id INTEGER REFERENCES children(id)"))
             if "classroom_id" not in cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN classroom_id INTEGER REFERENCES classrooms(id)"))
+            if "registration_verification_name" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN registration_verification_name VARCHAR(200)"))
+            if "registration_verification_name_type" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN registration_verification_name_type VARCHAR(16)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("children column", exc)
@@ -253,6 +258,10 @@ def _migrate_add_parent_account_columns() -> None:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_address VARCHAR"))
             if "workplace_phone" not in cols:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_phone VARCHAR"))
+            if "registration_verification_name" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN registration_verification_name VARCHAR(200)"))
+            if "registration_verification_name_type" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN registration_verification_name_type VARCHAR(16)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("parent account column", exc)
@@ -664,6 +673,62 @@ def _migrate_extended_care_billing_transfer() -> None:
                     "ux_billing_charge_lines_source_reference "
                     "ON billing_charge_lines (source_reference) "
                     "WHERE source_reference IS NOT NULL"
+                )
+            )
+
+
+def _migrate_care_certification_and_extended_care_columns() -> None:
+    with engine.begin() as conn:
+        rule_cols = _table_columns("extended_care_fee_rules")
+        charge_cols = _table_columns("extended_care_charges")
+
+        rule_additions = {
+            "care_time_category": "VARCHAR(32)",
+            "normal_start_time": "VARCHAR",
+            "normal_end_time": "VARCHAR",
+            "morning_enabled": "BOOLEAN DEFAULT 0 NOT NULL",
+            "morning_grace_minutes": "INTEGER DEFAULT 0 NOT NULL",
+            "morning_rounding_minutes": "INTEGER DEFAULT 15 NOT NULL",
+            "morning_unit_price": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_enabled": "BOOLEAN DEFAULT 1 NOT NULL",
+            "evening_grace_minutes": "INTEGER",
+            "evening_rounding_minutes": "INTEGER",
+            "evening_unit_price": "INTEGER",
+        }
+        for column_name, column_sql in rule_additions.items():
+            if rule_cols and column_name not in rule_cols:
+                conn.execute(text(f"ALTER TABLE extended_care_fee_rules ADD COLUMN {column_name} {column_sql}"))
+
+        charge_additions = {
+            "certification_id": "INTEGER REFERENCES child_care_certifications(id)",
+            "care_time_category_snapshot": "VARCHAR(32)",
+            "calculation_version": "VARCHAR(32) DEFAULT 'legacy_v1' NOT NULL",
+            "actual_check_in_at": "DATETIME",
+            "normal_start_at": "DATETIME",
+            "normal_end_at": "DATETIME",
+            "morning_extended_minutes": "INTEGER DEFAULT 0 NOT NULL",
+            "morning_billable_units": "INTEGER DEFAULT 0 NOT NULL",
+            "morning_amount": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_extended_minutes": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_billable_units": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_amount": "INTEGER DEFAULT 0 NOT NULL",
+        }
+        for column_name, column_sql in charge_additions.items():
+            if charge_cols and column_name not in charge_cols:
+                conn.execute(text(f"ALTER TABLE extended_care_charges ADD COLUMN {column_name} {column_sql}"))
+
+        if rule_cols:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_extended_care_fee_rules_care_time_category "
+                    "ON extended_care_fee_rules (care_time_category)"
+                )
+            )
+        if charge_cols:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_extended_care_charges_certification_id "
+                    "ON extended_care_charges (certification_id)"
                 )
             )
 

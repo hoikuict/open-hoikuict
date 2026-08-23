@@ -27,10 +27,13 @@ from extended_care_fee_service import (
     exclude_charge,
     parse_month,
     recalculate_period,
+    get_calculation_setting,
     validate_fee_rule,
 )
 from models import (
+    CareTimeCategory,
     Classroom,
+    ExtendedCareCalculationSetting,
     ExtendedCareBillingSetting,
     ExtendedCareCharge,
     ExtendedCareFeeRule,
@@ -355,6 +358,8 @@ def extended_care_fee_settings(
             "errors": [],
             "form_values": _default_rule_form_values(),
             "billing_setting": get_extended_care_billing_setting(session),
+            "calculation_setting": get_calculation_setting(session),
+            "care_time_categories": list(CareTimeCategory),
             "billing_errors": [],
             "message": message,
         },
@@ -373,6 +378,14 @@ def create_extended_care_fee_rule(
     unit_price: str = Form(...),
     daily_cap_amount: str = Form(default=""),
     is_active: Optional[str] = Form(default=None),
+    care_time_category: str = Form(default=""),
+    normal_start_time: str = Form(default=""),
+    normal_end_time: str = Form(default=""),
+    morning_enabled: Optional[str] = Form(default=None),
+    morning_grace_minutes: str = Form(default="0"),
+    morning_rounding_minutes: str = Form(default="15"),
+    morning_unit_price: str = Form(default="0"),
+    evening_enabled: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -387,6 +400,14 @@ def create_extended_care_fee_rule(
         unit_price=unit_price,
         daily_cap_amount=daily_cap_amount,
         is_active=is_active,
+        care_time_category=care_time_category,
+        normal_start_time=normal_start_time,
+        normal_end_time=normal_end_time,
+        morning_enabled=morning_enabled,
+        morning_grace_minutes=morning_grace_minutes,
+        morning_rounding_minutes=morning_rounding_minutes,
+        morning_unit_price=morning_unit_price,
+        evening_enabled=evening_enabled,
     )
     if not errors:
         errors.extend(validate_fee_rule(session, **values))
@@ -431,6 +452,8 @@ def update_extended_care_billing_setting(
                 "errors": [],
                 "form_values": _default_rule_form_values(),
                 "billing_setting": setting,
+                "calculation_setting": get_calculation_setting(session),
+                "care_time_categories": list(CareTimeCategory),
                 "billing_errors": errors,
                 "message": None,
             },
@@ -460,6 +483,14 @@ def update_extended_care_fee_rule(
     unit_price: str = Form(...),
     daily_cap_amount: str = Form(default=""),
     is_active: Optional[str] = Form(default=None),
+    care_time_category: str = Form(default=""),
+    normal_start_time: str = Form(default=""),
+    normal_end_time: str = Form(default=""),
+    morning_enabled: Optional[str] = Form(default=None),
+    morning_grace_minutes: str = Form(default="0"),
+    morning_rounding_minutes: str = Form(default="15"),
+    morning_unit_price: str = Form(default="0"),
+    evening_enabled: Optional[str] = Form(default="1"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -478,6 +509,14 @@ def update_extended_care_fee_rule(
         unit_price=unit_price,
         daily_cap_amount=daily_cap_amount,
         is_active=is_active,
+        care_time_category=care_time_category,
+        normal_start_time=normal_start_time,
+        normal_end_time=normal_end_time,
+        morning_enabled=morning_enabled,
+        morning_grace_minutes=morning_grace_minutes,
+        morning_rounding_minutes=morning_rounding_minutes,
+        morning_unit_price=morning_unit_price,
+        evening_enabled=evening_enabled,
     )
     if not errors:
         errors.extend(validate_fee_rule(session, rule_id=rule_id, **values))
@@ -490,6 +529,34 @@ def update_extended_care_fee_rule(
     session.add(rule)
     session.commit()
     return RedirectResponse(url="/extended-care-fees/settings", status_code=303)
+
+
+@router.post("/calculation-settings")
+def update_extended_care_calculation_setting(
+    category_aware: Optional[str] = Form(default=None),
+    category_aware_from: str = Form(default=""),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_admin(current_user)
+    enabled = _as_bool(category_aware)
+    effective_date = _parse_date(category_aware_from)
+    if enabled and effective_date is None:
+        raise HTTPException(status_code=400, detail="区分別計算の開始日を入力してください。")
+    setting = session.exec(
+        select(ExtendedCareCalculationSetting).order_by(ExtendedCareCalculationSetting.id)
+    ).first() or ExtendedCareCalculationSetting()
+    setting.mode = "category_aware" if enabled else "legacy"
+    setting.category_aware_from = effective_date if enabled else None
+    setting.updated_at = utc_now()
+    setting.updated_by_user_id = current_user.user_id
+    setting.updated_by_name = current_user.name
+    session.add(setting)
+    session.commit()
+    return RedirectResponse(
+        url=f"/extended-care-fees/settings?{urlencode({'message': '延長料金の計算モードを更新しました。'})}",
+        status_code=303,
+    )
 
 
 def _build_filters(
@@ -524,7 +591,17 @@ def _parse_rule_form(**raw_values) -> tuple[dict, list[str]]:
         "name": str(raw_values["name"]).strip(),
         "start_time": str(raw_values["start_time"]).strip(),
         "is_active": _as_bool(raw_values.get("is_active")),
+        "normal_start_time": str(raw_values.get("normal_start_time") or "").strip() or None,
+        "normal_end_time": str(raw_values.get("normal_end_time") or "").strip() or None,
+        "morning_enabled": _as_bool(raw_values.get("morning_enabled")),
+        "evening_enabled": _as_bool(raw_values.get("evening_enabled")) if "evening_enabled" in raw_values else True,
     }
+    category_raw = str(raw_values.get("care_time_category") or "").strip()
+    try:
+        values["care_time_category"] = CareTimeCategory(category_raw) if category_raw else None
+    except ValueError:
+        values["care_time_category"] = None
+        errors.append("保育必要量が不正です。")
 
     parsed_from = _parse_date(raw_values["effective_from"])
     if parsed_from is None:
@@ -545,6 +622,20 @@ def _parse_rule_form(**raw_values) -> tuple[dict, list[str]]:
             errors.append(f"{label}は整数で入力してください。")
             parsed = 0
         values[field_name] = parsed
+
+    for field_name, label, default in [
+        ("morning_grace_minutes", "朝猶予時間", 0),
+        ("morning_rounding_minutes", "朝丸め単位", 15),
+        ("morning_unit_price", "朝単価", 0),
+    ]:
+        parsed = _parse_int(raw_values.get(field_name))
+        if parsed is None:
+            errors.append(f"{label}は整数で入力してください。")
+            parsed = default
+        values[field_name] = parsed
+    values["evening_grace_minutes"] = values["grace_minutes"]
+    values["evening_rounding_minutes"] = values["rounding_minutes"]
+    values["evening_unit_price"] = values["unit_price"]
 
     cap_raw = str(raw_values.get("daily_cap_amount") or "").strip()
     values["daily_cap_amount"] = None if not cap_raw else _parse_int(cap_raw)
@@ -571,6 +662,8 @@ def _settings_response(
             "errors": errors,
             "form_values": form_values,
             "billing_setting": get_extended_care_billing_setting(session),
+            "calculation_setting": get_calculation_setting(session),
+            "care_time_categories": list(CareTimeCategory),
             "billing_errors": [],
             "message": None,
         },
@@ -598,6 +691,14 @@ def _default_rule_form_values() -> dict:
         "unit_price": "100",
         "daily_cap_amount": "",
         "is_active": True,
+        "care_time_category": "",
+        "normal_start_time": "07:30",
+        "normal_end_time": "18:30",
+        "morning_enabled": False,
+        "morning_grace_minutes": "0",
+        "morning_rounding_minutes": "15",
+        "morning_unit_price": "100",
+        "evening_enabled": True,
     }
 
 
@@ -612,6 +713,14 @@ def _form_values_from_values(values: dict) -> dict:
         "unit_price": str(values.get("unit_price", "")),
         "daily_cap_amount": "" if values.get("daily_cap_amount") is None else str(values.get("daily_cap_amount")),
         "is_active": bool(values.get("is_active")),
+        "care_time_category": values.get("care_time_category").value if values.get("care_time_category") else "",
+        "normal_start_time": values.get("normal_start_time") or "",
+        "normal_end_time": values.get("normal_end_time") or "",
+        "morning_enabled": bool(values.get("morning_enabled")),
+        "morning_grace_minutes": str(values.get("morning_grace_minutes", "0")),
+        "morning_rounding_minutes": str(values.get("morning_rounding_minutes", "15")),
+        "morning_unit_price": str(values.get("morning_unit_price", "0")),
+        "evening_enabled": bool(values.get("evening_enabled", True)),
     }
 
 
