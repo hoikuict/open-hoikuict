@@ -46,6 +46,7 @@ from routers.billing import router as billing_router
 from routers.calendar import mock_login_router as calendar_mock_login_router
 from routers.calendar import router as calendar_router
 from routers.child_change_requests import router as child_change_requests_router
+from routers.care_certifications import router as care_certifications_router
 from routers.children import router as children_router
 from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
@@ -226,6 +227,7 @@ app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
 app.include_router(families_router)
 app.include_router(children_router)
+app.include_router(care_certifications_router)
 app.include_router(child_records_router)
 app.include_router(child_health_router)
 app.include_router(child_change_requests_router)

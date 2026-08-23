@@ -116,12 +116,50 @@ def _upgrade_parent_push_snapshot(db_path: Path) -> None:
     try:
         SQLModel.metadata.create_all(snapshot_engine)
         _apply_parent_push_delivery_columns(snapshot_engine)
+        _seed_public_demo_care_certifications(snapshot_engine)
     finally:
         snapshot_engine.dispose()
 
 
 def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
     """Bring the packaged demo database up to the schema expected by this release."""
+    identity_columns = {
+        "children": {
+            "registration_verification_name": "VARCHAR(200)",
+            "registration_verification_name_type": "VARCHAR(16)",
+        },
+        "parent_accounts": {
+            "registration_verification_name": "VARCHAR(200)",
+            "registration_verification_name_type": "VARCHAR(16)",
+        },
+    }
+    for table_name, additions in identity_columns.items():
+        columns = {
+            row[1]
+            for row in connection.execute(f"PRAGMA table_info({table_name})")
+        }
+        if not columns:
+            continue
+        for column_name, column_type in additions.items():
+            if column_name not in columns:
+                connection.execute(
+                    f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+                )
+    connection.execute(
+        "UPDATE children SET "
+        "registration_verification_name = last_name_kana || ' ' || first_name_kana, "
+        "registration_verification_name_type = 'kana' "
+        "WHERE registration_verification_name IS NULL"
+    )
+    connection.execute(
+        "UPDATE parent_accounts SET "
+        "registration_verification_name = ("
+        "SELECT guardians.last_name_kana || ' ' || guardians.first_name_kana "
+        "FROM guardians WHERE guardians.phone = parent_accounts.phone LIMIT 1"
+        "), registration_verification_name_type = 'kana' "
+        "WHERE registration_verification_name IS NULL"
+    )
+
     review_columns = {
         row[1]
         for row in connection.execute("PRAGMA table_info(plan_review_notifications)")
@@ -188,6 +226,18 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
         "transferred_at": "DATETIME",
         "transferred_by_user_id": "CHAR(32) REFERENCES users(id)",
         "transferred_by_name": "VARCHAR(100)",
+        "certification_id": "INTEGER REFERENCES child_care_certifications(id)",
+        "care_time_category_snapshot": "VARCHAR(32)",
+        "calculation_version": "VARCHAR(32) DEFAULT 'legacy_v1' NOT NULL",
+        "actual_check_in_at": "DATETIME",
+        "normal_start_at": "DATETIME",
+        "normal_end_at": "DATETIME",
+        "morning_extended_minutes": "INTEGER DEFAULT 0 NOT NULL",
+        "morning_billable_units": "INTEGER DEFAULT 0 NOT NULL",
+        "morning_amount": "INTEGER DEFAULT 0 NOT NULL",
+        "evening_extended_minutes": "INTEGER DEFAULT 0 NOT NULL",
+        "evening_billable_units": "INTEGER DEFAULT 0 NOT NULL",
+        "evening_amount": "INTEGER DEFAULT 0 NOT NULL",
     }
     for column_name, column_type in extended_care_additions.items():
         if extended_care_columns and column_name not in extended_care_columns:
@@ -206,7 +256,122 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
             "ix_extended_care_charges_transferred_by_user_id "
             "ON extended_care_charges (transferred_by_user_id)"
         )
+
+    rule_columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(extended_care_fee_rules)")
+    }
+    rule_additions = {
+        "care_time_category": "VARCHAR(32)",
+        "normal_start_time": "VARCHAR",
+        "normal_end_time": "VARCHAR",
+        "morning_enabled": "BOOLEAN DEFAULT 0 NOT NULL",
+        "morning_grace_minutes": "INTEGER DEFAULT 0 NOT NULL",
+        "morning_rounding_minutes": "INTEGER DEFAULT 15 NOT NULL",
+        "morning_unit_price": "INTEGER DEFAULT 0 NOT NULL",
+        "evening_enabled": "BOOLEAN DEFAULT 1 NOT NULL",
+        "evening_grace_minutes": "INTEGER",
+        "evening_rounding_minutes": "INTEGER",
+        "evening_unit_price": "INTEGER",
+    }
+    for column_name, column_type in rule_additions.items():
+        if rule_columns and column_name not in rule_columns:
+            connection.execute(
+                "ALTER TABLE extended_care_fee_rules "
+                f"ADD COLUMN {column_name} {column_type}"
+            )
     connection.commit()
+
+
+def _seed_public_demo_care_certifications(snapshot_engine) -> None:
+    from models import (
+        AttendanceRecord,
+        CareNeedReason,
+        CareTimeCategory,
+        Child,
+        ChildCareCertification,
+        ChildCareNeedReason,
+        ExtendedCareCalculationSetting,
+        ExtendedCareFeeRule,
+    )
+
+    with Session(snapshot_engine) as session:
+        if session.exec(select(ChildCareCertification)).first() is not None:
+            return
+        first_record = session.exec(
+            select(AttendanceRecord).order_by(AttendanceRecord.attendance_date)
+        ).first()
+        effective_from = first_record.attendance_date if first_record else local_today()
+        if session.exec(
+            select(ExtendedCareFeeRule).where(ExtendedCareFeeRule.care_time_category.is_not(None))
+        ).first() is None:
+            session.add(
+                ExtendedCareFeeRule(
+                    name="保育標準時間・延長保育料（デモ）",
+                    effective_from=effective_from,
+                    care_time_category=CareTimeCategory.standard,
+                    normal_start_time="07:30",
+                    normal_end_time="18:00",
+                    morning_enabled=True,
+                    morning_grace_minutes=5,
+                    morning_rounding_minutes=15,
+                    morning_unit_price=100,
+                    start_time="18:00",
+                    grace_minutes=5,
+                    rounding_minutes=15,
+                    unit_price=100,
+                )
+            )
+            session.add(
+                ExtendedCareFeeRule(
+                    name="保育短時間・延長保育料（デモ）",
+                    effective_from=effective_from,
+                    care_time_category=CareTimeCategory.short,
+                    normal_start_time="08:30",
+                    normal_end_time="16:30",
+                    morning_enabled=True,
+                    morning_grace_minutes=5,
+                    morning_rounding_minutes=15,
+                    morning_unit_price=100,
+                    start_time="16:30",
+                    grace_minutes=5,
+                    rounding_minutes=15,
+                    unit_price=100,
+                    daily_cap_amount=800,
+                )
+            )
+        calculation_setting = session.exec(
+            select(ExtendedCareCalculationSetting).order_by(ExtendedCareCalculationSetting.id)
+        ).first()
+        if calculation_setting is None:
+            calculation_setting = ExtendedCareCalculationSetting()
+        calculation_setting.mode = "category_aware"
+        calculation_setting.category_aware_from = effective_from
+        calculation_setting.updated_by_name = "公開デモ初期化"
+        session.add(calculation_setting)
+        children = session.exec(select(Child).order_by(Child.id)).all()
+        reason_cycle = [CareNeedReason.employment, CareNeedReason.job_search_startup]
+        for child in children:
+            certification = ChildCareCertification(
+                child_id=child.id,
+                care_time_category=CareTimeCategory.short if child.id % 3 == 0 else CareTimeCategory.standard,
+                effective_from=effective_from,
+                created_by_name="公開デモ初期化",
+                updated_by_name="公開デモ初期化",
+            )
+            session.add(certification)
+            session.flush()
+            for index, guardian in enumerate(sorted(child.guardians, key=lambda item: item.order)[:2], start=1):
+                session.add(
+                    ChildCareNeedReason(
+                        certification_id=certification.id,
+                        guardian_order=index,
+                        guardian_name_snapshot=guardian.full_name,
+                        relationship_snapshot=guardian.relationship,
+                        reason=reason_cycle[(child.id + index) % len(reason_cycle)],
+                    )
+                )
+        session.commit()
 
 
 def create_db_and_tables() -> None:
@@ -240,6 +405,7 @@ def create_db_and_tables() -> None:
     _migrate_parent_push_delivery_columns()
     _migrate_billing_fee_labels()
     _migrate_zengin_workflow()
+    _migrate_care_certification_and_extended_care_columns()
     _migrate_extended_care_billing_transfer()
     _validate_sqlite_foreign_keys()
 
@@ -305,6 +471,10 @@ def _migrate_add_child_columns() -> None:
                 conn.execute(text("ALTER TABLE children ADD COLUMN older_sibling_id INTEGER REFERENCES children(id)"))
             if "classroom_id" not in cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN classroom_id INTEGER REFERENCES classrooms(id)"))
+            if "registration_verification_name" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN registration_verification_name VARCHAR(200)"))
+            if "registration_verification_name_type" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN registration_verification_name_type VARCHAR(16)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("children column", exc)
@@ -414,6 +584,10 @@ def _migrate_add_parent_account_columns() -> None:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_address VARCHAR"))
             if "workplace_phone" not in cols:
                 conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN workplace_phone VARCHAR"))
+            if "registration_verification_name" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN registration_verification_name VARCHAR(200)"))
+            if "registration_verification_name_type" not in cols:
+                conn.execute(text("ALTER TABLE parent_accounts ADD COLUMN registration_verification_name_type VARCHAR(16)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("parent account column", exc)
@@ -803,6 +977,62 @@ def _migrate_extended_care_billing_transfer() -> None:
                     "ux_billing_charge_lines_source_reference "
                     "ON billing_charge_lines (source_reference) "
                     "WHERE source_reference IS NOT NULL"
+                )
+            )
+
+
+def _migrate_care_certification_and_extended_care_columns() -> None:
+    with engine.begin() as conn:
+        rule_cols = _table_columns("extended_care_fee_rules")
+        charge_cols = _table_columns("extended_care_charges")
+
+        rule_additions = {
+            "care_time_category": "VARCHAR(32)",
+            "normal_start_time": "VARCHAR",
+            "normal_end_time": "VARCHAR",
+            "morning_enabled": "BOOLEAN DEFAULT 0 NOT NULL",
+            "morning_grace_minutes": "INTEGER DEFAULT 0 NOT NULL",
+            "morning_rounding_minutes": "INTEGER DEFAULT 15 NOT NULL",
+            "morning_unit_price": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_enabled": "BOOLEAN DEFAULT 1 NOT NULL",
+            "evening_grace_minutes": "INTEGER",
+            "evening_rounding_minutes": "INTEGER",
+            "evening_unit_price": "INTEGER",
+        }
+        for column_name, column_sql in rule_additions.items():
+            if rule_cols and column_name not in rule_cols:
+                conn.execute(text(f"ALTER TABLE extended_care_fee_rules ADD COLUMN {column_name} {column_sql}"))
+
+        charge_additions = {
+            "certification_id": "INTEGER REFERENCES child_care_certifications(id)",
+            "care_time_category_snapshot": "VARCHAR(32)",
+            "calculation_version": "VARCHAR(32) DEFAULT 'legacy_v1' NOT NULL",
+            "actual_check_in_at": "DATETIME",
+            "normal_start_at": "DATETIME",
+            "normal_end_at": "DATETIME",
+            "morning_extended_minutes": "INTEGER DEFAULT 0 NOT NULL",
+            "morning_billable_units": "INTEGER DEFAULT 0 NOT NULL",
+            "morning_amount": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_extended_minutes": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_billable_units": "INTEGER DEFAULT 0 NOT NULL",
+            "evening_amount": "INTEGER DEFAULT 0 NOT NULL",
+        }
+        for column_name, column_sql in charge_additions.items():
+            if charge_cols and column_name not in charge_cols:
+                conn.execute(text(f"ALTER TABLE extended_care_charges ADD COLUMN {column_name} {column_sql}"))
+
+        if rule_cols:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_extended_care_fee_rules_care_time_category "
+                    "ON extended_care_fee_rules (care_time_category)"
+                )
+            )
+        if charge_cols:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_extended_care_charges_certification_id "
+                    "ON extended_care_charges (certification_id)"
                 )
             )
 

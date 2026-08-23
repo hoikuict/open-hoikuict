@@ -1,7 +1,13 @@
 import csv
 import unittest
 
-from scripts.seed_demo_100 import BASE_DIR, load_rows, validate_name_duplicates
+from scripts.seed_demo_100 import (
+    BASE_DIR,
+    load_rows,
+    validate_demo_identity_scenarios,
+    validate_name_duplicates,
+)
+from scripts.materialize_demo_identity_scenarios import FOREIGN_SCENARIO_FAMILY_IDS
 
 
 class DemoSeedNameTests(unittest.TestCase):
@@ -33,15 +39,74 @@ class DemoSeedNameTests(unittest.TestCase):
         )
 
     def test_parent_account_and_guardian_names_stay_in_sync(self):
-        guardians_by_phone = {
-            row["phone"]: f"{row['last_name']} {row['first_name']}"
-            for row in load_rows("guardians")
-        }
+        guardians_by_phone = {row["phone"]: row for row in load_rows("guardians")}
         for parent in load_rows("parent_accounts"):
             with self.subTest(email=parent["email"]):
-                self.assertEqual(
-                    guardians_by_phone[parent["phone"]], parent["display_name"]
+                guardian = guardians_by_phone[parent["phone"]]
+                expected_name = (
+                    f"{guardian['first_name']} {guardian['last_name']}"
+                    if parent["registration_verification_name_type"] == "latin"
+                    else f"{guardian['last_name']} {guardian['first_name']}"
                 )
+                self.assertEqual(
+                    expected_name, parent["display_name"]
+                )
+
+    def test_foreign_household_identity_scenarios_are_fixed_at_about_ten_percent(self):
+        summary = validate_demo_identity_scenarios()
+
+        self.assertEqual(summary["foreign_scenario_families"], 9)
+        self.assertEqual(summary["foreign_scenario_percentage"], 10.7)
+        self.assertEqual(summary["mixed_name_type_families"], 2)
+        self.assertGreaterEqual(summary["foreign_sibling_families"], 2)
+        self.assertEqual(
+            FOREIGN_SCENARIO_FAMILY_IDS,
+            frozenset({4, 8, 12, 17, 28, 39, 50, 63, 79}),
+        )
+
+    def test_latin_demo_names_cover_normalization_examples(self):
+        latin_names = {
+            row["registration_verification_name"]
+            for table in ("children", "parent_accounts")
+            for row in load_rows(table)
+            if row["registration_verification_name_type"] == "latin"
+        }
+
+        self.assertTrue(any("-" in name for name in latin_names))
+        self.assertTrue(any("'" in name for name in latin_names))
+        self.assertTrue(any("ü" in name for name in latin_names))
+
+    def test_import_compatible_identity_names_stay_in_sync(self):
+        import_dir = BASE_DIR / "demo_data" / "import_compatible"
+        with (import_dir / "children.csv").open(
+            encoding="utf-8-sig", newline=""
+        ) as file:
+            imported_children = list(csv.DictReader(file))
+        with (import_dir / "parent_accounts.csv").open(
+            encoding="utf-8-sig", newline=""
+        ) as file:
+            imported_parents = list(csv.DictReader(file))
+
+        self.assertEqual(
+            [
+                (row["registration_verification_name"], row["registration_verification_name_type"])
+                for row in load_rows("children")
+            ],
+            [(row["照合用氏名"], row["照合用氏名種別"]) for row in imported_children],
+        )
+        self.assertEqual(
+            {
+                row["email"]: (
+                    row["registration_verification_name"],
+                    row["registration_verification_name_type"],
+                )
+                for row in load_rows("parent_accounts")
+            },
+            {
+                row["メールアドレス"]: (row["照合用氏名"], row["照合用氏名種別"])
+                for row in imported_parents
+            },
+        )
 
     def test_more_than_two_duplicate_name_groups_is_rejected(self):
         rows = [

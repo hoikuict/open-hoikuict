@@ -259,6 +259,37 @@ class DataTransferTests(unittest.TestCase):
         self.assertEqual(log.result, "success")
         self.assertEqual(log.created_count, 1)
 
+    def test_import_new_child_accepts_latin_registration_verification_name(self):
+        rows = [
+            ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号", "照合用氏名", "照合用氏名種別"],
+            ["", "Garcia", "Sofia", "ガルシア", "ソフィア", "2022-05-07", "2025-04-01", "", "在園", "ひよこ組", str(self.family_id), "田中家", "", "", "Sofia Garcia", "latin"],
+        ]
+        response = self.client.post(
+            "/data-transfers/import/children/commit",
+            files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            child = session.exec(select(Child).where(Child.last_name == "Garcia")).one()
+
+        self.assertEqual(child.registration_verification_name, "Sofia Garcia")
+        self.assertEqual(child.registration_verification_name_type, "latin")
+
+    def test_import_rejects_registration_name_without_type(self):
+        rows = [
+            ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号", "照合用氏名", "照合用氏名種別"],
+            ["", "Garcia", "Sofia", "ガルシア", "ソフィア", "2022-05-07", "2025-04-01", "", "在園", "ひよこ組", str(self.family_id), "田中家", "", "", "Sofia Garcia", ""],
+        ]
+        response = self.client.post(
+            "/data-transfers/import/children/preview",
+            files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("照合用氏名と照合用氏名種別は両方入力してください", response.text)
+
     def test_import_existing_child_keeps_status_when_blank(self):
         rows = [
             ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号"],

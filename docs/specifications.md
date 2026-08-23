@@ -22,6 +22,7 @@
 | [園児健康管理レビュー](health-record-spec-review.md) | 一部実装・履歴 | 健康プロフィール、アレルギー、健診記録、時系列グラフ、旧データ移行を実装。感染症・与薬等の後続フェーズは未実装 |
 | [インポート・エクスポート](import-export-spec.md) | 実装済み | クラス、家庭、園児、保護者アカウント、保護者・園児紐付けのCSV/Excel入出力と事前検証 |
 | [認可施設帳票入力](ninka-input-screen-spec.md) | 実装済み（初期段階） | データ入出力画面内のExcelアップロード、集計・補正、帳票出力 |
+| [保育認定・保育必要量・延長保育料金連携](care-need-certification-spec.md) | 一部実装 | 園児別の期間管理、施設専用入力、区分別朝夕料金、計算モード切替、請求安全性、デモデータまで。訂正画面・差額プレビュー・専用CSVは後続 |
 | [延長保育料金自動計算](extended-care-fee-spec.md) | 実装済み | 日別自動計算、再計算、確定・調整・対象外、月次画面、CSV、料金ルール |
 | [延長保育料金・請求転送](extended-care-billing-transfer-spec.md) | 実装済み | プレビュー、転送・再転送・解除、競合処理、ロック、監査 |
 | [職員ポータル](staff-personal-portal-spec.md) | 実装済み | `/`、`/staff/portal`、`/staff/attention`、担当クラス・予定・要確認・タイムライン |

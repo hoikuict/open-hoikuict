@@ -14,7 +14,11 @@ from auth import mock_auth_enabled
 from database import get_session
 from demo_runtime import get_demo_session_manager, reset_demo_runtime_cache
 from models import (
+    CareTimeCategory,
     Child,
+    ChildCareCertification,
+    ExtendedCareCalculationSetting,
+    ExtendedCareFeeRule,
     NotificationDeliveryChannel,
     ParentAccount,
     ParentNotification,
@@ -112,6 +116,25 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("職員ログイン", response.text)
+
+    def test_packaged_snapshot_gets_care_certification_demo_data(self):
+        with TestClient(main.app) as client:
+            response = client.get("/healthz")
+            self.assertEqual(response.status_code, 200)
+            session_id = response.headers["X-Demo-Session-Id"]
+
+        manager = get_demo_session_manager()
+        with Session(manager.get_engine(session_id)) as session:
+            certifications = session.exec(select(ChildCareCertification)).all()
+            categories = {item.care_time_category for item in certifications}
+            rules = session.exec(
+                select(ExtendedCareFeeRule).where(ExtendedCareFeeRule.care_time_category.is_not(None))
+            ).all()
+            setting = session.exec(select(ExtendedCareCalculationSetting)).one()
+            self.assertEqual(len(certifications), 100)
+            self.assertEqual(categories, {CareTimeCategory.standard, CareTimeCategory.short})
+            self.assertEqual(len(rules), 2)
+            self.assertEqual(setting.mode, "category_aware")
 
     def test_database_dependency_uses_request_demo_session(self):
         main.initialize_application()

@@ -23,6 +23,46 @@ class ChildStatus(str, Enum):
         }[self]
 
 
+class CareTimeCategory(str, Enum):
+    standard = "standard"
+    short = "short"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.standard: "保育標準時間",
+            self.short: "保育短時間",
+        }[self]
+
+
+class CareNeedReason(str, Enum):
+    employment = "employment"
+    pregnancy_childbirth = "pregnancy_childbirth"
+    illness_disability = "illness_disability"
+    family_care_nursing = "family_care_nursing"
+    disaster_recovery = "disaster_recovery"
+    job_search_startup = "job_search_startup"
+    education_training = "education_training"
+    abuse_dv = "abuse_dv"
+    childcare_leave_continuation = "childcare_leave_continuation"
+    other_municipal = "other_municipal"
+
+    @property
+    def label(self) -> str:
+        return {
+            self.employment: "就労",
+            self.pregnancy_childbirth: "妊娠・出産",
+            self.illness_disability: "保護者の疾病・負傷・障害",
+            self.family_care_nursing: "同居または長期入院等している親族の介護・看護",
+            self.disaster_recovery: "災害復旧",
+            self.job_search_startup: "求職活動・起業準備",
+            self.education_training: "就学・職業訓練",
+            self.abuse_dv: "虐待・DVのおそれ",
+            self.childcare_leave_continuation: "育児休業取得時の継続利用",
+            self.other_municipal: "その他、市町村が認める事由",
+        }[self]
+
+
 class ParentAccountStatus(str, Enum):
     active = "active"
     inactive = "inactive"
@@ -415,18 +455,20 @@ class QuestionType(str, Enum):
 CHILD_FIELDS = [
     {"key": "family_name", "label": "家族", "default": True},
     {"key": "classroom", "label": "クラス", "default": True},
+    {"key": "care_time_category", "label": "保育必要量", "default": True},
+    {"key": "care_need_reasons", "label": "認定要件", "default": True},
     {"key": "last_name", "label": "姓", "default": True},
     {"key": "first_name", "label": "名", "default": True},
-    {"key": "last_name_kana", "label": "姓（カナ）", "default": True},
-    {"key": "first_name_kana", "label": "名（カナ）", "default": True},
+    {"key": "last_name_kana", "label": "姓（カナ）", "default": False},
+    {"key": "first_name_kana", "label": "名（カナ）", "default": False},
     {"key": "birth_date", "label": "生年月日", "default": True},
-    {"key": "age", "label": "年齢", "default": True},
+    {"key": "age", "label": "年齢", "default": False},
     {"key": "enrollment_date", "label": "入園日", "default": False},
     {"key": "withdrawal_date", "label": "退園日", "default": False},
     {"key": "status", "label": "在籍状況", "default": True},
     {"key": "home_address", "label": "自宅住所", "default": False},
     {"key": "home_phone", "label": "自宅電話番号", "default": False},
-    {"key": "guardians", "label": "保護者", "default": True},
+    {"key": "guardians", "label": "保護者", "default": False},
     {"key": "siblings", "label": "兄弟姉妹", "default": False},
     {"key": "allergy", "label": "アレルギー", "default": False},
     {"key": "medical_notes", "label": "医療メモ", "default": False},
@@ -491,6 +533,8 @@ class Child(SQLModel, table=True):
     first_name: str
     last_name_kana: str
     first_name_kana: str
+    registration_verification_name: Optional[str] = Field(default=None, max_length=200)
+    registration_verification_name_type: Optional[str] = Field(default=None, max_length=16)
     birth_date: date
     enrollment_date: date
     withdrawal_date: Optional[date] = None
@@ -821,6 +865,65 @@ class Guardian(SQLModel, table=True):
         return f"{self.last_name} {self.first_name}"
 
 
+class ChildCareCertification(SQLModel, table=True):
+    __tablename__ = "child_care_certifications"
+    __table_args__ = (
+        Index("ix_child_care_certifications_child_period", "child_id", "effective_from", "effective_to"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    care_time_category: CareTimeCategory = Field(index=True)
+    effective_from: date = Field(index=True)
+    effective_to: Optional[date] = Field(default=None, index=True)
+    internal_note: Optional[str] = Field(default=None, max_length=500)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_by_name: Optional[str] = Field(default=None, max_length=100)
+    updated_at: datetime = Field(default_factory=utc_now)
+    updated_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_by_name: Optional[str] = Field(default=None, max_length=100)
+
+    child: Optional[Child] = Relationship()
+    reasons: List["ChildCareNeedReason"] = Relationship(
+        back_populates="certification",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class ChildCareNeedReason(SQLModel, table=True):
+    __tablename__ = "child_care_need_reasons"
+    __table_args__ = (
+        UniqueConstraint("certification_id", "guardian_order", name="uq_care_need_reason_cert_guardian"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    certification_id: int = Field(foreign_key="child_care_certifications.id", index=True)
+    guardian_order: int
+    guardian_name_snapshot: str = Field(default="", max_length=200)
+    relationship_snapshot: str = Field(default="", max_length=50)
+    reason: CareNeedReason
+    other_reason_detail: Optional[str] = Field(default=None, max_length=200)
+
+    certification: Optional[ChildCareCertification] = Relationship(back_populates="reasons")
+
+
+class ChildCareCertificationAuditLog(SQLModel, table=True):
+    __tablename__ = "child_care_certification_audit_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    certification_id: Optional[int] = Field(default=None, index=True)
+    child_id: int = Field(index=True)
+    action: str = Field(max_length=32)
+    before_snapshot: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    after_snapshot: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    reason: Optional[str] = Field(default=None, max_length=500)
+    executed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    executed_by_name: Optional[str] = Field(default=None, max_length=100)
+    executed_at: datetime = Field(default_factory=utc_now, index=True)
+
+
 class AttendanceRecord(SQLModel, table=True):
     __tablename__ = "attendance_records"
     __table_args__ = (UniqueConstraint("child_id", "attendance_date", name="uq_attendance_child_date"),)
@@ -856,11 +959,33 @@ class ExtendedCareFeeRule(SQLModel, table=True):
     rounding_minutes: int = Field(default=15)
     unit_price: int = Field(default=100)
     daily_cap_amount: Optional[int] = None
+    care_time_category: Optional[CareTimeCategory] = Field(default=None, index=True)
+    normal_start_time: Optional[str] = None
+    normal_end_time: Optional[str] = None
+    morning_enabled: bool = Field(default=False)
+    morning_grace_minutes: int = Field(default=0)
+    morning_rounding_minutes: int = Field(default=15)
+    morning_unit_price: int = Field(default=0)
+    evening_enabled: bool = Field(default=True)
+    evening_grace_minutes: Optional[int] = None
+    evening_rounding_minutes: Optional[int] = None
+    evening_unit_price: Optional[int] = None
     is_active: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
     charges: List["ExtendedCareCharge"] = Relationship(back_populates="rule")
+
+
+class ExtendedCareCalculationSetting(SQLModel, table=True):
+    __tablename__ = "extended_care_calculation_settings"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    mode: str = Field(default="legacy", max_length=32)
+    category_aware_from: Optional[date] = Field(default=None, index=True)
+    updated_at: datetime = Field(default_factory=utc_now)
+    updated_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_by_name: Optional[str] = Field(default=None, max_length=100)
 
 
 class ExtendedCareCharge(SQLModel, table=True):
@@ -898,6 +1023,18 @@ class ExtendedCareCharge(SQLModel, table=True):
         index=True,
     )
     transferred_by_name: Optional[str] = Field(default=None, max_length=100)
+    certification_id: Optional[int] = Field(default=None, foreign_key="child_care_certifications.id", index=True)
+    care_time_category_snapshot: Optional[CareTimeCategory] = Field(default=None, index=True)
+    calculation_version: str = Field(default="legacy_v1", max_length=32)
+    actual_check_in_at: Optional[datetime] = None
+    normal_start_at: Optional[datetime] = None
+    normal_end_at: Optional[datetime] = None
+    morning_extended_minutes: int = Field(default=0)
+    morning_billable_units: int = Field(default=0)
+    morning_amount: int = Field(default=0)
+    evening_extended_minutes: int = Field(default=0)
+    evening_billable_units: int = Field(default=0)
+    evening_amount: int = Field(default=0)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -955,6 +1092,8 @@ class ParentAccount(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     display_name: str
+    registration_verification_name: Optional[str] = Field(default=None, max_length=200)
+    registration_verification_name_type: Optional[str] = Field(default=None, max_length=16)
     email: str = Field(index=True, unique=True)
     phone: Optional[str] = None
     home_address: Optional[str] = None

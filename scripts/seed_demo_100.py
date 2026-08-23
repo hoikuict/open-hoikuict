@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import Counter
 from datetime import date, datetime, timedelta
@@ -23,7 +24,9 @@ from models import (
     AttendanceVerification, AttendanceVerificationHistory, Calendar,
     CalendarMember, CalendarUserPreference, Child, ChildAllergy, DailyContactEntry,
     ChildHealthProfile, ChildProfileChangeRequest, ChildProfileHistory, Classroom, Event,
-    ExtendedCareCharge, ExtendedCareChargeStatus, ExtendedCareFeeRule,
+    CareNeedReason, CareTimeCategory, ChildCareCertification, ChildCareCertificationAuditLog,
+    ChildCareNeedReason,
+    ExtendedCareCalculationSetting, ExtendedCareCharge, ExtendedCareChargeStatus, ExtendedCareFeeRule,
     Family, Guardian, HealthCheckRecord, Message, Notice, NoticeRead,
     NoticeTarget, ParentAccount, ParentChildLink, ProfileChangeNotification,
     Survey, SurveyAnswer, SurveyQuestion, SurveyQuestionOption,
@@ -31,6 +34,7 @@ from models import (
     USER_SOURCE_WEB_DEMO,
 )
 from time_utils import local_today
+from scripts.materialize_demo_identity_scenarios import FOREIGN_SCENARIO_FAMILY_IDS
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CSV_DIR = BASE_DIR / "demo_data" / "full"
@@ -74,6 +78,10 @@ MODEL_ORDER = [
 WIPE_ORDER = [
     ChildProfileHistory,
     ExtendedCareCharge,
+    ChildCareNeedReason,
+    ChildCareCertificationAuditLog,
+    ChildCareCertification,
+    ExtendedCareCalculationSetting,
     ExtendedCareFeeRule,
     *list(reversed([model for _, model in MODEL_ORDER])),
 ]
@@ -184,6 +192,72 @@ def validate_name_duplicates(table: str, rows: list[dict[str, Any]]) -> None:
             f"各2人までです: {details}"
         )
 
+
+def validate_demo_identity_scenarios() -> dict[str, int | float]:
+    families = load_rows("families")
+    children = load_rows("children")
+    parents = load_rows("parent_accounts")
+    if len(families) != 84:
+        raise ValueError(f"デモ家庭数は84件である必要があります: {len(families)}")
+
+    people = children + parents
+    for row in people:
+        name = str(row.get("registration_verification_name") or "").strip()
+        name_type = str(row.get("registration_verification_name_type") or "").strip()
+        if name_type not in {"kana", "latin"}:
+            raise ValueError(f"照合用氏名種別が不正です: {name_type!r}")
+        if not name:
+            raise ValueError("照合用氏名が空です")
+        if name_type == "latin" and not re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", name):
+            raise ValueError(f"latin照合用氏名に英字がありません: {name}")
+
+    latin_family_ids = {
+        int(row["family_id"])
+        for row in people
+        if row.get("family_id") is not None
+        and row["registration_verification_name_type"] == "latin"
+    }
+    if latin_family_ids != set(FOREIGN_SCENARIO_FAMILY_IDS):
+        raise ValueError(
+            "外国籍想定家庭が固定9家庭と一致しません: "
+            f"expected={sorted(FOREIGN_SCENARIO_FAMILY_IDS)}, actual={sorted(latin_family_ids)}"
+        )
+
+    name_types_by_family: dict[int, set[str]] = {}
+    child_counts_by_family = Counter(int(row["family_id"]) for row in children)
+    for row in people:
+        family_id = row.get("family_id")
+        if family_id is None:
+            continue
+        name_types_by_family.setdefault(int(family_id), set()).add(
+            str(row["registration_verification_name_type"])
+        )
+    mixed_family_count = sum(
+        name_types_by_family.get(family_id) == {"kana", "latin"}
+        for family_id in FOREIGN_SCENARIO_FAMILY_IDS
+    )
+    sibling_family_count = sum(
+        child_counts_by_family[family_id] >= 2
+        for family_id in FOREIGN_SCENARIO_FAMILY_IDS
+    )
+    if mixed_family_count < 2:
+        raise ValueError(f"カナ・英字混在家庭は2件以上必要です: {mixed_family_count}")
+    if sibling_family_count < 2:
+        raise ValueError(f"外国籍想定の兄弟家庭は2件以上必要です: {sibling_family_count}")
+
+    return {
+        "foreign_scenario_families": len(latin_family_ids),
+        "foreign_scenario_percentage": round(len(latin_family_ids) / len(families) * 100, 1),
+        "mixed_name_type_families": mixed_family_count,
+        "foreign_sibling_families": sibling_family_count,
+        "latin_children": sum(
+            row["registration_verification_name_type"] == "latin" for row in children
+        ),
+        "latin_parent_accounts": sum(
+            row["registration_verification_name_type"] == "latin" for row in parents
+        ),
+    }
+
 def load_rows(table: str) -> list[dict[str, Any]]:
     path = CSV_DIR / f"{table}.csv"
     if not path.exists():
@@ -211,11 +285,19 @@ def seed_extended_care_demo_data(
     start_date: date,
     end_date: date,
 ) -> dict[str, int]:
-    rule = ExtendedCareFeeRule(
+    standard_rule = ExtendedCareFeeRule(
         id=1,
-        name="標準延長保育料（デモ）",
+        name="保育標準時間・延長保育料（デモ）",
         effective_from=start_date,
         start_time="18:00",
+        care_time_category=CareTimeCategory.standard,
+        normal_start_time="07:30",
+        normal_end_time="18:00",
+        morning_enabled=True,
+        morning_grace_minutes=5,
+        morning_rounding_minutes=15,
+        morning_unit_price=100,
+        evening_enabled=True,
         grace_minutes=5,
         rounding_minutes=15,
         unit_price=100,
@@ -224,7 +306,71 @@ def seed_extended_care_demo_data(
         created_at=datetime.combine(start_date, datetime.min.time()).replace(hour=9),
         updated_at=datetime.combine(start_date, datetime.min.time()).replace(hour=9),
     )
-    session.add(rule)
+    short_rule = ExtendedCareFeeRule(
+        id=2,
+        name="保育短時間・延長保育料（デモ）",
+        effective_from=start_date,
+        start_time="16:30",
+        care_time_category=CareTimeCategory.short,
+        normal_start_time="08:30",
+        normal_end_time="16:30",
+        morning_enabled=True,
+        morning_grace_minutes=5,
+        morning_rounding_minutes=15,
+        morning_unit_price=100,
+        evening_enabled=True,
+        grace_minutes=5,
+        rounding_minutes=15,
+        unit_price=100,
+        daily_cap_amount=800,
+        is_active=True,
+        created_at=datetime.combine(start_date, datetime.min.time()).replace(hour=9),
+        updated_at=datetime.combine(start_date, datetime.min.time()).replace(hour=9),
+    )
+    session.add(standard_rule)
+    session.add(short_rule)
+    session.add(
+        ExtendedCareCalculationSetting(
+            id=1,
+            mode="category_aware",
+            category_aware_from=start_date,
+            updated_by_name="デモデータ",
+        )
+    )
+    session.flush()
+
+    certification_count = 0
+    reason_count = 0
+    children = session.exec(select(Child).order_by(Child.id)).all()
+    reason_cycle = [
+        CareNeedReason.employment,
+        CareNeedReason.illness_disability,
+        CareNeedReason.job_search_startup,
+        CareNeedReason.education_training,
+    ]
+    for child in children:
+        certification = ChildCareCertification(
+            child_id=child.id,
+            care_time_category=CareTimeCategory.short if child.id % 3 == 0 else CareTimeCategory.standard,
+            effective_from=start_date,
+            created_by_name="デモデータ",
+            updated_by_name="デモデータ",
+        )
+        session.add(certification)
+        session.flush()
+        profiles = child.family.guardian_profiles() if child.family else []
+        for index, profile in enumerate(profiles[:2], start=1):
+            session.add(
+                ChildCareNeedReason(
+                    certification_id=certification.id,
+                    guardian_order=index,
+                    guardian_name_snapshot=f"{profile.get('last_name', '')} {profile.get('first_name', '')}".strip(),
+                    relationship_snapshot=str(profile.get("relationship", "")),
+                    reason=reason_cycle[(child.id + index) % len(reason_cycle)],
+                )
+            )
+            reason_count += 1
+        certification_count += 1
     session.flush()
 
     recalculate_period(
@@ -265,14 +411,17 @@ def seed_extended_care_demo_data(
         session.add(charge)
 
     return {
-        "extended_care_fee_rules": 1,
+        "extended_care_fee_rules": 2,
         "extended_care_charges": len(charges),
+        "child_care_certifications": certification_count,
+        "child_care_need_reasons": reason_count,
     }
 
 
-def seed(wipe: bool = False) -> dict[str, int]:
+def seed(wipe: bool = False) -> dict[str, int | float]:
+    identity_summary = validate_demo_identity_scenarios()
     create_db_and_tables()
-    counts: dict[str, int] = {}
+    counts: dict[str, int | float] = {}
     with Session(engine) as session:
         if wipe:
             wipe_all(session)
@@ -325,6 +474,7 @@ def seed(wipe: bool = False) -> dict[str, int]:
                 end_date=attendance_end,
             )
         )
+        counts.update(identity_summary)
         children = session.exec(select(Child).order_by(Child.id)).all()
         for child in children:
             ensure_initial_child_profile_history(session, child, actor_name="デモデータ")

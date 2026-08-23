@@ -34,6 +34,7 @@ nav:
       - 園児健康管理: health-record-spec-review.md
       - インポート・エクスポート: import-export-spec.md
       - 認可施設帳票入力: ninka-input-screen-spec.md
+      - 保育認定・保育必要量・延長料金連携（一部実装）: care-need-certification-spec.md
       - 延長保育料金: extended-care-fee-spec.md
       - 延長保育料金・請求転送: extended-care-billing-transfer-spec.md
       - 職員ポータル: staff-personal-portal-spec.md
