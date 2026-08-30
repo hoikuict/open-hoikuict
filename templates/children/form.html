@@ -164,6 +164,7 @@
       <div>
         <h2 class="text-lg font-semibold text-slate-800">保護者・家族情報</h2>
         <p class="text-sm text-slate-500">住所や保護者情報は同じ家族の兄弟姉妹にも反映されます。</p>
+        <p class="text-xs text-slate-500">ここで登録するメールアドレスは家族台帳の連絡先です。保護者ポータルの招待先・ログイン情報は保護者アカウントで管理します。</p>
       </div>
 
       <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -184,6 +185,7 @@
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div class="rounded-xl border border-slate-200 p-4">
           <h3 class="mb-3 text-sm font-semibold text-slate-700">保護者1</h3>
+          <input type="hidden" name="g1_parent_account_id" value="{{ family_form_data.g1_parent_account_id }}">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div><label class="mb-1 block text-sm text-slate-600">姓</label><input type="text" name="g1_last_name" value="{{ family_form_data.g1_last_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div><label class="mb-1 block text-sm text-slate-600">名</label><input type="text" name="g1_first_name" value="{{ family_form_data.g1_first_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
@@ -197,6 +199,7 @@
                 {% endfor %}
               </select>
             </div>
+            <div><label class="mb-1 block text-sm text-slate-600">メールアドレス</label><input type="email" name="g1_email" value="{{ family_form_data.g1_email }}" maxlength="255" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div><label class="mb-1 block text-sm text-slate-600">電話番号</label><input type="text" name="g1_phone" value="{{ family_form_data.g1_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div class="md:col-span-2"><label class="mb-1 block text-sm text-slate-600">勤務先</label><input type="text" name="g1_workplace" value="{{ family_form_data.g1_workplace }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div><label class="mb-1 block text-sm text-slate-600">勤務先住所</label><input type="text" name="g1_workplace_address" value="{{ family_form_data.g1_workplace_address }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
@@ -206,6 +209,7 @@
 
         <div class="rounded-xl border border-slate-200 p-4">
           <h3 class="mb-3 text-sm font-semibold text-slate-700">保護者2</h3>
+          <input type="hidden" name="g2_parent_account_id" value="{{ family_form_data.g2_parent_account_id }}">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div><label class="mb-1 block text-sm text-slate-600">姓</label><input type="text" name="g2_last_name" value="{{ family_form_data.g2_last_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div><label class="mb-1 block text-sm text-slate-600">名</label><input type="text" name="g2_first_name" value="{{ family_form_data.g2_first_name }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
@@ -219,6 +223,7 @@
                 {% endfor %}
               </select>
             </div>
+            <div><label class="mb-1 block text-sm text-slate-600">メールアドレス</label><input type="email" name="g2_email" value="{{ family_form_data.g2_email }}" maxlength="255" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div><label class="mb-1 block text-sm text-slate-600">電話番号</label><input type="text" name="g2_phone" value="{{ family_form_data.g2_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div class="md:col-span-2"><label class="mb-1 block text-sm text-slate-600">勤務先</label><input type="text" name="g2_workplace" value="{{ family_form_data.g2_workplace }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
             <div><label class="mb-1 block text-sm text-slate-600">勤務先住所</label><input type="text" name="g2_workplace_address" value="{{ family_form_data.g2_workplace_address }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>

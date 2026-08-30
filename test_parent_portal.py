@@ -11,6 +11,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import Role, StaffUser
 from models import (
+    AuthSession,
     Child,
     ChildStatus,
     Classroom,
@@ -30,6 +31,8 @@ from models import (
     ParentChildLink,
     ParentChildLinkAudit,
     ParentContactType,
+    ParentCredentialProvisioningAudit,
+    ParentMailDelivery,
     ParentNotification,
     ParentNotificationKind,
     ParentRegistrationRequest,
@@ -781,6 +784,118 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("一覧へ戻る", response.text)
         self.assertIn("確認待ち", response.text)
         self.assertNotIn(">pending_review<", response.text)
+
+    def test_admin_changes_linked_parent_login_id_without_changing_password(self):
+        now = utc_now()
+        with Session(self.engine) as session:
+            admin = User(
+                email="login-id-admin@example.com",
+                display_name="認証管理者",
+                staff_role="admin",
+            )
+            session.add(admin)
+            session.flush()
+            credential = PasswordCredential(
+                principal_type="parent",
+                parent_account_id=self.parent_account_id,
+                login_id="tanaka@example.com",
+                login_id_normalized="tanaka@example.com",
+                password_hash="unchanged-password-hash",
+                credential_version=1,
+            )
+            session.add(credential)
+            session.flush()
+            session.add(
+                AuthSession(
+                    token_hash="active-parent-session",
+                    principal_type="parent",
+                    credential_id=credential.id,
+                    parent_account_id=self.parent_account_id,
+                    credential_version=1,
+                    idle_expires_at=now + timedelta(hours=1),
+                    absolute_expires_at=now + timedelta(days=1),
+                )
+            )
+            family = session.get(Family, self.main_family_id)
+            family.shared_profile = {
+                "guardians": [
+                    {
+                        "order": 1,
+                        "last_name": "田中",
+                        "first_name": "花",
+                        "relationship": "母",
+                        "parent_account_id": self.parent_account_id,
+                        "email": "tanaka@example.com",
+                    }
+                ]
+            }
+            session.add(family)
+            session.commit()
+            admin_id = admin.id
+
+        self.app.dependency_overrides[parent_auth_module.get_current_staff_user] = (
+            lambda: StaffUser(
+                role=Role.ADMIN,
+                name="認証管理者",
+                user_id=admin_id,
+            )
+        )
+        page = self.client.get(
+            f"/parent-accounts/{self.parent_account_id}/authentication",
+            params={"proposed_email": "new-login@example.com"},
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("new-login@example.com", page.text)
+
+        response = self.client.post(
+            f"/parent-accounts/{self.parent_account_id}/authentication/login-id",
+            data={
+                "new_email": "new-login@example.com",
+                "reason": "保護者本人へ電話確認済み",
+                "confirmed": "yes",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+
+        with Session(self.engine) as session:
+            account = session.get(ParentAccount, self.parent_account_id)
+            credential = session.exec(
+                select(PasswordCredential).where(
+                    PasswordCredential.parent_account_id == self.parent_account_id
+                )
+            ).one()
+            auth_session = session.get(AuthSession, "active-parent-session")
+            family = session.get(Family, self.main_family_id)
+            deliveries = session.exec(
+                select(ParentMailDelivery).where(
+                    ParentMailDelivery.parent_account_id == self.parent_account_id,
+                    ParentMailDelivery.message_type == "login_id_change",
+                )
+            ).all()
+            audit = session.exec(
+                select(ParentCredentialProvisioningAudit).where(
+                    ParentCredentialProvisioningAudit.parent_account_id
+                    == self.parent_account_id,
+                    ParentCredentialProvisioningAudit.operation == "login_id_change",
+                )
+            ).one()
+
+        self.assertEqual(account.email, "new-login@example.com")
+        self.assertEqual(credential.login_id, "new-login@example.com")
+        self.assertEqual(credential.login_id_normalized, "new-login@example.com")
+        self.assertEqual(credential.password_hash, "unchanged-password-hash")
+        self.assertEqual(credential.credential_version, 2)
+        self.assertEqual(auth_session.revoke_reason, "login_id_changed")
+        self.assertEqual(
+            family.shared_profile["guardians"][0]["email"],
+            "new-login@example.com",
+        )
+        self.assertEqual(
+            {delivery.recipient for delivery in deliveries},
+            {"tanaka@example.com", "new-login@example.com"},
+        )
+        self.assertIn("保護者本人へ電話確認済み", audit.reason)
 
     def test_profile_update_creates_staff_notification(self):
         self._login_parent(self.parent_account_id)

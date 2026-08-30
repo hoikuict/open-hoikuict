@@ -25,6 +25,7 @@ from database import (
 from routers.attendance import router as attendance_router
 from routers.attendance_checks import router as attendance_checks_router
 from routers.billing import router as billing_router
+from routers.backups import router as backups_router
 from routers.calendar import mock_login_router as calendar_mock_login_router
 from routers.calendar import router as calendar_router
 from routers.child_change_requests import router as child_change_requests_router
@@ -137,6 +138,7 @@ app.include_router(attendance_router)
 app.include_router(attendance_checks_router)
 app.include_router(extended_care_fees_router)
 app.include_router(billing_router)
+app.include_router(backups_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)

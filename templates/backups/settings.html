@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}バックアップ管理 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Operations</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">バックアップ管理</h1>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">DBと添付ファイルを同時に保存し、hash・DB・外部キー・添付の整合性まで自動検査します。</p>
+  </div>
+  <form method="post" action="/settings/backups/create">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
+    <button
+      type="submit"
+      class="rounded-xl px-5 py-3 text-sm font-semibold text-white {% if worker.status == 'online' and not active_job %}bg-indigo-600 hover:bg-indigo-700{% else %}cursor-not-allowed bg-slate-400{% endif %}"
+      {% if worker.status != 'online' or active_job %}disabled{% endif %}
+      onclick="return confirm('バックアップを作成します。数分間、書き込みが待機する場合があります。実行しますか？')"
+    >今すぐバックアップ</button>
+  </form>
+</div>
+
+{% if message %}<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ message }}</div>{% endif %}
+{% if error %}<div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ error }}</div>{% endif %}
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+  <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">実行サービス</p>
+    <div class="mt-3 flex items-center gap-2">
+      <span class="h-2.5 w-2.5 rounded-full {% if worker.status == 'online' %}bg-emerald-500{% else %}bg-red-500{% endif %}"></span>
+      <p class="font-semibold text-slate-900">{% if worker.status == 'online' %}稼働中{% else %}停止中{% endif %}</p>
+    </div>
+    {% if worker.seen_at_jst %}<p class="mt-2 text-xs text-slate-500">最終応答 {{ worker.seen_at_jst }}</p>{% endif %}
+  </section>
+  <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">現在の状態</p>
+    <p class="mt-3 font-semibold text-slate-900">{% if active_job %}{{ status_labels.get(active_job.status, active_job.status) }}{% else %}待機中{% endif %}</p>
+    <p class="mt-2 text-xs text-slate-500">{% if active_job %}依頼 {{ active_job.requested_at_jst }}{% else %}実行中のjobはありません{% endif %}</p>
+  </section>
+  <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+    <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">復元について</p>
+    <p class="mt-3 text-sm leading-6 text-amber-900">この画面から稼働中データの上書きやバックアップの削除はできません。復元は停止手順に従って行います。</p>
+    <p class="mt-2 text-xs leading-5 text-amber-800">利用者の少ない時間帯に実行し、実行中は登録・更新操作を避けてください。</p>
+  </section>
+</div>
+
+<section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 class="font-semibold text-slate-900">定期実行設定</h2>
+      <p class="mt-1 text-sm text-slate-500">Asia/Tokyo（JST）を基準に、専用実行サービスがバックアップを作成します。</p>
+    </div>
+    <span class="rounded-full px-3 py-1 text-xs font-semibold {% if schedule.enabled %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if schedule.enabled %}有効{% else %}無効{% endif %}</span>
+  </div>
+  {% if schedule_error %}<div class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ schedule_error }}</div>{% endif %}
+  <form method="post" action="/settings/backups/schedule" class="mt-5 grid gap-4 md:grid-cols-4">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
+    <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+      <input type="checkbox" name="enabled" value="1" class="h-4 w-4 rounded border-slate-300" {% if schedule.enabled %}checked{% endif %}>
+      定期実行を有効にする
+    </label>
+    <label class="text-sm font-medium text-slate-700">実行頻度
+      <select name="frequency" id="backup-frequency" class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5">
+        <option value="daily" {% if schedule.frequency == 'daily' %}selected{% endif %}>毎日</option>
+        <option value="weekly" {% if schedule.frequency == 'weekly' %}selected{% endif %}>毎週</option>
+      </select>
+    </label>
+    <label class="text-sm font-medium text-slate-700">実行時刻
+      <input type="time" name="run_time" value="{{ schedule.run_time }}" required class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5">
+    </label>
+    <label id="backup-weekday-field" class="text-sm font-medium text-slate-700">実行曜日
+      <select name="weekday" class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5">
+        {% for value, label in weekday_options %}<option value="{{ value }}" {% if schedule.weekday == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <div class="md:col-span-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+      <div class="text-sm text-slate-600">
+        {% if next_run_jst %}<span class="font-semibold text-slate-800">次回予定:</span> {{ next_run_jst }}{% else %}定期実行は無効です。{% endif %}
+        <p class="mt-1 text-xs text-slate-500">予定時刻後に実行サービスを起動した場合は、同じ日の予定枠を1回実行します。過去の日・週の分は持ち越しません。</p>
+      </div>
+      <button type="submit" class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">設定を保存</button>
+    </div>
+  </form>
+</section>
+
+<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-200 px-5 py-4">
+    <h2 class="font-semibold text-slate-900">実行履歴</h2>
+    <p class="mt-1 text-sm text-slate-500">最新30件の結果を表示します。</p>
+  </div>
+  {% if jobs %}
+  <div class="divide-y divide-slate-100">
+    {% for job in jobs %}
+    <article class="p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full px-2.5 py-1 text-xs font-semibold {% if job.status == 'succeeded' %}bg-emerald-100 text-emerald-800{% elif job.status == 'failed' %}bg-red-100 text-red-800{% elif job.status == 'running' %}bg-indigo-100 text-indigo-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ status_labels.get(job.status, job.status) }}</span>
+            <span class="font-mono text-xs text-slate-400">{{ job.job_id }}</span>
+          </div>
+          <p class="mt-3 text-sm text-slate-700">依頼: {{ job.requested_at_jst }} / {{ job.requested_by.name }}</p>
+          <p class="mt-1 text-xs text-slate-500">起動: {% if job.trigger == 'scheduled' %}定期実行{% else %}手動{% endif %}</p>
+          {% if job.finished_at_jst %}<p class="mt-1 text-xs text-slate-500">完了: {{ job.finished_at_jst }}</p>{% endif %}
+        </div>
+        {% if job.result %}
+        <dl class="grid grid-cols-2 gap-x-5 gap-y-1 text-sm">
+          <dt class="text-slate-500">バックアップID</dt><dd class="font-mono text-xs text-slate-800">{{ job.result.backup_id }}</dd>
+          <dt class="text-slate-500">検証ファイル</dt><dd class="text-slate-800">{{ job.result.files_verified }}件</dd>
+        </dl>
+        {% endif %}
+      </div>
+      {% if job.error %}<div class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ job.error }}</div>{% endif %}
+      {% if job.result and job.result.warnings %}
+      <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {% for warning in job.result.warnings %}<p>{{ warning }}</p>{% endfor %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="px-5 py-10 text-center text-sm text-slate-500">まだバックアップ履歴はありません。</p>
+  {% endif %}
+</section>
+
+{% if active_job %}
+<script>window.setTimeout(() => window.location.reload(), 5000);</script>
+{% endif %}
+<script>
+  (() => {
+    const frequency = document.getElementById('backup-frequency');
+    const weekday = document.getElementById('backup-weekday-field');
+    if (!frequency || !weekday) return;
+    const updateWeekday = () => {
+      weekday.classList.toggle('opacity-50', frequency.value !== 'weekly');
+      weekday.querySelector('select').disabled = frequency.value !== 'weekly';
+    };
+    frequency.addEventListener('change', updateWeekday);
+    updateWeekday();
+  })();
+</script>
+{% endblock %}

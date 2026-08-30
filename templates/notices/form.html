@@ -18,6 +18,9 @@
   .notice-rich-body font[size="4"], .notice-editor-surface font[size="4"] { font-size: 1.25rem; }
   .notice-rich-body font[size="5"], .notice-editor-surface font[size="5"] { font-size: 1.5rem; }
   .notice-rich-body font[size="6"], .notice-editor-surface font[size="6"] { font-size: 2rem; }
+  .notice-color-swatch { height: 1.5rem; width: 1.5rem; border: 2px solid #fff; border-radius: 9999px; box-shadow: 0 0 0 1px #cbd5e1; }
+  .notice-color-swatch:hover { transform: scale(1.12); }
+  .notice-color-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px #4f46e5; }
 </style>
 {% endblock %}
 
@@ -57,10 +60,17 @@
           <button type="button" data-command="underline" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm underline" title="下線">U</button>
           <button type="button" data-command="insertUnorderedList" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm" title="箇条書き">・一覧</button>
           <button type="button" data-command="insertOrderedList" class="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm" title="番号付き一覧">1. 一覧</button>
-          <label class="flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-600">
-            文字色
-            <input id="notice-text-color" type="color" value="#1f2937" class="h-6 w-7 cursor-pointer border-0 bg-transparent p-0">
-          </label>
+          <div class="flex items-center gap-2 rounded border border-gray-300 bg-white px-2 py-1" role="group" aria-label="文字色">
+            <span class="text-xs text-gray-600">文字色</span>
+            <button type="button" class="notice-color-swatch" data-text-color="#1f2937" style="background-color: #1f2937" aria-label="黒" title="黒" aria-pressed="true"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#64748b" style="background-color: #64748b" aria-label="グレー" title="グレー" aria-pressed="false"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#dc2626" style="background-color: #dc2626" aria-label="赤" title="赤" aria-pressed="false"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#ea580c" style="background-color: #ea580c" aria-label="オレンジ" title="オレンジ" aria-pressed="false"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#15803d" style="background-color: #15803d" aria-label="緑" title="緑" aria-pressed="false"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#2563eb" style="background-color: #2563eb" aria-label="青" title="青" aria-pressed="false"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#7c3aed" style="background-color: #7c3aed" aria-label="紫" title="紫" aria-pressed="false"></button>
+            <button type="button" class="notice-color-swatch" data-text-color="#db2777" style="background-color: #db2777" aria-label="ピンク" title="ピンク" aria-pressed="false"></button>
+          </div>
           <label class="flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-600">
             背景色
             <input id="notice-background-color" type="color" value="#fff3bf" class="h-6 w-7 cursor-pointer border-0 bg-transparent p-0">
@@ -206,6 +216,7 @@
 (() => {
   const form = document.getElementById('notice-form');
   const editor = document.getElementById('notice-editor');
+  const toolbar = document.getElementById('notice-editor-toolbar');
   const bodyInput = document.getElementById('notice-body');
   const htmlInput = document.getElementById('notice-body-html');
   const fileInput = document.getElementById('notice-attachments');
@@ -214,16 +225,22 @@
 
   const rememberSelection = () => {
     const selection = window.getSelection();
-    if (selection && selection.rangeCount && editor.contains(selection.anchorNode)) {
+    if (
+      selection
+      && selection.rangeCount
+      && editor.contains(selection.anchorNode)
+      && editor.contains(selection.focusNode)
+    ) {
       savedRange = selection.getRangeAt(0).cloneRange();
     }
   };
   const restoreSelection = () => {
+    const rangeToRestore = savedRange ? savedRange.cloneRange() : null;
     editor.focus();
-    if (!savedRange) return;
+    if (!rangeToRestore) return;
     const selection = window.getSelection();
     selection.removeAllRanges();
-    selection.addRange(savedRange);
+    selection.addRange(rangeToRestore);
   };
   const runCommand = (command, value = null) => {
     restoreSelection();
@@ -234,6 +251,8 @@
   editor.addEventListener('keyup', rememberSelection);
   editor.addEventListener('mouseup', rememberSelection);
   editor.addEventListener('input', rememberSelection);
+  document.addEventListener('selectionchange', rememberSelection);
+  toolbar.addEventListener('pointerdown', rememberSelection, true);
 
   document.querySelectorAll('[data-command]').forEach((button) => {
     button.addEventListener('mousedown', (event) => event.preventDefault());
@@ -245,8 +264,14 @@
   document.getElementById('notice-font-size').addEventListener('change', (event) => {
     runCommand('fontSize', event.target.value);
   });
-  document.getElementById('notice-text-color').addEventListener('change', (event) => {
-    runCommand('foreColor', event.target.value);
+  document.querySelectorAll('[data-text-color]').forEach((button) => {
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => {
+      runCommand('foreColor', button.dataset.textColor);
+      document.querySelectorAll('[data-text-color]').forEach((swatch) => {
+        swatch.setAttribute('aria-pressed', String(swatch === button));
+      });
+    });
   });
   document.getElementById('notice-background-color').addEventListener('change', (event) => {
     restoreSelection();

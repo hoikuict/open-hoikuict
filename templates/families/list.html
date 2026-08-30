@@ -40,6 +40,19 @@
             未登録
           {% endif %}
         </div>
+        {% set guardian_profiles = family.guardian_profiles() %}
+        {% if guardian_profiles %}
+        <div class="space-y-1 text-sm text-slate-600">
+          <div>保護者連絡先:</div>
+          {% for guardian in guardian_profiles %}
+          {% set linked_account = family_parent_accounts_by_id.get(family.id, {}).get(guardian.parent_account_id) if guardian.parent_account_id else none %}
+          <div class="break-all pl-4">
+            {{ guardian.last_name }} {{ guardian.first_name }}{% if guardian.relationship %}（{{ guardian.relationship }}）{% endif %} — メール: {{ guardian.email or "未登録" }}
+            {% if linked_account %}<span class="ml-1 rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{{ linked_account.display_name }}と紐づけ済み</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
       <div class="flex flex-wrap gap-2">
         {% if current_user and current_user.can_manage_child_records %}

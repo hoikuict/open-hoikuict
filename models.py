@@ -854,6 +854,12 @@ class Guardian(SQLModel, table=True):
     last_name_kana: Optional[str] = None
     first_name_kana: Optional[str] = None
     relationship: str = "母"
+    parent_account_id: Optional[int] = Field(
+        default=None,
+        foreign_key="parent_accounts.id",
+        index=True,
+    )
+    email: Optional[str] = None
     phone: Optional[str] = None
     workplace: Optional[str] = None
     workplace_address: Optional[str] = None

@@ -39,6 +39,8 @@ from models import (
     AuthenticationEvent,
     AuthSession,
     CredentialActionToken,
+    Family,
+    Guardian,
     LoginThrottle,
     ParentAccount,
     ParentAccountStatus,
@@ -1208,6 +1210,151 @@ def change_parent_password(
     )
     session.commit()
     return raw
+
+
+def change_parent_login_id_by_admin(
+    session: Session,
+    *,
+    account: ParentAccount,
+    actor_user: User,
+    new_email: str,
+    reason: str,
+) -> None:
+    normalized_reason = reason.strip()
+    if not normalized_reason:
+        raise ValueError("変更理由を入力してください")
+    if len(normalized_reason) > 300:
+        raise ValueError("変更理由は300文字以内で入力してください")
+
+    requested_email = (new_email or "").strip()
+    normalized_login_id = normalize_login_id(requested_email)
+    if (
+        not normalized_login_id
+        or len(requested_email) > 255
+        or "@" not in requested_email
+    ):
+        raise ValueError("受信可能な新しいメールアドレスを入力してください")
+
+    credential = _credential_for_parent(session, account.id)
+    if credential is None or credential.password_hash is None:
+        raise ValueError("初回登録完了後の保護者だけログインIDを変更できます")
+
+    duplicate_credential = session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.principal_type == PRINCIPAL_PARENT,
+            PasswordCredential.login_id_normalized == normalized_login_id,
+            PasswordCredential.id != credential.id,
+        )
+    ).first()
+    if duplicate_credential is not None:
+        raise ValueError("このメールアドレスは別の保護者ログインIDで使用されています")
+
+    other_accounts = session.exec(
+        select(ParentAccount).where(ParentAccount.id != account.id)
+    ).all()
+    if any(
+        normalize_login_id(other.email) == normalized_login_id
+        for other in other_accounts
+    ):
+        raise ValueError("このメールアドレスは別の保護者アカウントで使用されています")
+
+    old_email = account.email
+    old_login_id = credential.login_id
+    if (
+        normalize_login_id(old_email) == normalized_login_id
+        and credential.login_id_normalized == normalized_login_id
+    ):
+        raise ValueError("登録メールアドレスとログインIDは既に同じ値です")
+
+    now = utc_now()
+    account.email = requested_email
+    account.updated_at = now
+    credential.login_id = requested_email
+    credential.login_id_normalized = normalized_login_id
+    credential.credential_version += 1
+    credential.updated_at = now
+    session.add(account)
+    session.add(credential)
+
+    if account.family_id is not None:
+        family = session.get(Family, account.family_id)
+        if family is not None:
+            profiles = [dict(item) for item in family.guardian_profiles()]
+            family_profile_changed = False
+            for profile in profiles:
+                if profile.get("parent_account_id") == account.id:
+                    profile["email"] = requested_email
+                    family_profile_changed = True
+            if family_profile_changed:
+                family.shared_profile = {"guardians": profiles}
+                family.updated_at = now
+                session.add(family)
+    linked_guardians = session.exec(
+        select(Guardian).where(Guardian.parent_account_id == account.id)
+    ).all()
+    for guardian in linked_guardians:
+        guardian.email = requested_email
+        session.add(guardian)
+
+    revoke_parent_sessions(session, account.id, "login_id_changed", now)
+    disable_parent_push_subscriptions(session, account.id, "login_id_changed", now)
+    revoke_parent_recovery_artifacts(session, account.id, now)
+
+    audit_reason = (
+        f"{normalized_reason} | ログインID変更: {old_login_id} -> {requested_email}"
+    )
+    session.add(
+        ParentCredentialProvisioningAudit(
+            parent_account_id=account.id,
+            credential_id=credential.id,
+            operation="login_id_change",
+            actor_user_id=actor_user.id,
+            reason=audit_reason[:500],
+        )
+    )
+    _event(
+        session,
+        event_type="login_id_changed",
+        result="success",
+        reason_code="admin_confirmed",
+        credential=credential,
+        parent_account_id=account.id,
+    )
+
+    subject = "保護者ポータル 登録メールアドレス変更のお知らせ"
+    previous_recipients = {
+        recipient.strip()
+        for recipient in (old_email, old_login_id)
+        if recipient and "@" in recipient and recipient.strip() != requested_email
+    }
+    for previous_recipient in previous_recipients:
+        session.add(
+            ParentMailDelivery(
+                parent_account_id=account.id,
+                message_type="login_id_change",
+                recipient=previous_recipient,
+                subject=subject,
+                body=(
+                    "保護者ポータルの登録メールアドレスとログインIDが変更されました。\n"
+                    f"新しいログインID: {requested_email}\n\n"
+                    "お心当たりがない場合は施設へご連絡ください。"
+                ),
+            )
+        )
+    session.add(
+        ParentMailDelivery(
+            parent_account_id=account.id,
+            message_type="login_id_change",
+            recipient=requested_email,
+            subject=subject,
+            body=(
+                "保護者ポータルの登録メールアドレスとログインIDが変更されました。\n"
+                "次回からこのメールアドレスと、これまでのパスワードでログインしてください。\n\n"
+                "安全のため、ログイン中だった端末と通知登録は解除されています。"
+            ),
+        )
+    )
+    session.commit()
 
 
 def disable_parent_authentication(

@@ -18,6 +18,8 @@ GUARDIAN_FIELD_NAMES = (
     "last_name_kana",
     "first_name_kana",
     "relationship",
+    "parent_account_id",
+    "email",
     "phone",
     "workplace",
     "workplace_address",
@@ -38,6 +40,18 @@ def normalized_optional_text(value: Optional[str]) -> Optional[str]:
     return cleaned or None
 
 
+def _identity_key(value: Optional[str]) -> str:
+    return "".join(normalized_text(value).split()).casefold()
+
+
+def _phone_key(value: Optional[str]) -> str:
+    return "".join(character for character in normalized_text(value) if character.isdigit())
+
+
+def _email_key(value: Optional[str]) -> str:
+    return normalized_text(value).casefold()
+
+
 def _default_relationship_for_index(index: int) -> str:
     if index == 0:
         return DEFAULT_RELATIONSHIP_1
@@ -54,6 +68,14 @@ def _normalized_guardian_order(value: Any, fallback: int) -> int:
     return parsed if parsed > 0 else fallback
 
 
+def _normalized_parent_account_id(value: Any) -> Optional[int]:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
 def normalize_guardian_profile(
     profile: Optional[dict[str, Any]],
     *,
@@ -68,6 +90,8 @@ def normalize_guardian_profile(
         "last_name_kana": normalized_text(str(source.get("last_name_kana", ""))),
         "first_name_kana": normalized_text(str(source.get("first_name_kana", ""))),
         "relationship": normalized_text(str(source.get("relationship", ""))) or default_relationship,
+        "parent_account_id": _normalized_parent_account_id(source.get("parent_account_id")),
+        "email": normalized_text(str(source.get("email", ""))),
         "phone": normalized_text(str(source.get("phone", ""))),
         "workplace": normalized_text(str(source.get("workplace", ""))),
         "workplace_address": normalized_text(str(source.get("workplace_address", ""))),
@@ -104,7 +128,8 @@ def flatten_guardians_data(guardians_data: list[dict[str, Any]]) -> dict[str, st
             fallback_order=index + 1,
         )
         for field_name in GUARDIAN_FIELD_NAMES:
-            flattened[f"{prefix}_{field_name}"] = str(guardian.get(field_name, ""))
+            value = guardian.get(field_name, "")
+            flattened[f"{prefix}_{field_name}"] = "" if value is None else str(value)
     return flattened
 
 
@@ -156,6 +181,8 @@ def guardian_profiles_from_child(child: Child) -> list[dict[str, Any]]:
                 "last_name_kana": guardian.last_name_kana or "",
                 "first_name_kana": guardian.first_name_kana or "",
                 "relationship": guardian.relationship or "",
+                "parent_account_id": guardian.parent_account_id,
+                "email": guardian.email or "",
                 "phone": guardian.phone or "",
                 "workplace": guardian.workplace or "",
                 "workplace_address": guardian.workplace_address or "",
@@ -264,6 +291,85 @@ def sync_parent_child_links(session: Session, family: Family) -> None:
     del session, family
 
 
+def backfill_family_guardian_account_links(session: Session, family: Family) -> int:
+    """Safely link legacy guardian profiles to an account in the same family.
+
+    Existing links are preserved. A missing link is filled only when the
+    guardian's full name and at least one contact field identify exactly one
+    unused account belonging to the family.
+    """
+    if family.id is None:
+        return 0
+
+    accounts = session.exec(
+        select(ParentAccount)
+        .where(ParentAccount.family_id == family.id)
+        .order_by(ParentAccount.id)
+    ).all()
+    if not accounts:
+        return 0
+
+    # Work on copies so SQLAlchemy can detect the final JSON assignment even
+    # when this is an already-persisted legacy record.
+    profiles = [dict(profile) for profile in family.guardian_profiles()]
+    used_account_ids = {
+        account_id
+        for profile in profiles
+        if (account_id := _normalized_parent_account_id(profile.get("parent_account_id")))
+        is not None
+    }
+    changed = 0
+
+    for profile in profiles:
+        if _normalized_parent_account_id(profile.get("parent_account_id")) is not None:
+            continue
+
+        guardian_name = _identity_key(
+            f"{normalized_text(str(profile.get('last_name', '')))} "
+            f"{normalized_text(str(profile.get('first_name', '')))}"
+        )
+        guardian_phone = _phone_key(str(profile.get("phone", "")))
+        guardian_email = _email_key(str(profile.get("email", "")))
+        if not guardian_name or (not guardian_phone and not guardian_email):
+            continue
+
+        candidates: list[ParentAccount] = []
+        for account in accounts:
+            if account.id is None or account.id in used_account_ids:
+                continue
+            if _identity_key(account.display_name) != guardian_name:
+                continue
+            phone_matches = bool(
+                guardian_phone
+                and _phone_key(account.phone)
+                and guardian_phone == _phone_key(account.phone)
+            )
+            email_matches = bool(
+                guardian_email
+                and _email_key(account.email)
+                and guardian_email == _email_key(account.email)
+            )
+            if phone_matches or email_matches:
+                candidates.append(account)
+
+        if len(candidates) != 1:
+            continue
+
+        account = candidates[0]
+        profile["parent_account_id"] = account.id
+        if not normalized_text(str(profile.get("email", ""))):
+            profile["email"] = account.email
+        used_account_ids.add(account.id)
+        changed += 1
+
+    if changed:
+        family.shared_profile = {"guardians": normalize_guardians_data(profiles)}
+        family.updated_at = utc_now()
+        session.add(family)
+        session.flush()
+    return changed
+
+
 def sync_family_to_children(session: Session, family: Family, *, updated_at: Optional[datetime] = None) -> None:
     now = updated_at or utc_now()
     children = session.exec(
@@ -293,6 +399,10 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
                     last_name_kana=normalized_optional_text(str(profile.get("last_name_kana", ""))),
                     first_name_kana=normalized_optional_text(str(profile.get("first_name_kana", ""))),
                     relationship=normalized_text(str(profile.get("relationship", ""))) or "保護者",
+                    parent_account_id=_normalized_parent_account_id(
+                        profile.get("parent_account_id")
+                    ),
+                    email=normalized_optional_text(str(profile.get("email", ""))),
                     phone=normalized_optional_text(str(profile.get("phone", ""))),
                     workplace=normalized_optional_text(str(profile.get("workplace", ""))),
                     workplace_address=normalized_optional_text(str(profile.get("workplace_address", ""))),
@@ -519,5 +629,6 @@ def bootstrap_family_data(session: Session) -> None:
         ).first()
         if not family:
             continue
+        backfill_family_guardian_account_links(session, family)
         sync_family_to_children(session, family, updated_at=utc_now())
         sync_parent_child_links(session, family)

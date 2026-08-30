@@ -27,6 +27,7 @@ from parent_auth import (
     MAX_VERIFICATION_ATTEMPTS,
     PARENT_LOGIN_FAILURE_MESSAGE,
     authenticate_parent,
+    change_parent_login_id_by_admin,
     change_parent_password,
     complete_parent_action_password,
     complete_parent_registration,
@@ -574,7 +575,39 @@ def admin_parent_auth_page(
             "registration_status_labels": REGISTRATION_STATUS_LABELS,
             "action_code": "",
             "form_error": "",
+            "proposed_email": request.query_params.get("proposed_email")
+            or account.email,
+            "notice": request.query_params.get("notice", ""),
         },
+    )
+
+
+@router.post("/parent-accounts/{account_id}/authentication/login-id")
+def admin_change_parent_login_id(
+    account_id: int,
+    new_email: str = Form(...),
+    reason: str = Form(...),
+    confirmed: str = Form(...),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    actor = _admin_actor(session, current_user)
+    account = _load_admin_account(session, account_id)
+    if confirmed != "yes":
+        raise HTTPException(status_code=400, detail="変更内容の確認が必要です")
+    try:
+        change_parent_login_id_by_admin(
+            session,
+            account=account,
+            actor_user=actor,
+            new_email=new_email,
+            reason=reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RedirectResponse(
+        f"/parent-accounts/{account_id}/authentication?notice=login_id_changed",
+        status_code=303,
     )
 
 

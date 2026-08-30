@@ -836,6 +836,7 @@ def save_parent_child_profile_request(
     g1_last_name_kana: str = Form(""),
     g1_first_name_kana: str = Form(""),
     g1_relationship: str = Form("父"),
+    g1_email: str = Form(""),
     g1_phone: str = Form(""),
     g1_workplace: str = Form(""),
     g1_workplace_address: str = Form(""),
@@ -845,6 +846,7 @@ def save_parent_child_profile_request(
     g2_last_name_kana: str = Form(""),
     g2_first_name_kana: str = Form(""),
     g2_relationship: str = Form("母"),
+    g2_email: str = Form(""),
     g2_phone: str = Form(""),
     g2_workplace: str = Form(""),
     g2_workplace_address: str = Form(""),
@@ -879,6 +881,7 @@ def save_parent_child_profile_request(
         g1_last_name_kana=g1_last_name_kana,
         g1_first_name_kana=g1_first_name_kana,
         g1_relationship=g1_relationship,
+        g1_email=g1_email,
         g1_phone=g1_phone,
         g1_workplace=g1_workplace,
         g1_workplace_address=g1_workplace_address,
@@ -888,11 +891,20 @@ def save_parent_child_profile_request(
         g2_last_name_kana=g2_last_name_kana,
         g2_first_name_kana=g2_first_name_kana,
         g2_relationship=g2_relationship,
+        g2_email=g2_email,
         g2_phone=g2_phone,
         g2_workplace=g2_workplace,
         g2_workplace_address=g2_workplace_address,
         g2_workplace_phone=g2_workplace_phone,
     )
+    existing_guardians = child.family.guardian_profiles() if child.family else []
+    existing_account_ids_by_order = {
+        int(guardian.get("order", index + 1)): guardian.get("parent_account_id")
+        for index, guardian in enumerate(existing_guardians)
+    }
+    for index, guardian in enumerate(payload.get("guardians_data", [])):
+        order = int(guardian.get("order", index + 1))
+        guardian["parent_account_id"] = existing_account_ids_by_order.get(order)
 
     validation_error = validate_child_profile_payload(payload)
     if validation_error:

@@ -111,6 +111,8 @@ class FamilyManagementTests(unittest.TestCase):
                 "g1_last_name_kana": "タナカ",
                 "g1_first_name_kana": "マユミ",
                 "g1_relationship": "母",
+                "g1_parent_account_id": str(self.account_id),
+                "g1_email": "mayumi@example.com",
                 "g1_phone": "090-1111-2222",
                 "g1_workplace": "新しい勤務先",
                 "g1_workplace_address": "東京都港区3-3-3",
@@ -120,6 +122,8 @@ class FamilyManagementTests(unittest.TestCase):
                 "g2_last_name_kana": "",
                 "g2_first_name_kana": "",
                 "g2_relationship": "父",
+                "g2_parent_account_id": "",
+                "g2_email": "",
                 "g2_phone": "",
                 "g2_workplace": "",
                 "g2_workplace_address": "",
@@ -138,6 +142,21 @@ class FamilyManagementTests(unittest.TestCase):
         self.assertEqual({child.family_id for child in children}, {self.family_id})
         self.assertEqual({child.home_address for child in children}, {"New Shared Address"})
         self.assertEqual(family.home_phone, "03-9999-9999")
+        self.assertEqual(family.shared_profile["guardians"][0]["email"], "mayumi@example.com")
+        self.assertEqual(
+            family.shared_profile["guardians"][0]["parent_account_id"],
+            self.account_id,
+        )
+
+        list_response = self.client.get("/families/")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertIn("mayumi@example.com", list_response.text)
+        self.assertIn("紐づけ済み", list_response.text)
+
+        edit_response = self.client.get(f"/families/{self.family_id}/edit")
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertIn("紐づく保護者アカウント", edit_response.text)
+        self.assertIn("mayumi@example.com", edit_response.text)
 
     def test_non_manager_cannot_edit_family(self):
         self.current_user = StaffUser(role=Role.CAN_EDIT, name="日常編集担当")

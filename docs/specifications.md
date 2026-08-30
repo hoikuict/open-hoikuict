@@ -48,6 +48,9 @@
 
 | 文書 | 役割 |
 | --- | --- |
+| [バックアップ・復元仕様](backup-restore-spec.md) | 保護対象、RPO/RTO、保持、暗号化、検査、復元・廃棄の現行契約 |
+| [TrueNAS・Dockge・Cloudflare 実運用試験構成仕様](pilot-deployment-spec.md) | 段階的な実運用試験の構成、境界、設定、受け入れ条件 |
+| [TrueNAS・Dockge・Cloudflare 実運用試験手順書](truenas-dockge-cloudflare-pilot-runbook.md) | 準備、初回起動、検証、backup・復元、更新、障害対応 |
 | [画面遷移リスト](screen-transition-list.md) | 登録済みの主要画面と導線 |
 | [デモデータ仕様](demo-data.md) | デモデータの規模、期間、投入方法、整合性 |
 | [開発者向け](development.md) | ローカル開発、テスト、DB方針 |

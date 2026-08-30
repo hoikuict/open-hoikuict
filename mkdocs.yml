@@ -54,6 +54,9 @@ nav:
   - 開発・運用:
       - 開発者向け: development.md
       - β・モック・デモの環境分離: environment-profiles.md
+      - 実運用試験構成仕様: pilot-deployment-spec.md
+      - 実運用試験手順書: truenas-dockge-cloudflare-pilot-runbook.md
+      - バックアップ・復元仕様: backup-restore-spec.md
       - 運用責任: operations.md
       - セキュリティ最低ライン: security.md
       - 個人情報とダミーデータ: privacy.md

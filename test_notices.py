@@ -227,6 +227,11 @@ class NoticeRouterTests(unittest.TestCase):
                 edit_page = self.client.get(f"/notices/{notice_id}/edit")
                 self.assertEqual(edit_page.status_code, 200, edit_page.text)
                 self.assertIn("文字色", edit_page.text)
+                self.assertEqual(edit_page.text.count("data-text-color="), 8)
+                self.assertIn('data-text-color="#dc2626"', edit_page.text)
+                self.assertNotIn('id="notice-text-color"', edit_page.text)
+                self.assertIn("document.addEventListener('selectionchange', rememberSelection)", edit_page.text)
+                self.assertIn("toolbar.addEventListener('pointerdown', rememberSelection, true)", edit_page.text)
                 self.assertIn("背景色", edit_page.text)
                 self.assertIn("photo.png", edit_page.text)
 

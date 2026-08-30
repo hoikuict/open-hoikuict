@@ -67,6 +67,7 @@ def create_db_and_tables() -> None:
     _migrate_add_attendance_columns()
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
+    _migrate_add_guardian_columns()
     _migrate_parent_mail_delivery_columns()
     _migrate_add_family_columns()
     _migrate_add_message_columns()
@@ -266,6 +267,24 @@ def _migrate_add_parent_account_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("parent account column", exc)
+
+
+def _migrate_add_guardian_columns() -> None:
+    try:
+        columns = _table_columns("guardians")
+        if columns:
+            with engine.begin() as conn:
+                if "parent_account_id" not in columns:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE guardians ADD COLUMN parent_account_id "
+                            "INTEGER REFERENCES parent_accounts(id)"
+                        )
+                    )
+                if "email" not in columns:
+                    conn.execute(text("ALTER TABLE guardians ADD COLUMN email VARCHAR"))
+    except Exception as exc:
+        _log_migration_skip("guardian column", exc)
 
 
 def _migrate_parent_mail_delivery_columns() -> None:
