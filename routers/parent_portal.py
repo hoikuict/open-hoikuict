@@ -11,6 +11,7 @@ from auth import (
     clear_parent_account_cookie,
     get_current_parent_account_id,
     set_parent_account_cookie,
+    parent_auth_is_mock,
     require_mock_parent_auth,
 )
 from child_profile_changes import (
@@ -40,6 +41,7 @@ from models import (
     ParentContactType,
     ParentChildLink,
     ParentNotification,
+    PasswordCredential,
     ProfileChangeNotification,
     Survey,
     SurveyAnswer,
@@ -237,7 +239,9 @@ def _get_parent_account(request: Request, session: Session) -> Optional[ParentAc
 
 
 def _linked_children(parent_account: ParentAccount) -> list[Child]:
-    if parent_account.family and parent_account.family.children:
+    # Legacy mock data did not always contain explicit links. Real authentication
+    # never expands authorization from family membership.
+    if parent_auth_is_mock() and parent_account.family and parent_account.family.children:
         children = list(parent_account.family.children)
     else:
         children = [link.child for link in parent_account.child_links if link.child is not None]
@@ -473,7 +477,7 @@ def parent_logout(
             session.commit()
     response = RedirectResponse(url="/parent-portal/login", status_code=303)
     clear_parent_push_device_cookie(response)
-    clear_parent_account_cookie(response)
+    clear_parent_account_cookie(response, request)
     return response
 
 
@@ -617,6 +621,13 @@ def parent_profile_form(
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
+    credential = session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.principal_type == "parent",
+            PasswordCredential.parent_account_id == current_parent_user.id,
+        )
+    ).first()
+
     return templates.TemplateResponse(
         request,
         "parent_portal/profile.html",
@@ -624,8 +635,9 @@ def parent_profile_form(
             "request": request,
             "current_parent_user": current_parent_user,
             "parent_portal_mode": True,
-            "notice": "プロフィールを更新しました。" if notice == "updated" else "",
+            "notice": "登録情報を更新しました。" if notice == "updated" else "",
             "form_error": "",
+            "login_id": credential.login_id if credential else "",
         },
     )
 
@@ -678,6 +690,34 @@ def save_parent_profile(
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
     normalized_email = (email or "").strip()
+    credential = session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.principal_type == "parent",
+            PasswordCredential.parent_account_id == current_parent_user.id,
+        )
+    ).first()
+    if not normalized_email or len(normalized_email) > 255 or "@" not in normalized_email:
+        return templates.TemplateResponse(
+            request,
+            "parent_portal/profile.html",
+            {
+                "request": request,
+                "current_parent_user": current_parent_user,
+                "parent_portal_mode": True,
+                "notice": "",
+                "form_error": "受信可能なメールアドレスを入力してください。",
+                "login_id": credential.login_id if credential else "",
+                "form_data": {
+                    "email": normalized_email,
+                    "phone": phone,
+                    "home_address": home_address,
+                    "workplace": workplace,
+                    "workplace_address": workplace_address,
+                    "workplace_phone": workplace_phone,
+                },
+            },
+            status_code=400,
+        )
     existing = session.exec(
         select(ParentAccount).where(
             ParentAccount.email == normalized_email,
@@ -694,6 +734,7 @@ def save_parent_profile(
                 "parent_portal_mode": True,
                 "notice": "",
                 "form_error": "このメールアドレスは別の保護者アカウントで利用されています。",
+                "login_id": credential.login_id if credential else "",
                 "form_data": {
                     "email": normalized_email,
                     "phone": phone,
@@ -1510,7 +1551,10 @@ def parent_notification_detail(
 ):
     current_parent_user = _get_parent_account(request, session)
     if not current_parent_user:
-        return RedirectResponse(url="/parent-portal/login", status_code=303)
+        return RedirectResponse(
+            url=f"/parent-portal/login?redirect=/parent-portal/notifications/{notification_id}",
+            status_code=303,
+        )
 
     notification = session.exec(
         select(ParentNotification).where(

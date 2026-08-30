@@ -1,0 +1,20 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}保護者認証管理{% endblock %}
+{% block content %}
+<h1>保護者認証管理</h1><p><strong>{{ account.display_name }}</strong> / {{ account.email }}</p>
+<p>状態: {% if credential and credential.disabled_at %}停止{% elif credential and credential.password_hash %}有効{% elif registrations %}{{ registrations[0].status }}{% else %}未招待{% endif %} / 有効セッション {{ active_session_count }}件</p>
+{% if not credential or not credential.password_hash or credential.disabled_at %}
+<form method="post" action="/parent-accounts/{{ account.id }}/authentication/activate">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <label>初回設定コードの発行理由<textarea name="reason" required></textarea></label>
+  <button>初回設定コードを発行</button>
+</form>
+{% endif %}
+<form method="post" action="/parent-accounts/{{ account.id }}/authentication/invite"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>招待理由<textarea name="reason" required></textarea></label><button>招待を送信・再送</button></form>
+{% for registration in registrations %}
+<hr><p>申請 {{ registration.status }} / 保護者氏名 {{ '一致' if registration.guardian_name_matched else '不一致' }} / 園児氏名 {{ '一致' if registration.child_name_matched else '不一致' }} / 生年月日 {{ '一致' if registration.child_birth_date_matched else '不一致' }}</p>
+{% if registration.status == 'pending_review' %}<form method="post" action="/parent-accounts/{{ account.id }}/authentication/registrations/{{ registration.id }}/review"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>確認理由<textarea name="reason" required></textarea></label><div class="row"><button name="decision" value="approve">承認</button><button class="secondary" name="decision" value="reject">却下</button></div></form>{% endif %}
+{% endfor %}
+{% if credential and credential.password_hash %}<form method="post" action="/parent-accounts/{{ account.id }}/authentication/reset"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>再設定理由<textarea name="reason" required></textarea></label><button>再設定コードを発行</button></form>{% endif %}
+<form method="post" action="/parent-accounts/{{ account.id }}/authentication/disable"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>停止理由<textarea name="reason" required></textarea></label><button class="secondary">資格情報を停止</button></form>
+{% endblock %}

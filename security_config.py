@@ -26,6 +26,19 @@ def staff_auth_mode() -> str:
     return raw
 
 
+def parent_auth_mode() -> str:
+    raw = (os.getenv("HOIKUICT_PARENT_AUTH_MODE") or "").strip().lower()
+    if not raw:
+        if not is_production() and os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1":
+            return "mock"
+        return "disabled"
+    if raw not in {"mock", "local_password", "disabled"}:
+        raise RuntimeError(
+            "HOIKUICT_PARENT_AUTH_MODE は mock / local_password / disabled のいずれかです"
+        )
+    return raw
+
+
 def parent_push_transport() -> str:
     default = "disabled" if is_production() else "capture"
     return (os.getenv("HOIKUICT_PUSH_TRANSPORT") or default).strip().lower()
@@ -101,7 +114,8 @@ def validate_runtime_security() -> None:
     if mode == "token" and not os.getenv("HOIKUICT_KIOSK_TOKEN"):
         raise RuntimeError("tokenモードでは HOIKUICT_KIOSK_TOKEN が必要です")
     auth_mode = staff_auth_mode()
-    if auth_mode == "local_password":
+    parent_mode = parent_auth_mode()
+    if auth_mode == "local_password" or parent_mode == "local_password":
         throttle_key = os.getenv("HOIKUICT_LOGIN_THROTTLE_HMAC_KEY", "")
         if len(throttle_key.encode("utf-8")) < 32:
             raise RuntimeError(
@@ -129,6 +143,24 @@ def validate_runtime_security() -> None:
         errors.append("32文字以上の HOIKUICT_SECRET_KEY が必要です")
     if auth_mode != "local_password":
         errors.append("HOIKUICT_STAFF_AUTH_MODE=local_password が必要です")
+    if parent_mode != "local_password":
+        errors.append("HOIKUICT_PARENT_AUTH_MODE=local_password が必要です")
+    parent_mail_transport = (os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT") or "disabled").strip().lower()
+    if parent_mail_transport != "smtp":
+        errors.append("HOIKUICT_PARENT_MAIL_TRANSPORT=smtp が必要です")
+    registration_url = urlsplit((os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL") or "").strip())
+    if (
+        registration_url.scheme != "https"
+        or not registration_url.netloc
+        or registration_url.query
+        or registration_url.fragment
+    ):
+        errors.append("HTTPSの HOIKUICT_PARENT_REGISTRATION_BASE_URL が必要です")
+    for setting_name in ("HOIKUICT_SMTP_HOST", "HOIKUICT_SMTP_PORT", "HOIKUICT_PARENT_MAIL_FROM"):
+        if not (os.getenv(setting_name) or "").strip():
+            errors.append(f"{setting_name} が必要です")
+    if os.getenv("HOIKUICT_SMTP_STARTTLS") != "1":
+        errors.append("HOIKUICT_SMTP_STARTTLS=1 が必要です")
     blocklist_path = os.getenv("HOIKUICT_PASSWORD_BLOCKLIST_PATH", "").strip()
     if not blocklist_path or not os.path.isfile(blocklist_path):
         errors.append("読取可能な HOIKUICT_PASSWORD_BLOCKLIST_PATH が必要です")

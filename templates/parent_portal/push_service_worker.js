@@ -1,3 +1,11 @@
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener('push', event => {
   let payload = {};
   try { payload = event.data ? event.data.json() : {}; } catch (_) { payload = {}; }
@@ -25,12 +33,22 @@ self.addEventListener('notificationclick', event => {
   const actionUrl = safeActionUrl(event.notification.data?.action_url);
   event.waitUntil((async () => {
     await postReceipt(event.notification.data, 'clicked');
+    const absoluteUrl = new URL(actionUrl, self.location.origin).href;
     const windows = await clients.matchAll({type: 'window', includeUncontrolled: true});
     for (const client of windows) {
-      if ('navigate' in client) await client.navigate(actionUrl);
-      return client.focus();
+      let clientUrl;
+      try { clientUrl = new URL(client.url); } catch (_) { continue; }
+      if (clientUrl.origin !== self.location.origin || !clientUrl.pathname.startsWith('/parent-portal/')) continue;
+      try {
+        const navigated = 'navigate' in client ? await client.navigate(absoluteUrl) : client;
+        return await (navigated || client).focus();
+      } catch (_) {
+        // Android Chrome may reject navigation of a stale window client. Try another
+        // portal window and finally open a new one below.
+      }
     }
-    return clients.openWindow(actionUrl);
+    const opened = await clients.openWindow(absoluteUrl);
+    return opened && 'focus' in opened ? opened.focus() : opened;
   })());
 });
 

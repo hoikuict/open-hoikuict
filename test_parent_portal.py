@@ -27,9 +27,12 @@ from models import (
     NoticeTargetType,
     ParentAccount,
     ParentAccountStatus,
+    ParentChildLink,
+    ParentChildLinkAudit,
     ParentContactType,
     ParentNotification,
     ParentNotificationKind,
+    PasswordCredential,
     ProfileChangeNotification,
 )
 import notice_content
@@ -229,6 +232,16 @@ class ParentPortalTests(unittest.TestCase):
             session.commit()
             session.refresh(notification)
             notification_id = notification.id
+
+        unauthenticated_response = self.client.get(
+            f"/parent-portal/notifications/{notification_id}",
+            follow_redirects=False,
+        )
+        self.assertEqual(unauthenticated_response.status_code, 303)
+        self.assertEqual(
+            unauthenticated_response.headers["location"],
+            f"/parent-portal/login?redirect=/parent-portal/notifications/{notification_id}",
+        )
 
         self._login_parent(self.parent_account_id)
         home_response = self.client.get("/parent-portal/")
@@ -608,6 +621,58 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIsNotNone(account)
         self.assertEqual(account.family_id, self.main_family_id)
 
+    def test_changing_child_links_preserves_existing_link_attributes(self):
+        actor = StaffUser(
+            role=Role.CAN_EDIT,
+            name="台帳担当",
+            can_manage_child_records=True,
+        )
+        with Session(self.engine) as session:
+            account = session.get(ParentAccount, self.parent_account_id)
+            session.add(
+                ParentChildLink(
+                    parent_account_id=account.id,
+                    child_id=self.child_id,
+                    relationship_label="母",
+                    is_primary_contact=True,
+                )
+            )
+            session.commit()
+
+            changed = parent_accounts_module._replace_child_links(
+                session,
+                account,
+                [self.child_id, self.second_child_id],
+                actor,
+            )
+            session.commit()
+
+            self.assertTrue(changed)
+            preserved = session.exec(
+                select(ParentChildLink).where(
+                    ParentChildLink.parent_account_id == account.id,
+                    ParentChildLink.child_id == self.child_id,
+                )
+            ).one()
+            self.assertEqual(preserved.relationship_label, "母")
+            self.assertTrue(preserved.is_primary_contact)
+            audits = session.exec(
+                select(ParentChildLinkAudit).where(
+                    ParentChildLinkAudit.parent_account_id == account.id
+                )
+            ).all()
+            self.assertEqual(
+                [(audit.operation, audit.child_id) for audit in audits],
+                [("link", self.second_child_id)],
+            )
+
+    def test_parent_list_hides_mock_login_link_in_local_auth_mode(self):
+        with patch.object(parent_accounts_module, "parent_auth_is_mock", return_value=False):
+            response = self.client.get("/parent-accounts/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("/parent-portal/mock-login/", response.text)
+
     def test_profile_update_creates_staff_notification(self):
         self._login_parent(self.parent_account_id)
 
@@ -638,6 +703,49 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(staff_response.status_code, 200)
         self.assertIn("未確認のプロフィール変更", staff_response.text)
         self.assertIn("東京都港区3-3-3", staff_response.text)
+
+    def test_registered_email_change_keeps_local_login_id(self):
+        with Session(self.engine) as session:
+            session.add(
+                PasswordCredential(
+                    principal_type="parent",
+                    parent_account_id=self.parent_account_id,
+                    login_id="tanaka@example.com",
+                    login_id_normalized="tanaka@example.com",
+                    password_hash="test-only-hash",
+                )
+            )
+            session.commit()
+
+        self._login_parent(self.parent_account_id)
+        page = self.client.get("/parent-portal/profile")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("現在のログインID", page.text)
+        self.assertIn("tanaka@example.com", page.text)
+
+        response = self.client.post(
+            "/parent-portal/profile",
+            data={
+                "email": "contact-tanaka@example.com",
+                "phone": "090-0000-0001",
+                "home_address": "東京都港区1-1-1",
+                "workplace": "サンプル会社",
+                "workplace_address": "東京都港区3-3-3",
+                "workplace_phone": "",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+
+        with Session(self.engine) as session:
+            account = session.get(ParentAccount, self.parent_account_id)
+            credential = session.exec(
+                select(PasswordCredential).where(
+                    PasswordCredential.parent_account_id == self.parent_account_id
+                )
+            ).one()
+        self.assertEqual(account.email, "contact-tanaka@example.com")
+        self.assertEqual(credential.login_id, "tanaka@example.com")
 
     def test_child_profile_selector_redirects_when_only_one_child(self):
         self._login_parent(self.single_parent_account_id)

@@ -1,0 +1,15 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}保護者ログイン{% endblock %}
+{% block content %}
+<h1>保護者ログイン</h1><p class="muted">施設に登録されたログインIDとパスワードを入力してください。</p>
+{% if password_changed %}<p class="success">パスワードを設定しました。新しいパスワードでログインしてください。</p>{% endif %}
+{% if form_error %}<p class="error">{{ form_error }}</p>{% endif %}
+<form method="post" action="/parent-portal/login">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
+  <label>ログインID<input name="login_id" value="{{ login_id }}" required maxlength="255" autocomplete="username"></label>
+  <label>パスワード<input type="password" name="password" required maxlength="128" autocomplete="current-password"></label>
+  <button type="submit">ログイン</button>
+</form>
+<p class="muted">パスワードを忘れた場合は施設へご連絡ください。再設定コードをお持ちの方は<a href="/parent-portal/reset">こちら</a>。</p>
+{% endblock %}

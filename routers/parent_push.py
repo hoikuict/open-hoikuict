@@ -12,6 +12,7 @@ from database import get_session
 from models import (
     ParentAccount,
     ParentAccountStatus,
+    ParentPushSubscriptionStatus,
     ParentPushSubscription,
 )
 from parent_push_subscription_service import (
@@ -91,6 +92,12 @@ def push_settings(
 ):
     parent = _require_parent_account(request, session)
     preference = get_parent_push_preference(session, parent_account_id=parent.id)
+    active_subscriptions = session.exec(
+        select(ParentPushSubscription).where(
+            ParentPushSubscription.parent_account_id == parent.id,
+            ParentPushSubscription.status == ParentPushSubscriptionStatus.active,
+        )
+    ).all()
     return templates.TemplateResponse(
         request,
         "parent_portal/push_settings.html",
@@ -98,6 +105,7 @@ def push_settings(
             "current_parent_user": parent,
             "parent_portal_mode": True,
             "preference": preference,
+            "active_subscriptions": active_subscriptions,
             "vapid_key_available": bool(parent_push_vapid_public_key()),
             "development_mode": deployment_environment() == "development",
         },

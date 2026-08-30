@@ -67,6 +67,7 @@ def create_db_and_tables() -> None:
     _migrate_add_attendance_columns()
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
+    _migrate_parent_mail_delivery_columns()
     _migrate_add_family_columns()
     _migrate_add_message_columns()
     _migrate_add_meeting_note_columns()
@@ -265,6 +266,23 @@ def _migrate_add_parent_account_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("parent account column", exc)
+
+
+def _migrate_parent_mail_delivery_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            cols = _table_columns("parent_mail_deliveries")
+            if not cols:
+                return
+            if "processing_started_at" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN processing_started_at DATETIME"))
+            if "lease_expires_at" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN lease_expires_at DATETIME"))
+            if "next_retry_at" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN next_retry_at DATETIME"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("parent mail delivery column", exc)
 
 
 def _migrate_add_family_columns() -> None:

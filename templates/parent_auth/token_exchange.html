@@ -1,0 +1,12 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<h1>{{ heading }}</h1><p id="message">リンクを確認しています。</p>
+<form id="exchange" method="post" action="{{ verify_url }}">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <input id="token" type="hidden" name="token">
+</form>
+<script>
+(() => { const token = location.hash.slice(1); history.replaceState(null,"",location.pathname); if(!token){document.getElementById("message").textContent="リンクを確認できません。施設へご連絡ください。";return;} document.getElementById("token").value=token; document.getElementById("exchange").submit(); })();
+</script>
+{% endblock %}

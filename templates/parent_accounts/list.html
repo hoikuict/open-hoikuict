@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div>
     <h1 class="text-2xl font-bold text-slate-800">保護者アカウント</h1>
-    <p class="text-sm text-slate-500">保護者は家族に所属し、その家族の園児へ自動で紐づきます。</p>
+    <p class="text-sm text-slate-500">園児への閲覧権限は、保護者ごとの明示的な紐付けで管理します。</p>
   </div>
   {% if current_user and current_user.can_manage_child_records %}
   <a href="/parent-accounts/new" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:self-auto">新規登録</a>
@@ -93,9 +93,9 @@
           {% endif %}
         </td>
         <td class="px-4 py-3 text-slate-700">
-          {% if account.family and account.family.children %}
-            {% for child in account.family.children %}
-            {{ child.full_name }}{% if not loop.last %}<br>{% endif %}
+          {% if account.child_links %}
+            {% for link in account.child_links %}
+            {% if link.child %}{{ link.child.full_name }}{% endif %}{% if not loop.last %}<br>{% endif %}
             {% endfor %}
           {% else %}
           -
@@ -107,7 +107,8 @@
             {% if current_user and current_user.can_manage_child_records %}
             <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
             {% endif %}
-            <a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>
+            {% if current_user and current_user.is_admin %}<a href="/parent-accounts/{{ account.id }}/authentication" class="rounded border border-emerald-300 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-50">認証管理</a>{% endif %}
+            {% if parent_mock_login_available %}<a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>{% endif %}
           </div>
         </td>
       </tr>
@@ -155,9 +156,9 @@
         <div class="min-w-0">
           <dt class="text-xs font-medium text-slate-500">紐づく園児</dt>
           <dd class="mt-1 break-words text-slate-700">
-            {% if account.family and account.family.children %}
-              {% for child in account.family.children %}
-              {{ child.full_name }}{% if not loop.last %}<br>{% endif %}
+            {% if account.child_links %}
+              {% for link in account.child_links %}
+              {{ link.child.full_name }}{% if not loop.last %}<br>{% endif %}
               {% endfor %}
             {% else %}
             -
@@ -175,7 +176,8 @@
       {% if current_user and current_user.can_manage_child_records %}
       <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">編集</a>
       {% endif %}
-      <a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>
+      {% if current_user and current_user.is_admin %}<a href="/parent-accounts/{{ account.id }}/authentication" class="rounded border border-emerald-300 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-50">認証管理</a>{% endif %}
+      {% if parent_mock_login_available %}<a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>{% endif %}
     </div>
   </article>
   {% else %}

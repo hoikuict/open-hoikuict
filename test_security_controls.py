@@ -142,8 +142,15 @@ class SecurityControlTests(unittest.TestCase):
             "HOIKUICT_ENV": "production",
             "HOIKUICT_SECRET_KEY": "s" * 40,
             "HOIKUICT_STAFF_AUTH_MODE": "local_password",
+            "HOIKUICT_PARENT_AUTH_MODE": "local_password",
             "HOIKUICT_LOGIN_THROTTLE_HMAC_KEY": "t" * 40,
             "HOIKUICT_PASSWORD_BLOCKLIST_PATH": "password-blocklist.txt",
+            "HOIKUICT_PARENT_MAIL_TRANSPORT": "smtp",
+            "HOIKUICT_PARENT_REGISTRATION_BASE_URL": "https://parents.example.jp",
+            "HOIKUICT_SMTP_HOST": "mail.example.local",
+            "HOIKUICT_SMTP_PORT": "587",
+            "HOIKUICT_SMTP_STARTTLS": "1",
+            "HOIKUICT_PARENT_MAIL_FROM": "noreply@example.jp",
         }
         with patch.dict(os.environ, settings, clear=True), patch(
             "security_config.os.path.isfile",

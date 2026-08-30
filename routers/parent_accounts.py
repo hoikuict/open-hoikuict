@@ -5,22 +5,89 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_child_record_manager
+from auth import (
+    get_current_staff_user,
+    parent_auth_is_mock,
+    require_child_record_manager,
+)
 from database import get_session
 from family_support import sync_parent_child_links
-from models import Family, ParentAccount, ParentAccountStatus, ProfileChangeNotification
+from models import (
+    Child,
+    Family,
+    ParentAccount,
+    ParentAccountStatus,
+    ParentChildLink,
+    ParentChildLinkAudit,
+    ProfileChangeNotification,
+)
+from parent_auth import cancel_open_parent_registrations, suspend_parent_authentication
 from time_utils import utc_now
 
 router = APIRouter(prefix="/parent-accounts", tags=["parent_accounts"])
 from template_utils import create_templates
 
 templates = create_templates()
+
+
 def _all_families(session: Session) -> list[Family]:
     return session.exec(
         select(Family)
         .options(selectinload(Family.children), selectinload(Family.parent_accounts))
         .order_by(Family.family_name, Family.id)
     ).all()
+
+
+def _all_children(session: Session) -> list[Child]:
+    return session.exec(
+        select(Child).order_by(Child.last_name_kana, Child.first_name_kana, Child.id)
+    ).all()
+
+
+def _replace_child_links(
+    session: Session, account: ParentAccount, child_ids: list[int], actor
+) -> bool:
+    existing = session.exec(
+        select(ParentChildLink).where(ParentChildLink.parent_account_id == account.id)
+    ).all()
+    existing_by_child_id = {link.child_id: link for link in existing}
+    old_ids = set(existing_by_child_id)
+    new_ids = set(child_ids)
+    if new_ids:
+        valid_ids = set(
+            session.exec(select(Child.id).where(Child.id.in_(new_ids))).all()
+        )
+        if valid_ids != new_ids:
+            raise HTTPException(
+                status_code=400, detail="存在しない園児が指定されています"
+            )
+    if old_ids == new_ids:
+        return False
+    for child_id in sorted(old_ids - new_ids):
+        session.add(
+            ParentChildLinkAudit(
+                parent_account_id=account.id,
+                child_id=child_id,
+                operation="unlink",
+                actor_user_id=actor.user_id,
+                actor_name=actor.name,
+            )
+        )
+    for child_id in sorted(new_ids - old_ids):
+        session.add(
+            ParentChildLinkAudit(
+                parent_account_id=account.id,
+                child_id=child_id,
+                operation="link",
+                actor_user_id=actor.user_id,
+                actor_name=actor.name,
+            )
+        )
+    for child_id in old_ids - new_ids:
+        session.delete(existing_by_child_id[child_id])
+    for child_id in sorted(new_ids - old_ids):
+        session.add(ParentChildLink(parent_account_id=account.id, child_id=child_id))
+    return True
 
 
 def _load_account(session: Session, account_id: int) -> ParentAccount:
@@ -41,7 +108,9 @@ def _sync_related_families(session: Session, family_ids: set[int]) -> None:
     for family_id in sorted(family_ids):
         family = session.exec(
             select(Family)
-            .options(selectinload(Family.children), selectinload(Family.parent_accounts))
+            .options(
+                selectinload(Family.children), selectinload(Family.parent_accounts)
+            )
             .where(Family.id == family_id)
         ).first()
         if family:
@@ -56,7 +125,10 @@ def parent_account_list(
 ):
     accounts = session.exec(
         select(ParentAccount)
-        .options(selectinload(ParentAccount.family).selectinload(Family.children))
+        .options(
+            selectinload(ParentAccount.family).selectinload(Family.children),
+            selectinload(ParentAccount.child_links).selectinload(ParentChildLink.child),
+        )
         .order_by(ParentAccount.display_name)
     ).all()
     notifications = session.exec(
@@ -72,6 +144,7 @@ def parent_account_list(
             "request": request,
             "accounts": accounts,
             "notifications": notifications,
+            "parent_mock_login_available": parent_auth_is_mock(),
             "current_user": current_user,
         },
     )
@@ -91,6 +164,8 @@ def new_parent_account_form(
             "request": request,
             "account": None,
             "families": _all_families(session),
+            "children": _all_children(session),
+            "selected_child_ids": set(),
             "selected_family_id": "",
             "action_url": "/parent-accounts/",
             "submit_label": "登録する",
@@ -111,6 +186,9 @@ def create_parent_account(
     workplace_phone: str = Form(""),
     status: str = Form("active"),
     family_id: str = Form(""),
+    registration_verification_name: str = Form(""),
+    registration_verification_name_type: str = Form(""),
+    child_ids: list[int] = Form(default=[]),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -124,6 +202,10 @@ def create_parent_account(
     account = ParentAccount(
         display_name=display_name.strip(),
         email=email.strip(),
+        registration_verification_name=registration_verification_name.strip() or None,
+        registration_verification_name_type=registration_verification_name_type
+        if registration_verification_name_type in {"kana", "latin"}
+        else None,
         phone=(phone or "").strip() or None,
         home_address=(home_address or "").strip() or None,
         workplace=(workplace or "").strip() or None,
@@ -135,6 +217,7 @@ def create_parent_account(
     )
     session.add(account)
     session.flush()
+    _replace_child_links(session, account, child_ids, current_user)
 
     if selected_family_id:
         _sync_related_families(session, {selected_family_id})
@@ -159,6 +242,8 @@ def edit_parent_account_form(
             "request": request,
             "account": account,
             "families": _all_families(session),
+            "children": _all_children(session),
+            "selected_child_ids": {link.child_id for link in account.child_links},
             "selected_family_id": account.family_id if account.family_id else "",
             "action_url": f"/parent-accounts/{account_id}/edit",
             "submit_label": "更新する",
@@ -180,12 +265,20 @@ def update_parent_account(
     workplace_phone: str = Form(""),
     status: str = Form("active"),
     family_id: str = Form(""),
+    registration_verification_name: str = Form(""),
+    registration_verification_name_type: str = Form(""),
+    child_ids: list[int] = Form(default=[]),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
     account = _load_account(session, account_id)
     old_family_id = account.family_id
+    old_email = account.email
+    old_verification = (
+        account.registration_verification_name,
+        account.registration_verification_name_type,
+    )
 
     try:
         normalized_status = ParentAccountStatus(status)
@@ -194,6 +287,14 @@ def update_parent_account(
 
     account.display_name = display_name.strip()
     account.email = email.strip()
+    account.registration_verification_name = (
+        registration_verification_name.strip() or None
+    )
+    account.registration_verification_name_type = (
+        registration_verification_name_type
+        if registration_verification_name_type in {"kana", "latin"}
+        else None
+    )
     account.phone = (phone or "").strip() or None
     account.home_address = (home_address or "").strip() or None
     account.workplace = (workplace or "").strip() or None
@@ -204,8 +305,29 @@ def update_parent_account(
     account.updated_at = utc_now()
     session.add(account)
     session.flush()
+    links_changed = _replace_child_links(session, account, child_ids, current_user)
+    if (
+        links_changed
+        or old_email != account.email
+        or old_verification
+        != (
+            account.registration_verification_name,
+            account.registration_verification_name_type,
+        )
+    ):
+        cancel_open_parent_registrations(session, account.id)
+    if account.status == ParentAccountStatus.inactive:
+        suspend_parent_authentication(
+            session,
+            account,
+            reason="parent_account_inactive",
+        )
 
-    family_ids = {family_id for family_id in [old_family_id, account.family_id] if family_id is not None}
+    family_ids = {
+        family_id
+        for family_id in [old_family_id, account.family_id]
+        if family_id is not None
+    }
     _sync_related_families(session, family_ids)
 
     session.commit()

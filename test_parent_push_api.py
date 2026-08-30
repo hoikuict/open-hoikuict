@@ -306,6 +306,29 @@ class ParentPushApiTests(unittest.TestCase):
         self.assertIn("VAPID公開鍵が未設定", response.text)
         self.assertIn("enableButton.addEventListener('click'", response.text)
 
+    def test_push_settings_shows_saved_values_and_registered_device_count(self):
+        self._login(self.first_parent_id)
+        self.client.post(
+            "/parent-portal/push/preferences",
+            json={
+                "push_enabled": False,
+                "attendance_confirmation_enabled": True,
+            },
+        )
+        self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(device_label="確認用スマートフォン"),
+        )
+
+        response = self.client.get("/parent-portal/push-settings")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("確認用スマートフォン", response.text)
+        self.assertIn("通知が有効な端末は <strong>1台</strong>", response.text)
+        checkbox_start = response.text.index('id="push-enabled"')
+        checkbox_end = response.text.index(">", checkbox_start)
+        self.assertNotIn("checked", response.text[checkbox_start:checkbox_end])
+
     def test_public_key_is_available_only_to_authenticated_parent(self):
         self._login(self.first_parent_id)
         with patch.dict(
@@ -337,6 +360,9 @@ class ParentPushApiTests(unittest.TestCase):
         )
         self.assertIn("safeActionUrl", worker.text)
         self.assertIn("postReceipt(receiptData, 'shown')", worker.text)
+        self.assertIn("new URL(actionUrl, self.location.origin).href", worker.text)
+        self.assertIn("clients.openWindow(absoluteUrl)", worker.text)
+        self.assertIn("self.skipWaiting()", worker.text)
 
 
 if __name__ == "__main__":

@@ -97,6 +97,15 @@
           <input type="text" id="first_name_kana" name="first_name_kana" required value="{{ form_data.first_name_kana if form_data else (child.first_name_kana if child else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>
         <div>
+          <label for="registration_verification_name" class="mb-1 block text-sm font-medium text-slate-600">保護者登録の照合用氏名</label>
+          <input type="text" id="registration_verification_name" name="registration_verification_name" maxlength="200" value="{{ child.registration_verification_name if child and child.registration_verification_name else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+          <p class="mt-1 text-xs text-slate-500">カナまたは本人確認済みの英字表記。漢字・外字は使用しません。</p>
+        </div>
+        <div>
+          <label for="registration_verification_name_type" class="mb-1 block text-sm font-medium text-slate-600">照合表記</label>
+          <select id="registration_verification_name_type" name="registration_verification_name_type" class="w-full rounded border border-slate-300 px-3 py-2"><option value="">未設定</option><option value="kana" {% if child and child.registration_verification_name_type == 'kana' %}selected{% endif %}>カナ</option><option value="latin" {% if child and child.registration_verification_name_type == 'latin' %}selected{% endif %}>英字</option></select>
+        </div>
+        <div>
           <label for="birth_date" class="mb-1 block text-sm font-medium text-slate-600">生年月日 <span class="text-rose-500">*</span></label>
           <input type="date" id="birth_date" name="birth_date" required value="{{ form_data.birth_date if form_data else (child.birth_date.isoformat() if child and child.birth_date else '') }}" class="w-full rounded border border-slate-300 px-3 py-2">
         </div>

@@ -5,8 +5,9 @@
 <div class="mx-auto max-w-3xl space-y-6">
   <div>
     <p class="text-sm font-medium text-indigo-600">保護者ポータル</p>
-    <h1 class="mt-1 text-2xl font-bold text-slate-900">プッシュ通知設定</h1>
-    <p class="mt-2 text-sm text-slate-600">権限の確認は、下の登録ボタンを押したときだけ行います。</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">通知設定</h1>
+    <p class="mt-2 text-sm text-slate-600">保存中の通知設定と、この端末の通知状態を確認できます。</p>
+    <a href="/parent-portal/" class="mt-2 inline-block text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
   </div>
 
   <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -18,7 +19,7 @@
     </dl>
     <p id="push-message" class="mt-4 hidden rounded-lg px-4 py-3 text-sm"></p>
     {% if not vapid_key_available %}
-    <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">VAPID公開鍵が未設定のため、端末登録はまだ利用できません。</p>
+    <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">VAPID公開鍵が未設定のため、端末へのプッシュ通知は現在無効です。下の受信設定は保存して確認できますが、端末登録と実際のプッシュ配送にはVAPID設定が必要です。</p>
     {% endif %}
     {% if development_mode %}
     <p class="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">development環境です。この画面から登録した端末は、開発用Web Pushの送信対象として明示登録されます。</p>
@@ -28,6 +29,21 @@
       <button id="disable-push" type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300" disabled>この端末の通知を解除する</button>
     </div>
     <p class="mt-4 text-xs leading-5 text-slate-500">iPhone / iPadでは、対応OSでこのサイトをホーム画面へ追加してから通知を有効にしてください。</p>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">登録済み端末</h2>
+    <p class="mt-2 text-sm text-slate-600">このアカウントで通知が有効な端末は <strong>{{ active_subscriptions|length }}台</strong> です。</p>
+    {% if active_subscriptions %}
+    <ul class="mt-4 space-y-2">
+      {% for subscription in active_subscriptions %}
+      <li class="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+        <strong class="text-slate-800">{{ subscription.device_label or '名称未設定の端末' }}</strong>
+        <span class="mt-1 block text-xs text-slate-500">最終確認: {{ (subscription.last_seen_at or subscription.updated_at)|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </section>
 
   <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -81,10 +97,11 @@
     ...options,
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, ...(options.headers || {})}
   });
+  const serviceWorkerUrl = '/parent-portal/push-service-worker.js?v=20260830-2';
 
   async function initialize() {
     if (!supported) { updateStatus(); return; }
-    registration = await navigator.serviceWorker.register('/parent-portal/push-service-worker.js', {scope: '/parent-portal/'});
+    registration = await navigator.serviceWorker.register(serviceWorkerUrl, {scope: '/parent-portal/'});
     subscription = await registration.pushManager.getSubscription();
     updateStatus();
   }
@@ -96,7 +113,7 @@
       const configResponse = await fetch('/parent-portal/push/public-key');
       const config = await configResponse.json();
       if (!config.available || !config.public_key) throw new Error('VAPID公開鍵が設定されていません。');
-      registration ||= await navigator.serviceWorker.register('/parent-portal/push-service-worker.js', {scope: '/parent-portal/'});
+      registration ||= await navigator.serviceWorker.register(serviceWorkerUrl, {scope: '/parent-portal/'});
       subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: applicationServerKey(config.public_key)});
       const response = await jsonRequest('/parent-portal/push/subscriptions', {method: 'POST', body: JSON.stringify({...subscription.toJSON(), device_label: navigator.platform || 'ブラウザ端末', is_test_device: {{ 'true' if development_mode else 'false' }}})});
       if (!response.ok) throw new Error('端末を登録できませんでした。');

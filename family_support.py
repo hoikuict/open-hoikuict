@@ -4,7 +4,6 @@ from collections import Counter, deque
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -259,58 +258,10 @@ def infer_family_name(children: list[Child], parent_accounts: list[ParentAccount
 
 
 def sync_parent_child_links(session: Session, family: Family) -> None:
-    child_ids = [
-        child.id
-        for child in session.exec(select(Child).where(Child.family_id == family.id)).all()
-        if child.id is not None
-    ]
-    account_ids = [
-        account.id
-        for account in session.exec(select(ParentAccount).where(ParentAccount.family_id == family.id)).all()
-        if account.id is not None
-    ]
-    if not child_ids and not account_ids:
-        return
-
-    existing_links = session.exec(
-        select(ParentChildLink).where(
-            or_(
-                ParentChildLink.child_id.in_(child_ids) if child_ids else False,
-                ParentChildLink.parent_account_id.in_(account_ids) if account_ids else False,
-            )
-        )
-    ).all()
-
-    fallback_label_by_parent: dict[int, str] = {}
-    fallback_primary_by_parent: dict[int, bool] = {}
-    pair_settings: dict[tuple[int, int], tuple[str, bool]] = {}
-    for link in existing_links:
-        fallback_label_by_parent.setdefault(link.parent_account_id, link.relationship_label or "保護者")
-        fallback_primary_by_parent.setdefault(link.parent_account_id, link.is_primary_contact)
-        pair_settings[(link.parent_account_id, link.child_id)] = (
-            link.relationship_label or "保護者",
-            link.is_primary_contact,
-        )
-        session.delete(link)
-    session.flush()
-
-    if not child_ids or not account_ids:
-        return
-
-    primary_parent_id = sorted(account_ids)[0]
-    for parent_id in sorted(account_ids):
-        default_label = fallback_label_by_parent.get(parent_id, "保護者")
-        default_primary = fallback_primary_by_parent.get(parent_id, parent_id == primary_parent_id)
-        for child_id in sorted(child_ids):
-            label, is_primary = pair_settings.get((parent_id, child_id), (default_label, default_primary))
-            session.add(
-                ParentChildLink(
-                    parent_account_id=parent_id,
-                    child_id=child_id,
-                    relationship_label=label,
-                    is_primary_contact=is_primary,
-                )
-            )
+    # family_id is grouping data, not an authorization source. Existing explicit
+    # links are intentionally preserved and new links must be created by a
+    # dedicated parent-child association operation.
+    del session, family
 
 
 def sync_family_to_children(session: Session, family: Family, *, updated_at: Optional[datetime] = None) -> None:

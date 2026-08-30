@@ -47,6 +47,7 @@ from routers.notices import router as notices_router
 from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import mock_login_router as parent_portal_mock_login_router
 from routers.parent_portal import router as parent_portal_router
+from routers.parent_auth import router as parent_local_auth_router
 from routers.parent_push import router as parent_push_router
 from routers.parent_push import settings_router as parent_push_settings_router
 from routers.staff_auth import mock_login_router as staff_mock_login_router
@@ -67,6 +68,7 @@ from plan_docs.routers.home import router as plan_docs_home_router
 from plan_docs.routers.plans import router as plan_docs_plans_router
 from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
 from parent_push_operations import apply_parent_push_retention
+from parent_auth import parent_mail_worker_loop
 from url_utils import safe_internal_redirect
 from auth import (
     configure_auth_backends_from_environment,
@@ -75,7 +77,7 @@ from auth import (
     staff_auth_http_exception_handler,
 )
 from csrf import CsrfTokenMiddleware, verify_csrf
-from security_config import deployment_environment, staff_auth_mode, validate_runtime_security
+from security_config import deployment_environment, parent_auth_mode, staff_auth_mode, validate_runtime_security
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -96,6 +98,8 @@ async def lifespan(app: FastAPI):
     background_tasks = [asyncio.create_task(_preview_cleanup_loop())]
     if parent_push_worker_enabled():
         background_tasks.append(asyncio.create_task(parent_push_worker_loop()))
+    if parent_auth_mode() == "local_password" and os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT", "capture") != "disabled":
+        background_tasks.append(asyncio.create_task(parent_mail_worker_loop()))
     try:
         yield
     finally:
@@ -154,12 +158,15 @@ app.include_router(staff_surveys_router)
 app.include_router(zengin_router)
 app.include_router(child_record_settings_router)
 app.include_router(child_progress_router)
-if mock_auth_enabled():
+if mock_auth_enabled() and staff_auth_mode() == "mock":
     app.include_router(staff_mock_login_router)
-    app.include_router(parent_portal_mock_login_router)
     app.include_router(calendar_mock_login_router)
+if mock_auth_enabled() and parent_auth_mode() == "mock":
+    app.include_router(parent_portal_mock_login_router)
 if staff_auth_mode() == "local_password":
     app.include_router(staff_local_login_router)
+if parent_auth_mode() == "local_password":
+    app.include_router(parent_local_auth_router)
 app.include_router(plan_docs_home_router, prefix="/plans")
 app.include_router(plan_docs_plans_router, prefix="/plans")
 app.include_router(plan_docs_documents_router, prefix="/plans")

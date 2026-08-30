@@ -6,7 +6,7 @@
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-slate-800">{{ submit_label }}</h1>
-      <p class="text-sm text-slate-500">保護者アカウントを家族単位で紐づけます。</p>
+      <p class="text-sm text-slate-500">家族はグルーピング、園児との明示的な紐付けは閲覧権限として管理します。</p>
     </div>
     <a href="/parent-accounts/" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
   </div>
@@ -20,6 +20,15 @@
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
         <input type="email" name="email" required value="{{ account.email if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">登録照合用氏名</label>
+        <input type="text" name="registration_verification_name" value="{{ account.registration_verification_name if account and account.registration_verification_name else '' }}" maxlength="200" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">日本人はカナ、外国人は本人確認済みの英字表記を登録します。</p>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">照合表記</label>
+        <select name="registration_verification_name_type" class="w-full rounded border border-slate-300 px-3 py-2"><option value="">未設定</option><option value="kana" {% if account and account.registration_verification_name_type == 'kana' %}selected{% endif %}>カナ</option><option value="latin" {% if account and account.registration_verification_name_type == 'latin' %}selected{% endif %}>英字</option></select>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">電話番号</label>
@@ -61,6 +70,13 @@
         </select>
       </div>
     </div>
+
+    <fieldset class="rounded-lg border border-slate-200 p-4">
+      <legend class="px-2 text-sm font-semibold text-slate-700">閲覧を許可する園児（明示的な紐付け）</legend>
+      <div class="mt-2 grid gap-2 md:grid-cols-2">
+      {% for child in children %}<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="child_ids" value="{{ child.id }}" {% if child.id in selected_child_ids %}checked{% endif %}> {{ child.full_name }}{% if child.classroom %} / {{ child.classroom.name }}{% endif %}</label>{% endfor %}
+      </div>
+    </fieldset>
 
     <div class="flex gap-3">
       <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
