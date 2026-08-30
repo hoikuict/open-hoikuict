@@ -16,6 +16,7 @@
   {% endif %}
 
   <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <p class="text-xs leading-5 text-slate-500">保護者欄のメールアドレスは家族台帳の連絡先です。保護者ポータルの招待先・ログイン情報は保護者アカウントで管理します。</p>
     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">家族名</label>
@@ -101,8 +102,27 @@
             <label class="mb-1 block text-sm font-medium text-slate-600">続柄</label>
             <input type="text" name="g1_relationship" value="{{ form_data.g1_relationship }}" class="w-full rounded border border-slate-300 px-3 py-2">
           </div>
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-slate-600">紐づく保護者アカウント</label>
+            <select name="g1_parent_account_id" class="w-full rounded border border-slate-300 px-3 py-2">
+              <option value="">紐づけなし</option>
+              {% for account in parent_accounts %}
+              <option value="{{ account.id }}" {% if form_data.g1_parent_account_id|string == account.id|string %}selected{% endif %}>{{ account.display_name }} / {{ account.email }} / {{ account.status.label }}</option>
+              {% endfor %}
+            </select>
+            {% set g1_account = parent_accounts_by_id.get(form_data.g1_parent_account_id|int) if form_data.g1_parent_account_id else none %}
+            {% if g1_account %}
+            <div class="mt-2 rounded bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              アカウント登録メール: <span class="break-all font-semibold text-slate-800">{{ g1_account.email }}</span>
+            </div>
+            {% endif %}
+          </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-600">電話番号</label>
+            <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
+            <input type="email" name="g1_email" value="{{ form_data.g1_email }}" maxlength="255" class="w-full rounded border border-slate-300 px-3 py-2">
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">電話番号</label>
             <input type="text" name="g1_phone" value="{{ form_data.g1_phone }}" class="w-full rounded border border-slate-300 px-3 py-2">
           </div>
           <div class="md:col-span-2">
@@ -143,8 +163,27 @@
             <label class="mb-1 block text-sm font-medium text-slate-600">続柄</label>
             <input type="text" name="g2_relationship" value="{{ form_data.g2_relationship }}" class="w-full rounded border border-slate-300 px-3 py-2">
           </div>
+          <div class="md:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-slate-600">紐づく保護者アカウント</label>
+            <select name="g2_parent_account_id" class="w-full rounded border border-slate-300 px-3 py-2">
+              <option value="">紐づけなし</option>
+              {% for account in parent_accounts %}
+              <option value="{{ account.id }}" {% if form_data.g2_parent_account_id|string == account.id|string %}selected{% endif %}>{{ account.display_name }} / {{ account.email }} / {{ account.status.label }}</option>
+              {% endfor %}
+            </select>
+            {% set g2_account = parent_accounts_by_id.get(form_data.g2_parent_account_id|int) if form_data.g2_parent_account_id else none %}
+            {% if g2_account %}
+            <div class="mt-2 rounded bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              アカウント登録メール: <span class="break-all font-semibold text-slate-800">{{ g2_account.email }}</span>
+            </div>
+            {% endif %}
+          </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-600">電話番号</label>
+            <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
+            <input type="email" name="g2_email" value="{{ form_data.g2_email }}" maxlength="255" class="w-full rounded border border-slate-300 px-3 py-2">
+          </div>
+          <div>
+            <label class="mb-1 block text-sm text-slate-600">電話番号</label>
             <input type="text" name="g2_phone" value="{{ form_data.g2_phone }}" class="w-full rounded border border-slate-300 px-3 py-2">
           </div>
           <div class="md:col-span-2">

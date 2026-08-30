@@ -6,8 +6,12 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from child_profile_changes import build_child_profile_payload
-from family_support import apply_family_shared_data
-from models import Child, ChildStatus, Family
+from family_support import (
+    apply_family_shared_data,
+    backfill_family_guardian_account_links,
+    sync_family_to_children,
+)
+from models import Child, ChildStatus, Family, ParentAccount, ParentAccountStatus
 
 
 class StructuredGuardianDataTests(unittest.TestCase):
@@ -41,6 +45,7 @@ class StructuredGuardianDataTests(unittest.TestCase):
             g1_last_name_kana="タナカ",
             g1_first_name_kana="ハナコ",
             g1_relationship="母",
+            g1_email="hanako@example.com",
             g1_phone="090-1111-2222",
             g1_workplace="株式会社A",
             g1_workplace_address="東京都港区",
@@ -50,6 +55,7 @@ class StructuredGuardianDataTests(unittest.TestCase):
             g2_last_name_kana="",
             g2_first_name_kana="",
             g2_relationship="父",
+            g2_email="",
             g2_phone="",
             g2_workplace="",
             g2_workplace_address="",
@@ -81,6 +87,8 @@ class StructuredGuardianDataTests(unittest.TestCase):
                         "last_name_kana": "タナカ",
                         "first_name_kana": "ハナコ",
                         "relationship": "母",
+                        "parent_account_id": None,
+                        "email": "hanako@example.com",
                         "phone": "090-1111-2222",
                         "workplace": "株式会社A",
                         "workplace_address": "東京都港区",
@@ -123,6 +131,7 @@ class StructuredGuardianDataTests(unittest.TestCase):
                             "last_name": "田中",
                             "first_name": "花子",
                             "relationship": "母",
+                            "email": "hanako@example.com",
                             "phone": "090-1111-2222",
                         },
                         {
@@ -153,6 +162,68 @@ class StructuredGuardianDataTests(unittest.TestCase):
         self.assertEqual([guardian.order for guardian in child.guardians], [1, 2, 3])
         self.assertEqual(child.guardians[2].first_name, "和子")
         self.assertEqual(child.guardians[2].relationship, "祖母")
+        self.assertEqual(child.guardians[0].email, "hanako@example.com")
+
+    def test_backfill_links_legacy_guardian_by_unique_name_and_phone(self):
+        with Session(self.engine) as session:
+            family = Family(
+                family_name="田中家",
+                shared_profile={
+                    "guardians": [
+                        {
+                            "order": 1,
+                            "last_name": "田中",
+                            "first_name": "花子",
+                            "relationship": "母",
+                            "phone": "090-1111-2222",
+                        }
+                    ]
+                },
+            )
+            session.add(family)
+            session.flush()
+            child = Child(
+                last_name="田中",
+                first_name="さくら",
+                last_name_kana="タナカ",
+                first_name_kana="サクラ",
+                birth_date=date(2021, 4, 5),
+                enrollment_date=date(2024, 4, 1),
+                status=ChildStatus.enrolled,
+                family_id=family.id,
+            )
+            account = ParentAccount(
+                display_name="田中 花子",
+                email="hanako@example.com",
+                phone="09011112222",
+                family_id=family.id,
+                status=ParentAccountStatus.active,
+            )
+            session.add(child)
+            session.add(account)
+            session.flush()
+            family_id = family.id
+            account_id = account.id
+            child_id = child.id
+            session.commit()
+
+        with Session(self.engine) as session:
+            family = session.get(Family, family_id)
+            changed = backfill_family_guardian_account_links(session, family)
+            sync_family_to_children(session, family)
+            session.commit()
+
+        with Session(self.engine) as session:
+            family = session.get(Family, family_id)
+            child = session.exec(
+                select(Child).options(selectinload(Child.guardians)).where(Child.id == child_id)
+            ).first()
+
+        self.assertEqual(changed, 1)
+        self.assertEqual(family.shared_profile["guardians"][0]["parent_account_id"], account_id)
+        self.assertEqual(family.shared_profile["guardians"][0]["email"], "hanako@example.com")
+        self.assertEqual(child.guardians[0].parent_account_id, account_id)
+        self.assertEqual(child.guardians[0].email, "hanako@example.com")
 
 
 if __name__ == "__main__":

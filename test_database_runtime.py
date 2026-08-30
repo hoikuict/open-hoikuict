@@ -205,6 +205,30 @@ class DatabaseRuntimeTests(unittest.TestCase):
             finally:
                 engine.dispose()
 
+    def test_guardian_migration_adds_email_column_to_existing_table(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "legacy-guardian.db"
+            raw = sqlite3.connect(path)
+            raw.execute("CREATE TABLE guardians (id INTEGER PRIMARY KEY, phone VARCHAR)")
+            raw.commit()
+            raw.close()
+
+            engine = self._engine(path)
+            try:
+                with patch.object(database, "engine", engine):
+                    database._migrate_add_guardian_columns()
+                    database._migrate_add_guardian_columns()
+                    with engine.connect() as connection:
+                        columns = {
+                            row[1]
+                            for row in connection.execute(
+                                text("PRAGMA table_info(guardians)")
+                            )
+                        }
+                self.assertTrue({"email", "parent_account_id"}.issubset(columns))
+            finally:
+                engine.dispose()
+
 
 if __name__ == "__main__":
     unittest.main()

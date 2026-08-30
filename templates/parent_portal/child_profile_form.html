@@ -68,6 +68,8 @@
       </div>
     </div>
 
+    <p class="text-xs leading-5 text-slate-500">保護者欄のメールアドレスは家族台帳の連絡先として変更申請されます。ポータルへログインするメールアドレスの変更は「登録情報」から行ってください。</p>
+
     <div class="border-t border-slate-200 pt-5">
       <h2 class="mb-3 text-sm font-semibold text-slate-700">家族共通情報</h2>
       <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -97,6 +99,7 @@
             {% endfor %}
           </select>
         </div>
+        <div><label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label><input type="email" name="g1_email" value="{{ form_data.g1_email }}" maxlength="255" class="w-full rounded border border-slate-300 px-3 py-2"></div>
         <div><label class="mb-1 block text-sm font-medium text-slate-600">電話番号</label><input type="text" name="g1_phone" value="{{ form_data.g1_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
         <div class="md:col-span-2"><label class="mb-1 block text-sm font-medium text-slate-600">勤務先</label><input type="text" name="g1_workplace" value="{{ form_data.g1_workplace }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
         <div><label class="mb-1 block text-sm font-medium text-slate-600">勤務先住所</label><input type="text" name="g1_workplace_address" value="{{ form_data.g1_workplace_address }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
@@ -119,6 +122,7 @@
             {% endfor %}
           </select>
         </div>
+        <div><label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label><input type="email" name="g2_email" value="{{ form_data.g2_email }}" maxlength="255" class="w-full rounded border border-slate-300 px-3 py-2"></div>
         <div><label class="mb-1 block text-sm font-medium text-slate-600">電話番号</label><input type="text" name="g2_phone" value="{{ form_data.g2_phone }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
         <div class="md:col-span-2"><label class="mb-1 block text-sm font-medium text-slate-600">勤務先</label><input type="text" name="g2_workplace" value="{{ form_data.g2_workplace }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>
         <div><label class="mb-1 block text-sm font-medium text-slate-600">勤務先住所</label><input type="text" name="g2_workplace_address" value="{{ form_data.g2_workplace_address }}" class="w-full rounded border border-slate-300 px-3 py-2"></div>

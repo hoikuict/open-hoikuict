@@ -141,10 +141,13 @@
       {% for guardian in guardian_profiles %}
       <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div class="mb-2 text-sm font-semibold text-slate-700">保護者{{ loop.index }}</div>
+        {% set linked_account = family_parent_accounts_by_id.get(guardian.parent_account_id) if guardian.parent_account_id else none %}
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div><div class="text-xs font-medium text-slate-500">氏名</div><div class="mt-1 text-sm text-slate-800">{{ guardian.last_name }} {{ guardian.first_name }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">氏名（カナ）</div><div class="mt-1 text-sm text-slate-800">{{ guardian.last_name_kana or "-" }} {{ guardian.first_name_kana or "" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">続柄</div><div class="mt-1 text-sm text-slate-800">{{ guardian.relationship or "-" }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">メールアドレス</div><div class="mt-1 break-all text-sm text-slate-800">{{ guardian.email or "-" }}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">保護者アカウント</div><div class="mt-1 text-sm text-slate-800">{% if linked_account %}{{ linked_account.display_name }}（{{ linked_account.status.label }}）{% else %}-{% endif %}</div></div>
           <div><div class="text-xs font-medium text-slate-500">電話番号</div><div class="mt-1 text-sm text-slate-800">{{ guardian.phone or "-" }}</div></div>
           <div class="md:col-span-2"><div class="text-xs font-medium text-slate-500">勤務先</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace or "-" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">勤務先住所</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_address or "-" }}</div></div>

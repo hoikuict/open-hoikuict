@@ -145,6 +145,21 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
                 connection.execute(
                     f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
                 )
+
+    guardian_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(guardians)")
+    }
+    if guardian_columns:
+        guardian_additions = {
+            "parent_account_id": "INTEGER REFERENCES parent_accounts(id)",
+            "email": "VARCHAR",
+        }
+        for column_name, column_type in guardian_additions.items():
+            if column_name not in guardian_columns:
+                connection.execute(
+                    f"ALTER TABLE guardians ADD COLUMN {column_name} {column_type}"
+                )
+
     connection.execute(
         "UPDATE children SET "
         "registration_verification_name = last_name_kana || ' ' || first_name_kana, "
@@ -395,6 +410,7 @@ def create_db_and_tables() -> None:
     _migrate_add_attendance_columns()
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
+    _migrate_add_guardian_columns()
     _migrate_add_family_columns()
     _migrate_add_message_columns()
     _migrate_add_meeting_note_columns()
@@ -591,6 +607,26 @@ def _migrate_add_parent_account_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("parent account column", exc)
+
+
+def _migrate_add_guardian_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("guardians")
+            if not columns:
+                return
+            if "parent_account_id" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE guardians ADD COLUMN parent_account_id "
+                        "INTEGER REFERENCES parent_accounts(id)"
+                    )
+                )
+            if "email" not in columns:
+                conn.execute(text("ALTER TABLE guardians ADD COLUMN email VARCHAR"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("guardian column", exc)
 
 
 def _migrate_add_family_columns() -> None:

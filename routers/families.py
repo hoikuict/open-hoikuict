@@ -82,6 +82,7 @@ def _render_form(
     selected_parent_account_ids: set[int] | None = None,
     session: Session,
 ):
+    parent_accounts = _all_parent_accounts(session)
     return templates.TemplateResponse(
         request,
         "families/form.html",
@@ -94,7 +95,10 @@ def _render_form(
             "form_error": form_error,
             "form_data": form_data or family_form_data_from_family(family),
             "children": _all_children(session),
-            "parent_accounts": _all_parent_accounts(session),
+            "parent_accounts": parent_accounts,
+            "parent_accounts_by_id": {
+                account.id: account for account in parent_accounts
+            },
             "selected_child_ids": (
                 selected_child_ids
                 if selected_child_ids is not None
@@ -116,6 +120,8 @@ def _guardians_data_from_form(
     g1_last_name_kana: str,
     g1_first_name_kana: str,
     g1_relationship: str,
+    g1_parent_account_id: str,
+    g1_email: str,
     g1_phone: str,
     g1_workplace: str,
     g1_workplace_address: str,
@@ -125,6 +131,8 @@ def _guardians_data_from_form(
     g2_last_name_kana: str,
     g2_first_name_kana: str,
     g2_relationship: str,
+    g2_parent_account_id: str,
+    g2_email: str,
     g2_phone: str,
     g2_workplace: str,
     g2_workplace_address: str,
@@ -137,6 +145,8 @@ def _guardians_data_from_form(
             "g1_last_name_kana": g1_last_name_kana,
             "g1_first_name_kana": g1_first_name_kana,
             "g1_relationship": g1_relationship,
+            "g1_parent_account_id": g1_parent_account_id,
+            "g1_email": g1_email,
             "g1_phone": g1_phone,
             "g1_workplace": g1_workplace,
             "g1_workplace_address": g1_workplace_address,
@@ -146,12 +156,53 @@ def _guardians_data_from_form(
             "g2_last_name_kana": g2_last_name_kana,
             "g2_first_name_kana": g2_first_name_kana,
             "g2_relationship": g2_relationship,
+            "g2_parent_account_id": g2_parent_account_id,
+            "g2_email": g2_email,
             "g2_phone": g2_phone,
             "g2_workplace": g2_workplace,
             "g2_workplace_address": g2_workplace_address,
             "g2_workplace_phone": g2_workplace_phone,
         }
     )
+
+
+def _linked_parent_account_ids(
+    guardians_data: list[dict[str, object]],
+) -> set[int]:
+    linked_ids = {
+        int(guardian["parent_account_id"])
+        for guardian in guardians_data
+        if guardian.get("parent_account_id") is not None
+    }
+    if len(linked_ids) != sum(
+        guardian.get("parent_account_id") is not None for guardian in guardians_data
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="同じ保護者アカウントを複数の保護者へ紐づけることはできません",
+        )
+    return linked_ids
+
+
+def _fill_linked_guardian_emails(
+    session: Session,
+    guardians_data: list[dict[str, object]],
+) -> None:
+    linked_ids = _linked_parent_account_ids(guardians_data)
+    if not linked_ids:
+        return
+    accounts_by_id = {
+        account.id: account
+        for account in session.exec(
+            select(ParentAccount).where(ParentAccount.id.in_(linked_ids))
+        ).all()
+    }
+    if set(accounts_by_id) != linked_ids:
+        raise HTTPException(status_code=400, detail="紐づける保護者アカウントが見つかりません")
+    for guardian in guardians_data:
+        account_id = guardian.get("parent_account_id")
+        if account_id is not None and not str(guardian.get("email") or "").strip():
+            guardian["email"] = accounts_by_id[int(account_id)].email
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -172,6 +223,12 @@ def family_list(
             "request": request,
             "current_user": current_user,
             "families": families,
+            "family_parent_accounts_by_id": {
+                family.id: {
+                    account.id: account for account in family.parent_accounts
+                }
+                for family in families
+            },
         },
     )
 
@@ -206,6 +263,8 @@ def create_family(
     g1_last_name_kana: str = Form(""),
     g1_first_name_kana: str = Form(""),
     g1_relationship: str = Form("母"),
+    g1_parent_account_id: str = Form(""),
+    g1_email: str = Form(""),
     g1_phone: str = Form(""),
     g1_workplace: str = Form(""),
     g1_workplace_address: str = Form(""),
@@ -215,6 +274,8 @@ def create_family(
     g2_last_name_kana: str = Form(""),
     g2_first_name_kana: str = Form(""),
     g2_relationship: str = Form("父"),
+    g2_parent_account_id: str = Form(""),
+    g2_email: str = Form(""),
     g2_phone: str = Form(""),
     g2_workplace: str = Form(""),
     g2_workplace_address: str = Form(""),
@@ -224,12 +285,39 @@ def create_family(
 ):
     require_child_record_manager(current_user)
 
+    guardians_data = _guardians_data_from_form(
+        g1_last_name=g1_last_name,
+        g1_first_name=g1_first_name,
+        g1_last_name_kana=g1_last_name_kana,
+        g1_first_name_kana=g1_first_name_kana,
+        g1_relationship=g1_relationship,
+        g1_parent_account_id=g1_parent_account_id,
+        g1_email=g1_email,
+        g1_phone=g1_phone,
+        g1_workplace=g1_workplace,
+        g1_workplace_address=g1_workplace_address,
+        g1_workplace_phone=g1_workplace_phone,
+        g2_last_name=g2_last_name,
+        g2_first_name=g2_first_name,
+        g2_last_name_kana=g2_last_name_kana,
+        g2_first_name_kana=g2_first_name_kana,
+        g2_relationship=g2_relationship,
+        g2_parent_account_id=g2_parent_account_id,
+        g2_email=g2_email,
+        g2_phone=g2_phone,
+        g2_workplace=g2_workplace,
+        g2_workplace_address=g2_workplace_address,
+        g2_workplace_phone=g2_workplace_phone,
+    )
+    selected_parent_account_ids = set(_parse_ids(parent_account_ids))
+    selected_parent_account_ids.update(_linked_parent_account_ids(guardians_data))
+    _fill_linked_guardian_emails(session, guardians_data)
+
     family = Family(family_name=family_name.strip())
     session.add(family)
     session.flush()
 
     selected_child_ids = _parse_ids(child_ids)
-    selected_parent_account_ids = _parse_ids(parent_account_ids)
     touched_family_ids: set[int] = {family.id}
 
     for child in session.exec(select(Child).where(Child.id.in_(selected_child_ids) if selected_child_ids else False)).all():
@@ -255,26 +343,7 @@ def create_family(
             family_name=family_name,
             home_address=home_address,
             home_phone=home_phone,
-            guardians_data=_guardians_data_from_form(
-                g1_last_name=g1_last_name,
-                g1_first_name=g1_first_name,
-                g1_last_name_kana=g1_last_name_kana,
-                g1_first_name_kana=g1_first_name_kana,
-                g1_relationship=g1_relationship,
-                g1_phone=g1_phone,
-                g1_workplace=g1_workplace,
-                g1_workplace_address=g1_workplace_address,
-                g1_workplace_phone=g1_workplace_phone,
-                g2_last_name=g2_last_name,
-                g2_first_name=g2_first_name,
-                g2_last_name_kana=g2_last_name_kana,
-                g2_first_name_kana=g2_first_name_kana,
-                g2_relationship=g2_relationship,
-                g2_phone=g2_phone,
-                g2_workplace=g2_workplace,
-                g2_workplace_address=g2_workplace_address,
-                g2_workplace_phone=g2_workplace_phone,
-            ),
+            guardians_data=guardians_data,
         ),
     )
 
@@ -318,6 +387,8 @@ def update_family(
     g1_last_name_kana: str = Form(""),
     g1_first_name_kana: str = Form(""),
     g1_relationship: str = Form("母"),
+    g1_parent_account_id: str = Form(""),
+    g1_email: str = Form(""),
     g1_phone: str = Form(""),
     g1_workplace: str = Form(""),
     g1_workplace_address: str = Form(""),
@@ -327,6 +398,8 @@ def update_family(
     g2_last_name_kana: str = Form(""),
     g2_first_name_kana: str = Form(""),
     g2_relationship: str = Form("父"),
+    g2_parent_account_id: str = Form(""),
+    g2_email: str = Form(""),
     g2_phone: str = Form(""),
     g2_workplace: str = Form(""),
     g2_workplace_address: str = Form(""),
@@ -337,8 +410,35 @@ def update_family(
     require_child_record_manager(current_user)
     family = _load_family(session, family_id)
 
+    guardians_data = _guardians_data_from_form(
+        g1_last_name=g1_last_name,
+        g1_first_name=g1_first_name,
+        g1_last_name_kana=g1_last_name_kana,
+        g1_first_name_kana=g1_first_name_kana,
+        g1_relationship=g1_relationship,
+        g1_parent_account_id=g1_parent_account_id,
+        g1_email=g1_email,
+        g1_phone=g1_phone,
+        g1_workplace=g1_workplace,
+        g1_workplace_address=g1_workplace_address,
+        g1_workplace_phone=g1_workplace_phone,
+        g2_last_name=g2_last_name,
+        g2_first_name=g2_first_name,
+        g2_last_name_kana=g2_last_name_kana,
+        g2_first_name_kana=g2_first_name_kana,
+        g2_relationship=g2_relationship,
+        g2_parent_account_id=g2_parent_account_id,
+        g2_email=g2_email,
+        g2_phone=g2_phone,
+        g2_workplace=g2_workplace,
+        g2_workplace_address=g2_workplace_address,
+        g2_workplace_phone=g2_workplace_phone,
+    )
+
     selected_child_ids = set(_parse_ids(child_ids))
     selected_parent_account_ids = set(_parse_ids(parent_account_ids))
+    selected_parent_account_ids.update(_linked_parent_account_ids(guardians_data))
+    _fill_linked_guardian_emails(session, guardians_data)
     touched_family_ids: set[int] = {family.id}
 
     current_child_ids = {child.id for child in family.children if child.id is not None}
@@ -384,26 +484,7 @@ def update_family(
             family_name=family_name,
             home_address=home_address,
             home_phone=home_phone,
-            guardians_data=_guardians_data_from_form(
-                g1_last_name=g1_last_name,
-                g1_first_name=g1_first_name,
-                g1_last_name_kana=g1_last_name_kana,
-                g1_first_name_kana=g1_first_name_kana,
-                g1_relationship=g1_relationship,
-                g1_phone=g1_phone,
-                g1_workplace=g1_workplace,
-                g1_workplace_address=g1_workplace_address,
-                g1_workplace_phone=g1_workplace_phone,
-                g2_last_name=g2_last_name,
-                g2_first_name=g2_first_name,
-                g2_last_name_kana=g2_last_name_kana,
-                g2_first_name_kana=g2_first_name_kana,
-                g2_relationship=g2_relationship,
-                g2_phone=g2_phone,
-                g2_workplace=g2_workplace,
-                g2_workplace_address=g2_workplace_address,
-                g2_workplace_phone=g2_workplace_phone,
-            ),
+            guardians_data=guardians_data,
         ),
     )
 
