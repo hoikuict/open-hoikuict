@@ -1,4 +1,5 @@
 import os
+from ipaddress import ip_network
 from importlib.util import find_spec
 from urllib.parse import urlsplit
 
@@ -80,6 +81,11 @@ def allowed_origins() -> set[str]:
     return {item.strip().rstrip("/") for item in raw.split(",") if item.strip()}
 
 
+def forwarded_allow_ips() -> tuple[str, ...]:
+    raw = os.getenv("FORWARDED_ALLOW_IPS", "")
+    return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
 def websocket_origin_allowed(websocket: WebSocket) -> bool:
     origin = (websocket.headers.get("origin") or "").strip().rstrip("/")
     configured = allowed_origins()
@@ -88,7 +94,10 @@ def websocket_origin_allowed(websocket: WebSocket) -> bool:
     if not origin:
         return not is_production()
     parsed = urlsplit(origin)
-    return bool(parsed.scheme in {"http", "https"} and parsed.netloc == websocket.headers.get("host"))
+    return bool(
+        parsed.scheme in {"http", "https"}
+        and parsed.netloc == websocket.headers.get("host")
+    )
 
 
 def kiosk_access_mode() -> str:
@@ -102,7 +111,9 @@ def websocket_runtime_available() -> bool:
 def validate_runtime_security() -> None:
     environment = deployment_environment()
     if environment not in {"development", "production", "test"}:
-        raise RuntimeError("HOIKUICT_ENV は development / production / test のいずれかです")
+        raise RuntimeError(
+            "HOIKUICT_ENV は development / production / test のいずれかです"
+        )
     if not websocket_runtime_available():
         raise RuntimeError(
             "WebSocketドライバーがありません。プロジェクトの仮想環境で "
@@ -124,7 +135,9 @@ def validate_runtime_security() -> None:
             )
     push_transport = parent_push_transport()
     if push_transport not in {"disabled", "capture", "webpush"}:
-        raise RuntimeError("HOIKUICT_PUSH_TRANSPORT は disabled / capture / webpush のいずれかです")
+        raise RuntimeError(
+            "HOIKUICT_PUSH_TRANSPORT は disabled / capture / webpush のいずれかです"
+        )
     if not is_production():
         if push_transport == "webpush":
             _validate_development_webpush_configuration()
@@ -145,10 +158,33 @@ def validate_runtime_security() -> None:
         errors.append("HOIKUICT_STAFF_AUTH_MODE=local_password が必要です")
     if parent_mode != "local_password":
         errors.append("HOIKUICT_PARENT_AUTH_MODE=local_password が必要です")
-    parent_mail_transport = (os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT") or "disabled").strip().lower()
+    trusted_proxies = forwarded_allow_ips()
+    if not trusted_proxies:
+        errors.append(
+            "FORWARDED_ALLOW_IPS に信頼するリバースプロキシのIPまたはCIDRが必要です"
+        )
+    elif "*" in trusted_proxies:
+        errors.append("productionでは FORWARDED_ALLOW_IPS=* を使用できません")
+    else:
+        invalid_proxies = []
+        for proxy in trusted_proxies:
+            try:
+                ip_network(proxy, strict=False)
+            except ValueError:
+                invalid_proxies.append(proxy)
+        if invalid_proxies:
+            errors.append(
+                "FORWARDED_ALLOW_IPS はIPまたはCIDRで指定してください: "
+                + ", ".join(invalid_proxies)
+            )
+    parent_mail_transport = (
+        (os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT") or "disabled").strip().lower()
+    )
     if parent_mail_transport != "smtp":
         errors.append("HOIKUICT_PARENT_MAIL_TRANSPORT=smtp が必要です")
-    registration_url = urlsplit((os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL") or "").strip())
+    registration_url = urlsplit(
+        (os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL") or "").strip()
+    )
     if (
         registration_url.scheme != "https"
         or not registration_url.netloc
@@ -156,7 +192,11 @@ def validate_runtime_security() -> None:
         or registration_url.fragment
     ):
         errors.append("HTTPSの HOIKUICT_PARENT_REGISTRATION_BASE_URL が必要です")
-    for setting_name in ("HOIKUICT_SMTP_HOST", "HOIKUICT_SMTP_PORT", "HOIKUICT_PARENT_MAIL_FROM"):
+    for setting_name in (
+        "HOIKUICT_SMTP_HOST",
+        "HOIKUICT_SMTP_PORT",
+        "HOIKUICT_PARENT_MAIL_FROM",
+    ):
         if not (os.getenv(setting_name) or "").strip():
             errors.append(f"{setting_name} が必要です")
     if os.getenv("HOIKUICT_SMTP_STARTTLS") != "1":
@@ -187,7 +227,9 @@ def _validate_development_webpush_configuration() -> None:
 
     subject = urlsplit(parent_push_vapid_subject())
     if subject.scheme not in {"mailto", "https"}:
-        raise RuntimeError("HOIKUICT_PUSH_VAPID_SUBJECT は mailto: または https:// で指定してください")
+        raise RuntimeError(
+            "HOIKUICT_PUSH_VAPID_SUBJECT は mailto: または https:// で指定してください"
+        )
 
     origin = urlsplit(public_origin())
     is_local_http = origin.scheme == "http" and origin.hostname in {

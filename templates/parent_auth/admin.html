@@ -1,20 +1,148 @@
-{% extends "parent_auth/base.html" %}
+{% extends "base.html" %}
 {% block title %}保護者認証管理{% endblock %}
 {% block content %}
-<h1>保護者認証管理</h1><p><strong>{{ account.display_name }}</strong> / {{ account.email }}</p>
-<p>状態: {% if credential and credential.disabled_at %}停止{% elif credential and credential.password_hash %}有効{% elif registrations %}{{ registrations[0].status }}{% else %}未招待{% endif %} / 有効セッション {{ active_session_count }}件</p>
-{% if not credential or not credential.password_hash or credential.disabled_at %}
-<form method="post" action="/parent-accounts/{{ account.id }}/authentication/activate">
-  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-  <label>初回設定コードの発行理由<textarea name="reason" required></textarea></label>
-  <button>初回設定コードを発行</button>
-</form>
+{% set latest_registration = registrations[0] if registrations else none %}
+{% if credential and credential.disabled_at %}
+  {% set authentication_status = "停止中" %}
+  {% set authentication_status_class = "bg-rose-50 text-rose-700" %}
+{% elif credential and credential.password_hash %}
+  {% set authentication_status = "利用中" %}
+  {% set authentication_status_class = "bg-emerald-50 text-emerald-700" %}
+{% elif latest_registration %}
+  {% set authentication_status = registration_status_labels.get(latest_registration.status, latest_registration.status) %}
+  {% set authentication_status_class = "bg-amber-50 text-amber-700" %}
+{% else %}
+  {% set authentication_status = "未招待" %}
+  {% set authentication_status_class = "bg-slate-100 text-slate-600" %}
 {% endif %}
-<form method="post" action="/parent-accounts/{{ account.id }}/authentication/invite"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>招待理由<textarea name="reason" required></textarea></label><button>招待を送信・再送</button></form>
-{% for registration in registrations %}
-<hr><p>申請 {{ registration.status }} / 保護者氏名 {{ '一致' if registration.guardian_name_matched else '不一致' }} / 園児氏名 {{ '一致' if registration.child_name_matched else '不一致' }} / 生年月日 {{ '一致' if registration.child_birth_date_matched else '不一致' }}</p>
-{% if registration.status == 'pending_review' %}<form method="post" action="/parent-accounts/{{ account.id }}/authentication/registrations/{{ registration.id }}/review"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>確認理由<textarea name="reason" required></textarea></label><div class="row"><button name="decision" value="approve">承認</button><button class="secondary" name="decision" value="reject">却下</button></div></form>{% endif %}
-{% endfor %}
-{% if credential and credential.password_hash %}<form method="post" action="/parent-accounts/{{ account.id }}/authentication/reset"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>再設定理由<textarea name="reason" required></textarea></label><button>再設定コードを発行</button></form>{% endif %}
-<form method="post" action="/parent-accounts/{{ account.id }}/authentication/disable"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><label>停止理由<textarea name="reason" required></textarea></label><button class="secondary">資格情報を停止</button></form>
+
+<div class="space-y-6">
+  <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <p class="text-sm font-semibold text-indigo-600">保護者アカウント</p>
+      <h1 class="mt-1 text-2xl font-bold text-slate-900">認証管理</h1>
+      <p class="mt-2 text-sm text-slate-600">{{ account.display_name }}さんの初回登録、パスワード再設定、利用停止を管理します。</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">保護者情報を編集</a>
+      <a href="/parent-accounts/" class="rounded border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">一覧へ戻る</a>
+    </div>
+  </header>
+
+  <section class="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">保護者</p>
+      <p class="mt-1 font-semibold text-slate-900">{{ account.display_name }}</p>
+      <p class="mt-1 break-all text-sm text-slate-600">{{ account.email }}</p>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">認証状態</p>
+      <span class="mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold {{ authentication_status_class }}">{{ authentication_status }}</span>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">有効セッション</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{{ active_session_count }}<span class="ml-1 text-sm font-normal text-slate-500">件</span></p>
+    </div>
+  </section>
+
+  <section class="grid gap-4 lg:grid-cols-2">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900">初回登録の案内</h2>
+      <p class="mt-1 text-sm text-slate-600">本人確認用の招待を登録メールアドレスへ送信します。</p>
+      <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/invite">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <label class="block text-sm font-semibold text-slate-700">招待理由
+          <textarea name="reason" required rows="3" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="例：新規利用開始のため"></textarea>
+        </label>
+        <button class="mt-3 rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">招待を送信・再送</button>
+      </form>
+    </div>
+
+    {% if not credential or not credential.password_hash or credential.disabled_at %}
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900">初期設定・利用再開</h2>
+      <p class="mt-1 text-sm text-slate-600">本人確認後に、パスワード設定用コードを発行します。</p>
+      <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/activate">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <label class="block text-sm font-semibold text-slate-700">発行理由
+          <textarea name="reason" required rows="3" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="例：電話で本人確認済み"></textarea>
+        </label>
+        <button class="mt-3 rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">初回設定コードを発行</button>
+      </form>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="text-lg font-bold text-slate-900">登録申請の履歴</h2>
+        <p class="mt-1 text-sm text-slate-600">本人確認の照合結果と申請状態を確認できます。</p>
+      </div>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{{ registrations|length }}件</span>
+    </div>
+
+    {% if registrations %}
+    <div class="mt-4 space-y-3">
+      {% for registration in registrations %}
+      <article class="rounded-lg border border-slate-200 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="font-semibold text-slate-900">申請 {{ loop.revindex }}</p>
+          <span class="rounded-full px-3 py-1 text-xs font-semibold {% if registration.status == 'completed' %}bg-emerald-50 text-emerald-700{% elif registration.status == 'pending_review' %}bg-amber-50 text-amber-700{% elif registration.status in ['rejected', 'expired', 'cancelled'] %}bg-rose-50 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+            {{ registration_status_labels.get(registration.status, registration.status) }}
+          </span>
+        </div>
+        <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+          <div class="rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">保護者氏名</dt><dd class="mt-1 font-semibold">{{ '一致' if registration.guardian_name_matched else '不一致' }}</dd></div>
+          <div class="rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">園児氏名</dt><dd class="mt-1 font-semibold">{{ '一致' if registration.child_name_matched else '不一致' }}</dd></div>
+          <div class="rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">生年月日</dt><dd class="mt-1 font-semibold">{{ '一致' if registration.child_birth_date_matched else '不一致' }}</dd></div>
+        </dl>
+        {% if registration.status == 'pending_review' %}
+        <form class="mt-4 border-t border-slate-200 pt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/registrations/{{ registration.id }}/review">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+          <label class="block text-sm font-semibold text-slate-700">確認理由
+            <textarea name="reason" required rows="2" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="照合内容と確認方法を記録してください"></textarea>
+          </label>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button name="decision" value="approve" class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">承認</button>
+            <button name="decision" value="reject" class="rounded border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">却下</button>
+          </div>
+        </form>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="mt-4 rounded-lg bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">登録申請はまだありません。</p>
+    {% endif %}
+  </section>
+
+  {% if credential and credential.password_hash and not credential.disabled_at %}
+  <section class="grid gap-4 lg:grid-cols-2">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900">パスワード再設定</h2>
+      <p class="mt-1 text-sm text-slate-600">本人確認後に再設定コードを発行します。</p>
+      <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/reset">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <label class="block text-sm font-semibold text-slate-700">再設定理由
+          <textarea name="reason" required rows="3" class="mt-2 w-full rounded border border-slate-300 px-3 py-2"></textarea>
+        </label>
+        <button class="mt-3 rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">再設定コードを発行</button>
+      </form>
+    </div>
+
+    <div class="rounded-xl border border-rose-200 bg-rose-50 p-5">
+      <h2 class="text-lg font-bold text-rose-900">認証を停止</h2>
+      <p class="mt-1 text-sm text-rose-700">ログイン中の端末と通知登録も無効になります。</p>
+      <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/disable">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <label class="block text-sm font-semibold text-rose-900">停止理由
+          <textarea name="reason" required rows="3" class="mt-2 w-full rounded border border-rose-300 bg-white px-3 py-2"></textarea>
+        </label>
+        <button class="mt-3 rounded bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800">資格情報を停止</button>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+</div>
 {% endblock %}

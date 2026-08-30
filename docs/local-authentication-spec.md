@@ -530,6 +530,7 @@ DB backupにはpassword hash、暗号化済みTOTP secret、session hash、監�
 | `HOIKUICT_PARENT_SESSION_IDLE_HOURS` | 任意 | 既定12、許容1〜168 |
 | `HOIKUICT_PARENT_SESSION_ABSOLUTE_DAYS` | 任意 | 既定7、許容1〜30 |
 | `HOIKUICT_LOGIN_THROTTLE_HMAC_KEY` | local_password時 | 32 bytes以上 |
+| `FORWARDED_ALLOW_IPS` | productionのリバースプロキシ運用 | 信頼するプロキシのIP/CIDR。カンマ区切り。`*`は禁止 |
 | `HOIKUICT_CREDENTIAL_ENCRYPTION_KEY` | MFA有効時 | 32 bytes以上、version管理 |
 | `HOIKUICT_PASSWORD_BLOCKLIST_PATH` | production | ローカルblocklist file |
 | `HOIKUICT_KIOSK_ACCESS_MODE` | 常時 | `disabled` / `token` / 開発専用`open` |
@@ -542,6 +543,7 @@ productionでは次を満たさなければ起動を拒否する。
 - `HOIKUICT_ENABLE_MOCK_AUTH` が有効でない
 - `HOIKUICT_STAFF_AUTH_MODE=local_password`
 - `HOIKUICT_PARENT_AUTH_MODE=local_password`
+- `FORWARDED_ALLOW_IPS` に信頼するリバースプロキシのIP/CIDRが明示され、`*` でない
 - `HOIKUICT_PARENT_MAIL_TRANSPORT=smtp`
 - `HOIKUICT_PARENT_REGISTRATION_BASE_URL` がHTTPS URL
 - `HOIKUICT_KIOSK_ACCESS_MODE` が `disabled` または `token`

@@ -49,6 +49,15 @@ router = APIRouter(
 )
 templates = create_templates()
 REGISTRATION_COOKIE = "hoikuict_parent_registration"
+REGISTRATION_STATUS_LABELS = {
+    "invited": "招待済み",
+    "pending_review": "確認待ち",
+    "approved": "承認済み",
+    "rejected": "却下",
+    "completed": "登録完了",
+    "expired": "期限切れ",
+    "cancelled": "取消済み",
+}
 
 
 def _no_store(response):
@@ -63,6 +72,19 @@ def _render(request: Request, template: str, context: dict, status_code: int = 2
             request,
             template,
             {"request": request, "parent_portal_mode": True, **context},
+            status_code=status_code,
+        )
+    )
+
+
+def _render_staff(
+    request: Request, template: str, context: dict, status_code: int = 200
+):
+    return _no_store(
+        templates.TemplateResponse(
+            request,
+            template,
+            {"request": request, "parent_portal_mode": False, **context},
             status_code=status_code,
         )
     )
@@ -505,7 +527,7 @@ def _issue_admin_action_code(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _render(
+    return _render_staff(
         request,
         "parent_auth/action_code_display.html",
         {"current_user": current_user, "account": account, "action_code": code},
@@ -539,7 +561,7 @@ def admin_parent_auth_page(
             )
         ).all()
     )
-    return _render(
+    return _render_staff(
         request,
         "parent_auth/admin.html",
         {
@@ -549,6 +571,7 @@ def admin_parent_auth_page(
             "credential": credential,
             "registrations": registrations,
             "active_session_count": active_session_count,
+            "registration_status_labels": REGISTRATION_STATUS_LABELS,
             "action_code": "",
             "form_error": "",
         },

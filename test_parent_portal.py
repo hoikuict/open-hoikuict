@@ -32,14 +32,17 @@ from models import (
     ParentContactType,
     ParentNotification,
     ParentNotificationKind,
+    ParentRegistrationRequest,
     PasswordCredential,
     ProfileChangeNotification,
+    User,
 )
 import notice_content
 from time_utils import utc_now
 import routers.daily_contacts as daily_contacts_module
 import routers.notices as notices_module
 import routers.parent_accounts as parent_accounts_module
+import routers.parent_auth as parent_auth_module
 import routers.parent_portal as parent_portal_module
 from testing_helpers import configure_test_environment
 
@@ -58,6 +61,7 @@ class ParentPortalTests(unittest.TestCase):
         self.app.include_router(parent_portal_module.router)
         self.app.include_router(parent_portal_module.mock_login_router)
         self.app.include_router(parent_accounts_module.router)
+        self.app.include_router(parent_auth_module.router)
         self.app.include_router(notices_module.router)
         self.app.include_router(daily_contacts_module.router)
 
@@ -65,16 +69,28 @@ class ParentPortalTests(unittest.TestCase):
             with Session(self.engine) as session:
                 yield session
 
-        self.app.dependency_overrides[parent_portal_module.get_session] = override_get_session
-        self.app.dependency_overrides[parent_accounts_module.get_session] = override_get_session
+        self.app.dependency_overrides[parent_portal_module.get_session] = (
+            override_get_session
+        )
+        self.app.dependency_overrides[parent_accounts_module.get_session] = (
+            override_get_session
+        )
+        self.app.dependency_overrides[parent_auth_module.get_session] = (
+            override_get_session
+        )
         self.app.dependency_overrides[notices_module.get_session] = override_get_session
-        self.app.dependency_overrides[daily_contacts_module.get_session] = override_get_session
+        self.app.dependency_overrides[daily_contacts_module.get_session] = (
+            override_get_session
+        )
         self.app.dependency_overrides[parent_accounts_module.get_current_staff_user] = (
             lambda: StaffUser(
                 role=Role.CAN_EDIT,
                 name="台帳担当",
                 can_manage_child_records=True,
             )
+        )
+        self.app.dependency_overrides[parent_auth_module.require_local_parent_auth] = (
+            lambda: None
         )
 
         self.client = TestClient(self.app)
@@ -86,8 +102,16 @@ class ParentPortalTests(unittest.TestCase):
             session.add(classroom_b)
             session.flush()
 
-            family_main = Family(family_name="田中家", home_address="東京都港区1-1-1", home_phone="03-1111-1111")
-            family_single = Family(family_name="佐藤家", home_address="東京都新宿区2-2-2", home_phone="03-2222-2222")
+            family_main = Family(
+                family_name="田中家",
+                home_address="東京都港区1-1-1",
+                home_phone="03-1111-1111",
+            )
+            family_single = Family(
+                family_name="佐藤家",
+                home_address="東京都新宿区2-2-2",
+                home_phone="03-2222-2222",
+            )
             session.add(family_main)
             session.add(family_single)
             session.flush()
@@ -181,7 +205,11 @@ class ParentPortalTests(unittest.TestCase):
             session.flush()
             self.public_notice_id = public_notice.id
 
-            session.add(NoticeTarget(notice_id=public_notice.id, target_type=NoticeTargetType.all))
+            session.add(
+                NoticeTarget(
+                    notice_id=public_notice.id, target_type=NoticeTargetType.all
+                )
+            )
             session.add(
                 NoticeTarget(
                     notice_id=hidden_notice.id,
@@ -246,10 +274,15 @@ class ParentPortalTests(unittest.TestCase):
         self._login_parent(self.parent_account_id)
         home_response = self.client.get("/parent-portal/")
         list_response = self.client.get("/parent-portal/notices")
-        detail_response = self.client.get(f"/parent-portal/notifications/{notification_id}")
+        detail_response = self.client.get(
+            f"/parent-portal/notifications/{notification_id}"
+        )
 
         self.assertIn("本日の出欠確認のお願い", home_response.text)
-        self.assertIn("本日の連絡をいただいておりません。出席か欠席かお知らせください。", home_response.text)
+        self.assertIn(
+            "本日の連絡をいただいておりません。出席か欠席かお知らせください。",
+            home_response.text,
+        )
         self.assertIn("出欠確認", list_response.text)
         self.assertIn("出席・欠席を連絡する", detail_response.text)
         with Session(self.engine) as session:
@@ -286,7 +319,11 @@ class ParentPortalTests(unittest.TestCase):
         )
 
         with Session(self.engine) as session:
-            entry = session.exec(select(DailyContactEntry).where(DailyContactEntry.child_id == self.child_id)).first()
+            entry = session.exec(
+                select(DailyContactEntry).where(
+                    DailyContactEntry.child_id == self.child_id
+                )
+            ).first()
         self.assertIsNotNone(entry)
         self.assertEqual(entry.contact_type, ParentContactType.present)
         self.assertEqual(entry.contact_note, "本日は16:30に迎えます。")
@@ -306,7 +343,9 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("出席", staff_list_response.text)
         self.assertIn("田中 花", staff_list_response.text)
 
-        detail_response = self.client.get(f"/daily-contacts/{self.child_id}?date={today}")
+        detail_response = self.client.get(
+            f"/daily-contacts/{self.child_id}?date={today}"
+        )
         self.assertEqual(detail_response.status_code, 200)
         self.assertIn("本日は16:30に迎えます。", detail_response.text)
 
@@ -338,13 +377,17 @@ class ParentPortalTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(draft_response.status_code, 303)
-        staff_list_with_draft = self.client.get(f"/daily-contacts/?date={target.isoformat()}")
+        staff_list_with_draft = self.client.get(
+            f"/daily-contacts/?date={target.isoformat()}"
+        )
         self.assertEqual(staff_list_with_draft.status_code, 200)
         self.assertIn("下書き", staff_list_with_draft.text)
         self.assertIn("返信者: 台帳担当", staff_list_with_draft.text)
         self.assertNotIn("返信済み", staff_list_with_draft.text)
 
-        parent_home_before_publish = self.client.get(f"/parent-portal/?date={target.isoformat()}")
+        parent_home_before_publish = self.client.get(
+            f"/parent-portal/?date={target.isoformat()}"
+        )
         self.assertEqual(parent_home_before_publish.status_code, 200)
         self.assertNotIn("園からの返信", parent_home_before_publish.text)
         self.assertNotIn("12:30-14:10", parent_home_before_publish.text)
@@ -364,12 +407,16 @@ class ParentPortalTests(unittest.TestCase):
         )
         self.assertEqual(publish_response.status_code, 303)
 
-        staff_list_after_publish = self.client.get(f"/daily-contacts/?date={target.isoformat()}")
+        staff_list_after_publish = self.client.get(
+            f"/daily-contacts/?date={target.isoformat()}"
+        )
         self.assertEqual(staff_list_after_publish.status_code, 200)
         self.assertIn("返信済み", staff_list_after_publish.text)
         self.assertIn("返信者: 台帳担当", staff_list_after_publish.text)
 
-        staff_detail = self.client.get(f"/daily-contacts/{self.child_id}?date={target.isoformat()}")
+        staff_detail = self.client.get(
+            f"/daily-contacts/{self.child_id}?date={target.isoformat()}"
+        )
         self.assertEqual(staff_detail.status_code, 200)
         self.assertIn("公開済み", staff_detail.text)
         self.assertIn("更新者: 台帳担当", staff_detail.text)
@@ -397,7 +444,9 @@ class ParentPortalTests(unittest.TestCase):
 
         with Session(self.engine) as session:
             reply = session.exec(
-                select(DailyContactReply).where(DailyContactReply.child_id == self.child_id)
+                select(DailyContactReply).where(
+                    DailyContactReply.child_id == self.child_id
+                )
             ).first()
         self.assertIsNotNone(reply)
         self.assertEqual(reply.status, DailyContactReplyStatus.published)
@@ -423,7 +472,7 @@ class ParentPortalTests(unittest.TestCase):
         submitted_first_html = submitted_first_response.text
         self.assertIn('value="submitted_first" selected', submitted_first_html)
         self.assertIn(
-            f'/daily-contacts/{self.second_child_id}?date={target.isoformat()}&amp;sort=submitted_first',
+            f"/daily-contacts/{self.second_child_id}?date={target.isoformat()}&amp;sort=submitted_first",
             submitted_first_html,
         )
         self.assertLess(
@@ -470,7 +519,11 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
 
         with Session(self.engine) as session:
-            entry = session.exec(select(DailyContactEntry).where(DailyContactEntry.child_id == self.child_id)).first()
+            entry = session.exec(
+                select(DailyContactEntry).where(
+                    DailyContactEntry.child_id == self.child_id
+                )
+            ).first()
         self.assertIsNotNone(entry)
         self.assertEqual(entry.contact_type, ParentContactType.absent_sick)
         self.assertEqual(entry.absence_temperature, "38.1")
@@ -483,7 +536,9 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("欠席(病欠)", history_response.text)
         self.assertIn("かぜ", history_response.text)
 
-        detail_response = self.client.get(f"/daily-contacts/{self.child_id}?date={today}")
+        detail_response = self.client.get(
+            f"/daily-contacts/{self.child_id}?date={today}"
+        )
         self.assertEqual(detail_response.status_code, 200)
         self.assertIn("病欠", detail_response.text)
         self.assertIn("発熱と咳", detail_response.text)
@@ -521,7 +576,11 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("欠席の場合は、私用または病欠を選択してください。", response.text)
         with Session(self.engine) as session:
-            entry = session.exec(select(DailyContactEntry).where(DailyContactEntry.child_id == self.child_id)).first()
+            entry = session.exec(
+                select(DailyContactEntry).where(
+                    DailyContactEntry.child_id == self.child_id
+                )
+            ).first()
         self.assertIsNone(entry)
 
     def test_parent_only_sees_accessible_notices_and_read_is_recorded(self):
@@ -532,7 +591,9 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("遠足のお知らせ", list_response.text)
         self.assertNotIn("限定連絡", list_response.text)
 
-        detail_response = self.client.get(f"/parent-portal/notices/{self.public_notice_id}")
+        detail_response = self.client.get(
+            f"/parent-portal/notices/{self.public_notice_id}"
+        )
         self.assertEqual(detail_response.status_code, 200)
         self.assertIn("全家庭向けのお知らせです。", detail_response.text)
 
@@ -545,7 +606,9 @@ class ParentPortalTests(unittest.TestCase):
             ).first()
         self.assertIsNotNone(read)
 
-    def test_parent_can_view_rich_notice_attachment_but_not_other_family_attachment(self):
+    def test_parent_can_view_rich_notice_attachment_but_not_other_family_attachment(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as directory:
             upload_root = Path(directory) / "notice-attachments"
             upload_root.mkdir(parents=True)
@@ -616,7 +679,11 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
 
         with Session(self.engine) as session:
-            account = session.exec(select(ParentAccount).where(ParentAccount.email == "new-parent@example.com")).first()
+            account = session.exec(
+                select(ParentAccount).where(
+                    ParentAccount.email == "new-parent@example.com"
+                )
+            ).first()
 
         self.assertIsNotNone(account)
         self.assertEqual(account.family_id, self.main_family_id)
@@ -667,11 +734,53 @@ class ParentPortalTests(unittest.TestCase):
             )
 
     def test_parent_list_hides_mock_login_link_in_local_auth_mode(self):
-        with patch.object(parent_accounts_module, "parent_auth_is_mock", return_value=False):
+        with patch.object(
+            parent_accounts_module, "parent_auth_is_mock", return_value=False
+        ):
             response = self.client.get("/parent-accounts/")
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("/parent-portal/mock-login/", response.text)
+
+    def test_parent_auth_admin_uses_staff_layout_and_japanese_status(self):
+        with Session(self.engine) as session:
+            admin = User(
+                email="parent-auth-admin@example.com",
+                display_name="認証管理者",
+                staff_role="admin",
+            )
+            session.add(admin)
+            session.add(
+                ParentRegistrationRequest(
+                    parent_account_id=self.parent_account_id,
+                    email_normalized_snapshot="tanaka@example.com",
+                    status="pending_review",
+                    guardian_name_matched=True,
+                    child_name_matched=True,
+                    child_birth_date_matched=True,
+                    matched_child_id=self.child_id,
+                )
+            )
+            session.commit()
+            admin_id = admin.id
+
+        self.app.dependency_overrides[parent_auth_module.get_current_staff_user] = (
+            lambda: StaffUser(
+                role=Role.ADMIN,
+                name="認証管理者",
+                user_id=admin_id,
+            )
+        )
+        response = self.client.get(
+            f"/parent-accounts/{self.parent_account_id}/authentication"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("保護者アカウント", response.text)
+        self.assertIn('href="/parent-accounts/"', response.text)
+        self.assertIn("一覧へ戻る", response.text)
+        self.assertIn("確認待ち", response.text)
+        self.assertNotIn(">pending_review<", response.text)
 
     def test_profile_update_creates_staff_notification(self):
         self._login_parent(self.parent_account_id)
@@ -750,10 +859,15 @@ class ParentPortalTests(unittest.TestCase):
     def test_child_profile_selector_redirects_when_only_one_child(self):
         self._login_parent(self.single_parent_account_id)
 
-        response = self.client.get("/parent-portal/children/profile", follow_redirects=False)
+        response = self.client.get(
+            "/parent-portal/children/profile", follow_redirects=False
+        )
 
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers["location"], f"/parent-portal/children/{self.other_child_id}/profile")
+        self.assertEqual(
+            response.headers["location"],
+            f"/parent-portal/children/{self.other_child_id}/profile",
+        )
 
     def test_child_profile_selector_lists_children_when_multiple_are_linked(self):
         self._login_parent(self.parent_account_id)
@@ -762,7 +876,9 @@ class ParentPortalTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(f"/parent-portal/children/{self.child_id}/profile", response.text)
-        self.assertIn(f"/parent-portal/children/{self.second_child_id}/profile", response.text)
+        self.assertIn(
+            f"/parent-portal/children/{self.second_child_id}/profile", response.text
+        )
 
 
 if __name__ == "__main__":
