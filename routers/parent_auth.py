@@ -19,6 +19,7 @@ from local_auth import AuthenticationFailed, LoginThrottled, PasswordPolicyError
 from models import (
     AuthSession,
     ParentAccount,
+    ParentMailDelivery,
     ParentRegistrationRequest,
     PasswordCredential,
     User,
@@ -37,6 +38,7 @@ from parent_auth import (
     exchange_parent_action_code,
     issue_parent_invitation,
     issue_parent_password_code,
+    parent_invitation_requirements,
     review_parent_registration,
     submit_parent_identity,
 )
@@ -562,6 +564,13 @@ def admin_parent_auth_page(
             )
         ).all()
     )
+    mail_deliveries = session.exec(
+        select(ParentMailDelivery.message_type, ParentMailDelivery.recipient,
+               ParentMailDelivery.status, ParentMailDelivery.created_at,
+               ParentMailDelivery.sent_at, ParentMailDelivery.next_retry_at)
+        .where(ParentMailDelivery.parent_account_id == account_id)
+        .order_by(ParentMailDelivery.created_at.desc()).limit(20)
+    ).all()
     return _render_staff(
         request,
         "parent_auth/admin.html",
@@ -572,6 +581,9 @@ def admin_parent_auth_page(
             "credential": credential,
             "registrations": registrations,
             "active_session_count": active_session_count,
+            "mail_deliveries": mail_deliveries,
+            "invitation_issues": parent_invitation_requirements(session, account),
+            "invitation_children": [link.child for link in account.child_links if link.child],
             "registration_status_labels": REGISTRATION_STATUS_LABELS,
             "action_code": "",
             "form_error": "",

@@ -202,14 +202,15 @@ def _linked_children(session: Session, parent_account_id: int):
     ).all()
 
 
-def _validate_invitation_ledger(session: Session, account: ParentAccount) -> None:
+def parent_invitation_requirements(session: Session, account: ParentAccount) -> list[str]:
+    missing = []
     if account.status != ParentAccountStatus.active:
-        raise ValueError("有効な保護者だけを招待できます")
+        missing.append("有効な保護者だけを招待できます")
     if (
         not account.registration_verification_name
         or account.registration_verification_name_type not in {"kana", "latin"}
     ):
-        raise ValueError("保護者の照合用氏名と表記種別を登録してください")
+        missing.append("保護者の照合用氏名と表記種別を登録してください")
     links = _linked_children(session, account.id)
     eligible = [
         link.child
@@ -220,7 +221,14 @@ def _validate_invitation_ledger(session: Session, account: ParentAccount) -> Non
         and link.child.birth_date
     ]
     if not eligible:
-        raise ValueError("明示的に紐付く園児へ照合用氏名と生年月日を登録してください")
+        missing.append("明示的に紐付く園児へ照合用氏名と生年月日を登録してください")
+    return missing
+
+
+def _validate_invitation_ledger(session: Session, account: ParentAccount) -> None:
+    missing = parent_invitation_requirements(session, account)
+    if missing:
+        raise ValueError(missing[0])
 
 
 def cancel_open_parent_registrations(
@@ -243,6 +251,13 @@ def cancel_open_parent_registrations(
         item.completion_token_hash = None
         item.updated_at = cancelled_at
         session.add(item)
+        for delivery in session.exec(select(ParentMailDelivery).where(
+            ParentMailDelivery.registration_request_id == item.id,
+            ParentMailDelivery.status == "pending",
+        )).all():
+            delivery.status = "cancelled"
+            delivery.next_retry_at = None
+            session.add(delivery)
 
 
 def issue_parent_invitation(

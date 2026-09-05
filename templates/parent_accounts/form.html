@@ -6,20 +6,31 @@
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-slate-800">{{ submit_label }}</h1>
-      <p class="text-sm text-slate-500">家族はグルーピング、園児との明示的な紐付けは閲覧権限として管理します。</p>
+      <p class="text-sm text-slate-500">家族の保護者情報を引き継いで登録できます。保存後は氏名・連絡先・勤務先が双方の画面に反映されます。</p>
     </div>
     <a href="/parent-accounts/" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
   </div>
 
   <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+      <label for="guardian-link" class="block text-sm font-semibold text-slate-700">家族プロフィールの保護者と紐付ける</label>
+      <select id="guardian-link" name="guardian_link" class="mt-2 w-full rounded border border-slate-300 bg-white px-3 py-2">
+        <option value="none">紐付けなし</option>
+        {% for choice in guardian_choices %}<option value="{{ choice.value }}" {% if selected_guardian_link == choice.value %}selected{% endif %}>{{ choice.label }}</option>{% endfor %}
+      </select>
+      <p class="mt-2 text-xs text-slate-600">選ぶと入力済みの情報を取り込みます。閲覧を許可する園児は下のチェック欄で確認してください。</p>
+    </div>
     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">表示名</label>
         <input type="text" name="display_name" required value="{{ account.display_name if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">家族と紐付ける場合は姓と名をスペースで区切ってください。</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
         <input type="email" name="email" required value="{{ account.email if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">招待・連絡先に使います。利用開始後のログインID変更は「認証管理」で行います。</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">登録照合用氏名</label>
@@ -37,6 +48,7 @@
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">現住所</label>
         <input type="text" name="home_address" value="{{ account.home_address if account and account.home_address else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">家族と同じ住所は共通で更新されます。別居などで異なる住所を登録している場合は保持されます。</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">勤務先</label>
@@ -84,4 +96,20 @@
     </div>
   </form>
 </div>
+<script id="guardian-account-choices" type="application/json">{{ guardian_choices|tojson }}</script>
+<script>
+(() => {
+  const choices = JSON.parse(document.getElementById('guardian-account-choices').textContent);
+  const selector = document.getElementById('guardian-link');
+  selector.addEventListener('change', () => {
+    const choice = choices.find(item => item.value === selector.value);
+    if (!choice) return;
+    const form = selector.form;
+    form.elements.family_id.value = String(choice.family_id);
+    for (const [name, value] of Object.entries(choice.fields)) {
+      if (form.elements[name]) form.elements[name].value = value || '';
+    }
+  });
+})();
+</script>
 {% endblock %}

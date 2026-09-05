@@ -153,6 +153,16 @@
           <div><div class="text-xs font-medium text-slate-500">勤務先住所</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_address or "-" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">勤務先電話番号</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_phone or "-" }}</div></div>
         </div>
+        {% if current_user.can_manage_child_records or current_user.is_admin %}
+        <div class="mt-4 flex flex-wrap gap-3 border-t border-slate-200 pt-3 text-sm">
+          {% if linked_account %}
+          <a href="/parent-accounts/{{ linked_account.id }}/edit" class="font-semibold text-indigo-700 hover:underline">保護者情報を編集</a>
+          {% if current_user.is_admin %}<a href="/parent-accounts/{{ linked_account.id }}/authentication" class="font-semibold text-indigo-700 hover:underline">招待・登録状況を確認</a>{% endif %}
+          {% elif child.family %}
+          <a href="/parent-accounts/new?family_id={{ child.family.id }}&guardian_order={{ guardian.order }}&child_id={{ child.id }}" class="font-semibold text-indigo-700 hover:underline">この保護者のアカウントを登録</a>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
       {% else %}
       <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 lg:col-span-2">

@@ -4,10 +4,12 @@ from collections import Counter, deque
 from datetime import datetime
 from typing import Any, Optional
 
+from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from models import Child, Family, Guardian, ParentAccount, ParentChildLink
+from models import Child, Family, Guardian, ParentAccount
 from time_utils import utc_now
 
 DEFAULT_RELATIONSHIP_1 = "母"
@@ -410,6 +412,8 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
                     order=int(profile.get("order", 1)),
                 )
             )
+        session.flush()
+        session.expire(child, ["guardians"])
 
 
 def apply_family_shared_data(
@@ -420,6 +424,8 @@ def apply_family_shared_data(
     updated_at: Optional[datetime] = None,
 ) -> dict[str, Any]:
     normalized = normalize_family_payload(payload)
+    previous_address = family.home_address
+    previous_account_ids = {item.get("parent_account_id") for item in family.guardian_profiles()}
     family.family_name = normalized["family_name"] or family.family_name
     family.home_address = normalized_optional_text(normalized["home_address"])
     family.home_phone = normalized_optional_text(normalized["home_phone"])
@@ -427,9 +433,137 @@ def apply_family_shared_data(
     family.updated_at = updated_at or utc_now()
     session.add(family)
     session.flush()
+    sync_family_to_parent_accounts(session, family, previous_address=previous_address, previous_account_ids=previous_account_ids)
     sync_family_to_children(session, family, updated_at=family.updated_at)
     sync_parent_child_links(session, family)
     return normalized
+
+
+SHARED_ACCOUNT_FIELDS = ("email", "phone", "workplace", "workplace_address", "workplace_phone")
+
+
+def validate_parent_contact_email(session: Session, email: str, account_id: int | None = None) -> str:
+    email = normalized_text(email)
+    if not email or len(email) > 255 or "@" not in email or any(c.isspace() for c in email):
+        raise HTTPException(400, "受信可能なメールアドレスを入力してください")
+    with session.no_autoflush:
+        duplicate = session.exec(select(ParentAccount).where(
+            func.lower(ParentAccount.email) == email.lower(),
+            ParentAccount.id != account_id if account_id is not None else True,
+        )).first()
+    if duplicate:
+        raise HTTPException(400, "このメールアドレスは別の保護者アカウントで利用されています")
+    return email
+
+
+def guardian_account_values(family: Family, profile: dict[str, Any]) -> dict[str, Any]:
+    """Prefill a registration form; this does not create an account or grant access."""
+    kana = " ".join(normalized_text(profile.get(key)) for key in ("last_name_kana", "first_name_kana")).strip()
+    return {
+        "display_name": f"{profile['last_name']} {profile['first_name']}",
+        **{key: normalized_text(profile.get(key)) for key in SHARED_ACCOUNT_FIELDS},
+        "home_address": family.home_address or "",
+        "registration_verification_name": kana,
+        "registration_verification_name_type": "kana" if kana else "",
+    }
+
+
+def sync_family_to_parent_accounts(session: Session, family: Family, *, previous_address: str | None, previous_account_ids: set) -> None:
+    from parent_auth import cancel_open_parent_registrations
+
+    profiles = [dict(item) for item in family.guardian_profiles()]
+    seen: set[int] = set()
+    for profile in profiles:
+        account_id = _normalized_parent_account_id(profile.get("parent_account_id"))
+        if account_id is None:
+            continue
+        account = session.get(ParentAccount, account_id)
+        if account is None or account.family_id != family.id or account_id in seen:
+            raise HTTPException(400, "保護者アカウントの紐付けを家族の編集画面で確認してください")
+        seen.add(account_id)
+        old_email = account.email
+        if account.id not in previous_account_ids:
+            for key in SHARED_ACCOUNT_FIELDS:
+                if not normalized_text(profile.get(key)):
+                    profile[key] = getattr(account, key) or ""
+        # An empty ledger email must not erase the account's required address.
+        profile["email"] = validate_parent_contact_email(session, profile.get("email") or account.email, account.id)
+        account.display_name = f"{profile['last_name']} {profile['first_name']}"
+        for key in SHARED_ACCOUNT_FIELDS:
+            setattr(account, key, normalized_optional_text(profile.get(key)))
+        # Preserve an explicitly different address (for example a separate household).
+        if not account.home_address or normalized_text(account.home_address) == normalized_text(previous_address):
+            account.home_address = family.home_address
+        if old_email != account.email:
+            cancel_open_parent_registrations(session, account.id)
+        account.updated_at = family.updated_at
+        session.add(account)
+    family.shared_profile = {"guardians": profiles}
+    session.add(family)
+
+
+def sync_parent_account_to_family(session: Session, account: ParentAccount, *, previous_address: str | None = None) -> None:
+    family = session.get(Family, account.family_id) if account.family_id else None
+    if family is None:
+        return
+    profiles = [dict(item) for item in family.guardian_profiles()]
+    linked = [item for item in profiles if _normalized_parent_account_id(item.get("parent_account_id")) == account.id]
+    if len(linked) > 1:
+        raise HTTPException(400, "同じアカウントが複数の保護者へ紐付いています。家族の編集画面で確認してください")
+    if not linked:
+        return
+    profile = linked[0]
+    parts = account.display_name.split(maxsplit=1)
+    if len(parts) == 2:
+        profile["last_name"], profile["first_name"] = parts
+    elif _identity_key(account.display_name) != _identity_key(f"{profile['last_name']} {profile['first_name']}"):
+        raise HTTPException(400, "家族と紐付ける保護者の氏名は、姓と名をスペースで区切ってください")
+    profile.update({key: getattr(account, key) or "" for key in SHARED_ACCOUNT_FIELDS})
+    family.shared_profile = {"guardians": profiles}
+    if normalized_text(previous_address) == normalized_text(family.home_address):
+        old_address = family.home_address
+        family.home_address = account.home_address
+        for other in session.exec(select(ParentAccount).where(ParentAccount.family_id == family.id)).all():
+            if other.id != account.id and normalized_text(other.home_address) == normalized_text(old_address):
+                other.home_address = family.home_address
+                other.updated_at = utc_now()
+                session.add(other)
+    family.updated_at = utc_now()
+    session.add(family)
+    session.flush()
+    sync_family_to_children(session, family)
+
+
+def bind_parent_account_guardian(session: Session, account: ParentAccount, link: str | None, *, old_family_id: int | None = None) -> None:
+    """Bind only an explicitly selected guardian; never infer child permissions."""
+    if link == "none":
+        link = ""
+    target_order = None
+    if link:
+        try:
+            target_family_id, target_order = map(int, link.split(":"))
+        except (ValueError, TypeError):
+            raise HTTPException(400, "紐付ける家族の保護者を選び直してください") from None
+        if target_family_id != account.family_id:
+            raise HTTPException(400, "所属家族と紐付ける保護者の家族が一致していません")
+        family = session.get(Family, target_family_id)
+        matches = [item for item in family.guardian_profiles() if item.get("order") == target_order] if family else []
+        if len(matches) != 1 or matches[0].get("parent_account_id") not in (None, account.id):
+            raise HTTPException(400, "この保護者は既に別のアカウントと紐付いているか、変更されています")
+    for family_id in {value for value in (old_family_id, account.family_id) if value is not None}:
+        family = session.get(Family, family_id)
+        if not family:
+            raise HTTPException(400, "所属家族が見つかりません")
+        profiles = [dict(item) for item in family.guardian_profiles()]
+        for profile in profiles:
+            if profile.get("parent_account_id") == account.id and (link is not None or family_id != account.family_id):
+                profile["parent_account_id"] = None
+            if family_id == account.family_id and target_order == profile.get("order"):
+                profile["parent_account_id"] = account.id
+        family.shared_profile = {"guardians": profiles}
+        session.add(family)
+        session.flush()
+        sync_family_to_children(session, family)
 
 
 def create_family_for_child(

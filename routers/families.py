@@ -83,6 +83,16 @@ def _render_form(
     session: Session,
 ):
     parent_accounts = _all_parent_accounts(session)
+    account_fields = {}
+    for account in parent_accounts:
+        fields = {key: getattr(account, key) or "" for key in ("email", "phone", "workplace", "workplace_address", "workplace_phone")}
+        name = account.display_name.split(maxsplit=1)
+        if len(name) == 2:
+            fields.update(last_name=name[0], first_name=name[1])
+        kana = (account.registration_verification_name or "").split(maxsplit=1)
+        if account.registration_verification_name_type == "kana" and len(kana) == 2:
+            fields.update(last_name_kana=kana[0], first_name_kana=kana[1])
+        account_fields[str(account.id)] = fields
     return templates.TemplateResponse(
         request,
         "families/form.html",
@@ -96,6 +106,7 @@ def _render_form(
             "form_data": form_data or family_form_data_from_family(family),
             "children": _all_children(session),
             "parent_accounts": parent_accounts,
+            "guardian_account_fields": account_fields,
             "parent_accounts_by_id": {
                 account.id: account for account in parent_accounts
             },

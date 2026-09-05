@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -11,7 +11,13 @@ from auth import (
     require_child_record_manager,
 )
 from database import get_session
-from family_support import sync_parent_child_links
+from family_support import (
+    bind_parent_account_guardian,
+    guardian_account_values,
+    sync_parent_account_to_family,
+    sync_parent_child_links,
+    validate_parent_contact_email,
+)
 from models import (
     Child,
     Family,
@@ -42,6 +48,16 @@ def _all_children(session: Session) -> list[Child]:
     return session.exec(
         select(Child).order_by(Child.last_name_kana, Child.first_name_kana, Child.id)
     ).all()
+
+
+def _guardian_choices(families: list[Family], account_id: int | None = None) -> list[dict]:
+    return [
+        {"value": f"{family.id}:{profile['order']}", "family_id": family.id,
+         "label": f"{family.family_name} / {profile['last_name']} {profile['first_name']}（{profile.get('relationship') or '保護者'}）",
+         "fields": guardian_account_values(family, profile)}
+        for family in families for profile in family.guardian_profiles()
+        if profile.get("parent_account_id") in (None, account_id)
+    ]
 
 
 def _replace_child_links(
@@ -153,22 +169,45 @@ def parent_account_list(
 @router.get("/new", response_class=HTMLResponse)
 def new_parent_account_form(
     request: Request,
+    family_id: int | None = Query(default=None),
+    guardian_order: int | None = Query(default=None),
+    child_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
+    families = _all_families(session)
+    account = None
+    selected_link = ""
+    selected_children = set()
+    if guardian_order is not None:
+        family = session.get(Family, family_id) if family_id else None
+        profiles = [item for item in family.guardian_profiles() if item.get("order") == guardian_order] if family else []
+        if len(profiles) != 1:
+            raise HTTPException(404, "家族の保護者情報が見つかりません")
+        if profiles[0].get("parent_account_id"):
+            return RedirectResponse(f"/parent-accounts/{profiles[0]['parent_account_id']}/edit", status_code=303)
+        account = ParentAccount(**guardian_account_values(family, profiles[0]), status=ParentAccountStatus.active)
+        selected_link = f"{family_id}:{guardian_order}"
+        if child_id is not None:
+            child = session.get(Child, child_id)
+            if child is None or child.family_id != family_id:
+                raise HTTPException(400, "対象園児の家族が一致していません")
+            selected_children.add(child.id)
     return templates.TemplateResponse(
         request,
         "parent_accounts/form.html",
         {
             "request": request,
-            "account": None,
-            "families": _all_families(session),
+            "account": account,
+            "families": families,
+            "guardian_choices": _guardian_choices(families),
+            "selected_guardian_link": selected_link,
             "children": _all_children(session),
-            "selected_child_ids": set(),
-            "selected_family_id": "",
+            "selected_child_ids": selected_children,
+            "selected_family_id": family_id or "",
             "action_url": "/parent-accounts/",
-            "submit_label": "登録する",
+            "submit_label": "登録して招待へ" if selected_link and current_user.is_admin else "登録する",
             "current_user": current_user,
             "status_options": list(ParentAccountStatus),
         },
@@ -186,6 +225,7 @@ def create_parent_account(
     workplace_phone: str = Form(""),
     status: str = Form("active"),
     family_id: str = Form(""),
+    guardian_link: str | None = Form(default=None),
     registration_verification_name: str = Form(""),
     registration_verification_name_type: str = Form(""),
     child_ids: list[int] = Form(default=[]),
@@ -193,6 +233,7 @@ def create_parent_account(
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
+    email = validate_parent_contact_email(session, email)
     try:
         normalized_status = ParentAccountStatus(status)
     except ValueError:
@@ -218,12 +259,15 @@ def create_parent_account(
     session.add(account)
     session.flush()
     _replace_child_links(session, account, child_ids, current_user)
+    bind_parent_account_guardian(session, account, guardian_link)
+    sync_parent_account_to_family(session, account)
 
     if selected_family_id:
         _sync_related_families(session, {selected_family_id})
 
     session.commit()
-    return RedirectResponse(url="/parent-accounts/", status_code=303)
+    destination = f"/parent-accounts/{account.id}/authentication" if guardian_link and ":" in guardian_link and current_user.is_admin else "/parent-accounts/"
+    return RedirectResponse(url=destination, status_code=303)
 
 
 @router.get("/{account_id}/edit", response_class=HTMLResponse)
@@ -235,13 +279,19 @@ def edit_parent_account_form(
 ):
     require_child_record_manager(current_user)
     account = _load_account(session, account_id)
+    families = _all_families(session)
+    selected_link = next((f"{family.id}:{profile['order']}" for family in families
+                          for profile in family.guardian_profiles()
+                          if family.id == account.family_id and profile.get("parent_account_id") == account.id), "")
     return templates.TemplateResponse(
         request,
         "parent_accounts/form.html",
         {
             "request": request,
             "account": account,
-            "families": _all_families(session),
+            "families": families,
+            "guardian_choices": _guardian_choices(families, account.id),
+            "selected_guardian_link": selected_link,
             "children": _all_children(session),
             "selected_child_ids": {link.child_id for link in account.child_links},
             "selected_family_id": account.family_id if account.family_id else "",
@@ -265,6 +315,7 @@ def update_parent_account(
     workplace_phone: str = Form(""),
     status: str = Form("active"),
     family_id: str = Form(""),
+    guardian_link: str | None = Form(default=None),
     registration_verification_name: str = Form(""),
     registration_verification_name_type: str = Form(""),
     child_ids: list[int] = Form(default=[]),
@@ -273,6 +324,8 @@ def update_parent_account(
 ):
     require_child_record_manager(current_user)
     account = _load_account(session, account_id)
+    email = validate_parent_contact_email(session, email, account.id)
+    previous_address = account.home_address
     old_family_id = account.family_id
     old_email = account.email
     old_verification = (
@@ -306,6 +359,8 @@ def update_parent_account(
     session.add(account)
     session.flush()
     links_changed = _replace_child_links(session, account, child_ids, current_user)
+    bind_parent_account_guardian(session, account, guardian_link, old_family_id=old_family_id)
+    sync_parent_account_to_family(session, account, previous_address=previous_address)
     if (
         links_changed
         or old_email != account.email

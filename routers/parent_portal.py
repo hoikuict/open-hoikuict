@@ -611,6 +611,13 @@ def parent_home(
     )
 
 
+def _has_linked_family_profile(account: ParentAccount) -> bool:
+    return bool(account.family and any(
+        profile.get("parent_account_id") == account.id
+        for profile in account.family.guardian_profiles()
+    ))
+
+
 @router.get("/profile", response_class=HTMLResponse)
 def parent_profile_form(
     request: Request,
@@ -620,6 +627,9 @@ def parent_profile_form(
     current_parent_user = _get_parent_account(request, session)
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    if _has_linked_family_profile(current_parent_user):
+        return RedirectResponse(url="/parent-portal/children/profile", status_code=303)
 
     credential = session.exec(
         select(PasswordCredential).where(
@@ -688,6 +698,9 @@ def save_parent_profile(
     current_parent_user = _get_parent_account(request, session)
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    if _has_linked_family_profile(current_parent_user):
+        return RedirectResponse(url="/parent-portal/children/profile", status_code=303)
 
     normalized_email = (email or "").strip()
     credential = session.exec(
