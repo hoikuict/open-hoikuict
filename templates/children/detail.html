@@ -159,6 +159,7 @@
           <a href="/parent-accounts/{{ linked_account.id }}/edit" class="font-semibold text-indigo-700 hover:underline">保護者情報を編集</a>
           {% if current_user.is_admin %}<a href="/parent-accounts/{{ linked_account.id }}/authentication" class="font-semibold text-indigo-700 hover:underline">招待・登録状況を確認</a>{% endif %}
           {% elif child.family %}
+          {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new?child_id={{ child.id }}&guardian_order={{ guardian.order }}" class="font-semibold text-indigo-700 hover:underline">この保護者に初回入力を依頼</a>{% endif %}
           <a href="/parent-accounts/new?family_id={{ child.family.id }}&guardian_order={{ guardian.order }}&child_id={{ child.id }}" class="font-semibold text-indigo-700 hover:underline">この保護者のアカウントを登録</a>
           {% endif %}
         </div>
@@ -167,6 +168,7 @@
       {% else %}
       <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 lg:col-span-2">
         家族プロフィールに保護者情報はまだ登録されていません。
+        {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new?child_id={{ child.id }}" class="mt-3 block font-semibold text-indigo-700 hover:underline">保護者に初回入力を依頼</a>{% endif %}
       </div>
       {% endfor %}
     </div>

@@ -44,6 +44,7 @@ from models import (
     ParentAccount,
     ParentAccountStatus,
     ParentChildLink,
+    ParentEnrollment,
     ParentCredentialProvisioningAudit,
     ParentMailDelivery,
     ParentPushSubscription,
@@ -203,6 +204,14 @@ def _linked_children(session: Session, parent_account_id: int):
 
 
 def parent_invitation_requirements(session: Session, account: ParentAccount) -> list[str]:
+    from parent_enrollment import latest_enrollment, prepare_enrollment
+    enrollment = latest_enrollment(session, account.id)
+    if enrollment and not enrollment.applied_at:
+        try:
+            prepare_enrollment(session, account, enrollment.child_name, enrollment.child_id, enrollment.guardian_order)
+        except ValueError as exc:
+            return [str(exc)]
+        return []
     missing = []
     if account.status != ParentAccountStatus.active:
         missing.append("有効な保護者だけを招待できます")
@@ -266,10 +275,17 @@ def issue_parent_invitation(
     account: ParentAccount,
     actor_user: User,
     reason: str,
+    enrollment: ParentEnrollment | None = None,
 ) -> tuple[ParentRegistrationRequest, str]:
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
-    _validate_invitation_ledger(session, account)
+    from parent_enrollment import latest_enrollment, prepare_enrollment
+    previous_enrollment = enrollment or latest_enrollment(session, account.id)
+    if previous_enrollment and not previous_enrollment.applied_at:
+        enrollment = prepare_enrollment(session, account, previous_enrollment.child_name,
+                                        previous_enrollment.child_id, previous_enrollment.guardian_order)
+    else:
+        _validate_invitation_ledger(session, account)
     credential = ensure_parent_credential(session, account)
     now = utc_now()
     recent_deliveries = session.exec(
@@ -305,6 +321,9 @@ def issue_parent_invitation(
     )
     session.add(registration)
     session.flush()
+    if enrollment:
+        enrollment.registration_request_id = registration.id
+        session.add(enrollment)
     operation = "invitation_resend" if previous else "invitation_issue"
     session.add(
         ParentCredentialProvisioningAudit(
@@ -348,6 +367,9 @@ def _queue_registration_mail(
         link = f"{_registration_base_url()}/parent-portal/register/invite#{raw_token}"
         subject = "保護者ポータル 初回登録のご案内"
         body = f"保護者ポータルの初回登録手続きを開始してください。\n\n{link}\n\nこのリンクは24時間有効です。"
+        if session.get(ParentEnrollment, registration.id):
+            subject = "入園時の情報入力のお願い"
+            body = f"入園に必要なお子さま・保護者・連絡先の情報をご入力ください。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。"
     else:
         link = f"{_registration_base_url()}/parent-portal/register/complete#{raw_token}"
         subject = "保護者ポータル パスワード設定のご案内"
@@ -506,12 +528,18 @@ def exchange_invitation_token(session: Session, raw_token: str) -> str:
         session.add(registration)
         session.commit()
         raise AuthenticationFailed("招待リンクを確認してください")
+    if account.status != ParentAccountStatus.active:
+        raise AuthenticationFailed("招待リンクを確認してください")
     raw_state = _issue_registration_session(
         session,
         parent_account_id=registration.parent_account_id,
         registration_request_id=registration.id,
         purpose="identity",
     )
+    if session.get(ParentEnrollment, registration.id):
+        state = session.get(ParentRegistrationSession, token_hash(raw_state))
+        state.expires_at = now + timedelta(hours=2)
+        session.add(state)
     registration.invitation_token_hash = None
     registration.updated_at = now
     session.add(registration)
@@ -551,6 +579,8 @@ def submit_parent_identity(
 ) -> ParentRegistrationRequest:
     state = _get_registration_session(session, raw_state, "identity")
     registration = session.get(ParentRegistrationRequest, state.registration_request_id)
+    if session.get(ParentEnrollment, state.registration_request_id):
+        raise AuthenticationFailed("初回情報入力フォームから送信してください")
     account = session.get(ParentAccount, state.parent_account_id)
     if (
         registration is None
@@ -633,19 +663,26 @@ def review_parent_registration(
     actor_user: User,
     approve: bool,
     reason: str,
+    enrollment_confirmed: bool = False,
 ) -> str | None:
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
     if registration.status != "pending_review":
         raise ValueError("確認待ちの申請ではありません")
     account = session.get(ParentAccount, registration.parent_account_id)
-    if account is None:
+    if account is None or account.status != ParentAccountStatus.active:
         raise ValueError("保護者アカウントが見つかりません")
     credential = _credential_for_parent(session, account.id)
     now = utc_now()
     raw_token = None
     if approve:
-        if not (
+        enrollment = session.get(ParentEnrollment, registration.id)
+        if enrollment:
+            if not enrollment_confirmed:
+                raise ValueError("初回入力の内容と保護者・園児の対応を確認してください")
+            from parent_enrollment import apply_enrollment
+            apply_enrollment(session, registration, account, actor_user)
+        elif not (
             registration.guardian_name_matched
             and registration.child_name_matched
             and registration.child_birth_date_matched
@@ -1027,6 +1064,10 @@ def issue_parent_password_code(
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
     if action == "parent_activate":
+        from parent_enrollment import latest_enrollment
+        enrollment = latest_enrollment(session, account.id)
+        if enrollment and not enrollment.applied_at:
+            raise ValueError("保護者の初回入力を確認して承認してください")
         _validate_invitation_ledger(session, account)
     elif action != "parent_reset":
         raise ValueError("未対応の保護者資格情報操作です")

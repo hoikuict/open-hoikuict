@@ -19,6 +19,7 @@ from local_auth import AuthenticationFailed, LoginThrottled, PasswordPolicyError
 from models import (
     AuthSession,
     ParentAccount,
+    ParentEnrollment,
     ParentMailDelivery,
     ParentRegistrationRequest,
     PasswordCredential,
@@ -45,6 +46,11 @@ from parent_auth import (
 from security_config import secure_cookie_enabled
 from template_utils import create_templates
 from url_utils import safe_internal_redirect
+from parent_enrollment import (
+    CHILD_FIELDS, GUARDIAN_FIELDS, FIELD_LABELS, enrollment_state, enrollment_target,
+    latest_enrollment, prepare_enrollment, submit_enrollment,
+)
+from family_support import validate_parent_contact_email
 
 
 router = APIRouter(
@@ -93,11 +99,11 @@ def _render_staff(
     )
 
 
-def _set_registration_cookie(response, raw_state: str) -> None:
+def _set_registration_cookie(response, raw_state: str, *, max_age: int = 15 * 60) -> None:
     response.set_cookie(
         REGISTRATION_COOKIE,
         raw_state,
-        max_age=15 * 60,
+        max_age=max_age,
         httponly=True,
         secure=secure_cookie_enabled(),
         samesite="lax",
@@ -190,19 +196,57 @@ def invitation_verify(
             )
         )
     response = RedirectResponse("/parent-portal/register/identity", status_code=303)
-    _set_registration_cookie(response, state)
+    from parent_auth import token_hash
+    from models import ParentRegistrationSession
+    registration_state = session.get(ParentRegistrationSession, token_hash(state))
+    is_enrollment = session.get(ParentEnrollment, registration_state.registration_request_id) is not None
+    _set_registration_cookie(response, state, max_age=2 * 60 * 60 if is_enrollment else 15 * 60)
     return _no_store(response)
 
 
 @router.get("/parent-portal/register/identity", response_class=HTMLResponse)
-def identity_page(request: Request):
+def identity_page(request: Request, session: Session = Depends(get_session)):
     if not request.cookies.get(REGISTRATION_COOKIE):
         return _no_store(
             RedirectResponse(
                 "/parent-portal/register/status?state=invalid", status_code=303
             )
         )
+    from parent_auth import _get_registration_session
+    try:
+        state = _get_registration_session(session, request.cookies[REGISTRATION_COOKIE], "identity")
+        if session.get(ParentEnrollment, state.registration_request_id):
+            _, _, enrollment, _ = enrollment_state(session, request.cookies[REGISTRATION_COOKIE])
+            parts = enrollment.child_name.split(maxsplit=1)
+            values = {"last_name": parts[0], "first_name": parts[1]} if len(parts) == 2 else {}
+            return _enrollment_form(request, enrollment, values)
+    except AuthenticationFailed:
+        return _no_store(RedirectResponse("/parent-portal/register/status?state=invalid", status_code=303))
     return _render(request, "parent_auth/identity.html", {"form_error": ""})
+
+
+def _enrollment_form(request, enrollment, values, error="", status_code=200):
+    return _render(request, "parent_auth/enrollment.html", {
+        "enrollment": enrollment, "values": values, "form_error": error,
+        "child_fields": CHILD_FIELDS, "guardian_fields": GUARDIAN_FIELDS,
+    }, status_code)
+
+
+@router.post("/parent-portal/register/enrollment")
+async def enrollment_submit(request: Request, session: Session = Depends(get_session)):
+    raw_state = request.cookies.get(REGISTRATION_COOKIE, "")
+    try:
+        _, _, enrollment, _ = enrollment_state(session, raw_state)
+        form = await request.form()
+        values = {key: str(form.get(key, "")) for key in FIELD_LABELS}
+        submit_enrollment(session, raw_state, values)
+    except AuthenticationFailed:
+        return _no_store(RedirectResponse("/parent-portal/register/status?state=invalid", status_code=303))
+    except ValueError as exc:
+        return _enrollment_form(request, enrollment, values, str(exc), 400)
+    response = _render(request, "parent_auth/enrollment_submitted.html", {})
+    _clear_registration_cookie(response)
+    return response
 
 
 @router.post("/parent-portal/register/identity")
@@ -509,6 +553,45 @@ def _load_admin_account(session: Session, account_id: int) -> ParentAccount:
     return account
 
 
+@router.get("/parent-accounts/enrollment/new", response_class=HTMLResponse)
+def enrollment_invite_page(request: Request, child_id: int | None = None, guardian_order: int | None = None,
+                           session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    _admin_actor(session, current_user)
+    try:
+        child, order = enrollment_target(session, child_id, guardian_order)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return _render_staff(request, "parent_auth/enrollment_invite.html", {
+        "current_user": current_user, "child_id": child_id, "guardian_order": order,
+        "child_name": child.full_name if child else "", "email": "", "form_error": "",
+    })
+
+
+@router.post("/parent-accounts/enrollment/invite")
+def enrollment_invite(request: Request, child_name: str = Form(...), email: str = Form(...),
+                      child_id: int | None = Form(None), guardian_order: int | None = Form(None),
+                      session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    actor = _admin_actor(session, current_user)
+    try:
+        email = validate_parent_contact_email(session, email)
+        account = ParentAccount(display_name="初回入力待ちの保護者", email=email)
+        session.add(account)
+        session.flush()
+        enrollment = prepare_enrollment(session, account, child_name, child_id, guardian_order)
+        account.display_name = f"{enrollment.child_name}さんの保護者（初回入力待ち）"
+        session.add(account)
+        issue_parent_invitation(session, account=account, actor_user=actor,
+                                reason="入園時の初回情報登録", enrollment=enrollment)
+    except (ValueError, HTTPException) as exc:
+        session.rollback()
+        return _render_staff(request, "parent_auth/enrollment_invite.html", {
+            "current_user": current_user, "child_id": child_id, "guardian_order": guardian_order,
+            "child_name": child_name, "email": email,
+            "form_error": str(exc.detail) if isinstance(exc, HTTPException) else str(exc),
+        }, 400)
+    return RedirectResponse(f"/parent-accounts/{account.id}/authentication", status_code=303)
+
+
 def _issue_admin_action_code(
     request: Request,
     session: Session,
@@ -580,6 +663,10 @@ def admin_parent_auth_page(
             "account": account,
             "credential": credential,
             "registrations": registrations,
+            "enrollments": {str(item.id): session.get(ParentEnrollment, item.id) for item in registrations},
+            "enrollment_pending": bool(latest_enrollment(session, account_id) and not latest_enrollment(session, account_id).applied_at),
+            "latest_enrollment": latest_enrollment(session, account_id),
+            "enrollment_field_labels": FIELD_LABELS,
             "active_session_count": active_session_count,
             "mail_deliveries": mail_deliveries,
             "invitation_issues": parent_invitation_requirements(session, account),
@@ -627,14 +714,21 @@ def admin_change_parent_login_id(
 def admin_invite(
     account_id: int,
     reason: str = Form(...),
+    enrollment_child_name: str | None = Form(None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     actor = _admin_actor(session, current_user)
     account = _load_admin_account(session, account_id)
     try:
+        enrollment = latest_enrollment(session, account_id)
+        updated_enrollment = None
+        if enrollment_child_name is not None and enrollment and not enrollment.applied_at and enrollment.child_id is None:
+            updated_enrollment = prepare_enrollment(session, account, enrollment_child_name)
+            account.display_name = f"{updated_enrollment.child_name}さんの保護者（初回入力待ち）"
+            session.add(account)
         issue_parent_invitation(
-            session, account=account, actor_user=actor, reason=reason
+            session, account=account, actor_user=actor, reason=reason, enrollment=updated_enrollment
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -651,6 +745,7 @@ def admin_review(
     registration_id: UUID,
     decision: str = Form(...),
     reason: str = Form(...),
+    enrollment_confirmed: str = Form(""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -665,6 +760,7 @@ def admin_review(
             actor_user=actor,
             approve=decision == "approve",
             reason=reason,
+            enrollment_confirmed=enrollment_confirmed == "yes",
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

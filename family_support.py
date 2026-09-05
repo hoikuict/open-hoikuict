@@ -627,6 +627,11 @@ def _new_family_from_members(session: Session, children: list[Child], parent_acc
 
 
 def bootstrap_family_data(session: Session) -> None:
+    from models import ParentEnrollment, ParentRegistrationRequest
+    pending_intake_accounts = set(session.exec(
+        select(ParentRegistrationRequest.parent_account_id).join(ParentEnrollment)
+        .where(ParentEnrollment.applied_at.is_(None))
+    ).all())
     children = session.exec(
         select(Child)
         .options(selectinload(Child.guardians), selectinload(Child.parent_links))
@@ -637,6 +642,7 @@ def bootstrap_family_data(session: Session) -> None:
         .options(selectinload(ParentAccount.child_links))
         .order_by(ParentAccount.id)
     ).all()
+    accounts = [account for account in accounts if account.id not in pending_intake_accounts or account.child_links]
     if not children and not accounts:
         return
 

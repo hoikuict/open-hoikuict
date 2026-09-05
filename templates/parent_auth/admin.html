@@ -80,10 +80,17 @@
         <div class="mt-2 flex flex-wrap gap-3"><a href="/parent-accounts/{{ account.id }}/edit" class="underline">保護者情報を編集</a>{% for child in invitation_children %}<a href="/children/{{ child.id }}/edit" class="underline">{{ child.full_name }}の情報を編集</a>{% endfor %}</div>
       </div>
       {% endif %}
+      {% if enrollment_pending %}
+      <p class="mt-2 text-sm leading-6 text-slate-600">初回入力の招待です。保護者が子ども・保護者・連絡先をまとめて入力し、園が下の申請内容を確認して承認すると台帳に反映され、パスワード設定の案内が届きます。再送すると以前のリンクと未承認の提出内容は取り消されます。</p>
+      {% elif latest_enrollment and latest_enrollment.applied_at %}
+      <p class="mt-2 text-sm leading-6 text-slate-600">初回入力は台帳へ反映済みです。保護者はパスワード設定の案内メールから利用を開始できます。初期情報を入力し直す必要はありません。再招待は通常の本人情報照合で行います。</p>
+      {% else %}
       <p class="mt-1 text-sm text-slate-600">本人確認用の招待を登録メールアドレスへ送信します。保護者が本人情報を送信し、園が承認するとパスワード設定の案内が届きます。</p>
       <p class="mt-2 text-sm text-slate-600">入園時の住所・電話・勤務先などは、利用開始後の「登録情報」から保護者に入力してもらえます。園が「プロフィール変更申請」で承認すると家族とアカウントの共通項目に反映されます。</p>
+      {% endif %}
       <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/invite">
         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        {% if enrollment_pending and latest_enrollment and not latest_enrollment.child_id %}<label class="mb-3 block text-sm font-semibold text-slate-700">招待する子どもの名前<input name="enrollment_child_name" required maxlength="200" value="{{ latest_enrollment.child_name }}" class="mt-2 w-full rounded border border-slate-300 px-3 py-2"></label>{% endif %}
         <label class="block text-sm font-semibold text-slate-700">招待理由
           <textarea name="reason" required rows="3" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="例：新規利用開始のため"></textarea>
         </label>
@@ -91,7 +98,7 @@
       </form>
     </div>
 
-    {% if not credential or not credential.password_hash or credential.disabled_at %}
+    {% if not enrollment_pending and (not credential or not credential.password_hash or credential.disabled_at) %}
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 class="text-lg font-bold text-slate-900">初期設定・利用再開</h2>
       <p class="mt-1 text-sm text-slate-600">本人確認後に、パスワード設定用コードを発行します。</p>
@@ -125,7 +132,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h2 class="text-lg font-bold text-slate-900">登録申請の履歴</h2>
-        <p class="mt-1 text-sm text-slate-600">本人確認の照合結果と申請状態を確認できます。</p>
+        <p class="mt-1 text-sm text-slate-600">{% if latest_enrollment %}初回入力の提出内容と申請状態を確認できます。{% else %}本人確認の照合結果と申請状態を確認できます。{% endif %}</p>
       </div>
       <span class="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{{ registrations|length }}件</span>
     </div>
@@ -133,6 +140,7 @@
     {% if registrations %}
     <div class="mt-4 space-y-3">
       {% for registration in registrations %}
+      {% set enrollment = enrollments.get(registration.id|string) %}
       <article class="rounded-lg border border-slate-200 p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="font-semibold text-slate-900">申請 {{ loop.revindex }}</p>
@@ -140,11 +148,25 @@
             {{ registration_status_labels.get(registration.status, registration.status) }}
           </span>
         </div>
+        {% if enrollment %}
+        <p class="mt-3 text-sm font-semibold">初回入力の依頼：{{ enrollment.child_name }}さん</p>
+        {% if enrollment.child_id %}<a href="/children/{{ enrollment.child_id }}" class="mt-2 inline-block text-sm text-indigo-700 underline">現在の園児・家族情報を確認</a>{% endif %}
+        {% if enrollment.submitted_data %}
+        <p class="mt-2 text-sm text-slate-600">招待先と子どもの名前、提出された情報が正しいことを確認してください。保護者氏名・生年月日は今回初めて入力された情報です。</p>
+        <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          {% for key, label in enrollment_field_labels.items() %}
+          <div class="min-w-0 rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">{{ label }}</dt><dd class="mt-1 whitespace-pre-wrap break-words">{{ enrollment.submitted_data.get(key) or '未入力' }}</dd></div>
+          {% endfor %}
+        </dl>
+        {% if enrollment.applied_at %}<p class="mt-3 text-sm text-emerald-700">園児・家族・保護者アカウントに反映済みです。<a class="underline" href="/children/{{ enrollment.child_id }}">園児情報を見る</a></p>{% endif %}
+        {% else %}<p class="mt-2 text-sm text-slate-500">保護者の初回入力を待っています。</p>{% endif %}
+        {% else %}
         <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
           <div class="rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">保護者氏名</dt><dd class="mt-1 font-semibold">{{ '未確認' if not registration.submitted_at else ('一致' if registration.guardian_name_matched else '不一致') }}</dd></div>
           <div class="rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">園児氏名</dt><dd class="mt-1 font-semibold">{{ '未確認' if not registration.submitted_at else ('一致' if registration.child_name_matched else '不一致') }}</dd></div>
           <div class="rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">生年月日</dt><dd class="mt-1 font-semibold">{{ '未確認' if not registration.submitted_at else ('一致' if registration.child_birth_date_matched else '不一致') }}</dd></div>
         </dl>
+        {% endif %}
         {% if registration.status == 'pending_review' %}
         <form class="mt-4 border-t border-slate-200 pt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/registrations/{{ registration.id }}/review">
           <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
@@ -152,6 +174,7 @@
             <textarea name="reason" required rows="2" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="照合内容と確認方法を記録してください"></textarea>
           </label>
           <div class="mt-3 flex flex-wrap gap-2">
+            {% if enrollment %}<label class="flex w-full items-start gap-2 text-sm"><input type="checkbox" name="enrollment_confirmed" value="yes" class="mt-1">招待先・保護者と園児の対応・入力内容を確認しました。承認すると台帳へ反映し、対象園児の閲覧を許可します。</label>{% endif %}
             <button name="decision" value="approve" class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">承認</button>
             <button name="decision" value="reject" class="rounded border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">却下</button>
           </div>

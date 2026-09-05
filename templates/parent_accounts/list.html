@@ -8,7 +8,10 @@
     <p class="text-sm text-slate-500">園児への閲覧権限は、保護者ごとの明示的な紐付けで管理します。</p>
   </div>
   {% if current_user and current_user.can_manage_child_records %}
+  <div class="flex flex-wrap gap-2">
+  {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">保護者に初回入力を依頼</a>{% endif %}
   <a href="/parent-accounts/new" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:self-auto">新規登録</a>
+  </div>
   {% endif %}
 </div>
 

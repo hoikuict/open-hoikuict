@@ -1180,6 +1180,19 @@ class ParentRegistrationRequest(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class ParentEnrollment(SQLModel, table=True):
+    """An invitation-bound intake draft; it grants no access to child records."""
+    __tablename__ = "parent_enrollments"
+
+    registration_request_id: uuid.UUID = Field(primary_key=True, foreign_key="parent_registration_requests.id")
+    child_name: str = Field(max_length=200)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    guardian_order: Optional[int] = None
+    source_snapshot: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    submitted_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    applied_at: Optional[datetime] = None
+
+
 class ParentRegistrationSession(SQLModel, table=True):
     __tablename__ = "parent_registration_sessions"
 
