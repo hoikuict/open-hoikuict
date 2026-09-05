@@ -48,6 +48,12 @@ python -m uvicorn main:app --reload
 
 既定URLは <http://127.0.0.1:8001/> です。DBや管理者を起動時に作り直さないため、一度設定した認証情報と業務データは再起動後も保持されます。詳細は [`docs/environment-profiles.md`](docs/environment-profiles.md) を参照してください。
 
+## TrueNASで空の状態から実機検証を始める
+
+新しい保存領域に、デモデータなし・パスワード認証ありで導入する手順は
+[TrueNASへの初期導入](docs/truenas-fresh-install.md)を参照してください。
+専用のComposeと環境変数雛形は`deploy/truenas/`にあります。
+
 ## 100人規模デモデータを投入する
 
 このリポジトリには、定員100人規模の認可保育園を想定したデモデータを同梱しています。
