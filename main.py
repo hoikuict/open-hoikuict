@@ -70,6 +70,7 @@ from plan_docs.routers.plans import router as plan_docs_plans_router
 from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
 from parent_push_operations import apply_parent_push_retention
 from parent_auth import parent_mail_worker_loop
+from staff_recovery import staff_mail_worker_loop
 from url_utils import safe_internal_redirect
 from auth import (
     configure_auth_backends_from_environment,
@@ -101,6 +102,8 @@ async def lifespan(app: FastAPI):
         background_tasks.append(asyncio.create_task(parent_push_worker_loop()))
     if parent_auth_mode() == "local_password" and os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT", "capture") != "disabled":
         background_tasks.append(asyncio.create_task(parent_mail_worker_loop()))
+    if staff_auth_mode() == "local_password":
+        background_tasks.append(asyncio.create_task(staff_mail_worker_loop()))
     try:
         yield
     finally:

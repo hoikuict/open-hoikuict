@@ -6,17 +6,16 @@ import hmac
 import os
 import re
 import secrets
-import smtplib
-import ssl
 import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from email.message import EmailMessage
 from uuid import UUID
 
 from fastapi import Request
 from sqlalchemy import and_, or_, update
 from sqlmodel import Session, select
+
+from auth_mail import send_auth_mail
 
 from local_auth import (
     ACTION_CODE_TTL,
@@ -443,21 +442,7 @@ async def parent_mail_worker_loop() -> None:
 
 
 def _send_smtp(delivery: ParentMailDelivery) -> None:
-    host = os.environ["HOIKUICT_SMTP_HOST"]
-    port = int(os.getenv("HOIKUICT_SMTP_PORT", "587"))
-    message = EmailMessage()
-    message["From"] = os.environ["HOIKUICT_PARENT_MAIL_FROM"]
-    message["To"] = delivery.recipient
-    message["Subject"] = delivery.subject
-    message.set_content(delivery.body)
-    with smtplib.SMTP(host, port, timeout=20) as smtp:
-        if os.getenv("HOIKUICT_SMTP_STARTTLS", "1") == "1":
-            smtp.starttls(context=ssl.create_default_context())
-        username = os.getenv("HOIKUICT_SMTP_USERNAME")
-        password = os.getenv("HOIKUICT_SMTP_PASSWORD")
-        if username:
-            smtp.login(username, password or "")
-        smtp.send_message(message)
+    send_auth_mail(recipient=delivery.recipient, subject=delivery.subject, body=delivery.body)
 
 
 def _issue_registration_session(

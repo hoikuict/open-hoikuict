@@ -54,6 +54,12 @@ from staff_permissions import (
     require_live_admin,
 )
 from staff_user_service import list_active_staff_users
+from staff_recovery import (
+    RECOVERY_FAILURE,
+    REQUEST_ACCEPTED,
+    complete_admin_password_recovery,
+    request_admin_password_recovery,
+)
 from time_utils import local_today, utc_now
 from url_utils import safe_internal_redirect
 
@@ -500,6 +506,61 @@ def local_staff_password_reset(
         },
         status_code=400,
     )
+    return _no_store(response)
+
+
+def _render_recovery(request, template, *, status_code=200, **context):
+    response = templates.TemplateResponse(
+        request, template,
+        {"request": request, "csrf_token": getattr(request.state, "csrf_token", ""), **context},
+        status_code=status_code,
+    )
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Frame-Options"] = "DENY"
+    return _no_store(response)
+
+
+@local_login_router.get("/forgot-password", response_class=HTMLResponse,
+                        dependencies=[Depends(require_local_staff_auth)])
+def staff_forgot_password_page(request: Request):
+    return _render_recovery(
+        request, "staff_auth/forgot_password.html",
+        notice=REQUEST_ACCEPTED if request.query_params.get("requested") == "1" else "",
+    )
+
+
+@local_login_router.post("/forgot-password", dependencies=[Depends(require_local_staff_auth)])
+def staff_forgot_password_request(
+    request: Request, email: str = Form(""), session: Session = Depends(get_session),
+):
+    request_admin_password_recovery(session, email, request)
+    return _no_store(RedirectResponse("/staff/forgot-password?requested=1", status_code=303))
+
+
+@local_login_router.get("/recover-password", response_class=HTMLResponse,
+                        dependencies=[Depends(require_local_staff_auth)])
+def staff_recover_password_page(request: Request):
+    return _render_recovery(request, "staff_auth/recover_password.html", token="", form_error="")
+
+
+@local_login_router.post("/recover-password", response_class=HTMLResponse,
+                         dependencies=[Depends(require_local_staff_auth)])
+def staff_recover_password_submit(
+    request: Request, token: str = Form(""), password: str = Form(""),
+    password_confirmation: str = Form(""), session: Session = Depends(get_session),
+):
+    try:
+        complete_admin_password_recovery(
+            session, token=token, password=password, password_confirmation=password_confirmation,
+        )
+    except AuthenticationFailed:
+        return _render_recovery(request, "staff_auth/recover_password.html", status_code=400,
+                                token="", form_error=RECOVERY_FAILURE)
+    except PasswordPolicyError as exc:
+        return _render_recovery(request, "staff_auth/recover_password.html", status_code=400,
+                                token=token, form_error=str(exc))
+    response = RedirectResponse("/staff/login?password_reset=1", status_code=303)
+    clear_staff_cookies(response, request)
     return _no_store(response)
 
 

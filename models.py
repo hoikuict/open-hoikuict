@@ -2581,6 +2581,41 @@ class CredentialActionToken(SQLModel, table=True):
     revoked_at: Optional[datetime] = None
 
 
+class StaffPasswordRecovery(SQLModel, table=True):
+    __tablename__ = "staff_password_recoveries"
+
+    token_hash: str = Field(primary_key=True, max_length=64)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    credential_id: uuid.UUID = Field(foreign_key="password_credentials.id", index=True)
+    credential_version: int
+    recipient: str = Field(max_length=255)
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime = Field(index=True)
+    consumed_at: Optional[datetime] = None
+
+
+class StaffMailDelivery(SQLModel, table=True):
+    __tablename__ = "staff_mail_deliveries"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    recovery_token_hash: Optional[str] = Field(
+        default=None, foreign_key="staff_password_recoveries.token_hash", index=True
+    )
+    message_type: str = Field(max_length=32)
+    recipient: str = Field(max_length=255)
+    subject: str = Field(max_length=255)
+    body: str
+    status: str = Field(default="pending", index=True, max_length=16)
+    attempt_count: int = Field(default=0)
+    failure_code: Optional[str] = Field(default=None, max_length=64)
+    lease_expires_at: Optional[datetime] = None
+    next_retry_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime = Field(index=True)
+    sent_at: Optional[datetime] = None
+
+
 class AuthSession(SQLModel, table=True):
     __tablename__ = "auth_sessions"
     __table_args__ = (

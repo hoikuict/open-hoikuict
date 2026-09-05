@@ -61,6 +61,33 @@ def public_origin() -> str:
     return (os.getenv("HOIKUICT_PUBLIC_ORIGIN") or "").strip().rstrip("/")
 
 
+def staff_recovery_base_url() -> str:
+    value = (
+        os.getenv("HOIKUICT_STAFF_RECOVERY_BASE_URL")
+        or os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL")
+        or "http://localhost:8000"
+    ).strip()
+    try:
+        parsed = urlsplit(value)
+        valid = (
+            parsed.scheme in ({"https"} if is_production() else {"http", "https"})
+            and parsed.hostname
+            and not parsed.username
+            and not parsed.password
+            and parsed.path in {"", "/"}
+            and not parsed.query
+            and not parsed.fragment
+            and "\\" not in value
+            and not any(character.isspace() for character in value)
+        )
+        parsed.port  # Validate malformed port numbers, too.
+    except ValueError:
+        valid = False
+    if not valid:
+        raise RuntimeError("管理者の再設定URLには有効な施設URLを設定してください（本番はHTTPS）")
+    return value.rstrip("/")
+
+
 def _boolean_setting(name: str, *, production_default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -126,6 +153,8 @@ def validate_runtime_security() -> None:
         raise RuntimeError("tokenモードでは HOIKUICT_KIOSK_TOKEN が必要です")
     auth_mode = staff_auth_mode()
     parent_mode = parent_auth_mode()
+    if auth_mode == "local_password" and os.getenv("HOIKUICT_STAFF_RECOVERY_BASE_URL"):
+        staff_recovery_base_url()
     if auth_mode == "local_password" or parent_mode == "local_password":
         throttle_key = os.getenv("HOIKUICT_LOGIN_THROTTLE_HMAC_KEY", "")
         if len(throttle_key.encode("utf-8")) < 32:
