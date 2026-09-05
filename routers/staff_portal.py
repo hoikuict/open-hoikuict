@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_optional_current_staff_user
+from auth import get_optional_current_staff_user, parent_auth_is_local_password
 from calendar_service import localize_datetime
 from database import get_session
 from models import (
@@ -19,6 +19,7 @@ from models import (
     User,
 )
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
+from parent_auth import list_pending_parent_registrations
 from plan_docs.contracts import DOCUMENT_TYPE_LABELS
 from plan_docs.services.review_notifications import (
     REVIEW_OUTCOME,
@@ -93,6 +94,7 @@ def _render_staff_home(
     pending_plan_documents = []
     pending_notices = []
     pending_child_change_requests = []
+    pending_parent_registrations = []
 
     try:
         classrooms, assignment_views = classroom_scope(
@@ -202,6 +204,16 @@ def _render_staff_home(
             )
             approval_queue_errors.append("園児情報変更の承認依頼を取得できませんでした。")
 
+        if parent_auth_is_local_password():
+            try:
+                pending_parent_registrations = list_pending_parent_registrations(session)
+            except Exception:
+                logger.exception(
+                    "staff portal parent registration approval queue load failed",
+                    extra={"staff_user_id": str(staff_user.id)},
+                )
+                approval_queue_errors.append("保護者の初回登録の承認依頼を取得できませんでした。")
+
     approval_queue_items = []
     for document in pending_plan_documents:
         approval_queue_items.append(
@@ -260,6 +272,20 @@ def _render_staff_home(
                 "requester_name": requester_name,
                 "requested_at": change_request.submitted_at,
                 "url": f"/child-change-requests/{change_request.id}",
+            }
+        )
+    for registration in pending_parent_registrations:
+        approval_queue_items.append(
+            {
+                "kind": "parent_registration",
+                "kind_label": "保護者の初回登録",
+                "title": (
+                    f"{registration.child_name}さんの初回入力"
+                    if registration.child_name
+                    else f"{registration.display_name}さんの登録申請"
+                ),
+                "requested_at": registration.submitted_at or registration.created_at,
+                "url": f"/parent-accounts/{registration.parent_account_id}/authentication#registration-{registration.registration_id}",
             }
         )
     approval_queue_items.sort(key=lambda item: item["requested_at"], reverse=True)

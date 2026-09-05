@@ -10,6 +10,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from uuid import UUID
+from urllib.parse import urlsplit
 
 from fastapi import Request
 from sqlalchemy import and_, or_, update
@@ -356,6 +357,52 @@ def _registration_base_url() -> str:
     ).rstrip("/")
 
 
+def registration_token_from_input(value: str, purpose: str) -> str:
+    """Accept a mail code or our original fragment link without following it."""
+    if purpose not in {"invite", "complete"}:
+        raise ValueError("Unknown registration purpose.")
+    value = value.strip()
+    if len(value) > 2048:
+        raise AuthenticationFailed("登録コードを確認してください。")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", value):
+        try:
+            link = urlsplit(value)
+            expected = urlsplit(
+                f"{_registration_base_url()}/parent-portal/register/{purpose}"
+            )
+            if (
+                (link.scheme, link.netloc, link.path)
+                != (expected.scheme, expected.netloc, expected.path)
+                or link.query
+            ):
+                raise ValueError("Not a registration link for this page.")
+            value = link.fragment
+        except ValueError:
+            raise AuthenticationFailed("登録コードを確認してください。") from None
+    if not re.fullmatch(r"[A-Za-z0-9_-]{43}", value):
+        raise AuthenticationFailed("登録コードを確認してください。")
+    return value
+
+
+def list_pending_parent_registrations(session: Session):
+    """Metadata for admin review queues; do not load tokens or submitted profiles."""
+    return session.exec(
+        select(
+            ParentRegistrationRequest.id.label("registration_id"),
+            ParentRegistrationRequest.parent_account_id,
+            ParentRegistrationRequest.submitted_at,
+            ParentRegistrationRequest.created_at,
+            ParentEnrollment.child_name,
+            ParentAccount.display_name,
+            ParentAccount.email,
+        )
+        .join(ParentAccount, ParentAccount.id == ParentRegistrationRequest.parent_account_id)
+        .outerjoin(ParentEnrollment, ParentEnrollment.registration_request_id == ParentRegistrationRequest.id)
+        .where(ParentRegistrationRequest.status == "pending_review")
+        .order_by(ParentRegistrationRequest.submitted_at, ParentRegistrationRequest.created_at)
+    ).all()
+
+
 def _queue_registration_mail(
     session: Session,
     registration: ParentRegistrationRequest,
@@ -374,6 +421,12 @@ def _queue_registration_mail(
         link = f"{_registration_base_url()}/parent-portal/register/complete#{raw_token}"
         subject = "保護者ポータル パスワード設定のご案内"
         body = f"施設での確認が完了しました。パスワードを設定してください。\n\n{link}\n\nこのリンクは24時間有効です。"
+    body += (
+        "\n\nリンクを開いても入力画面へ進めない場合は、画面の「登録コードまたはメールのリンク」に"
+        "次の登録コードをコピーして貼り付けてください。Cloudflareの認証コードとは別のコードです。"
+        f"\n\n登録コード：\n{raw_token}\n\n"
+        "登録コードも24時間有効で、リンクと共通の1回限りです。他の方へ共有しないでください。"
+    )
     session.add(
         ParentMailDelivery(
             parent_account_id=account.id,

@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from auth import (
     get_current_staff_user,
     parent_auth_is_mock,
+    parent_auth_is_local_password,
     require_child_record_manager,
 )
 from database import get_session
@@ -27,7 +28,7 @@ from models import (
     ParentChildLinkAudit,
     ProfileChangeNotification,
 )
-from parent_auth import cancel_open_parent_registrations, suspend_parent_authentication
+from parent_auth import cancel_open_parent_registrations, list_pending_parent_registrations, suspend_parent_authentication
 from time_utils import utc_now
 
 router = APIRouter(prefix="/parent-accounts", tags=["parent_accounts"])
@@ -153,6 +154,9 @@ def parent_account_list(
         .where(ProfileChangeNotification.is_read == False)  # noqa: E712
         .order_by(ProfileChangeNotification.created_at.desc())
     ).all()
+    pending_registrations = []
+    if current_user.is_admin and parent_auth_is_local_password():
+        pending_registrations = list_pending_parent_registrations(session)
     return templates.TemplateResponse(
         request,
         "parent_accounts/list.html",
@@ -160,9 +164,11 @@ def parent_account_list(
             "request": request,
             "accounts": accounts,
             "notifications": notifications,
+            "pending_registrations": pending_registrations,
             "parent_mock_login_available": parent_auth_is_mock(),
             "current_user": current_user,
         },
+        headers={"Cache-Control": "private, no-store"},
     )
 
 

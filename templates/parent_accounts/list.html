@@ -15,6 +15,25 @@
   {% endif %}
 </div>
 
+{% if pending_registrations %}
+<section class="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 p-5" aria-labelledby="pending-registrations-heading">
+  <h2 id="pending-registrations-heading" class="text-lg font-semibold text-indigo-900">確認待ちの初回登録（{{ pending_registrations|length }}件）</h2>
+  <p class="mt-1 text-sm text-indigo-800">保護者から提出が届いています。内容を確認して承認すると登録に反映し、パスワード設定の案内メールを送ります。</p>
+  <ul class="mt-4 space-y-3">
+    {% for registration in pending_registrations %}
+    <li class="flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <p class="font-semibold text-slate-800">{{ registration.child_name ~ 'さんの初回入力' if registration.child_name else registration.display_name ~ 'さんの登録申請' }}</p>
+        <p class="mt-1 break-all text-sm text-slate-600">{{ registration.email }}</p>
+        <p class="mt-1 text-xs text-slate-500">提出: {{ registration.submitted_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</p>
+      </div>
+      <a href="/parent-accounts/{{ registration.parent_account_id }}/authentication#registration-{{ registration.registration_id }}" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">提出内容を確認する</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 {% if notifications %}
 <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-5">
   <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

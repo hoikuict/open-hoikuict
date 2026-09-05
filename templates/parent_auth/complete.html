@@ -10,4 +10,9 @@
   <label class="password-visibility"><input type="checkbox" data-password-toggle><span>入力したパスワードを表示</span></label>
   <button type="submit">パスワードを設定する</button>
 </form>
+<form data-registration-exchange method="post" action="/parent-portal/register/complete/verify" hidden>
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <input type="hidden" name="token">
+</form>
+{% include "parent_auth/fragment_exchange.html" %}
 {% endblock %}

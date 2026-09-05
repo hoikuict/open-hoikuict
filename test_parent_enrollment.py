@@ -112,6 +112,7 @@ def test_two_fields_to_parent_input_review_and_login(pilot):
     assert 'name="child_name"' in page.text and 'name="email"' in page.text
     assert 'name="birth_date"' not in page.text
     registration_id, account_id, raw_token = invite(pilot)
+    assert not client.get("/parent-accounts/").context["pending_registrations"]
     with Session(engine) as session:
         bootstrap_family_data(session)
         session.commit()
@@ -145,6 +146,14 @@ def test_two_fields_to_parent_input_review_and_login(pilot):
         ),
     )
     assert response.status_code == 200 and "初回入力を受け付けました" in response.text
+    inbox = client.get("/parent-accounts/")
+    pending = inbox.context["pending_registrations"]
+    assert len(pending) == 1 and pending[0].registration_id == registration_id
+    assert "確認待ちの初回登録（1件）" in inbox.text
+    assert f'/authentication#registration-{registration_id}' in inbox.text
+    assert raw_token not in inbox.text and "no-store" in inbox.headers["cache-control"]
+    submitted = client.get(f"/parent-accounts/{account_id}/authentication")
+    assert f'id="registration-{registration_id}"' in submitted.text and "検証用の住所" in submitted.text
     with Session(engine) as session:
         registration = session.get(ParentRegistrationRequest, registration_id)
         assert registration.status == "pending_review"
@@ -158,6 +167,7 @@ def test_two_fields_to_parent_input_review_and_login(pilot):
         == 400
     )
     assert review(client, account_id, registration_id).status_code == 303
+    assert not client.get("/parent-accounts/").context["pending_registrations"]
     assert review(client, account_id, registration_id).status_code == 400
     with Session(engine) as session:
         enrollment = session.get(ParentEnrollment, registration_id)
@@ -472,3 +482,17 @@ def test_enrollment_routes_use_app_csrf_protection(pilot, monkeypatch):
         assert response.status_code == 200
         assert "no-store" in response.headers["cache-control"]
         assert response.headers["referrer-policy"] == "no-referrer"
+
+
+def test_pending_intake_inbox_is_only_shown_to_admins(pilot):
+    client, _, _, app = pilot
+    _, _, token = invite(pilot)
+    open_form(client, token)
+    assert client.post("/parent-portal/register/enrollment", data=profile()).status_code == 200
+    assert len(client.get("/parent-accounts/").context["pending_registrations"]) == 1
+    app.dependency_overrides[routes.get_current_staff_user] = lambda: StaffUser(
+        role=Role.CAN_EDIT, name="編集担当", can_manage_child_records=True,
+    )
+    response = client.get("/parent-accounts/")
+    assert not response.context["pending_registrations"]
+    assert "提出内容を確認する" not in response.text

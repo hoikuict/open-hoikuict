@@ -41,6 +41,7 @@ from parent_auth import (
     issue_parent_password_code,
     parent_invitation_requirements,
     review_parent_registration,
+    registration_token_from_input,
     submit_parent_identity,
 )
 from security_config import secure_cookie_enabled
@@ -175,26 +176,40 @@ def parent_login(
 
 @router.get("/parent-portal/register/invite", response_class=HTMLResponse)
 def invitation_landing(request: Request):
+    return _registration_exchange_page(request, "invite")
+
+
+def _registration_exchange_page(request: Request, purpose: str, *, error="", status_code=200):
     return _render(
         request,
         "parent_auth/token_exchange.html",
-        {"verify_url": "/parent-portal/register/invite/verify", "heading": "初回登録"},
+        {
+            "verify_url": f"/parent-portal/register/{purpose}/verify",
+            "heading": "初回登録" if purpose == "invite" else "パスワード設定",
+            "form_error": error,
+        },
+        status_code,
+    )
+
+
+def _registration_exchange_error(request: Request, purpose: str):
+    return _registration_exchange_page(
+        request, purpose, status_code=400,
+        error="登録コードを確認できませんでした。最新のメールのコードまたはリンクを貼り付けてください。"
+              "24時間を過ぎた場合や、既に使用した場合は、施設へ再送をご依頼ください。",
     )
 
 
 @router.post("/parent-portal/register/invite/verify")
 def invitation_verify(
-    token: str = Form(...),
+    request: Request,
+    token: str = Form(""),
     session: Session = Depends(get_session),
 ):
     try:
-        state = exchange_invitation_token(session, token)
+        state = exchange_invitation_token(session, registration_token_from_input(token, "invite"))
     except AuthenticationFailed:
-        return _no_store(
-            RedirectResponse(
-                "/parent-portal/register/status?state=invalid", status_code=303
-            )
-        )
+        return _registration_exchange_error(request, "invite")
     response = RedirectResponse("/parent-portal/register/identity", status_code=303)
     from parent_auth import token_hash
     from models import ParentRegistrationSession
@@ -309,11 +324,21 @@ def registration_status(request: Request):
 
 
 @router.get("/parent-portal/register/complete", response_class=HTMLResponse)
-def completion_page(request: Request):
-    has_state = bool(request.cookies.get(REGISTRATION_COOKIE))
+def completion_page(request: Request, session: Session = Depends(get_session)):
+    from parent_auth import _get_registration_session
+
+    has_state = False
+    try:
+        state = _get_registration_session(session, request.cookies.get(REGISTRATION_COOKIE, ""), "complete")
+        registration = session.get(ParentRegistrationRequest, state.registration_request_id)
+        has_state = registration is not None and registration.status == "approved"
+    except AuthenticationFailed:
+        pass
+    if not has_state:
+        return _registration_exchange_page(request, "complete")
     return _render(
         request,
-        "parent_auth/complete.html" if has_state else "parent_auth/token_exchange.html",
+        "parent_auth/complete.html",
         {
             "verify_url": "/parent-portal/register/complete/verify",
             "heading": "パスワード設定",
@@ -323,15 +348,11 @@ def completion_page(request: Request):
 
 
 @router.post("/parent-portal/register/complete/verify")
-def completion_verify(token: str = Form(...), session: Session = Depends(get_session)):
+def completion_verify(request: Request, token: str = Form(""), session: Session = Depends(get_session)):
     try:
-        state = exchange_completion_token(session, token)
+        state = exchange_completion_token(session, registration_token_from_input(token, "complete"))
     except AuthenticationFailed:
-        return _no_store(
-            RedirectResponse(
-                "/parent-portal/register/status?state=invalid", status_code=303
-            )
-        )
+        return _registration_exchange_error(request, "complete")
     response = RedirectResponse("/parent-portal/register/complete", status_code=303)
     _set_registration_cookie(response, state)
     return _no_store(response)
