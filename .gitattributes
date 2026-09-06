@@ -9,3 +9,6 @@
 data export-ignore
 storage export-ignore
 backups export-ignore
+
+# Preserve PDF bytes and keep them out of text diffs.
+*.pdf binary

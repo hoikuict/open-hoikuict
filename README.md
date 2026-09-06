@@ -51,7 +51,9 @@ python -m uvicorn main:app --reload
 ## TrueNASで空の状態から実機検証を始める
 
 新しい保存領域に、デモデータなし・パスワード認証ありで導入する手順は
-[TrueNASへの初期導入](docs/truenas-fresh-install.md)を参照してください。
+[初心者向けの導入手順書](docs/truenas-beginner-installation-guide.md)を参照してください。
+SSH接続からCloudflare・Gmail・保護者登録・通知の確認まで、今回の実機検証を基に説明しています。
+設定の詳細は[TrueNASへの初期導入](docs/truenas-fresh-install.md)にもまとめています。
 専用のComposeと環境変数雛形は`deploy/truenas/`にあります。
 
 ## 100人規模デモデータを投入する
