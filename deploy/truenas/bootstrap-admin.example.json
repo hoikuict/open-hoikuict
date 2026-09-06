@@ -1,0 +1,8 @@
+{
+  "display_name": "園長",
+  "email": "admin@example.com",
+  "login_id": "principal",
+  "reason": "初期導入",
+  "actor": "作業担当者名",
+  "approver": "承認担当者名"
+}
