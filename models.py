@@ -1240,6 +1240,9 @@ class ParentMailDelivery(SQLModel, table=True):
         foreign_key="parent_registration_requests.id",
         index=True,
     )
+    action_token_hash: Optional[str] = Field(
+        default=None, foreign_key="credential_action_tokens.token_hash", max_length=64, index=True,
+    )
     message_type: str = Field(index=True, max_length=32)
     recipient: str = Field(max_length=255)
     subject: str = Field(max_length=255)

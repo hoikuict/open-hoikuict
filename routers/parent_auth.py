@@ -631,13 +631,16 @@ def _issue_admin_action_code(
             actor_user=actor,
             reason=reason,
             action=action,
+            send_email=True,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _render_staff(
         request,
         "parent_auth/action_code_display.html",
-        {"current_user": current_user, "account": account, "action_code": code},
+        {
+            "current_user": current_user, "account": account, "action_code": code,
+        },
     )
 
 

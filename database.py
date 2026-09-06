@@ -299,6 +299,9 @@ def _migrate_parent_mail_delivery_columns() -> None:
                 conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN lease_expires_at DATETIME"))
             if "next_retry_at" not in cols:
                 conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN next_retry_at DATETIME"))
+            if "action_token_hash" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN action_token_hash VARCHAR(64) REFERENCES credential_action_tokens(token_hash)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_parent_mail_deliveries_action_token_hash ON parent_mail_deliveries (action_token_hash)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("parent mail delivery column", exc)

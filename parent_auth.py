@@ -55,7 +55,7 @@ from models import (
     PasswordCredential,
     User,
 )
-from time_utils import ensure_utc, utc_now
+from time_utils import ensure_utc, format_jst_datetime, utc_now
 
 
 PRINCIPAL_PARENT = "parent"
@@ -68,6 +68,7 @@ PARENT_SESSION_ABSOLUTE = timedelta(days=7)
 MAX_VERIFICATION_ATTEMPTS = 5
 PARENT_MAIL_LEASE = timedelta(minutes=2)
 PARENT_MAIL_RETRY_BASE = timedelta(seconds=30)
+PARENT_CODE_MAIL_TYPES = ("parent_activate", "parent_reset")
 
 
 @dataclass(frozen=True, slots=True)
@@ -456,6 +457,27 @@ def _mail_claim_conditions(at: datetime) -> tuple:
     )
 
 
+def _action_code_mail_is_current(session: Session, delivery: ParentMailDelivery) -> bool:
+    token = session.get(CredentialActionToken, delivery.action_token_hash) if delivery.action_token_hash else None
+    if (
+        token is None or token.action != delivery.message_type or token.consumed_at
+        or token.revoked_at or ensure_utc(token.expires_at) <= utc_now()
+    ):
+        return False
+    credential = session.get(PasswordCredential, token.credential_id)
+    account = session.get(ParentAccount, delivery.parent_account_id)
+    if (
+        credential is None or credential.principal_type != PRINCIPAL_PARENT
+        or credential.parent_account_id != delivery.parent_account_id
+        or account is None or account.status != ParentAccountStatus.active
+        or normalize_login_id(account.email) != normalize_login_id(delivery.recipient)
+    ):
+        return False
+    if token.action == "parent_reset":
+        return bool(credential.password_hash and credential.disabled_at is None)
+    return not credential.password_hash or credential.disabled_at is not None
+
+
 def dispatch_pending_parent_mail(
     session: Session,
     *,
@@ -493,6 +515,14 @@ def dispatch_pending_parent_mail(
             continue
         delivery = session.get(ParentMailDelivery, delivery_id)
         if delivery is None:
+            continue
+        if delivery.message_type in PARENT_CODE_MAIL_TYPES and not _action_code_mail_is_current(session, delivery):
+            delivery.status = "cancelled"
+            delivery.failure_code = "action_code_no_longer_valid"
+            delivery.next_retry_at = None
+            delivery.lease_expires_at = None
+            session.add(delivery)
+            session.commit()
             continue
         try:
             if transport == "capture":
@@ -1113,6 +1143,7 @@ def issue_parent_password_code(
     actor_user: User,
     reason: str,
     action: str = "parent_reset",
+    send_email: bool = False,
 ) -> str:
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
@@ -1135,6 +1166,8 @@ def issue_parent_password_code(
             raise ValueError("停止中の保護者には再設定コードを発行できません")
     elif credential.password_hash and credential.disabled_at is None:
         raise ValueError("有効な保護者には初期設定コードを発行できません")
+    if send_email:
+        _validate_action_code_mail_request(session, account)
     raw_code = issue_credential_action_token(
         session,
         credential=credential,
@@ -1153,8 +1186,58 @@ def issue_parent_password_code(
             reason=reason.strip(),
         )
     )
+    # Reissuing a code invalidates older queued messages, including manual reissues.
+    for delivery in session.exec(select(ParentMailDelivery).where(
+        ParentMailDelivery.parent_account_id == account.id,
+        ParentMailDelivery.message_type == action,
+        ParentMailDelivery.status == "pending",
+    )).all():
+        delivery.status = "cancelled"
+        delivery.next_retry_at = None
+        session.add(delivery)
+    if send_email:
+        session.flush()
+        token = session.get(CredentialActionToken, token_hash(raw_code))
+        action_path = "activate" if action == "parent_activate" else "reset"
+        label = "初回パスワード設定・利用再開" if action == "parent_activate" else "パスワード再設定"
+        base_url = _registration_base_url()
+        session.add(ParentMailDelivery(
+            parent_account_id=account.id, action_token_hash=token.token_hash,
+            message_type=action, recipient=account.email,
+            subject=f"保護者ポータル {label}のご案内",
+            body=(
+                f"施設から{label}の案内が届いています。\n"
+                "次のURLを開き、認証コードを入力してパスワードを設定してください。\n\n"
+                f"コード入力URL：\n{base_url}/parent-portal/{action_path}\n\n"
+                f"認証コード：{raw_code}\n"
+                f"有効期限：{format_jst_datetime(token.expires_at)} JST（発行から30分・1回限り）\n\n"
+                f"設定後のログインURL：\n{base_url}/parent-portal/login\n"
+                f"ログインID：{credential.login_id}\n\n"
+                "認証コードはログイン用のパスワードではありません。設定したパスワードでログインしてください。\n"
+                "Cloudflareの認証が表示された場合は、その認証を済ませてから上記のコードを入力してください。\n"
+                "心当たりがない場合や期限が切れた場合は施設へご連絡ください。"
+            ),
+        ))
     session.commit()
     return raw_code
+
+
+def _validate_action_code_mail_request(session: Session, account: ParentAccount) -> None:
+    from family_support import validate_parent_contact_email
+
+    validate_parent_contact_email(session, account.email, account.id)
+    if (os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT") or "capture").strip().lower() not in {"capture", "smtp"}:
+        raise ValueError("メール送信が無効です。送信設定を確認してください")
+    now = utc_now()
+    recent = session.exec(select(ParentMailDelivery.created_at).where(
+        ParentMailDelivery.parent_account_id == account.id,
+        ParentMailDelivery.message_type.in_(PARENT_CODE_MAIL_TYPES),
+        ParentMailDelivery.created_at >= now - timedelta(days=1),
+    ).order_by(ParentMailDelivery.created_at.desc())).all()
+    if recent and ensure_utc(recent[0]) > now - timedelta(seconds=60):
+        raise ValueError("コードの再発行・メール送信は60秒以上あけてください")
+    if len(recent) >= 10:
+        raise ValueError("本日のコード送信上限に達しました")
 
 
 def exchange_parent_action_code(

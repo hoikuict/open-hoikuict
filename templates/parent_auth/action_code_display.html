@@ -5,12 +5,14 @@
   <header>
     <p class="text-sm font-semibold text-indigo-600">保護者認証管理</p>
     <h1 class="mt-1 text-2xl font-bold text-slate-900">コードを発行しました</h1>
-    <p class="mt-2 text-sm text-slate-600">{{ account.display_name }}さんへ、本人確認済みの方法で交付してください。この画面を閉じるとコードは再表示できません。</p>
+    <p class="mt-2 text-sm text-slate-600">{{ account.display_name }}さんの登録メールアドレス {{ account.email }} への送信を受け付けました。メールにはコード入力URL・認証コード・ログインURL・ログインIDを記載しています。</p>
+    <p class="mt-2 text-sm text-slate-600">メールの配送状況は認証管理で確認できます。この画面を閉じるとコードは再表示できません。</p>
   </header>
 
   <section class="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm">
     <p class="text-sm font-semibold text-amber-800">発行された認証コード</p>
     <div id="credential-action-code" class="mt-3 select-all break-all font-mono text-3xl font-bold tracking-[0.25em] text-slate-900">{{ action_code }}</div>
+    <p class="mt-3 text-sm text-amber-900">発行から30分有効・1回限りです。保護者はメールのコード入力URLからパスワードを設定して利用します。</p>
   </section>
 
   <div class="flex flex-wrap gap-2">
