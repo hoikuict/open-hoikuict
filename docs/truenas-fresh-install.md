@@ -150,13 +150,18 @@ PY
 ```
 
 続けてTunnelを起動し、検証URLがAccessで保護されていることを確認する。
+管理者の入力はUTF-8のJSONで渡す。`deploy/truenas/bootstrap-admin.example.json`の6項目を自施設の値に変更し、
+SSHユーザーのホームへ`bootstrap-admin.json`として転送する。パスワードは含めず、内容を確認してから次を実行する。
+PCでの作成・転送手順は[初心者向け手順書の第11章](truenas-beginner-installation-guide.md)を参照。
 
 ```bash
 docker compose up -d cloudflared
-docker compose exec app python -m scripts.auth_user bootstrap-admin
+chmod 600 ~/bootstrap-admin.json
+docker compose exec -T app python -m scripts.auth_user bootstrap-admin --input-json - --yes < ~/bootstrap-admin.json
 ```
 
-表示名・連絡先メール・ログインID・作成理由・実行者・承認者を入力し、内容を確認して作成する。
+`-T`で対話端末を使わず、UTF-8のファイルをCLIが直接読み取る。`--yes`は確認済みの内容で作成する指定。
+必須項目の不足・不正な文字コードはDB変更前に拒否し、既存の有効な管理者がいる場合も重複作成しない。
 表示された有効化コードを使い、`https://<PILOT_HOSTNAME>/staff/activate`でパスワードを設定する。
 コードは一度だけ表示されるため、有効時間内に本人が操作する。
 ログアウト・再ログイン後、園児・家庭・クラスが空、職員が初期管理者1人であることを確認する。

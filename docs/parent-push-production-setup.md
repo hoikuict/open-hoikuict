@@ -7,11 +7,15 @@
 - `HOIKUICT_PUBLIC_ORIGIN`: 利用するHTTPSの施設URL。`HOIKUICT_ALLOWED_ORIGINS`と`HOIKUICT_PARENT_REGISTRATION_BASE_URL`に一致させる。
 - `HOIKUICT_PUSH_VAPID_PRIVATE_KEY`: アプリから読み取れるP-256秘密鍵のPEMファイルパス。
 - `HOIKUICT_PUSH_VAPID_PUBLIC_KEY`: 同じ秘密鍵から生成した、非圧縮公開鍵のbase64url表現（末尾の`=`なし）。
-- `HOIKUICT_PUSH_VAPID_SUBJECT`: 施設の連絡先。今回の実機は`mailto:hikarinomorihoikuen@gmail.com`。
+- `HOIKUICT_PUSH_VAPID_SUBJECT`: 施設の連絡先。例: `mailto:admin@example.com`。
 
 鍵はTrueNAS内で生成し、秘密鍵をチャット・ログ・Gitへ出力しない。既存の鍵を再生成して置換すると、登録済み端末の再登録が必要になるため、再実行では同じ鍵を使用する。秘密鍵をアプリの実行UIDだけが読める0400にして読み取り専用でマウントする。復旧時も同じ鍵を利用できるよう、ランタイムとは別に権限を制限したバックアップに含める。
 
-新規構成では`deploy/truenas/compose.webpush.yaml`を基本Composeに重ねて使用する。今回の既存Dockgeスタックでは更新ヘルパーが同じ環境変数と秘密鍵マウントを既存Composeへ追加する。公開ポート、Cloudflare、SMTP、認証設定は維持する。
+新規構成では`deploy/truenas/compose.webpush.yaml`を基本Composeに重ねて使用する。TrueNASのCompose CLIでは、スタック直下へコピーし、`.env`に`COMPOSE_FILE=compose.yaml:compose.webpush.yaml`を設定できる。Dockge UIでの適用は未検証のため、この構成の起動・更新はSSHのCLIで行う。明示的な`-f`はこの指定を上書きする。
+
+有効化前に`docker compose --profile '*' config --format json`を`python3 /path/to/source/scripts/check_webpush_compose.py`へパイプし、通知の5項目と秘密鍵の読み取り専用マウントを確認する。出力を絞らないconfigや--environmentはSMTPパスワードなどを含むため共有しない。詳細は[初心者向け手順書の第17章](truenas-beginner-installation-guide.md)と[Docker公式説明](https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_file)を参照。
+
+バックアップには基本Compose・通知用Compose・.envをまとめて保管する。複数ファイルを使う場合の本手順のBACKUP_COMPOSE_SHA256は、読み込み順に2ファイルを連結した内容のSHA-256とする。単一ファイル構成とは計算対象が異なることも運用記録へ残す。
 
 ## 本人の端末で受信確認
 
@@ -36,10 +40,8 @@ iPhone/iPadはiOS/iPadOS 16.4以降でサイトをホーム画面へ追加し、
 
 参考: [pywebpush](https://github.com/web-push-libs/pywebpush)、[Mozilla Autopush](https://mozilla-services.github.io/autopush-rs/http.html)、[Apple Web Push](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers)、[Microsoft WNS](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/push-notifications/wns-overview)。
 
-## 今回の実機反映
+## 稼働中の環境を変更するとき
 
-更新ヘルパーは現在のイメージとComposeを照合し、新しいイメージをビルドして設定を検証してから、パイロットのappとcloudflaredだけを短時間停止する。停止中にSQLite検査・ランタイムのZFSスナップショットを取得し、既存データ件数を確認して再開する。失敗時は元のイメージ・Compose・環境変数へ戻す。DBの自動巻き戻しは行わない。
+現在のイメージと構成、未完了の通知、DB・添付のバックアップを確認してから変更する。未送信の業務通知は有効化後に送信対象となるため、残件は内容を確認して別途扱う。通知を削除して通過させない。
 
-有効化前に未完了のプッシュ配送が残っている場合は停止する。過去に作成された通知をまとめて実送信しないため、残件は内容を確認して別途処理する。ヘルパーは既存通知を削除せず、通知を自動送信しない。本人の端末登録後、上のテストボタンで確認する。
-
-この変更は実機検証のための本番構成対応であり、全OSの受入検証完了を意味しない。
+施設固有の接続先・送信元・実行履歴は、公開リポジトリに含めない園内の運用記録へ保存する。構成の準備と実機への反映、端末での受信確認は区別して記録する。

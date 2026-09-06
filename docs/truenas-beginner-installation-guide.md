@@ -2,11 +2,11 @@
 
 初心者向け　初回導入から保護者の利用開始まで
 
-作成日：2026年9月6日　手順書 第1版
+作成日：2026年9月6日　手順書 第2版
 
-対象コード：mainの `1cc7dc83ea37e572282e67ea461d0424abd328a0`
+対象コード：JSON入力に対応した修正版 `e614d9a8872907681b27c1677274cc09255a137b`
 
-この手順書は、TrueNASに園児や職員のデモデータが入っていないオープン保育ICTを用意し、施設のURLから使い始めるためのものです。今回の実機導入で行った作業と、そこでつまずいた点をまとめました。
+この手順書は、TrueNASに園児や職員のデモデータが入っていないオープン保育ICTを用意し、施設のURLから使い始めるためのものです。実機導入で行った作業と、そこでつまずいた点をまとめ、施設固有の接続先や連絡先を除いて汎用化しました。
 
 最初の到達点は、管理者がログインし、架空の園児1名について保護者への招待、初回入力、園の承認、保護者のログインまでを確認することです。その後、端末通知とバックアップを確認します。
 
@@ -23,7 +23,7 @@
 | 9〜11 | Cloudflareを設定し、アプリと管理者を有効化する | ブラウザーとSSH端末 |
 | 12〜15 | クラス、保護者の初回登録、家族との紐付けを確認する | アプリの画面 |
 | 16〜17 | 端末通知を設定して受信を試す | SSH端末と保護者端末 |
-| 18〜21 | バックアップ、更新、困ったときの確認、導入記録 | 担当者全員 |
+| 18〜20 | バックアップ、更新、困ったときの確認 | 担当者全員 |
 
 各章の「完了の目安」を確認してから、次へ進みます。コマンドはMarkdown版からコピーしてください。PDFでは長い行が折り返される場合があります。
 
@@ -98,15 +98,15 @@ Cloudflareのアカウントと、そこでDNSを管理しているドメイン�
 
 操作する場所：最初は手元のWindows PC、その後はTrueNASのSSH端末。
 
-Windowsで「ターミナル」またはPowerShellを開きます。次のIPアドレスは例なので、自分の接続先へ置き換えます。VPN経由の場合は、先にVPNへ接続します。
+Windowsで「ターミナル」またはPowerShellを開きます。次のnas-userとIPアドレスは例なので、自分のSSHユーザー名と接続先へ置き換えます。VPN経由の場合は、先にVPNへ接続します。
 
 ```powershell
-ssh truenas_admin@192.168.1.10
+ssh nas-user@192.168.1.10
 ```
 
 初回に接続先の確認が出たら、TrueNASの管理担当者とホスト鍵の指紋を照合してから接続を承認します。パスワード入力中に文字や「＊」が表示されないのは正常です。入力後にEnterを押します。
 
-`truenas_admin@truenas` のような表示に変わったら接続できています。本書のコマンドを同じ書き方で使うため、続けてBashへ切り替えます。
+`nas-user@truenas` のような表示に変わったら接続できています。本書のコマンドを同じ書き方で使うため、続けてBashへ切り替えます。
 
 ```bash
 bash
@@ -123,7 +123,7 @@ sudo zpool list
 - `docker compose version`：Composeのバージョンが表示されます。
 - `zpool list`：使うプールのHEALTHが `ONLINE` で、必要な空き容量があることを確認します。
 
-コマンドには、画面に出ている `truenas_admin@...$` まで含めて貼り付けません。本文中の `app_mounts` や `@` に、装飾用の余計なバックスラッシュを付けないでください。
+コマンドには、画面に出ている `nas-user@...$` まで含めて貼り付けません。本文中の `app_mounts` や `@` に、装飾用の余計なバックスラッシュを付けないでください。
 
 完了の目安：SSHで操作でき、既存コンテナと保存領域を確認できました。
 
@@ -150,7 +150,7 @@ SSHで次の変数を設定します。これらは入力を短くするため�
 BASE=/mnt/main/open-hoikuict-pilot
 STACKS=/mnt/.ix-apps/app_mounts/dockge/stacks
 STACK="$STACKS/open-hoikuict-pilot"
-SHA=1cc7dc83ea37e572282e67ea461d0424abd328a0
+SHA=e614d9a8872907681b27c1677274cc09255a137b
 IMAGE="open-hoikuict:$SHA"
 ```
 
@@ -324,7 +324,7 @@ sudo python3 -c 'import getpass,os,sys; from pathlib import Path; p=Path(sys.arg
 
 Accessの「Applications」から、公開ホスト名を保護するSelf-hostedアプリケーションを追加します。施設用のホスト名を指定し、サイト全体を対象にするためパスは空欄にします。
 
-Allowポリシーで、最初に管理者と検証用保護者のメールアドレスを個別に許可します。メールのワンタイムPINを使う場合は、それをログイン方法として有効にします。後から保護者を招待するときも、Access側の許可が必要です。アプリの招待だけではAccessの許可リストへ追加されません。[Cloudflareの公開アプリ保護手順](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
+Allowポリシーで、最初に管理者と検証用保護者のメールアドレスを個別に許可します。メールのワンタイムPINを使う場合は、それをログイン方法として有効にします。後から保護者を招待するときも、Access側の許可が必要です。アプリの招待だけではAccessの許可リストへ追加されません。SMTPの送信元とAccessの許可先は別に管理します。[Cloudflareの公開アプリ保護手順](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/)
 
 作成したAccessアプリケーションの詳細から、Application AudienceのAUDタグをコピーします。Team nameは `チーム名.cloudflareaccess.com` の「チーム名」の部分です。
 
@@ -389,37 +389,47 @@ sudo docker compose up -d cloudflared
 
 ## 11 最初の管理者を作成する
 
-操作する場所：SSH端末と施設の職員ログイン画面。
+操作する場所：手元のPC、SSH端末、職員の有効化画面。
+
+端末での日本語入力による文字コードの違いを避けるため、**UTF-8のJSONファイルを渡す方法**を使います。第5章の修正版には `--input-json` が含まれます。旧版のイメージでは先に更新が必要です。
+
+### PCで入力ファイルを用意する
+
+Windowsのメモ帳に次を貼り、自分のメール・ログインID・作業理由・実際の担当者名へ変更します。「名前を付けて保存」でファイルの種類を「すべてのファイル」、文字コードを「UTF-8」にし、ダウンロードへ `bootstrap-admin.json` として保存します。末尾が `.json.txt` になっていないことを確認します。
+
+```json
+{
+  "display_name": "園長",
+  "email": "admin@example.com",
+  "login_id": "principal",
+  "reason": "初期導入",
+  "actor": "作業担当者名",
+  "approver": "承認担当者名"
+}
+```
+
+パスワードは書きません。`actor` は実行者、`approver` は施設の運用上の承認者です。内容を見直してから、PC側の新しいPowerShellで転送します。接続先とSSHユーザー名は自分の値へ置き換えます。
+
+```powershell
+scp "$env:USERPROFILE\Downloads\bootstrap-admin.json" nas-user@192.168.1.10:~/bootstrap-admin.json
+```
+
+### SSH端末で作成する
 
 ```bash
+chmod 600 ~/bootstrap-admin.json
 cd "$STACK"
-sudo docker compose exec app python -m scripts.auth_user bootstrap-admin
+sudo -v
+sudo docker compose exec -T app python -m scripts.auth_user bootstrap-admin --input-json - --yes < ~/bootstrap-admin.json
 ```
 
-| 質問 | 入力する内容 |
-| --- | --- |
-| 表示名 | 画面に表示する名前。例：園長 |
-| 連絡先メールアドレス | 管理者本人が受信できるメール |
-| ログインID | 職員ログインに使うID。半角英数字など |
-| 作成理由 | 初期導入のため、などの理由 |
-| 実行者と承認者 | 施設の運用に沿った実際の担当者 |
-| この内容で作成しますか | 内容を確認し、作成する場合だけ `yes` |
+`-T` は対話用端末を使わない指定、`--input-json -` はファイルの内容を標準入力から読む指定です。`--yes` は確認済みの内容で作成する指定です。日本語は端末の入力処理を経ず、UTF-8のバイト列として届きます。
 
-作成後に有効化コードが一度だけ表示されます。**職員向けコードの有効期限は30分です。** このコードを他人やチャットへ送らず、本人が次の画面でパスワードを設定します。
+コードは一度だけ表示され、**職員向けの有効期限は30分**です。施設の `https://施設ホスト名/staff/activate` で本人がパスワードを設定し、`/staff/login` でログインします。
 
-```text
-https://施設ホスト名/staff/activate
-```
+入力の不足・不正な文字コードはDBを変更する前にエラーにします。既存の有効な管理者がいれば重複作成しません。エラー時はファイルと版を確認し、DBを消してやり直さないでください。JSONには個人の連絡先が含まれるため、作業後は施設で決めた保管・削除の扱いに従います。
 
-設定後、`/staff/login` でログインし、いったんログアウトして再ログインできることを確認します。初期管理者は、ログインのたびに作るものではありません。
-
-### 日本語入力でエラーが出た場合
-
-今回、端末からの日本語入力で `surrogates not allowed` という文字コードエラーが発生しました。パスワード不一致を意味するエラーではありません。
-
-エラーが出た場合は再作成を繰り返さず、既存の管理者が作られていないか確認します。管理者が未作成なら、日本語をASCIIのJSONとして安全に渡す方法などで再試行します。今回使った補助スクリプトは当時の実機専用であり、別の版へそのまま使うものではありません。担当者へエラー文だけを伝え、トークンやコードは渡しません。
-
-完了の目安：管理者1名でログインでき、園児・クラスはまだ空です。コードが期限切れでもDBを消さず、既存職員の有効化コード再発行を使います。
+完了の目安：管理者1名でログインでき、ログアウト後も再ログインできました。
 
 <!-- pagebreak -->
 
@@ -553,7 +563,7 @@ https://施設ホスト名/parent-portal/login
 
 操作する場所：SSH端末。アプリと保護者ログインの確認後に行います。
 
-ここは新規導入した基準版向けの手動設定です。今回の稼働済み実機については第21章の記録を参照します。通知画面に「園側の通知設定は準備中」やVAPID未設定と出る場合、鍵と送信設定が必要です。Gmailの設定だけでは端末通知は有効になりません。
+ここは新規導入した基準版向けの手動設定です。稼働済み環境は、施設で保管する運用記録から現在の版と設定を確認します。通知画面に「園側の通知設定は準備中」やVAPID未設定と出る場合、鍵と送信設定が必要です。Gmailの設定だけでは端末通知は有効になりません。
 
 ### 通知の秘密鍵をTrueNAS内に作る
 
@@ -588,44 +598,75 @@ PY
 
 操作する場所：最初はSSH端末、その後は保護者端末。
 
-### Composeへ通知設定を反映する
+### CLIで2つのComposeを読み込む
 
-新規導入で、まだ端末登録も未完了の通知もない状態で進めます。すでに業務通知が作られている環境では、未送信キューを管理担当者が確認してから有効化します。
+新規導入で、端末登録も未完了の通知もない状態で進めます。稼働済み環境では未送信キューを管理担当者が確認します。編集前の `.env` とComposeを、権限制限した場所に保存してください。
 
-`compose.webpush.yaml` の内容を、現在の `compose.yaml` のappサービスへ追加します。編集前に両ファイルを権限制限した場所へ保存します。通知用設定の詳細は [通知設定の技術手順](parent-push-production-setup.md) と [通知用Compose](https://github.com/hoikuict/open-hoikuict/blob/1cc7dc83ea37e572282e67ea461d0424abd328a0/deploy/truenas/compose.webpush.yaml) にあります。
+通知用ファイルをコピーし、`.env` を開きます。
 
-`cd "$STACK"` の後に `sudo vi compose.yaml` で編集します。下の項目は `app` の `environment` 内に入れ、すでにある `HOIKUICT_PUSH_TRANSPORT` の行は置き換えます。字下げは周囲とそろえ、全角スペースやタブは使いません。
-
-| appに追加または変更する環境変数 | 値 |
-| --- | --- |
-| HOIKUICT_PUSH_TRANSPORT | `webpush` |
-| HOIKUICT_PUBLIC_ORIGIN | `https://${PILOT_HOSTNAME}` |
-| HOIKUICT_PUSH_VAPID_PUBLIC_KEY | `${HOIKUICT_PUSH_VAPID_PUBLIC_KEY}` |
-| HOIKUICT_PUSH_VAPID_PRIVATE_KEY | `/run/secrets/parent-push-vapid.pem` |
-| HOIKUICT_PUSH_VAPID_SUBJECT | `${HOIKUICT_PUSH_VAPID_SUBJECT}` |
-
-appのvolumesへ次の1行も追加します。既存のDB・添付・禁止パスワード一覧の行は残します。
-
-```yaml
-- ${APP_SECRETS_PATH}/parent-push-vapid.pem:/run/secrets/parent-push-vapid.pem:ro
+```bash
+cd "$STACK"
+sudo cp -n "$BASE/source/deploy/truenas/compose.webpush.yaml" .
+sudo vi .env
 ```
 
-`sha256sum compose.yaml` の新しい値を `.env` の `BACKUP_COMPOSE_SHA256` に入れ、検査してアプリを再作成します。
+第16章の公開鍵・連絡先に加え、次の1行を追加します。同じ項目が既にあれば置き換えます。TrueNASのLinuxでは区切りにコロンを使います。
+
+```text
+COMPOSE_FILE='compose.yaml:compose.webpush.yaml'
+```
+
+Compose CLIはこの指定で通知設定を重ねて読み込みます。**Dockgeの編集・起動・更新ボタンが同じ指定を使うかは未検証です。この構成の操作はSSHのCompose CLIで行います。** `-f compose.yaml` を付けると上書きされ、通知設定が外れるため付けません。[Docker公式のCOMPOSE_FILE説明](https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_file)
+
+### 実際に読み込まれる設定を確認する
 
 ```bash
 sudo docker compose --profile '*' config --quiet
+set -o pipefail
+sudo docker compose --profile '*' config --format json | python3 "$BASE/source/scripts/check_webpush_compose.py"
+```
+
+確認ツールは通知の環境変数5項目と秘密鍵のマウントだけを表示します。`webpush`、自施設のHTTPS URL・公開鍵・連絡先、秘密鍵のパスと `read_only: true` を目視し、末尾の `OK` を確認します。DB・添付・禁止パスワード一覧のマウントも検査します。**未絞り込みの `config` 全文にはSMTPなどの秘密情報が含まれるため、共有しません。** [Docker公式のconfig説明](https://docs.docker.com/reference/cli/docker/compose/config/)
+
+```bash
+cat compose.yaml compose.webpush.yaml | sha256sum
+```
+
+この順に連結した2ファイルのハッシュを `.env` の `BACKUP_COMPOSE_SHA256` に入れ、両ファイルを一緒に保管します。次を実行し、`healthy` になってから端末へ進みます。
+
+```bash
 sudo docker compose run --rm --no-deps --entrypoint python app -c 'from security_config import validate_runtime_security; validate_runtime_security(); print("Push settings OK")'
 sudo docker compose up -d --no-deps app
 sudo docker compose ps
 ```
 
-### 端末の受信確認
+<!-- pagebreak -->
 
-保護者ログイン後「通知設定」を開き、「この端末で通知を受け取る」→通知を許可→「この端末へテスト通知を送る」の順に操作します。「プッシュ通知を利用する」もオンにして保存します。テストは操作中の1台に届きます。
+### 端末の受信確認（第17章の続き）
 
-iPhone・iPadはiOS/iPadOS 16.4以降でサイトをホーム画面へ追加し、そのアイコンから開いて登録します。[WebKit公式説明](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)
+操作する場所：実際に通知を受け取る保護者の端末。園側の設定確認で `OK` と `healthy` が出てから進みます。
 
-画面の受付表示に加え、OS上の通知表示とタップ後の移動を確認します。現在の業務通知は「出欠確認のお願い」です。すべてのお知らせや日次連絡が自動でプッシュされるわけではありません。
+iPhone・iPadはiOS/iPadOS 16.4以降でサイトをホーム画面へ追加し、そのアイコンから開きます。通常のブラウザーのタブで操作を始めないようにします。[WebKit公式説明](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)
+
+1. 保護者として施設URLへログインし、「通知設定」を開きます。
+2. 園側の通知設定が準備中という表示がなくなっていることを確認します。
+3. 「この端末で通知を受け取る」を押し、ブラウザーやOSの通知許可を承認します。
+4. 「この端末は登録済み」を確認し、「プッシュ通知を利用する」をオンにして保存します。
+5. 「この端末へテスト通知を送る」を押します。テストは操作している1台だけが対象です。
+6. OS上に通知が現れること、通知をタップして保護者ポータルへ戻れることを確認します。
+
+### 確認結果の記録
+
+| 確認すること | 完了の目安 |
+| --- | --- |
+| 端末の登録 | 通知設定に登録済みと表示される |
+| 送信の受付 | テスト通知を受け付けた旨が表示される |
+| 端末での表示 | OSの通知が実際に見える |
+| タップ後の移動 | 保護者ポータルが開く。Access認証が出たら認証後も確認する |
+
+受付表示だけで、端末へ届いたことにはなりません。届かない場合は第20章で、OSの通知設定や集中モードを確認します。確認した端末・ブラウザー・日時と結果を、園内の運用記録へ残します。
+
+現在の業務通知は「出欠確認のお願い」です。すべてのお知らせや日次連絡が自動でプッシュされるわけではありません。別の端末でも受け取る場合は、その端末で同じ登録と受信確認を行います。
 
 <!-- pagebreak -->
 
@@ -658,7 +699,7 @@ sudo docker compose start cloudflared
 ### 更新するときの順序
 
 1. 新しいコミットのテスト結果と、DB変更の有無を確認します。
-2. 現在の版、イメージID、Compose、`.env`、秘密鍵の保管先を記録します。
+2. 現在の版、イメージID、読み込むすべてのCompose、`.env`、秘密鍵の保管先を記録します。
 3. 停止中のDBと添付を保存し、必要な外部バックアップを確認します。
 4. 新しいイメージを別にビルドし、設定を検査して切り替えます。
 5. 健康状態、管理者ログイン、主要件数、保護者の閲覧を確認します。
@@ -732,34 +773,7 @@ OSの通知センター、集中モード、ブラウザーの通知許可、通
 
 <!-- pagebreak -->
 
-## 21 今回の導入記録と最終確認
 
-今回の実機では、次の順で準備と改善を進めました。
-
-| 作業 | 2026年9月6日時点の確認 |
-| --- | --- |
-| 専用ブランチと空の保存先を準備 | 実施済み。既存デモとは別のpilotスタック |
-| 空DBでアプリを起動 | 実施済み。アプリとSQLiteの確認に成功 |
-| Cloudflare TunnelとAccess | 設定し、職員ログイン画面への到達を確認 |
-| 初期管理者 | 日本語入力エラーへの対応後、ログインした画面を確認 |
-| Gmail送信 | `hikarinomorihoikuen@gmail.com` へ設定変更。招待受信と提出を確認 |
-| 保護者の初回入力 | 子どもの名前とメールから招待し、提出を園側で確認 |
-| 家族連動とホームの承認待ち | 対応する変更を実機へ反映 |
-| 保護者コードの24時間化と本番通知 | コードと更新ファイルを準備。最新の実機反映・端末受信の完了報告は未確認 |
-| mainへの統合 | `1cc7dc8` まで反映。GitHub ActionsのLintとテストが成功 |
-| 外部バックアップと隔離復元 | 本書作成時点では完了を確認できていない |
-
-今回の施設ホスト名は `hikarinomori.hoikuict.net`、runtimeは `/mnt/main/open-hoikuict-pilot/runtime` です。別施設へ導入するときは、その施設の値を使用します。
-
-今回配置した通知更新ヘルパーは、既存実機の特定の旧版を検査してから更新するものです。新規導入の共通コマンドではありません。既存実機で未実行の場合に限り、当時案内した次のファイルが対象です。
-
-```bash
-sudo python3 /home/truenas_admin/open-hoikuict-push-24153f7/update-pilot.py
-```
-
-このヘルパーは旧版 `1e47165` と当時の構成を確認します。構成不一致で停止したら、確認処理を外さず現在の版を調べます。新規に本書の基準版を導入した環境には実行しません。
-
-<!-- pagebreak -->
 
 ## 導入完了のチェックシート
 
@@ -796,6 +810,6 @@ ____________________________________________________________
 - [家族連動と保護者招待の説明](guardian-account-sync.md)
 - [通知の本番構成と受信確認](parent-push-production-setup.md)
 - [停止バックアップと隔離復元](pilot-deployment-spec-v2.md)
-- [本書の対象コミット](https://github.com/hoikuict/open-hoikuict/commit/1cc7dc83ea37e572282e67ea461d0424abd328a0)
+- [本書の対象コミット](https://github.com/hoikuict/open-hoikuict/commit/e614d9a8872907681b27c1677274cc09255a137b)
 
 外部サービスの画面名は変更されることがあります。本書の名称と画面が違う場合は、各章の公式リンクで該当する機能名を確認してください。
