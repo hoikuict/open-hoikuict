@@ -34,7 +34,6 @@ from models import (
     CareTimeCategory,
     Classroom,
     ExtendedCareCalculationSetting,
-    ExtendedCareBillingSetting,
     ExtendedCareCharge,
     ExtendedCareFeeRule,
 )
