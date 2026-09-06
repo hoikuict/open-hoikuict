@@ -146,7 +146,7 @@ class ParentPushApiTests(unittest.TestCase):
             subscription = session.exec(select(ParentPushSubscription)).one()
             self.assertTrue(subscription.is_test_device)
 
-    def test_production_registration_ignores_test_device_request(self):
+    def test_production_registration_is_blocked_when_push_is_disabled(self):
         self._login(self.first_parent_id)
         with patch.dict(os.environ, {"HOIKUICT_ENV": "production"}):
             response = self.client.post(
@@ -154,10 +154,9 @@ class ParentPushApiTests(unittest.TestCase):
                 json=self._subscription_payload(is_test_device=True),
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 503)
         with Session(self.engine) as session:
-            subscription = session.exec(select(ParentPushSubscription)).one()
-            self.assertFalse(subscription.is_test_device)
+            self.assertIsNone(session.exec(select(ParentPushSubscription)).first())
 
     def test_endpoint_cannot_be_claimed_by_another_parent(self):
         self._login(self.first_parent_id)
@@ -303,7 +302,7 @@ class ParentPushApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("この端末で通知を受け取る", response.text)
-        self.assertIn("VAPID公開鍵が未設定", response.text)
+        self.assertIn("園側の通知設定は準備中", response.text)
         self.assertIn("enableButton.addEventListener('click'", response.text)
 
     def test_push_settings_shows_saved_values_and_registered_device_count(self):
@@ -324,7 +323,7 @@ class ParentPushApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("確認用スマートフォン", response.text)
-        self.assertIn("通知が有効な端末は <strong>1台</strong>", response.text)
+        self.assertIn('id="registered-device-count">1台</strong>', response.text)
         checkbox_start = response.text.index('id="push-enabled"')
         checkbox_end = response.text.index(">", checkbox_start)
         self.assertNotIn("checked", response.text[checkbox_start:checkbox_end])

@@ -249,7 +249,7 @@ class SecurityControlTests(unittest.TestCase):
         with patch.dict(os.environ, {"HOIKUICT_ENV": "development"}, clear=True):
             self.assertEqual(parent_push_transport(), "capture")
 
-    def test_production_rejects_parent_push_transport_until_feature_is_complete(self):
+    def test_production_rejects_capture_and_unconfigured_webpush(self):
         for transport in ("capture", "webpush"):
             with self.subTest(transport=transport):
                 settings = {
@@ -260,7 +260,7 @@ class SecurityControlTests(unittest.TestCase):
                 with patch.dict(os.environ, settings, clear=True):
                     with self.assertRaisesRegex(
                         RuntimeError,
-                        "プッシュ通知transportを有効化できません",
+                        "capture" if transport == "capture" else "HOIKUICT_PUSH_VAPID_PUBLIC_KEY",
                     ):
                         validate_runtime_security()
 

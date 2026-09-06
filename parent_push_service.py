@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Literal, Protocol
 
 from pywebpush import WebPushException, webpush
+import requests
 
 from sqlalchemy import and_, or_, update
 from sqlmodel import Session, select
@@ -19,6 +20,8 @@ from models import (
     NotificationDeliveryStatus,
     ParentAccount,
     ParentAccountStatus,
+    ParentChildLink,
+    PasswordCredential,
     ParentNotification,
     ParentNotificationDelivery,
     ParentNotificationKind,
@@ -33,6 +36,7 @@ from models import (
 )
 from time_utils import ensure_utc, utc_now
 from security_config import parent_push_vapid_private_key, parent_push_vapid_subject
+from parent_push_validation import production_push_endpoint_allowed
 
 
 logger = logging.getLogger(__name__)
@@ -126,22 +130,33 @@ class WebPushParentPushTransport:
         subscription: ParentPushSubscription,
         payload: dict[str, object],
     ) -> ParentPushSendResult:
-        try:
-            response = self._sender(
-                subscription_info={
-                    "endpoint": subscription.endpoint,
-                    "keys": {
-                        "p256dh": subscription.p256dh_key,
-                        "auth": subscription.auth_key,
-                    },
-                },
-                data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
-                vapid_private_key=self._vapid_private_key,
-                vapid_claims={"sub": self._vapid_subject},
-                content_encoding="aes128gcm",
-                ttl=_payload_ttl_seconds(payload),
-                timeout=self._timeout_seconds,
+        if (
+            subscription.environment == "production"
+            and not production_push_endpoint_allowed(subscription.endpoint)
+        ):
+            return ParentPushSendResult(
+                result=ParentPushDeliveryAttemptResult.terminal_failed,
+                error_code="invalid_push_endpoint",
+                error_message="通知サービスの宛先が不正です",
             )
+        try:
+            with _NoRedirectPushSession() as http:
+                response = self._sender(
+                    subscription_info={
+                        "endpoint": subscription.endpoint,
+                        "keys": {
+                            "p256dh": subscription.p256dh_key,
+                            "auth": subscription.auth_key,
+                        },
+                    },
+                    data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+                    vapid_private_key=self._vapid_private_key,
+                    vapid_claims={"sub": self._vapid_subject},
+                    content_encoding="aes128gcm",
+                    ttl=_payload_ttl_seconds(payload),
+                    timeout=self._timeout_seconds,
+                    requests_session=http,
+                )
         except WebPushException as exc:
             response = exc.response
             return classify_web_push_response(
@@ -152,6 +167,12 @@ class WebPushParentPushTransport:
             getattr(response, "status_code", None),
             headers=getattr(response, "headers", None),
         )
+
+
+class _NoRedirectPushSession(requests.Session):
+    def request(self, method, url, **kwargs):
+        kwargs["allow_redirects"] = False
+        return super().request(method, url, **kwargs)
 
 
 def create_parent_push_transport(name: str) -> ParentPushTransportProtocol:
@@ -269,9 +290,9 @@ def record_parent_push_receipt(
     delivery = session.get(ParentNotificationDelivery, target.delivery_id)
     if delivery is None:
         raise ParentPushReceiptNotFoundError
-    if delivery.expires_at is not None and ensure_utc(delivery.expires_at) <= ensure_utc(
-        recorded_at
-    ):
+    if delivery.expires_at is not None and ensure_utc(
+        delivery.expires_at
+    ) <= ensure_utc(recorded_at):
         raise ParentPushReceiptExpiredError
 
     expected_hash = (
@@ -332,8 +353,12 @@ def build_push_payload(
         "notification_id": notification.id,
         "target_id": target.id,
         "kind": notification.kind.value,
-        "title": SAFE_PUSH_TITLE,
-        "body": SAFE_PUSH_BODY,
+        "title": "通知のテスト"
+        if notification.kind == ParentNotificationKind.push_test
+        else SAFE_PUSH_TITLE,
+        "body": "この端末で通知を受け取れました。"
+        if notification.kind == ParentNotificationKind.push_test
+        else SAFE_PUSH_BODY,
         "action_url": f"/parent-portal/notifications/{notification.id}",
         "shown_receipt_token": shown_receipt_token,
         "clicked_receipt_token": clicked_receipt_token,
@@ -376,7 +401,9 @@ def resolve_delivery_targets(
             ParentPushPreference.parent_account_id == notification.parent_account_id
         )
     ).first()
-    if not _push_allowed(parent_account, preference, notification.kind):
+    if not _push_allowed(
+        parent_account, preference, notification.kind
+    ) or not _production_recipient_allowed(session, notification, environment):
         delivery.status = NotificationDeliveryStatus.suppressed
         delivery.targets_resolved_at = resolved_at
         delivery.completed_at = resolved_at
@@ -485,7 +512,9 @@ def plan_pending_deliveries(
         .limit(limit)
     ).all()
     for delivery_id in candidate_ids:
-        lease_expires_at = planned_at + timedelta(seconds=DEFAULT_PLANNING_LEASE_SECONDS)
+        lease_expires_at = planned_at + timedelta(
+            seconds=DEFAULT_PLANNING_LEASE_SECONDS
+        )
         result = session.exec(
             update(ParentNotificationDelivery)
             .where(
@@ -605,6 +634,11 @@ def process_claimed_target(
         transport=transport.name,
         now=processed_at,
     )
+    if (
+        subscription.parent_account_id != notification.parent_account_id
+        or not _production_recipient_allowed(session, notification, environment)
+    ):
+        suppression_status = ParentPushDeliveryTargetStatus.suppressed
     if suppression_status is not None:
         target.status = suppression_status
         target.lease_expires_at = None
@@ -751,12 +785,14 @@ def _claimable_target_condition(now: datetime):
     return or_(
         ParentPushDeliveryTarget.status == ParentPushDeliveryTargetStatus.pending,
         and_(
-            ParentPushDeliveryTarget.status == ParentPushDeliveryTargetStatus.retry_wait,
+            ParentPushDeliveryTarget.status
+            == ParentPushDeliveryTargetStatus.retry_wait,
             ParentPushDeliveryTarget.next_retry_at.is_not(None),
             ParentPushDeliveryTarget.next_retry_at <= now,
         ),
         and_(
-            ParentPushDeliveryTarget.status == ParentPushDeliveryTargetStatus.processing,
+            ParentPushDeliveryTarget.status
+            == ParentPushDeliveryTargetStatus.processing,
             ParentPushDeliveryTarget.lease_expires_at.is_not(None),
             ParentPushDeliveryTarget.lease_expires_at < now,
         ),
@@ -832,6 +868,33 @@ def _push_allowed(
     return True
 
 
+def _production_recipient_allowed(
+    session: Session, notification: ParentNotification, environment: str
+) -> bool:
+    if environment != "production":
+        return True
+    credential = session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.parent_account_id == notification.parent_account_id,
+            PasswordCredential.principal_type == "parent",
+            PasswordCredential.disabled_at.is_(None),
+        )
+    ).first()
+    if not credential or not credential.password_hash:
+        return False
+    if notification.child_id is not None:
+        return (
+            session.exec(
+                select(ParentChildLink.id).where(
+                    ParentChildLink.parent_account_id == notification.parent_account_id,
+                    ParentChildLink.child_id == notification.child_id,
+                )
+            ).first()
+            is not None
+        )
+    return notification.kind == ParentNotificationKind.push_test
+
+
 def _is_expired(delivery: ParentNotificationDelivery, now: datetime) -> bool:
     expires_at = ensure_utc(delivery.expires_at)
     comparable_now = ensure_utc(now)
@@ -842,5 +905,9 @@ def _earliest_timestamp(
     targets: list[ParentPushDeliveryTarget],
     attribute: str,
 ) -> datetime | None:
-    values = [getattr(target, attribute) for target in targets if getattr(target, attribute) is not None]
+    values = [
+        getattr(target, attribute)
+        for target in targets
+        if getattr(target, attribute) is not None
+    ]
     return min(values, key=lambda value: ensure_utc(value)) if values else None

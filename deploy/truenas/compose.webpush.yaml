@@ -1,0 +1,12 @@
+# Optional overlay, after generating a facility-specific P-256 key pair.
+# See docs/parent-push-production-setup.md. Keep the base Compose disabled by default.
+services:
+  app:
+    environment:
+      HOIKUICT_PUSH_TRANSPORT: webpush
+      HOIKUICT_PUBLIC_ORIGIN: https://${PILOT_HOSTNAME:?required}
+      HOIKUICT_PUSH_VAPID_PUBLIC_KEY: ${HOIKUICT_PUSH_VAPID_PUBLIC_KEY:?required}
+      HOIKUICT_PUSH_VAPID_PRIVATE_KEY: /run/secrets/parent-push-vapid.pem
+      HOIKUICT_PUSH_VAPID_SUBJECT: ${HOIKUICT_PUSH_VAPID_SUBJECT:?required}
+    volumes:
+      - ${APP_SECRETS_PATH:?required}/parent-push-vapid.pem:/run/secrets/parent-push-vapid.pem:ro

@@ -119,6 +119,7 @@ class ParentContactType(str, Enum):
 
 class ParentNotificationKind(str, Enum):
     attendance_confirmation_request = "attendance_confirmation_request"
+    push_test = "push_test"
 
 
 class NotificationDeliveryChannel(str, Enum):

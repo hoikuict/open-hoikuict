@@ -40,7 +40,7 @@ class ParentPushRuntimeTests(unittest.TestCase):
         ):
             self.assertFalse(parent_push_worker_enabled())
 
-    def test_webpush_worker_runs_only_in_development(self):
+    def test_webpush_worker_requires_local_password_auth_in_production(self):
         with patch.dict(
             os.environ,
             {
@@ -60,6 +60,17 @@ class ParentPushRuntimeTests(unittest.TestCase):
             clear=True,
         ):
             self.assertFalse(parent_push_worker_enabled())
+
+        with patch.dict(
+            os.environ,
+            {
+                "HOIKUICT_ENV": "production",
+                "HOIKUICT_PUSH_TRANSPORT": "webpush",
+                "HOIKUICT_PARENT_AUTH_MODE": "local_password",
+            },
+            clear=True,
+        ):
+            self.assertTrue(parent_push_worker_enabled())
 
 
 if __name__ == "__main__":

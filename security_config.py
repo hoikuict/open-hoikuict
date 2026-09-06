@@ -84,7 +84,9 @@ def staff_recovery_base_url() -> str:
     except ValueError:
         valid = False
     if not valid:
-        raise RuntimeError("管理者の再設定URLには有効な施設URLを設定してください（本番はHTTPS）")
+        raise RuntimeError(
+            "管理者の再設定URLには有効な施設URLを設定してください（本番はHTTPS）"
+        )
     return value.rstrip("/")
 
 
@@ -235,8 +237,13 @@ def validate_runtime_security() -> None:
         errors.append("読取可能な HOIKUICT_PASSWORD_BLOCKLIST_PATH が必要です")
     if mode == "open":
         errors.append("productionではguardian openモードを使用できません")
-    if push_transport != "disabled":
-        errors.append("productionでは保護者プッシュ通知transportを有効化できません")
+    if push_transport == "capture":
+        errors.append("productionではcaptureのプッシュ通知transportを有効化できません")
+    elif push_transport == "webpush":
+        try:
+            _validate_production_webpush_configuration()
+        except RuntimeError as exc:
+            errors.append(str(exc))
     if errors:
         raise RuntimeError("productionセキュリティ設定が不正です: " + "; ".join(errors))
 
@@ -250,9 +257,7 @@ def _validate_development_webpush_configuration() -> None:
     }
     missing = [name for name, value in required.items() if not value]
     if missing:
-        raise RuntimeError(
-            "developmentのwebpushには次の設定が必要です: " + ", ".join(missing)
-        )
+        raise RuntimeError("webpushには次の設定が必要です: " + ", ".join(missing))
 
     subject = urlsplit(parent_push_vapid_subject())
     if subject.scheme not in {"mailto", "https"}:
@@ -276,3 +281,52 @@ def _validate_development_webpush_configuration() -> None:
         raise RuntimeError(
             "HOIKUICT_PUBLIC_ORIGIN はHTTPS origin（localhostのみHTTP可）で指定してください"
         )
+
+
+def _validate_production_webpush_configuration() -> None:
+    import base64
+    import hmac
+    from pathlib import Path
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    _validate_development_webpush_configuration()
+    origin = urlsplit(public_origin())
+    if (
+        origin.scheme != "https"
+        or origin.username
+        or origin.password
+        or "\\" in public_origin()
+        or any(c.isspace() for c in public_origin())
+        or public_origin() not in allowed_origins()
+        or public_origin()
+        != os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL", "").rstrip("/")
+    ):
+        raise RuntimeError(
+            "本番プッシュ通知のHTTPS originを施設URL・許可originと一致させてください"
+        )
+    try:
+        origin.port
+        private_key = serialization.load_pem_private_key(
+            Path(parent_push_vapid_private_key()).read_bytes(), password=None
+        )
+        if not isinstance(private_key, ec.EllipticCurvePrivateKey) or not isinstance(
+            private_key.curve, ec.SECP256R1
+        ):
+            raise ValueError("wrong key type")
+        expected = (
+            base64.urlsafe_b64encode(
+                private_key.public_key().public_bytes(
+                    serialization.Encoding.X962,
+                    serialization.PublicFormat.UncompressedPoint,
+                )
+            )
+            .decode("ascii")
+            .rstrip("=")
+        )
+        if not hmac.compare_digest(expected, parent_push_vapid_public_key()):
+            raise ValueError("key mismatch")
+    except (OSError, ValueError, TypeError):
+        raise RuntimeError(
+            "本番通知用のP-256秘密鍵ファイルとVAPID公開鍵の組み合わせを確認してください"
+        ) from None

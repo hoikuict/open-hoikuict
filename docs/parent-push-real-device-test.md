@@ -2,7 +2,7 @@
 
 このガイドは、development環境で保護者向けWeb PushをPC、Android、iPhone/iPadへ実送信し、`accepted`、`shown`、`clicked` を配送Target単位で照合するための手順である。
 
-実機確認が終わるまではPhase 1の受入完了とはしない。productionでは本番保護者認証が未実装のため、Web Push transportを有効化できない。
+実機確認が終わるまではPhase 1の受入完了とはしない。本ガイドはdevelopment専用。本番のlocal_password認証を使うTrueNAS実機では[本番構成の設定・テスト手順](parent-push-production-setup.md)を使用する。
 
 ## 1. 安全上の前提
 
@@ -136,7 +136,7 @@ endpoint、`p256dh`、`auth`、receipt token、VAPID秘密鍵は記録しない�
 3. 不要になったテスト端末は通知設定画面から解除する。
 4. 秘密鍵を一時配置した場合は、組織のsecret保管場所へ移すか、安全に廃棄する。
 
-productionへ設定を転用しない。productionはtransport、HTTPS、鍵、本番保護者認証の起動時検証をすべて通過できる実装になるまで無効のままとする。
+developmentの鍵をproductionへ転用しない。本番構成では専用の鍵を生成し、別ガイドの起動時検証と本人の端末登録を行う。
 
 ## 10. 参考資料
 
