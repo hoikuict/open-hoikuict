@@ -12,7 +12,7 @@
     <button type="submit">再設定する</button>
   </form>
 {% else %}
-  <p class="muted">施設からの案内メール、または直接交付された6文字のコードを入力してください。コードは発行から30分有効で、Cloudflareの認証コードとは別です。</p>{% if form_error %}<p class="error">{{ form_error }}</p>{% endif %}
+  <p class="muted">施設からの案内メール、または直接交付された6文字のコードを入力してください。コードは発行から24時間有効で、Cloudflareの認証コードとは別です。</p>{% if form_error %}<p class="error">{{ form_error }}</p>{% endif %}
   <form method="post" action="/parent-portal/{{ 'activate' if purpose == 'parent_activate' else 'reset' }}/verify">
     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
     <label>{% if purpose == 'parent_activate' %}有効化コード{% else %}再設定コード{% endif %}<input name="{{ 'activation_code' if purpose == 'parent_activate' else 'reset_code' }}" minlength="6" maxlength="6" required autocomplete="one-time-code"></label>

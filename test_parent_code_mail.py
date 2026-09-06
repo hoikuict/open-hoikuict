@@ -15,7 +15,7 @@ from models import (
     PasswordCredential, User,
 )
 from test_guardian_account_sync import pilot as pilot_fixture, create_account
-from time_utils import utc_now
+from time_utils import ensure_utc, utc_now
 import routers.parent_auth as routes
 
 
@@ -45,6 +45,7 @@ def issue(pilot, account_id, action="activate"):
     assert response.status_code == 200, response.text
     code = response.context["action_code"]
     assert len(code) == 6 and "への送信を受け付けました" in response.text
+    assert "24時間" in response.text
     assert "no-store" in response.headers["cache-control"]
     return code
 
@@ -63,7 +64,7 @@ def test_issued_code_mail_has_both_urls_and_can_set_password_then_login(pilot, m
         assert f"https://testserver/parent-portal/{action}" in delivery.body
         assert "https://testserver/parent-portal/login" in delivery.body
         assert f"ログインID：{credential.login_id}" in delivery.body
-        assert f"認証コード：{code}" in delivery.body and "30分" in delivery.body
+        assert f"認証コード：{code}" in delivery.body and "24時間" in delivery.body
         assert "旧住所" not in delivery.body and "検証 葵" not in delivery.body
         sent = []
         monkeypatch.setenv("HOIKUICT_PARENT_MAIL_TRANSPORT", "smtp")
@@ -81,6 +82,28 @@ def test_issued_code_mail_has_both_urls_and_can_set_password_then_login(pilot, m
     assert response.status_code == 303
     response = client.post("/parent-portal/login", data={"login_id": "parent@example.test", "password": password}, follow_redirects=False)
     assert response.status_code == 303
+
+
+@pytest.mark.parametrize("action", ["activate", "reset"])
+@pytest.mark.parametrize("seconds_after_issue", [24 * 60 * 60 - 1, 24 * 60 * 60])
+def test_parent_code_remains_usable_until_the_24_hour_boundary(pilot, monkeypatch, action, seconds_after_issue):
+    client, engine, _, _ = pilot
+    account_id = active_account(pilot) if action == "reset" else create_account(pilot)
+    code = issue(pilot, account_id, action)
+    with Session(engine) as session:
+        token = session.get(CredentialActionToken, parent_auth.token_hash(code))
+        assert token.expires_at - token.created_at == timedelta(hours=24)
+        now = ensure_utc(token.created_at) + timedelta(seconds=seconds_after_issue)
+        monkeypatch.setattr(parent_auth, "utc_now", lambda: now)
+        parent_auth.dispatch_pending_parent_mail(session)
+        delivery = session.exec(select(ParentMailDelivery)).one()
+        valid = seconds_after_issue < 24 * 60 * 60
+        assert delivery.status == ("captured" if valid else "cancelled")
+    assert "24時間" in client.get(f"/parent-portal/{action}").text
+    response = client.post(f"/parent-portal/{action}/verify", data={
+        "activation_code" if action == "activate" else "reset_code": code,
+    })
+    assert response.status_code == (200 if valid else 400)
 
 
 @pytest.mark.parametrize("reason", ["expired", "revoked", "consumed", "email_changed", "inactive", "wrong_action", "missing_token"])

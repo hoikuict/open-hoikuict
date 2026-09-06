@@ -19,7 +19,6 @@ from sqlmodel import Session, select
 from auth_mail import send_auth_mail
 
 from local_auth import (
-    ACTION_CODE_TTL,
     AuthenticationFailed,
     LoginThrottled,
     PASSWORD_HASHER,
@@ -62,6 +61,7 @@ PRINCIPAL_PARENT = "parent"
 PARENT_LOGIN_FAILURE_MESSAGE = "ログインIDまたはパスワードを確認してください"
 REGISTRATION_GENERIC_MESSAGE = "園に確認を依頼しました"
 INVITATION_TTL = timedelta(hours=24)
+PARENT_ACTION_CODE_TTL = timedelta(hours=24)
 REGISTRATION_SESSION_TTL = timedelta(minutes=15)
 PARENT_SESSION_IDLE = timedelta(hours=12)
 PARENT_SESSION_ABSOLUTE = timedelta(days=7)
@@ -1172,7 +1172,7 @@ def issue_parent_password_code(
         session,
         credential=credential,
         action=action,
-        expires_in=ACTION_CODE_TTL,
+        expires_in=PARENT_ACTION_CODE_TTL,
         created_by_user_id=actor_user.id,
     )
     session.add(
@@ -1210,7 +1210,7 @@ def issue_parent_password_code(
                 "次のURLを開き、認証コードを入力してパスワードを設定してください。\n\n"
                 f"コード入力URL：\n{base_url}/parent-portal/{action_path}\n\n"
                 f"認証コード：{raw_code}\n"
-                f"有効期限：{format_jst_datetime(token.expires_at)} JST（発行から30分・1回限り）\n\n"
+                f"有効期限：{format_jst_datetime(token.expires_at)} JST（発行から24時間・1回限り）\n\n"
                 f"設定後のログインURL：\n{base_url}/parent-portal/login\n"
                 f"ログインID：{credential.login_id}\n\n"
                 "認証コードはログイン用のパスワードではありません。設定したパスワードでログインしてください。\n"
