@@ -1197,7 +1197,14 @@ def seed_parent_portal_data() -> None:
 
 
 def bootstrap_family_records() -> None:
+    from models import Family
+
     with Session(engine) as session:
+        # The bootstrap migrates ledgers from before families existed. Once a
+        # family ledger exists, unlinked imports must be associated explicitly;
+        # restarting must not create duplicates or overwrite existing contacts.
+        if session.exec(select(Family.id).limit(1)).first() is not None:
+            return
         bootstrap_family_data(session)
         session.commit()
 
