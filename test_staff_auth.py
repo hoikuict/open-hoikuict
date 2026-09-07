@@ -297,7 +297,7 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertFalse(user.can_manage_child_records)
         self.assertEqual(user.provisioning_source, USER_SOURCE_MANUAL)
 
-    def test_admin_can_filter_staff_users_by_source(self):
+    def test_staff_source_labels_are_hidden_and_default_shows_all_sources(self):
         with Session(self.engine) as session:
             session.add(
                 User(
@@ -315,10 +315,10 @@ class StaffAuthRouterTests(unittest.TestCase):
 
         response = self.client.get("/staff/users")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("手動追加", response.text)
-        self.assertIn("WEB公開デモ", response.text)
+        self.assertNotIn("手動追加", response.text)
+        self.assertNotIn("WEB公開デモ", response.text)
         self.assertIn("デモ園長", response.text)
-        self.assertNotIn("早番パート", response.text)
+        self.assertIn("早番パート", response.text)
 
         all_response = self.client.get("/staff/users?source=all")
         self.assertEqual(all_response.status_code, 200)

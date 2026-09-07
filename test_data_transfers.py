@@ -1,4 +1,5 @@
 import csv
+import re
 import io
 import os
 import stat
@@ -169,6 +170,14 @@ class DataTransferTests(unittest.TestCase):
             self.family_id = family.id
             self.child_id = child.id
 
+    def _preview_commit(self, url, *, files, follow_redirects=False):
+        preview = self.client.post(url.replace("/commit", "/preview"), files=files)
+        token = re.search(r'name="preview_token" value="([a-f0-9]+)"', preview.text)
+        if token is None:
+            preview.status_code = 400
+            return preview
+        return self.client.post(url, data={"preview_token": token.group(1)}, follow_redirects=follow_redirects)
+
     def tearDown(self):
         self.client.close()
         self.engine.dispose()
@@ -241,7 +250,7 @@ class DataTransferTests(unittest.TestCase):
             ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号"],
             ["", "佐藤", "みお", "サトウ", "ミオ", "2022-05-06", "2025-04-01", "", "", "ひよこ組", str(self.family_id), "田中家", "", ""],
         ]
-        response = self.client.post(
+        response = self._preview_commit(
             "/data-transfers/import/children/commit",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,
@@ -264,7 +273,7 @@ class DataTransferTests(unittest.TestCase):
             ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号", "照合用氏名", "照合用氏名種別"],
             ["", "Garcia", "Sofia", "ガルシア", "ソフィア", "2022-05-07", "2025-04-01", "", "在園", "ひよこ組", str(self.family_id), "田中家", "", "", "Sofia Garcia", "latin"],
         ]
-        response = self.client.post(
+        response = self._preview_commit(
             "/data-transfers/import/children/commit",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,
@@ -295,7 +304,7 @@ class DataTransferTests(unittest.TestCase):
             ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号"],
             [str(self.child_id), "田中", "さくら", "タナカ", "サクラ", "2021-04-05", "2024-04-01", "", "", "ひよこ組", str(self.family_id), "田中家", "東京都", ""],
         ]
-        response = self.client.post(
+        response = self._preview_commit(
             "/data-transfers/import/children/commit",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,
@@ -378,7 +387,7 @@ class DataTransferTests(unittest.TestCase):
             ["ID", "姓", "名", "姓カナ", "名カナ", "生年月日", "入園日", "退園日", "在園状態", "クラス名", "家庭ID", "家庭名", "住所", "電話番号"],
             [str(self.child_id), "田中", "さくら", "タナカ", "サクラ", "2021-04-05", "2024-04-01", "", "", "ひよこ組", str(self.family_id), "田中家", "東京都", ""],
         ]
-        response = self.client.post(
+        response = self._preview_commit(
             "/data-transfers/import/children/commit",
             files={"file": ("children.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,
@@ -459,7 +468,7 @@ class DataTransferTests(unittest.TestCase):
             ["ID", "保護者ID", "保護者メールアドレス", "園児ID", "園児姓カナ", "園児名カナ", "園児生年月日", "続柄", "主連絡先"],
             ["", str(parent_id), "guardian@example.com", str(other_child_id), "サトウ", "ミオ", "2022-05-06", "母", "true"],
         ]
-        response = self.client.post(
+        response = self._preview_commit(
             "/data-transfers/import/parent_child_links/commit",
             files={"file": ("parent_child_links.csv", _csv_bytes(rows), "text/csv")},
             follow_redirects=False,

@@ -5,7 +5,9 @@
 <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
   <div>
     <h1 class="text-2xl font-bold text-slate-900">インポート・エクスポート</h1>
-    <p class="mt-1 text-sm text-slate-500">クラス、家庭、園児、保護者アカウント、保護者・園児紐づけを扱います。</p>
+    <p class="mt-1 text-sm text-slate-500">クラス、家庭、園児、保護者アカウント、保護者・園児紐づけを扱います。管理者は職員名簿も取り込めます。</p>
+    <p class="mt-2 text-sm text-slate-600">家庭は保護者①・②を含む24列に対応しています。空欄の項目は登録済みの値を残します。家庭、園児の順に取り込み、各ファイルの変更内容を確認してください。家庭CSVからアカウントや園児の閲覧権限は作成されません。</p>
+    {% if current_user.is_admin %}<p class="mt-2 text-sm text-slate-600">職員CSVは名簿のみ登録します。新規職員は閲覧のみで、パスワード・招待メールは発行しません。登録後に職員管理で権限と認証を設定してください。</p>{% endif %}
   </div>
 </div>
 
@@ -75,7 +77,7 @@
         <span class="mb-1 block font-medium text-slate-700">データ</span>
         <select name="dataset" class="w-full rounded border border-slate-300 px-3 py-2">
           {% for dataset in datasets %}
-          <option value="{{ dataset.id }}" data-dataset-option="{{ dataset.id }}">{{ dataset.label }}</option>
+          <option value="{{ dataset.id }}" data-dataset-option="{{ dataset.id }}" {% if dataset.id == selected_dataset %}selected{% endif %}>{{ dataset.label }}</option>
           {% endfor %}
         </select>
       </label>
@@ -116,12 +118,12 @@
   <div class="space-y-6">
     <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 class="text-lg font-semibold text-slate-900">インポート</h2>
-      <form method="post" action="/data-transfers/import/classrooms/preview" enctype="multipart/form-data" class="mt-4 space-y-4" data-import-form>
+      <form method="post" action="/data-transfers/import/{{ selected_dataset }}/preview" enctype="multipart/form-data" class="mt-4 space-y-4" data-import-form>
       <label class="block text-sm">
         <span class="mb-1 block font-medium text-slate-700">データ</span>
         <select name="dataset" class="w-full rounded border border-slate-300 px-3 py-2" data-import-dataset>
           {% for dataset in datasets %}
-          <option value="{{ dataset.id }}" data-dataset-option="{{ dataset.id }}">{{ dataset.label }}</option>
+          <option value="{{ dataset.id }}" data-dataset-option="{{ dataset.id }}" {% if dataset.id == selected_dataset %}selected{% endif %}>{{ dataset.label }}</option>
           {% endfor %}
         </select>
       </label>
@@ -207,6 +209,19 @@
       </div>
       {% endif %}
 
+      {% if preview_result.changes %}
+      <details open class="mt-4 rounded-lg border border-slate-200 p-3">
+        <summary class="font-semibold">変更する内容（{{ preview_result.changes|length }}項目）</summary>
+        <p class="my-2 text-xs text-slate-500">家庭に属する園児と、紐付いた保護者アカウントへの反映も含みます。台帳の更新があった場合は再度事前検証してください。</p>
+        <div class="max-h-96 overflow-auto"><table class="w-full text-left text-xs">
+          <thead><tr><th>行・対象</th><th>項目</th><th>変更前</th><th>変更後</th></tr></thead>
+          <tbody>{% for change in preview_result.changes %}<tr class="border-t">
+            <td class="p-2">{{ change.row }}行目 {{ change.entity }} #{{ change.id }}</td><td class="p-2">{{ change.label }}</td>
+            <td class="p-2 whitespace-pre-wrap break-all">{{ change.before if change.before is not none else '未登録' }}</td><td class="p-2 whitespace-pre-wrap break-all">{{ change.after if change.after is not none else '未登録' }}</td>
+          </tr>{% endfor %}</tbody>
+        </table></div>
+      </details>
+      {% endif %}
       {% if preview_result.can_commit %}
       <form method="post" action="/data-transfers/import/{{ preview_result.dataset }}/commit" class="mt-4">
         <input type="hidden" name="preview_token" value="{{ preview_result.preview_token }}">
@@ -339,6 +354,8 @@
 
     if (toggles.length) {
       const visibleSet = new Set(readVisibleDatasets());
+      const selected = document.querySelector("[data-import-dataset]")?.value;
+      if (datasetIds.includes(selected)) visibleSet.add(selected);
       toggles.forEach((toggle) => {
         toggle.checked = visibleSet.has(toggle.value);
         toggle.addEventListener("change", applyDatasetVisibility);
@@ -358,6 +375,7 @@
     const importForm = document.querySelector("[data-import-form]");
     const importDataset = document.querySelector("[data-import-dataset]");
     if (importForm && importDataset) {
+      importForm.action = `/data-transfers/import/${importDataset.value}/preview`;
       importDataset.addEventListener("change", () => {
         importForm.action = `/data-transfers/import/${importDataset.value}/preview`;
       });

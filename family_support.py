@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, deque
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Optional
 
@@ -86,6 +87,7 @@ def normalize_guardian_profile(
 ) -> dict[str, Any]:
     source = profile if isinstance(profile, dict) else {}
     return {
+        **deepcopy(source),
         "order": _normalized_guardian_order(source.get("order"), fallback_order),
         "last_name": normalized_text(str(source.get("last_name", ""))),
         "first_name": normalized_text(str(source.get("first_name", ""))),
@@ -106,16 +108,22 @@ def normalize_guardians_data(guardians_data: Any) -> list[dict[str, Any]]:
         return []
 
     normalized_guardians: list[dict[str, Any]] = []
+    seen_orders: set[int] = set()
     for index, item in enumerate(guardians_data):
         if not isinstance(item, dict):
             continue
         normalized = normalize_guardian_profile(
             item,
-            default_relationship=_default_relationship_for_index(index),
+            default_relationship=_default_relationship_for_index(
+                _normalized_guardian_order(item.get("order"), index + 1) - 1
+            ),
             fallback_order=index + 1,
         )
         if not normalized["last_name"] or not normalized["first_name"]:
             continue
+        if normalized["order"] in seen_orders:
+            raise HTTPException(400, "保護者の番号が重複しています。家族の登録情報を確認してください")
+        seen_orders.add(normalized["order"])
         normalized_guardians.append(normalized)
 
     return sorted(normalized_guardians, key=lambda item: int(item.get("order", 99)))
@@ -123,9 +131,10 @@ def normalize_guardians_data(guardians_data: Any) -> list[dict[str, Any]]:
 
 def flatten_guardians_data(guardians_data: list[dict[str, Any]]) -> dict[str, str]:
     flattened: dict[str, str] = {}
+    by_order = {item["order"]: item for item in normalize_guardians_data(guardians_data)}
     for index, (prefix, default_relationship) in enumerate(LEGACY_GUARDIAN_SLOTS):
         guardian = normalize_guardian_profile(
-            guardians_data[index] if index < len(guardians_data) else None,
+            by_order.get(index + 1),
             default_relationship=default_relationship,
             fallback_order=index + 1,
         )
@@ -133,6 +142,25 @@ def flatten_guardians_data(guardians_data: list[dict[str, Any]]) -> dict[str, st
             value = guardian.get(field_name, "")
             flattened[f"{prefix}_{field_name}"] = "" if value is None else str(value)
     return flattened
+
+
+def merge_guardian_profiles(existing: Any, updates: Any) -> list[dict[str, Any]]:
+    """Update named slots without deleting people or attributes absent from a form.
+
+    A form may expose only guardians 1 and 2, or one invited guardian. Omission
+    is not a deletion request. Supplied fields on a named guardian remain edits,
+    including intentionally cleared contact fields and staff-managed bindings.
+    """
+    by_order = {item["order"]: item for item in normalize_guardians_data(existing)}
+    for profile in normalize_guardians_data(updates):
+        order = profile["order"]
+        by_order[order] = {**by_order.get(order, {}), **profile}
+    return [by_order[order] for order in sorted(by_order)]
+
+
+def set_family_guardian_profiles(family: Family, profiles: list[dict[str, Any]]) -> None:
+    shared = deepcopy(family.shared_profile) if isinstance(family.shared_profile, dict) else {}
+    family.shared_profile = {**shared, "guardians": deepcopy(profiles)}
 
 
 def guardians_data_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -365,14 +393,14 @@ def backfill_family_guardian_account_links(session: Session, family: Family) -> 
         changed += 1
 
     if changed:
-        family.shared_profile = {"guardians": normalize_guardians_data(profiles)}
+        set_family_guardian_profiles(family, normalize_guardians_data(profiles))
         family.updated_at = utc_now()
         session.add(family)
         session.flush()
     return changed
 
 
-def sync_family_to_children(session: Session, family: Family, *, updated_at: Optional[datetime] = None) -> None:
+def sync_family_to_children(session: Session, family: Family, *, updated_at: Optional[datetime] = None, child_ids: set[int] | None = None, preserve_empty_contacts: bool = False, preserve_empty_guardians: bool = False) -> None:
     now = updated_at or utc_now()
     children = session.exec(
         select(Child)
@@ -383,10 +411,17 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
     guardian_profiles = family.guardian_profiles()
 
     for child in children:
-        child.home_address = family.home_address
-        child.home_phone = family.home_phone
+        if child_ids is not None and child.id not in child_ids:
+            continue
+        if family.home_address or not preserve_empty_contacts:
+            child.home_address = family.home_address
+        if family.home_phone or not preserve_empty_contacts:
+            child.home_phone = family.home_phone
         child.updated_at = now
         session.add(child)
+
+        if preserve_empty_guardians and not guardian_profiles:
+            continue
 
         for guardian in list(child.guardians):
             session.delete(guardian)
@@ -422,19 +457,26 @@ def apply_family_shared_data(
     payload: dict[str, Any],
     *,
     updated_at: Optional[datetime] = None,
+    preserve_missing_data: bool = False,
 ) -> dict[str, Any]:
     normalized = normalize_family_payload(payload)
+    normalized["guardians_data"] = merge_guardian_profiles(
+        family.guardian_profiles(), normalized["guardians_data"]
+    )
+    normalized.update(flatten_guardians_data(normalized["guardians_data"]))
     previous_address = family.home_address
     previous_account_ids = {item.get("parent_account_id") for item in family.guardian_profiles()}
     family.family_name = normalized["family_name"] or family.family_name
     family.home_address = normalized_optional_text(normalized["home_address"])
     family.home_phone = normalized_optional_text(normalized["home_phone"])
-    family.shared_profile = {"guardians": normalized["guardians_data"]}
+    set_family_guardian_profiles(family, normalized["guardians_data"])
     family.updated_at = updated_at or utc_now()
     session.add(family)
     session.flush()
     sync_family_to_parent_accounts(session, family, previous_address=previous_address, previous_account_ids=previous_account_ids)
-    sync_family_to_children(session, family, updated_at=family.updated_at)
+    sync_family_to_children(session, family, updated_at=family.updated_at,
+                            preserve_empty_contacts=preserve_missing_data,
+                            preserve_empty_guardians=preserve_missing_data)
     sync_parent_child_links(session, family)
     return normalized
 
@@ -498,7 +540,7 @@ def sync_family_to_parent_accounts(session: Session, family: Family, *, previous
             cancel_open_parent_registrations(session, account.id)
         account.updated_at = family.updated_at
         session.add(account)
-    family.shared_profile = {"guardians": profiles}
+    set_family_guardian_profiles(family, profiles)
     session.add(family)
 
 
@@ -519,7 +561,7 @@ def sync_parent_account_to_family(session: Session, account: ParentAccount, *, p
     elif _identity_key(account.display_name) != _identity_key(f"{profile['last_name']} {profile['first_name']}"):
         raise HTTPException(400, "家族と紐付ける保護者の氏名は、姓と名をスペースで区切ってください")
     profile.update({key: getattr(account, key) or "" for key in SHARED_ACCOUNT_FIELDS})
-    family.shared_profile = {"guardians": profiles}
+    set_family_guardian_profiles(family, profiles)
     if normalized_text(previous_address) == normalized_text(family.home_address):
         old_address = family.home_address
         family.home_address = account.home_address
@@ -560,7 +602,7 @@ def bind_parent_account_guardian(session: Session, account: ParentAccount, link:
                 profile["parent_account_id"] = None
             if family_id == account.family_id and target_order == profile.get("order"):
                 profile["parent_account_id"] = account.id
-        family.shared_profile = {"guardians": profiles}
+        set_family_guardian_profiles(family, profiles)
         session.add(family)
         session.flush()
         sync_family_to_children(session, family)

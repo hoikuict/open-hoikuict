@@ -308,11 +308,23 @@ def apply_enrollment(
         session.flush()
     family = create_family_for_child(session, child)
     payload = child_profile_form_data_from_child(child)
-    payload.update({key: values[key] for key in CHILD_FIELDS})
+    for key in CHILD_FIELDS:
+        if not is_new and not values[key]:
+            continue
+        # The profile writer reads child fields from child_data; updating only
+        # its flattened form would silently discard the submitted answers.
+        target = payload["child_data"] if key in payload["child_data"] else payload
+        target[key] = values[key]
     profiles = [
         dict(item) for item in family.guardian_profiles() if item["order"] != order
     ]
-    own = {key: values[f"g1_{key}"] for key in GUARDIAN_FIELDS}
+    own = next((dict(item) for item in family.guardian_profiles() if item["order"] == order), {})
+    # Initial intake can supplement an imported ledger. Blank optional answers
+    # do not remove existing information; later corrections use reviewed edits.
+    own.update({
+        key: values[f"g1_{key}"] for key in GUARDIAN_FIELDS
+        if is_new or values[f"g1_{key}"]
+    })
     own.update(order=order, email=account.email, parent_account_id=None)
     profiles.append(own)
     if is_new and values["g2_last_name"]:
@@ -340,8 +352,8 @@ def apply_enrollment(
         family,
         {
             "family_name": family.family_name,
-            "home_address": values["home_address"],
-            "home_phone": values["home_phone"],
+            "home_address": payload["home_address"],
+            "home_phone": payload["home_phone"],
             "guardians_data": profiles,
         },
     )

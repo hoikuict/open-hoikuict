@@ -5,6 +5,8 @@
       <p class="truncate text-xs text-slate-500">{{ message.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      {% set deletable_message = message %}
+      {% include "staff_rooms/_delete_button.html" %}
       {% set parent_message = message %}
       {% set reply_count = reply_counts.get(message.id, 0) %}
       {% include "staff_rooms/_thread_button.html" %}

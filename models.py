@@ -2070,6 +2070,7 @@ class Message(SQLModel, table=True):
     room_id: int = Field(foreign_key="classrooms.id", index=True)
     parent_message_id: Optional[int] = Field(default=None, foreign_key="messages.id", index=True)
     author_name: str
+    author_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     body: str = Field(default="")
     created_at: datetime = Field(default_factory=utc_now, index=True)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -2977,4 +2978,6 @@ class DataTransferLog(SQLModel, table=True):
     updated_count: int = Field(default=0)
     skipped_count: int = Field(default=0)
     error_count: int = Field(default=0)
+    change_metadata: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    actor_id: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now, index=True)

@@ -1463,7 +1463,7 @@ def change_parent_login_id_by_admin(
                     profile["email"] = requested_email
                     family_profile_changed = True
             if family_profile_changed:
-                family.shared_profile = {"guardians": profiles}
+                family.shared_profile = {**(family.shared_profile or {}), "guardians": profiles}
                 family.updated_at = now
                 session.add(family)
     linked_guardians = session.exec(

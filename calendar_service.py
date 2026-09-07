@@ -342,6 +342,21 @@ def clamp_month_day(year: int, month: int, day_value: int) -> date | None:
     return date(year, month, day_value)
 
 
+def monthly_weekday_date(year: int, month: int, expression: str) -> date | None:
+    """Resolve one ordinal weekday; a missing fifth weekday skips that month."""
+    weekday_names = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+    weekday = weekday_names.get(expression[-2:])
+    ordinal = expression[:-2]
+    if weekday is None or ordinal not in {"1", "2", "3", "4", "5", "-1"}:
+        return None
+    first_weekday, last_day = calendar_lib.monthrange(year, month)
+    if ordinal == "-1":
+        day = last_day - (date(year, month, last_day).weekday() - weekday) % 7
+    else:
+        day = 1 + (weekday - first_weekday) % 7 + 7 * (int(ordinal) - 1)
+    return clamp_month_day(year, month, day)
+
+
 def overlaps_range(start_at: datetime, end_at: datetime, range_start: datetime, range_end: datetime) -> bool:
     return start_at < range_end and end_at > range_start
 
@@ -412,6 +427,8 @@ def generate_series_instances(
                     tzinfo=local_tz
                 )
                 candidate_utc = normalize_utc(candidate_local.astimezone(timezone.utc))
+                if candidate_utc < normalize_utc(event.start_at):
+                    continue
                 if candidate_utc >= range_end and (not rule.until_at or candidate_utc > normalize_utc(rule.until_at)):
                     done = True
                     continue
@@ -430,8 +447,11 @@ def generate_series_instances(
         while True:
             year_value, month_value = add_months(local_start.year, local_start.month, step * max(rule.interval, 1))
             generated = False
-            for day_value in sorted(set(month_days)):
-                current_day = clamp_month_day(year_value, month_value, day_value)
+            if rule.by_weekday and rule.by_weekday[:-2] in {"1", "2", "3", "4", "5", "-1"}:
+                candidates = [monthly_weekday_date(year_value, month_value, rule.by_weekday)]
+            else:
+                candidates = [clamp_month_day(year_value, month_value, value) for value in sorted(set(month_days))]
+            for current_day in candidates:
                 if current_day is None:
                     continue
                 candidate_local = datetime.combine(current_day, local_start.timetz().replace(tzinfo=None)).replace(
@@ -439,6 +459,8 @@ def generate_series_instances(
                 )
                 candidate_utc = normalize_utc(candidate_local.astimezone(timezone.utc))
                 if candidate_utc >= range_end and (not rule.until_at or candidate_utc > normalize_utc(rule.until_at)):
+                    continue
+                if candidate_utc < normalize_utc(event.start_at):
                     continue
                 generated = True
                 if not maybe_add(candidate_local):

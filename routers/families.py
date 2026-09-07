@@ -13,6 +13,7 @@ from family_support import (
     create_family_for_child,
     family_form_data_from_family,
     guardians_data_from_payload,
+    merge_guardian_profiles,
     sync_parent_child_links,
 )
 from models import Child, Family, ParentAccount
@@ -446,6 +447,7 @@ def update_family(
         g2_workplace_phone=g2_workplace_phone,
     )
 
+    guardians_data = merge_guardian_profiles(family.guardian_profiles(), guardians_data)
     selected_child_ids = set(_parse_ids(child_ids))
     selected_parent_account_ids = set(_parse_ids(parent_account_ids))
     selected_parent_account_ids.update(_linked_parent_account_ids(guardians_data))

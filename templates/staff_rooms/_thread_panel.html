@@ -28,7 +28,9 @@
           <p class="text-sm font-semibold text-slate-900">{{ parent_message.author_name }}</p>
           <p class="text-xs text-slate-500">{{ parent_message.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
         </div>
-        {% if current_user.can_edit %}
+        {% set deletable_message = parent_message %}
+        {% include "staff_rooms/_delete_button.html" %}
+        {% if current_user.can_edit and not parent_message.is_deleted %}
         <button
           type="button"
           hx-get="/staff-rooms/threads/{{ parent_message.id }}?reply_to_message_id={{ parent_message.id }}"
@@ -61,7 +63,9 @@
               <p class="text-sm font-semibold text-slate-900">{{ reply.author_name }}</p>
               <p class="text-xs text-slate-500">{{ reply.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
             </div>
-            {% if current_user.can_edit %}
+            {% set deletable_message = reply %}
+            {% include "staff_rooms/_delete_button.html" %}
+            {% if current_user.can_edit and not reply.is_deleted %}
             <button
               type="button"
               hx-get="/staff-rooms/threads/{{ parent_message.id }}?reply_to_message_id={{ reply.id }}"

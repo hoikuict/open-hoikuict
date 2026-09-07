@@ -10,7 +10,7 @@
       <div class="space-y-2">
         {% for item in day_map[anchor] if item.is_all_day %}
         <button
-          hx-get="/events/{{ item.source_event_id }}?original_start_at={{ item.original_start_at }}&mode={{ mode }}&date={{ anchor.isoformat() }}"
+          hx-get="/events/{{ item.source_event_id }}?original_start_at={{ item.original_start_at | urlencode }}&mode={{ mode }}&date={{ anchor.isoformat() }}"
           hx-target="#event-modal"
           hx-swap="innerHTML"
           class="w-full rounded-2xl px-3 py-2 text-left text-sm font-medium text-white"
@@ -28,7 +28,7 @@
       <div class="mt-3 space-y-2">
         {% for item in day_map[anchor] if (not item.is_all_day) and item.local_start.hour == hour %}
         <button
-          hx-get="/events/{{ item.source_event_id }}?original_start_at={{ item.original_start_at }}&mode={{ mode }}&date={{ anchor.isoformat() }}"
+          hx-get="/events/{{ item.source_event_id }}?original_start_at={{ item.original_start_at | urlencode }}&mode={{ mode }}&date={{ anchor.isoformat() }}"
           hx-target="#event-modal"
           hx-swap="innerHTML"
           class="w-full rounded-2xl px-3 py-3 text-left text-sm font-medium text-white"

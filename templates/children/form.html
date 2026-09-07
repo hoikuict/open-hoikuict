@@ -164,7 +164,14 @@
       <div>
         <h2 class="text-lg font-semibold text-slate-800">保護者・家族情報</h2>
         <p class="text-sm text-slate-500">住所や保護者情報は同じ家族の兄弟姉妹にも反映されます。</p>
+        <p class="text-xs text-slate-500">この画面に表示していない保護者の情報も保持されます。氏名欄を空欄にしても、登録済みの保護者は削除されません。</p>
         <p class="text-xs text-slate-500">アカウントと紐付けた保護者の氏名・連絡先・勤務先は、保護者アカウントにも反映されます。利用開始後のログインID変更は「認証管理」で行います。</p>
+        {% if child and current_user and current_user.can_manage_child_records %}
+        <div class="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+          <p class="mb-2 text-sm text-indigo-900">兄弟姉妹の所属家族は家族の編集画面で設定します。この画面の変更は先に保存してください。家族を変更すると住所・保護者情報も共有されます。保護者の閲覧対象園児は、保護者アカウントで別途確認してください。</p>
+          <a href="{% if child.family_id %}/families/{{ child.family_id }}/edit{% else %}/families/{% endif %}" class="inline-block rounded border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">家族・兄弟姉妹の紐づけを編集</a>
+        </div>
+        {% endif %}
       </div>
 
       <div class="grid grid-cols-1 gap-5 md:grid-cols-2">

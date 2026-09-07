@@ -300,6 +300,9 @@
             <div class="mt-3 space-y-1">
               <a href="/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path == '/' or current_path == '/staff/portal' %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">ホーム</a>
               <a href="/children" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/children') and '/health' not in current_path and '/progress-records' not in current_path %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">園児一覧</a>
+              {% if staff_session_user and staff_session_user.can_manage_child_records %}
+              <a href="/families/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/families') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">家族・兄弟姉妹の管理</a>
+              {% endif %}
               <a href="/child-records/progress" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/child-records/progress') or '/progress-records' in current_path %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">児童票作成状況</a>
               {% if staff_session_user and staff_session_user.is_admin %}
               <a href="/settings/child-records" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/settings/child-records') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">児童記録設定</a>
@@ -311,7 +314,7 @@
               <a href="/attendance-checks/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/attendance-checks') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">出欠確認</a>
               <a href="/extended-care-fees/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/extended-care-fees') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">延長保育料金</a>
               <a href="/billing/" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/billing') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">請求入力</a>
-              <a href="/guardian" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/guardian') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者キオスク</a>
+              <a href="/guardian/setup" class="block rounded-xl px-3 py-2.5 text-sm font-medium {% if current_path.startswith('/guardian') %}bg-indigo-50 text-indigo-700{% else %}text-slate-700 hover:bg-slate-100{% endif %}">保護者キオスク</a>
             </div>
           </div>
 

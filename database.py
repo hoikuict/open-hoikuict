@@ -71,6 +71,7 @@ def create_db_and_tables() -> None:
     _migrate_parent_mail_delivery_columns()
     _migrate_add_family_columns()
     _migrate_add_message_columns()
+    _migrate_data_transfer_audit()
     _migrate_add_meeting_note_columns()
     _migrate_notice_columns()
     _migrate_add_calendar_columns()
@@ -322,6 +323,15 @@ def _migrate_add_family_columns() -> None:
         _log_migration_skip("family column", exc)
 
 
+def _migrate_data_transfer_audit() -> None:
+    with engine.begin() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(data_transfer_logs)")}
+        if columns and "change_metadata" not in columns:
+            connection.exec_driver_sql("ALTER TABLE data_transfer_logs ADD COLUMN change_metadata JSON NOT NULL DEFAULT '[]'")
+        if columns and "actor_id" not in columns:
+            connection.exec_driver_sql("ALTER TABLE data_transfer_logs ADD COLUMN actor_id TEXT")
+
+
 def _migrate_add_message_columns() -> None:
     try:
         with engine.connect() as conn:
@@ -333,6 +343,9 @@ def _migrate_add_message_columns() -> None:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
                 if "deleted_by" not in message_cols:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
+                if "author_user_id" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN author_user_id CHAR(32) REFERENCES users(id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_author_user_id ON messages(author_user_id)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("message column", exc)

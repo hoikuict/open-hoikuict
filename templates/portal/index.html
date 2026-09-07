@@ -232,7 +232,6 @@
         <a href="/staff-rooms/threads/{{ message.id }}" class="block py-4 first:pt-0 last:pb-0 hover:bg-slate-50 sm:px-2">
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <strong class="text-sm text-slate-900">{{ message.author_name }}</strong>
-            {% if message.room %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ message.room.name }}</span>{% endif %}
             <time class="text-xs text-slate-400">{{ message.created_at|jst_datetime("%m-%d %H:%M") }}</time>
           </div>
           <p class="mt-2 line-clamp-2 whitespace-pre-line text-sm leading-6 text-slate-600">{{ message.display_body }}</p>

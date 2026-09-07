@@ -11,6 +11,7 @@
 <h1>入園時の初回情報入力</h1>
 <p>{{ enrollment.child_name }}さんの入園に必要な情報を入力してください。メールアドレスは招待先をそのまま使用します。</p>
 <p class="muted">園が内容を確認して承認すると登録に反映され、パスワード設定の案内メールが届きます。入力画面の有効時間は2時間です。</p>
+{% if enrollment.child_id %}<p class="muted">任意項目を空欄にした場合、園に登録済みの情報はそのまま残ります。登録済み情報の削除が必要な場合は園へお知らせください。</p>{% endif %}
 {% if form_error %}<p role="alert" class="error">{{ form_error }}</p>{% endif %}
 <form method="post" action="/parent-portal/register/enrollment">
   <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">

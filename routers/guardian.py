@@ -8,6 +8,8 @@ from sqlmodel import Session, select
 
 from attendance_checks_service import sync_attendance_alarm
 from database import get_session
+from auth import get_current_staff_user
+from security_config import kiosk_access_mode
 from extended_care_fee_service import recalculate_attendance_charge
 from models import AttendanceRecord, Child, ChildStatus, Classroom
 from time_utils import local_naive_now, local_today, utc_now
@@ -26,6 +28,13 @@ templates = create_templates()
 PICKUP_HOUR_OPTIONS = [f"{hour:02d}" for hour in range(7, 22)]
 PICKUP_MINUTE_OPTIONS = ["00", "15", "30", "45"]
 PICKUP_PERSON_OPTIONS = ["母", "父", "祖父", "祖母", "ファミリーサポート", "その他"]
+
+
+@router.get("/setup", response_class=HTMLResponse)
+def guardian_setup(request: Request, current_user=Depends(get_current_staff_user)):
+    return templates.TemplateResponse(request, "guardian/setup.html", {
+        "request": request, "current_user": current_user, "mode": kiosk_access_mode(),
+    })
 
 
 def _parse_target_date(raw: Optional[str]) -> date:

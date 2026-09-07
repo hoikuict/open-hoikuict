@@ -8,18 +8,15 @@
     <p class="text-sm text-slate-500">職員のログイン表示と権限を管理します。</p>
   </div>
   <div class="flex flex-wrap gap-2">
+    <a href="/data-transfers/?dataset=staff_users" class="rounded border border-slate-300 px-4 py-2 text-sm text-slate-700">CSV・Excelから取り込む</a>
     <a href="/staff/permissions" class="rounded border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100">権限設定</a>
     <a href="/staff/users/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">職員を追加</a>
   </div>
 </div>
 
-<div class="mb-4 flex flex-wrap gap-2">
-  {% for value, label in source_filter_options %}
-  <a href="/staff/users?source={{ value }}" class="rounded-full border px-3 py-1 text-xs font-medium {% if source_filter == value %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}border-slate-200 bg-white text-slate-600 hover:bg-slate-50{% endif %}">
-    {{ label }}
-    <span class="ml-1 text-slate-400">{{ source_counts.get(value, 0) }}</span>
-  </a>
-  {% endfor %}
+<div class="mb-4 flex flex-wrap items-center gap-3 text-sm">
+  <a href="/staff/users{% if not show_inactive %}?status=all{% endif %}" class="text-indigo-600 hover:underline">{{ '有効な職員だけ表示' if show_inactive else '停止済みの職員も表示' }}</a>
+  <span class="text-xs text-slate-500">一覧から削除した職員の過去の記録は保持されます。</span>
 </div>
 
 <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -27,7 +24,6 @@
     <thead class="bg-slate-50 text-left text-slate-600">
       <tr>
         <th class="px-4 py-3 font-semibold">職員</th>
-        <th class="px-4 py-3 font-semibold">区分</th>
         <th class="px-4 py-3 font-semibold">権限</th>
         <th class="px-4 py-3 font-semibold">園児台帳</th>
         <th class="px-4 py-3 font-semibold">請求・口座</th>
@@ -47,17 +43,6 @@
           <div class="mt-1 text-xs font-medium text-indigo-700">ログインID: {{ credential.login_id }}</div>
           {% endif %}
           <div class="mt-1 text-xs text-slate-500">メール: {{ user.email }}</div>
-        </td>
-        <td class="px-4 py-3">
-          {% if user.provisioning_source == 'web_demo' %}
-          <span class="rounded-full bg-rose-50 px-2 py-1 text-xs text-rose-700">{{ user.provisioning_source_label }}</span>
-          {% elif user.provisioning_source == 'local_sample' %}
-          <span class="rounded-full bg-sky-50 px-2 py-1 text-xs text-sky-700">{{ user.provisioning_source_label }}</span>
-          {% elif user.provisioning_source == 'manual' %}
-          <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">{{ user.provisioning_source_label }}</span>
-          {% else %}
-          <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ user.provisioning_source_label }}</span>
-          {% endif %}
         </td>
         <td class="px-4 py-3">
           <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">{{ user.calendar_role_label }}</span>
@@ -101,12 +86,17 @@
             <a href="/staff/users/{{ user.id }}/authentication" class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-100">認証管理</a>
             <a href="/staff/users/{{ user.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
             <a href="/staff/users/{{ user.id }}/classrooms" class="rounded border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-100">担当クラス</a>
+            {% if user.is_active and user.id != current_user.user_id %}
+            <form method="post" action="/staff/users/{{ user.id }}/delete" onsubmit="return confirm('この職員の利用を停止して一覧から削除します。過去の記録は残ります。よろしいですか？')">
+              <button class="rounded border border-rose-200 px-3 py-1 text-xs text-rose-700" type="submit">一覧から削除</button>
+            </form>
+            {% endif %}
           </div>
         </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="9" class="px-4 py-10 text-center text-slate-400">職員が登録されていません。</td>
+        <td colspan="8" class="px-4 py-10 text-center text-slate-400">表示する職員がいません。</td>
       </tr>
       {% endfor %}
     </tbody>

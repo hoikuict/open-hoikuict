@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}保護者キオスクの準備 | open-hoikuict{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-2xl rounded-xl border bg-white p-6 shadow-sm">
+  <h1 class="text-2xl font-bold">保護者キオスク</h1>
+  <p class="mt-3 text-slate-600">園内の共用端末で、登園・降園を記録します。</p>
+  {% if mode == 'disabled' %}
+  <p class="mt-5 rounded-lg bg-amber-50 p-4 text-amber-900">現在は無効です。施設のシステム管理者に端末登録の準備を依頼してください。</p>
+  {% if current_user.is_admin %}
+  <details class="mt-4"><summary>システム管理者向けの設定</summary>
+    <p class="mt-3">サーバーで十分に長いランダムな端末登録トークンを作成し、アプリの環境変数 <code>HOIKUICT_KIOSK_TOKEN</code> に保存してください。<code>HOIKUICT_KIOSK_ACCESS_MODE=token</code> に設定してアプリを再作成します。トークンをチャットや公開ファイルに貼り付けないでください。</p>
+    <p class="mt-3">設定後、園内端末でこのページを開き「この端末を登録する」へ進みます。登録済み端末では職員アカウントをログアウトし、キオスク画面を使用してください。</p>
+  </details>
+  {% endif %}
+  {% elif mode == 'token' %}
+  <p class="mt-5">初めて使う共用端末は、管理者から受け取った端末登録トークンで登録してください。</p>
+  <div class="mt-5 flex flex-wrap gap-3">
+    <a class="rounded-lg bg-indigo-600 px-4 py-3 text-white" href="/guardian/activate">この端末を登録する</a>
+    <a class="rounded-lg border px-4 py-3" href="/guardian/">登録済み端末で開く</a>
+  </div>
+  {% else %}
+  <p class="mt-5">開発用の公開モードです。</p>
+  <a class="mt-4 inline-block rounded-lg bg-indigo-600 px-4 py-3 text-white" href="/guardian/">キオスクを開く</a>
+  {% endif %}
+</section>
+{% endblock %}

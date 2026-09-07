@@ -2,7 +2,7 @@ from datetime import date
 from urllib.parse import urlencode
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
@@ -630,12 +630,15 @@ def staff_logout(
 def staff_user_list(
     request: Request,
     source: str = "",
+    status: str = "active",
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_admin(current_user)
-    selected_source = _normalize_source_filter(source) if source else _default_staff_source_filter(session)
+    selected_source = _normalize_source_filter(source) if source else "all"
     statement = select(User)
+    if status != "all":
+        statement = statement.where(User.is_active.is_(True))
     if selected_source != "all":
         statement = statement.where(User.provisioning_source == selected_source)
     users = session.exec(
@@ -662,8 +665,35 @@ def staff_user_list(
             "source_filter": selected_source,
             "source_filter_options": STAFF_SOURCE_FILTER_OPTIONS,
             "source_counts": _staff_source_counts(session),
+            "show_inactive": status == "all",
         },
     )
+
+
+@router.post("/users/{user_id}/delete")
+def remove_staff_user_from_list(
+    user_id: UUID,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    actor = require_live_admin(session, current_user)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(404, "職員が見つかりません。")
+    error = _role_change_error(
+        session=session, target_user=user, current_user=current_user,
+        next_role=user.staff_role, next_is_active=False,
+    )
+    if error:
+        raise HTTPException(400, error)
+    if user.is_active:
+        add_permission_change_logs(session, target_user=user, actor=actor, changes=[("is_active", True, False)])
+        user.is_active = False
+        user.updated_at = utc_now()
+        session.add(user)
+        disable_staff_authentication(session, user=user, changed_by_user_id=actor.id)
+        session.commit()
+    return RedirectResponse(url="/staff/users", status_code=303)
 
 
 def _staff_credential_for_user(
