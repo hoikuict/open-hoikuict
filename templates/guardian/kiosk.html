@@ -1,10 +1,11 @@
-{% extends "base.html" %}
+{% extends "guardian/terminal_base.html" if terminal_mode else "base.html" %}
 {% block title %}保護者打刻 | open-hoikuict{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <h1 class="text-2xl font-bold text-gray-700">保護者打刻</h1>
+    {% if not terminal_mode %}
     <form method="get" action="/guardian" class="flex items-center gap-2">
       <label for="guardian-date" class="text-sm text-gray-600">対象日</label>
       <input id="guardian-date" type="date" name="date" value="{{ target_date_value }}"
@@ -17,6 +18,7 @@
       {% endif %}
       <button type="submit" class="px-3 py-1.5 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">表示</button>
     </form>
+    {% endif %}
   </div>
 
   {% if notice_message %}
@@ -25,6 +27,7 @@
   </div>
   {% endif %}
 
+  {% if not terminal_mode or not selected_classroom %}
   <section class="mb-5 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
     <h2 class="text-sm font-semibold text-gray-600 mb-3">1. クラスを選択</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -38,8 +41,9 @@
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 
-  {% if selected_classroom %}
+  {% if selected_classroom and (not terminal_mode or not selected_child) %}
   <section class="mb-5 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
     <h2 class="text-sm font-semibold text-gray-600 mb-3">2. 園児を選択（{{ selected_classroom.name }}）</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">

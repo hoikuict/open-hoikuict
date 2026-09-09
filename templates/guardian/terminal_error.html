@@ -1,0 +1,9 @@
+{% extends "guardian/terminal_base.html" %}
+{% block title %}操作の確認 | 保護者キオスク{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-xl rounded-xl border bg-white p-6 shadow-sm">
+  <h1 class="text-2xl font-bold">操作を確認してください</h1>
+  <p class="mt-4 text-lg">{{ message }}</p>
+  <a class="mt-6 inline-block rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white" href="{{ terminal_start }}">最初の画面に戻る</a>
+</section>
+{% endblock %}

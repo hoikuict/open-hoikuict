@@ -207,8 +207,8 @@ def _reflection_status_html(reflection) -> str:
     )
 
 
-def _approval_details(repository: DocumentRepositoryDep, document_id: int) -> dict | None:
-    action = repository.latest_action(document_id, DocumentStatus.APPROVED.value)
+def _review_details(repository: DocumentRepositoryDep, document_id: int, status: DocumentStatus) -> dict | None:
+    action = repository.latest_action(document_id, status.value)
     if action is None:
         return None
 
@@ -225,7 +225,8 @@ def _approval_details(repository: DocumentRepositoryDep, document_id: int) -> di
 
     return {
         "actor_name": actor_name or "不明",
-        "approved_at": action.created_at,
+        "decided_at": action.created_at,
+        "comment": action.comment,
     }
 
 
@@ -269,7 +270,11 @@ def document_detail(
         lock_version=head.lock_version if head else 0,
         revisions=repository.revisions(document_id),
         execution_changes=repository.list_execution_changes(document_id),
-        approval_details=_approval_details(repository, document_id),
+        approval_details=_review_details(repository, document_id, DocumentStatus.APPROVED),
+        rejection_details=(
+            _review_details(repository, document_id, DocumentStatus.REJECTED)
+            if document.status == DocumentStatus.REJECTED else None
+        ),
         reason_labels=REASON_LABELS,
         impact_labels=IMPACT_LABELS,
         changed_at_default=local_naive_now().strftime("%Y-%m-%dT%H:%M"),

@@ -84,6 +84,17 @@
   {% endif %}
 
   <section class="status-panel no-print">
+    {% if document.status.value == "rejected" %}
+      <div class="mb-4" role="status">
+        <h2>差戻し理由</h2>
+        {% if rejection_details %}
+          <p class="whitespace-pre-wrap">{{ rejection_details.comment or "差戻し理由が記録されていません。" }}</p>
+          <p class="mt-2 text-sm text-slate-600">差戻し者: {{ rejection_details.actor_name }} / {{ rejection_details.decided_at|jst_datetime("%Y年%m月%d日 %H:%M") }} JST</p>
+        {% else %}
+          <p>差戻し理由が記録されていません。</p>
+        {% endif %}
+      </div>
+    {% endif %}
     <form method="post" action="/plans/documents/{{ document.id }}/status" class="status-form">
       <input name="lock_version" type="hidden" value="{{ lock_version }}">
       {% if can_edit_document and document.status.value in ["draft", "rejected"] %}
@@ -119,7 +130,7 @@
         <strong>{{ document.status_label }}</strong>
         {% if approval_details %}
           <small>承認者: {{ approval_details.actor_name }}</small>
-          <small>承認日時: {{ approval_details.approved_at|jst_datetime("%Y年%m月%d日 %H:%M") }} JST</small>
+          <small>承認日時: {{ approval_details.decided_at|jst_datetime("%Y年%m月%d日 %H:%M") }} JST</small>
         {% elif document.status.value == "approved" %}
           <small>承認履歴: 記録なし</small>
         {% endif %}

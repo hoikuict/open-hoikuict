@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "guardian/terminal_base.html" if terminal_mode else "base.html" %}
 {% block title %}保存完了 | open-hoikuict{% endblock %}
 
 {% block content %}

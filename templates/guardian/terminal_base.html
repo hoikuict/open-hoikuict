@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}保護者キオスク{% endblock %}</title>
+  <meta name="theme-color" content="#4338ca">
+  <meta name="csrf-token" content="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
+  <link rel="manifest" href="/guardian/manifest.webmanifest">
+  <link rel="icon" href="/guardian/assets/icon-192.png" type="image/png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; background: #f8fafc; color: #1e293b; font-family: sans-serif; }
+    main { max-width: 80rem; margin: auto; padding: 1.5rem; }
+    button, input, select, a { touch-action: manipulation; }
+    button, main a, input:not([type=hidden]):not([type=checkbox]) { min-height: 44px; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    [hidden] { display: none !important; }
+    #terminal-warning { position: sticky; top: 0; z-index: 10; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body id="guardian-terminal" data-today="{{ terminal_today }}" data-idle-seconds="{{ terminal_idle_seconds }}"
+      data-active="{{ '1' if selected_child or selected_classroom else '0' }}" data-ready="{{ '1' if terminal_ready else '0' }}">
+  <header class="bg-indigo-700 px-6 py-4 text-white">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
+      <div><p class="text-xl font-bold">登園・降園</p><p class="mt-1 text-sm">{{ terminal_today }}</p></div>
+      <div class="flex flex-wrap items-center gap-3">
+        <span id="terminal-connection" class="text-sm" role="status">{{ '接続済み' if terminal_ready else '端末の準備' }}</span>
+        <button id="terminal-fullscreen" type="button" class="rounded-lg border border-indigo-300 px-4 py-2">全画面</button>
+        {% if terminal_ready %}<a href="{{ terminal_start }}" class="rounded-lg bg-white px-4 py-3 font-semibold text-indigo-700">最初に戻る</a>{% endif %}
+      </div>
+    </div>
+  </header>
+  <div id="terminal-warning" hidden class="bg-amber-100 px-6 py-4 text-amber-950" role="alert">
+    <span id="terminal-warning-message"></span>
+    <button id="terminal-retry" type="button" class="ml-3 rounded-lg border border-amber-700 px-4 py-2">接続を確認</button>
+  </div>
+  <div id="terminal-idle-warning" hidden class="bg-indigo-50 px-6 py-3 text-center text-indigo-900" role="status">
+    <span id="terminal-idle-message"></span>
+    <button id="terminal-continue" type="button" class="ml-3 rounded-lg border border-indigo-500 px-4 py-2">操作を続ける</button>
+  </div>
+  <main>{% block content %}{% endblock %}</main>
+  {% if terminal_ready %}<footer class="px-6 pb-6 text-center text-sm text-slate-500">操作がない状態が{{ terminal_idle_seconds }}秒続くと、最初の画面に戻ります。</footer>{% endif %}
+  {% block body_end %}<script src="/guardian/assets/terminal.js" defer></script>{% endblock %}
+</body>
+</html>

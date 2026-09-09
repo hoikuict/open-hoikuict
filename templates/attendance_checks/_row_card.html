@@ -3,10 +3,10 @@
 {% set parent_absence_label = row.entry.absence_reason_label if row.entry and row.entry.is_absent_contact else "なし" %}
 
 <article id="attendance-check-row-{{ row.child.id }}" class="rounded-xl border {% if row.alarm_is_active %}border-rose-300 bg-rose-50/40{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
-  <div class="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_120px_140px_110px_minmax(360px,2.2fr)] md:items-center">
-    <div class="min-w-0">
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(10rem,1.5fr)_minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(12rem,1.5fr)_96px_112px_96px_minmax(320px,2fr)] 2xl:items-center">
+    <div class="col-span-2 min-w-0 sm:col-span-1">
       <div class="flex flex-wrap items-center gap-2">
-        <h2 class="truncate text-base font-semibold text-slate-800">{{ row.child.full_name }}</h2>
+        <h2 class="break-words text-base font-semibold text-slate-800">{{ row.child.full_name }}</h2>
         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{{ row.classroom_name }}</span>
         {% if row.alarm_is_active %}
         <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アラーム</span>
@@ -23,15 +23,15 @@
       </p>
     </div>
 
-    <div class="rounded-lg bg-slate-50 px-3 py-2 md:bg-transparent md:px-0 md:py-0">
-      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 md:hidden">打刻</div>
+    <div class="rounded-lg bg-slate-50 px-3 py-2 2xl:bg-transparent 2xl:px-0 2xl:py-0">
+      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 2xl:hidden">打刻</div>
       <div class="text-sm font-medium text-slate-700">
         {{ punch_label }}{% if row.check_in_at %} ({{ row.check_in_at.strftime("%H:%M") }}){% endif %}
       </div>
     </div>
 
-    <div class="rounded-lg bg-slate-50 px-3 py-2 md:bg-transparent md:px-0 md:py-0">
-      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 md:hidden">欠席連絡</div>
+    <div class="rounded-lg bg-slate-50 px-3 py-2 2xl:bg-transparent 2xl:px-0 2xl:py-0">
+      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 2xl:hidden">欠席連絡</div>
       {% if row.entry and row.entry.is_absent_contact %}
       <span class="inline-flex rounded-full {% if row.entry.contact_type.value == 'absent_sick' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %} px-2.5 py-1 text-xs font-medium">
         {{ parent_absence_label }}
@@ -41,20 +41,20 @@
       {% endif %}
     </div>
 
-    <div class="md:justify-self-start">
+    <div class="col-span-2 sm:col-span-1 2xl:justify-self-start">
       <button
         type="button"
         aria-controls="{{ detail_id }}"
         aria-expanded="false"
-        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 md:w-auto"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 2xl:w-auto"
         onclick="const detail=document.getElementById('{{ detail_id }}'); const expanded=this.getAttribute('aria-expanded')==='true'; detail.classList.toggle('hidden', expanded); this.setAttribute('aria-expanded', String(!expanded)); this.textContent=expanded ? '詳細表示' : '詳細を閉じる';"
       >
         詳細表示
       </button>
     </div>
 
-    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 md:border-0 md:bg-transparent md:p-0">
-      <div class="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400 md:hidden">確認</div>
+    <div class="col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 2xl:col-span-1 2xl:border-0 2xl:bg-transparent 2xl:p-0">
+      <div class="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400 2xl:hidden">確認</div>
       {% if current_user and current_user.can_manage_attendance_checks %}
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {% for option in verification_options %}

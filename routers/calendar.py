@@ -184,6 +184,7 @@ def _current_calendar_user(session: Session, request: Request) -> User | None:
     user = session.get(User, user_id)
     if user is None or not user.is_active:
         return None
+    _sync_staff_shared_calendars(session, user)
     return user
 
 
@@ -276,6 +277,34 @@ def _ensure_facility_shared_memberships(session: Session, calendar: Calendar) ->
             display_order=_calendar_display_order(CalendarType.facility_shared),
         )
     return broadcast_ids
+
+
+def _sync_staff_shared_calendars(session: Session, user: User) -> None:
+    """Include staff added after a shared calendar was created; keep their preferences."""
+    if not user.is_active or user.staff_sort_order >= 200:
+        return
+    member_calendar_ids = set(session.exec(
+        select(CalendarMember.calendar_id).where(CalendarMember.user_id == user.id)
+    ).all())
+    calendars = session.exec(select(Calendar).where(
+        Calendar.calendar_type == CalendarType.facility_shared,
+        Calendar.is_archived.is_(False),
+    )).all()
+    changed = False
+    for calendar in calendars:
+        if calendar.id in member_calendar_ids:
+            continue
+        role = CalendarMemberRole.owner if user.id == calendar.owner_user_id else (
+            CalendarMemberRole.editor if user.can_edit_calendar else CalendarMemberRole.viewer
+        )
+        _ensure_calendar_member(session, calendar=calendar, target_user=user, role=role)
+        ensure_calendar_user_preferences(
+            session, calendar_id=calendar.id, user_id=user.id,
+            is_visible=True, display_order=_calendar_display_order(CalendarType.facility_shared),
+        )
+        changed = True
+    if changed:
+        session.commit()
 
 
 def _can_manage_calendar_settings(user: User, context: CalendarContext) -> bool:

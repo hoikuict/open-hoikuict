@@ -78,3 +78,5 @@
 - `token` では `/guardian/activate` から端末を有効化する。秘密値をURLへ付与しない。
 - `open` は施設内で隔離された開発・検証環境専用で、本番起動時は拒否される。
 - キオスクを公開するリバースプロキシでも、到達元ネットワークを必要最小限に制限する。
+
+一般のChromebookを共用端末にする場合は、[保護者キオスクの端末設定手順](chromebook-guardian-kiosk.md)に従い `/guardian/terminal` を使用する。専用画面のCookieは表示モードだけを指定し、署名付き端末Cookieの認証を代替しない。

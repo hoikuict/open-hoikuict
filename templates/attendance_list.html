@@ -212,7 +212,7 @@
     {% endif %}
   </div>
 
-  <div class="overflow-x-auto">
+  <div id="attendance-table-scroll" class="overflow-x-auto">
     <table class="min-w-full text-sm">
       <thead class="bg-indigo-50 text-indigo-800">
         <tr>
@@ -293,13 +293,13 @@
           <td class="px-4 py-2 whitespace-nowrap no-print">
             {% if current_user and current_user.can_edit and row.is_enrolled %}
               {% if not row.check_in_at %}
-              <form method="post" action="/attendance/{{ row.child_id }}/check-in" class="inline">
+              <form method="post" action="/attendance/{{ row.child_id }}/check-in" class="inline" data-preserve-attendance-scroll>
                 <input type="hidden" name="date" value="{{ filters.display_date_value }}">
                 <input type="hidden" name="return_query" value="{{ current_query_string }}">
                 <button type="submit" class="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">登園打刻</button>
               </form>
               {% elif not row.check_out_at %}
-              <form method="post" action="/attendance/{{ row.child_id }}/check-out" class="inline">
+              <form method="post" action="/attendance/{{ row.child_id }}/check-out" class="inline" data-preserve-attendance-scroll>
                 <input type="hidden" name="date" value="{{ filters.display_date_value }}">
                 <input type="hidden" name="return_query" value="{{ current_query_string }}">
                 <button type="submit" class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">降園打刻</button>
@@ -324,4 +324,44 @@
     </table>
   </div>
 </div>
+{% endblock %}
+
+{% block body_end %}
+<script>
+  (() => {
+    const storageKey = 'attendance-punch-scroll';
+    const table = document.getElementById('attendance-table-scroll');
+    const queryKey = (query) => {
+      const params = new URLSearchParams(query);
+      params.sort();
+      return params.toString();
+    };
+    document.querySelectorAll('[data-preserve-attendance-scroll]').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        if (event.defaultPrevented) return;
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify({
+            query: queryKey(form.elements.return_query.value),
+            x: window.scrollX,
+            y: window.scrollY,
+            tableX: table.scrollLeft,
+            savedAt: Date.now(),
+          }));
+        } catch (_) { /* Punching still works when browser storage is unavailable. */ }
+      });
+    });
+    try {
+      const position = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+      sessionStorage.removeItem(storageKey);
+      if (!position || position.query !== queryKey(window.location.search)
+          || Date.now() - position.savedAt > 60000) return;
+      const restore = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+        table.scrollLeft = position.tableX;
+        window.scrollTo(position.x, position.y);
+      }));
+      if (document.readyState === 'complete') restore();
+      else window.addEventListener('load', restore, { once: true });
+    } catch (_) { /* Ignore expired or unavailable browser state. */ }
+  })();
+</script>
 {% endblock %}

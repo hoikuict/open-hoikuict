@@ -252,6 +252,84 @@ class CalendarFeatureTests(unittest.TestCase):
             },
         )
 
+    def test_new_staff_receive_existing_shared_calendars_and_events(self):
+        with Session(self.engine) as session:
+            new_staff = User(email="new-staff@example.test", display_name="新任職員", staff_role="can_edit")
+            session.add(new_staff)
+            session.add(Event(
+                calendar_id=self.shared_calendar_id, created_by_user_id=self.user_a_id,
+                title="全職員への連絡", start_at=datetime(2026, 9, 9, 0),
+                end_at=datetime(2026, 9, 9, 1),
+            ))
+            session.commit()
+            new_staff_id = new_staff.id
+        self._login(new_staff_id)
+        for _ in range(2):
+            response = self.client.get("/calendar?date=2026-09-09")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("全職員への連絡", response.text)
+            self.assertNotIn("田中先生の個人カレンダー", response.text)
+        with Session(self.engine) as session:
+            memberships = session.exec(select(CalendarMember).where(CalendarMember.user_id == new_staff_id)).all()
+            self.assertEqual([(m.calendar_id, m.role) for m in memberships], [(self.shared_calendar_id, CalendarMemberRole.editor)])
+            preference = session.exec(select(CalendarUserPreference).where(CalendarUserPreference.user_id == new_staff_id)).one()
+            self.assertTrue(preference.is_visible)
+
+    def test_missing_membership_is_repaired_without_resetting_hidden_preference(self):
+        with Session(self.engine) as session:
+            member = session.exec(select(CalendarMember).where(
+                CalendarMember.calendar_id == self.shared_calendar_id, CalendarMember.user_id == self.user_b_id,
+            )).one()
+            session.delete(member)
+            preference = session.exec(select(CalendarUserPreference).where(
+                CalendarUserPreference.calendar_id == self.shared_calendar_id, CalendarUserPreference.user_id == self.user_b_id,
+            )).one()
+            preference.is_visible = False
+            preference.display_order = 77
+            session.add(preference)
+            session.commit()
+        self._login(self.user_b_id)
+        self.assertEqual(self.client.get("/calendar").status_code, 200)
+        with Session(self.engine) as session:
+            member = session.exec(select(CalendarMember).where(
+                CalendarMember.calendar_id == self.shared_calendar_id, CalendarMember.user_id == self.user_b_id,
+            )).one()
+            self.assertEqual(member.role, CalendarMemberRole.editor)
+            preference = session.exec(select(CalendarUserPreference).where(
+                CalendarUserPreference.calendar_id == self.shared_calendar_id, CalendarUserPreference.user_id == self.user_b_id,
+            )).one()
+            self.assertFalse(preference.is_visible)
+            self.assertEqual(preference.display_order, 77)
+
+    def test_new_read_only_staff_cannot_edit_shared_events(self):
+        with Session(self.engine) as session:
+            viewer = User(email="new-viewer@example.test", display_name="閲覧職員", staff_role="view_only")
+            session.add(viewer)
+            session.commit()
+            viewer_id = viewer.id
+        self._login(viewer_id)
+        self.assertEqual(self.client.get("/calendar").status_code, 200)
+        with Session(self.engine) as session:
+            member = session.exec(select(CalendarMember).where(CalendarMember.user_id == viewer_id)).one()
+            self.assertEqual(member.role, CalendarMemberRole.viewer)
+        response = self.client.post("/events", data={
+            "calendar_id": str(self.shared_calendar_id), "title": "登録不可",
+            "start_value": "2026-09-09T09:00", "end_value": "2026-09-09T10:00",
+        }, follow_redirects=False)
+        self.assertEqual(response.status_code, 403)
+
+    def test_shared_sync_excludes_inactive_and_nonstaff_users(self):
+        with Session(self.engine) as session:
+            users = [
+                User(email="inactive@example.test", display_name="無効職員", is_active=False),
+                User(email="nonstaff@example.test", display_name="職員以外", staff_sort_order=200),
+            ]
+            session.add_all(users)
+            session.commit()
+            for user in users:
+                calendar_module._sync_staff_shared_calendars(session, user)
+                self.assertEqual(session.exec(select(CalendarMember).where(CalendarMember.user_id == user.id)).all(), [])
+
     def test_htmx_calendar_creation_updates_shell_and_new_event_form(self):
         self._login(self.user_a_id)
         response = self.client.post(

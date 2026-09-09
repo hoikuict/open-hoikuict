@@ -567,8 +567,12 @@
     return btoa(binary);
   }
 
-  fetch(`/meeting-notes/api/${noteId}/content`)
-    .then((response) => response.json())
+  let contentLoadFailed = false;
+  const contentReady = fetch(`/meeting-notes/api/${noteId}/content`)
+    .then((response) => {
+      if (!response.ok) throw new Error(`Load failed: ${response.status}`);
+      return response.json();
+    })
     .then((data) => {
       if (data.content_base64) {
         Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64));
@@ -579,11 +583,33 @@
       } else {
         ymeta.set('title', titleInput.value);
       }
+      return true;
     })
     .catch((error) => {
+      contentLoadFailed = true;
       console.error('Failed to load meeting note content', error);
       updateStatus('読込失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+      return false;
     });
+
+  async function saveNote() {
+    if (!(await contentReady)) throw new Error('The original note could not be loaded');
+    const response = await fetch(`/meeting-notes/api/${noteId}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
+      },
+      body: JSON.stringify({
+        title: titleInput.value,
+        content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)),
+        plain_text: editor.getText(),
+      }),
+    });
+    if (!response.ok || (await response.json()).status !== 'ok') {
+      throw new Error(`Save failed: ${response.status}`);
+    }
+  }
 
   if (canEdit) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -591,7 +617,9 @@
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = () => {
-      updateStatus('同期中', 'rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700');
+      if (!contentLoadFailed) {
+        updateStatus('同期中', 'rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700');
+      }
 
       socket.send(new Uint8Array([1]));
       socket.send(new Uint8Array([4]));
@@ -604,7 +632,9 @@
     };
 
     socket.onclose = () => {
-      updateStatus('切断', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+      if (!contentLoadFailed) {
+        updateStatus('切断', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+      }
     };
 
     ydoc.on('update', (update, origin) => {
@@ -670,40 +700,44 @@
 
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
-        const update = Y.encodeStateAsUpdate(ydoc);
-        const contentBase64 = encodeUint8ArrayToBase64(update);
-
+        saveBtn.disabled = true;
         try {
-          const response = await fetch(`/meeting-notes/api/${noteId}/save`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
-            },
-            body: JSON.stringify({
-              title: titleInput.value,
-              content_base64: contentBase64,
-              plain_text: editor.getText(),
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`Save failed: ${response.status}`);
-          }
-
-          const result = await response.json();
-          if (result.status === 'ok') {
-            updateStatus('保存しました', 'rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700');
-            window.setTimeout(() => {
-              updateStatus('同期中', 'rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700');
-            }, 1800);
-          }
+          await saveNote();
+          updateStatus('保存しました', 'rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700');
         } catch (error) {
           console.error('Failed to save meeting note', error);
           updateStatus('保存失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+        } finally {
+          saveBtn.disabled = false;
         }
       });
     }
+
+    // Every marking action navigates away. Persist the editor before submitting it.
+    let markingPending = false;
+    document.getElementById('markings')?.addEventListener('submit', async (event) => {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      if (markingPending || saveBtn?.disabled) return;
+      markingPending = true;
+      editor.enable(false);
+      titleInput.readOnly = true;
+      if (saveBtn) saveBtn.disabled = true;
+      const submitter = event.submitter;
+      if (submitter) submitter.disabled = true;
+      try {
+        await saveNote();
+        HTMLFormElement.prototype.submit.call(event.target);
+      } catch (error) {
+        console.error('Failed to save note before marking', error);
+        updateStatus('本文の保存に失敗しました。再度マーキングを保存してください。', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+        markingPending = false;
+        editor.enable(true);
+        titleInput.readOnly = false;
+        if (saveBtn) saveBtn.disabled = false;
+        if (submitter) submitter.disabled = false;
+      }
+    });
   }
 </script>
 {% endblock %}

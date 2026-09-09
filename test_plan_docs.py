@@ -1162,6 +1162,54 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         self.assertIn("Principalさんが却下（差戻し）しました", creator_home.text)
         self.assertIn("家庭連携欄を追記してください。", creator_home.text)
 
+    def test_admin_creator_sees_child_record_rejection_reason_on_detail(self):
+        creator_id, reviewer_id = uuid4(), uuid4()
+        with Session(self.engine) as session:
+            session.add_all([
+                User(id=creator_id, email="record-author@example.test", display_name="作成管理者", staff_role="admin"),
+                User(id=reviewer_id, email="record-reviewer@example.test", display_name="確認管理者", staff_role="admin"),
+            ])
+            child = Child(last_name="検証", first_name="花子", last_name_kana="ケンショウ", first_name_kana="ハナコ",
+                          birth_date=date(2023, 4, 2), enrollment_date=date(2024, 4, 1))
+            session.add(child)
+            session.flush()
+            document = PlanDocumentRow(
+                document_type=DocumentType.CHILD_PROGRESS_RECORD.value, status="draft",
+                title="検証 花子 児童票", nursery_ref=DEFAULT_NURSERY_REF, classroom_ref="ひよこ組",
+                owner_name="作成管理者", actor_ref=f"staff:{creator_id}", child_id=child.id,
+                child_ref=str(child.id), child_name=child.full_name, sections=[],
+            )
+            session.add(document)
+            session.commit()
+            document_id = document.id
+        author_cookies = self.staff_cookies(staff_id=creator_id, name="Author")
+        self.client.cookies.update(author_cookies)
+        submitted = self.client.post(f"/plans/documents/{document_id}/status",
+                                     data={"status": "in_review", "lock_version": "1"}, follow_redirects=False)
+        self.assertEqual(submitted.status_code, 303, submitted.text)
+        self.client.cookies.update(self.staff_cookies(staff_id=reviewer_id, name="Reviewer"))
+        reason = "家庭での様子を追記してください。\n<script>alert('test')</script>"
+        rejected = self.client.post(f"/plans/documents/{document_id}/status", data={
+            "status": "rejected", "lock_version": "2", "comment": reason,
+        }, follow_redirects=False)
+        self.assertEqual(rejected.status_code, 303, rejected.text)
+        # The document keeps the reason visible even after its notification is dismissed.
+        with Session(self.engine) as session:
+            for notification in session.exec(select(PlanReviewNotificationRow)).all():
+                session.delete(notification)
+            session.commit()
+        self.client.cookies.update(author_cookies)
+        detail = self.client.get(f"/plans/documents/{document_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn("家庭での様子を追記してください。", detail.text)
+        self.assertIn("差戻し者: Reviewer", detail.text)
+        self.assertIn("&lt;script&gt;", detail.text)
+        self.assertNotIn("<script>alert", detail.text)
+        submitted = self.client.post(f"/plans/documents/{document_id}/status",
+                                     data={"status": "in_review", "lock_version": "3"}, follow_redirects=False)
+        self.assertEqual(submitted.status_code, 303, submitted.text)
+        self.assertNotIn("家庭での様子を追記してください。", self.client.get(f"/plans/documents/{document_id}").text)
+
     def test_all_staff_can_view_other_class_progress_record_but_cannot_edit_it(self):
         staff_id = uuid4()
         config = default_config()
