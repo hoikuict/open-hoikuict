@@ -956,6 +956,20 @@ class AttendanceRecord(SQLModel, table=True):
     )
 
 
+class AttendancePickupHistory(SQLModel, table=True):
+    __tablename__ = "attendance_pickup_history"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
+    previous_time: Optional[str] = None
+    previous_person: Optional[str] = None
+    new_time: str
+    new_person: str
+    changed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    changed_by_name: str
+    changed_at: datetime = Field(default_factory=utc_now)
+
+
 class ExtendedCareFeeRule(SQLModel, table=True):
     __tablename__ = "extended_care_fee_rules"
 

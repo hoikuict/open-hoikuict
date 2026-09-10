@@ -489,7 +489,7 @@ def update_extended_care_fee_rule(
     morning_grace_minutes: str = Form(default="0"),
     morning_rounding_minutes: str = Form(default="15"),
     morning_unit_price: str = Form(default="0"),
-    evening_enabled: Optional[str] = Form(default="1"),
+    evening_enabled: Optional[str] = Form(default=None),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -520,7 +520,7 @@ def update_extended_care_fee_rule(
     if not errors:
         errors.extend(validate_fee_rule(session, rule_id=rule_id, **values))
     if errors:
-        return _settings_response(request, session, current_user, errors, _form_values_from_values(values))
+        return _settings_response(request, session, current_user, errors, _form_values_from_values(values), editing_rule_id=rule_id)
 
     for key, value in values.items():
         setattr(rule, key, value)
@@ -596,6 +596,8 @@ def _parse_rule_form(**raw_values) -> tuple[dict, list[str]]:
         "evening_enabled": _as_bool(raw_values.get("evening_enabled")) if "evening_enabled" in raw_values else True,
     }
     category_raw = str(raw_values.get("care_time_category") or "").strip()
+    if category_raw == "legacy":
+        category_raw = ""
     try:
         values["care_time_category"] = CareTimeCategory(category_raw) if category_raw else None
     except ValueError:
@@ -650,6 +652,7 @@ def _settings_response(
     current_user,
     errors: list[str],
     form_values: dict,
+    editing_rule_id: Optional[int] = None,
 ):
     return templates.TemplateResponse(
         request,
@@ -660,6 +663,8 @@ def _settings_response(
             "rules": _list_rules(session),
             "errors": errors,
             "form_values": form_values,
+            "editing_rule_id": editing_rule_id,
+            "new_form_values": _default_rule_form_values(),
             "billing_setting": get_extended_care_billing_setting(session),
             "calculation_setting": get_calculation_setting(session),
             "care_time_categories": list(CareTimeCategory),
@@ -681,7 +686,7 @@ def _list_rules(session: Session) -> list[ExtendedCareFeeRule]:
 
 def _default_rule_form_values() -> dict:
     return {
-        "name": "標準延長保育料",
+        "name": "",
         "effective_from": local_today().replace(month=1, day=1).isoformat(),
         "effective_to": "",
         "start_time": "18:00",
@@ -690,7 +695,7 @@ def _default_rule_form_values() -> dict:
         "unit_price": "100",
         "daily_cap_amount": "",
         "is_active": True,
-        "care_time_category": "",
+        "care_time_category": "choose",
         "normal_start_time": "07:30",
         "normal_end_time": "18:30",
         "morning_enabled": False,

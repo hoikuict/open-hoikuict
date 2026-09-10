@@ -220,7 +220,8 @@ def validate_fee_rule(
             if existing.care_time_category != care_time_category:
                 continue
             if _periods_overlap(effective_from, effective_to, existing.effective_from, existing.effective_to):
-                errors.append("既存の有効ルールと適用期間が重複しています。")
+                category_label = care_time_category.label if care_time_category else "従来計算（区分なし）"
+                errors.append(f"既存の有効ルールと適用期間が重複しています。「{existing.name}」と同じ{category_label}です。標準時間と短時間を分ける場合は、ルール名ではなく保育必要量を選択してください。")
                 break
 
     return errors
@@ -412,39 +413,37 @@ def get_calculation_setting(session: Session) -> ExtendedCareCalculationSetting:
 def resolve_calculation_context(
     session: Session,
     record: AttendanceRecord,
+    *,
+    lookup: Optional[tuple] = None,
 ) -> tuple[Optional[ExtendedCareFeeRule], Optional[ChildCareCertification], str]:
-    setting = get_calculation_setting(session)
+    setting, rules, certification_rows = lookup if lookup is not None else _calculation_lookup(session, [record])
+    def active_rule(category=None):
+        candidates = [rule for rule in rules if rule.care_time_category == category
+                      and rule.effective_from <= record.attendance_date
+                      and (rule.effective_to is None or rule.effective_to >= record.attendance_date)]
+        return max(candidates, key=lambda rule: (rule.effective_from, rule.id or 0), default=None)
+
     category_mode = (
         setting.mode == "category_aware"
         and setting.category_aware_from is not None
         and record.attendance_date >= setting.category_aware_from
     )
     if not category_mode:
-        rule = get_active_rule_for_date(session, record.attendance_date)
+        rule = active_rule()
         return rule, None, "" if rule else "有効な料金ルールがありません"
 
-    certifications = session.exec(
-        select(ChildCareCertification).where(
-            ChildCareCertification.child_id == record.child_id,
-            ChildCareCertification.is_active == True,  # noqa: E712
-            ChildCareCertification.effective_from <= record.attendance_date,
-        )
-    ).all()
     certifications = [
         item
-        for item in certifications
-        if item.effective_to is None or item.effective_to >= record.attendance_date
+        for item in certification_rows
+        if item.child_id == record.child_id and item.effective_from <= record.attendance_date
+        and (item.effective_to is None or item.effective_to >= record.attendance_date)
     ]
     if not certifications:
         return None, None, "有効な保育認定がありません"
     if len(certifications) > 1:
         return None, None, "保育認定の適用期間が重複しています"
     certification = certifications[0]
-    rule = get_active_rule_for_date(
-        session,
-        record.attendance_date,
-        certification.care_time_category,
-    )
+    rule = active_rule(certification.care_time_category)
     if rule is None:
         return None, certification, f"{certification.care_time_category.label}の料金ルールがありません"
     if rule.morning_enabled and record.check_in_at is None:
@@ -452,6 +451,26 @@ def resolve_calculation_context(
     if rule.evening_enabled and record.check_out_at is None:
         return None, certification, "降園打刻がないため夕延長を計算できません"
     return rule, certification, ""
+
+
+def _calculation_lookup(session: Session, records: list[AttendanceRecord]) -> tuple:
+    setting = get_calculation_setting(session)
+    rules = session.exec(select(ExtendedCareFeeRule).where(ExtendedCareFeeRule.is_active == True)).all()  # noqa: E712
+    certifications = []
+    if setting.mode == "category_aware":
+        child_ids = {record.child_id for record in records}
+        certifications = session.exec(select(ChildCareCertification).where(
+            ChildCareCertification.child_id.in_(child_ids), ChildCareCertification.is_active == True,  # noqa: E712
+        )).all()
+    return setting, rules, certifications
+
+
+def calculation_issues_for_records(session: Session, records: list[AttendanceRecord]) -> dict[int, str]:
+    if not records:
+        return {}
+    lookup = _calculation_lookup(session, records)
+    return {record.id: resolve_calculation_context(session, record, lookup=lookup)[2]
+            or "料金データが未作成です。対象月を再計算してください。" for record in records}
 
 
 def recalculate_period(
