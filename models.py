@@ -1208,6 +1208,23 @@ class ParentEnrollment(SQLModel, table=True):
     applied_at: Optional[datetime] = None
 
 
+class ParentPublicRegistrationSettings(SQLModel, table=True):
+    __tablename__ = "parent_public_registration_settings"
+
+    id: int = Field(default=1, primary_key=True)
+    enabled: bool = False
+    updated_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentPublicRegistration(SQLModel, table=True):
+    """Identifies self-service requests without granting any ledger access."""
+    __tablename__ = "parent_public_registrations"
+
+    registration_request_id: uuid.UUID = Field(primary_key=True, foreign_key="parent_registration_requests.id")
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ParentRegistrationSession(SQLModel, table=True):
     __tablename__ = "parent_registration_sessions"
 

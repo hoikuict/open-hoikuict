@@ -1,0 +1,10 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}メールをご確認ください{% endblock %}
+{% block content %}
+<h1>メールをご確認ください</h1>
+<p class="success" role="status">初回申請の対象となるメールアドレスへ、登録の案内をお送りします。</p>
+<p>メールのリンクは24時間有効です。届いた案内からお子さまと保護者の情報を入力し、園へ提出してください。</p>
+<p class="muted">すでに提出済みの場合は園の確認をお待ちください。登録済みの方はログイン画面をご利用ください。</p>
+<p class="muted">数分待っても届かない場合は、迷惑メールと入力したアドレスをご確認ください。再送は1分以上あけ、繰り返しても届かない場合は園へお問い合わせください。</p>
+<div class="row"><a class="button" href="/parent-portal/login">保護者ログイン</a><a class="button secondary" href="/parent-portal/register/apply">入力画面へ戻る</a></div>
+{% endblock %}

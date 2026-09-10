@@ -10,6 +10,7 @@
   {% if current_user and current_user.can_manage_child_records %}
   <div class="flex flex-wrap gap-2">
   {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">保護者に初回入力を依頼</a>{% endif %}
+  {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/registration-qr" class="rounded border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700">共通QR・申請受付</a>{% endif %}
   <a href="/parent-accounts/new" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:self-auto">新規登録</a>
   </div>
   {% endif %}

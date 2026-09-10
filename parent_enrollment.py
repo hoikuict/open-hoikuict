@@ -29,6 +29,7 @@ from models import (
     ParentChildLink,
     ParentChildLinkAudit,
     ParentEnrollment,
+    ParentPublicRegistration,
     ParentRegistrationRequest,
     PasswordCredential,
 )
@@ -214,11 +215,12 @@ def validate_enrollment_data(data: dict, *, existing_child: bool) -> dict[str, s
 
 
 def submit_enrollment(session: Session, raw_state: str, data: dict) -> None:
-    state, registration, enrollment, _ = enrollment_state(session, raw_state)
+    state, registration, enrollment, account = enrollment_state(session, raw_state)
     values = validate_enrollment_data(
         data, existing_child=enrollment.child_id is not None
     )
-    if compact_name(values["last_name"] + values["first_name"]) != compact_name(
+    is_public = session.get(ParentPublicRegistration, registration.id) is not None
+    if not is_public and compact_name(values["last_name"] + values["first_name"]) != compact_name(
         enrollment.child_name
     ):
         raise ValueError(
@@ -234,6 +236,10 @@ def submit_enrollment(session: Session, raw_state: str, data: dict) -> None:
     )
     if claimed.rowcount != 1:
         raise AuthenticationFailed("この申請は既に送信されています")
+    if is_public:
+        enrollment.child_name = f"{values['last_name']} {values['first_name']}"
+        account.display_name = f"{values['g1_last_name']} {values['g1_first_name']}（確認待ち）"
+        session.add(account)
     enrollment.submitted_data = values
     state.consumed_at = utc_now()
     session.add(enrollment)

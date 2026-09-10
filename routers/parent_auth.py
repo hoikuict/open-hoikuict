@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import date
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from auth import (
@@ -21,6 +23,8 @@ from models import (
     ParentAccount,
     ParentEnrollment,
     ParentMailDelivery,
+    ParentPublicRegistration,
+    ParentPublicRegistrationSettings,
     ParentRegistrationRequest,
     PasswordCredential,
     User,
@@ -52,6 +56,10 @@ from parent_enrollment import (
     latest_enrollment, prepare_enrollment, submit_enrollment,
 )
 from family_support import validate_parent_contact_email
+from parent_public_registration import (
+    InvalidRegistrationEmail, RegistrationLimited, limit_public_network, public_registration_enabled,
+    public_registration_targets, public_registration_url, request_public_registration,
+)
 
 
 router = APIRouter(
@@ -179,6 +187,44 @@ def invitation_landing(request: Request):
     return _registration_exchange_page(request, "invite")
 
 
+@router.get("/parent-portal/register/apply", response_class=HTMLResponse)
+def public_registration_page(request: Request, session: Session = Depends(get_session)):
+    return _render(request, "parent_auth/public_registration.html", {
+        "accepting": public_registration_enabled(session), "email": "", "form_error": "",
+    })
+
+
+@router.post("/parent-portal/register/apply")
+def public_registration_request(request: Request, email: str = Form(""),
+                                session: Session = Depends(get_session)):
+    if not public_registration_enabled(session):
+        return _render(request, "parent_auth/public_registration.html", {
+            "accepting": False, "email": "", "form_error": "",
+        }, 403)
+    try:
+        limit_public_network(session, request)
+    except RegistrationLimited as exc:
+        response = _render(request, "parent_auth/public_registration.html", {
+            "accepting": True, "email": "", "form_error": "この接続からの申請が続いたため、一時的に受付を制限しています。15分ほどあけてお試しください。",
+        }, 429)
+        response.headers["Retry-After"] = str(exc.retry_after)
+        return response
+    started = time.monotonic()
+    try:
+        request_public_registration(session, email)
+    except InvalidRegistrationEmail:
+        session.rollback()
+        return _render(request, "parent_auth/public_registration.html", {
+            "accepting": True, "email": email[:255], "form_error": "受信できるメールアドレスを入力してください",
+        }, 400)
+    except (IntegrityError, ValueError):
+        # A simultaneous request or an existing login ID gets the same response.
+        session.rollback()
+    finally:
+        time.sleep(max(0, 0.25 - (time.monotonic() - started)))
+    return _render(request, "parent_auth/public_registration_sent.html", {})
+
+
 def _registration_exchange_page(request: Request, purpose: str, *, error="", status_code=200):
     return _render(
         request,
@@ -234,16 +280,20 @@ def identity_page(request: Request, session: Session = Depends(get_session)):
             _, _, enrollment, _ = enrollment_state(session, request.cookies[REGISTRATION_COOKIE])
             parts = enrollment.child_name.split(maxsplit=1)
             values = {"last_name": parts[0], "first_name": parts[1]} if len(parts) == 2 else {}
-            return _enrollment_form(request, enrollment, values)
+            is_public = session.get(ParentPublicRegistration, state.registration_request_id) is not None
+            if is_public:
+                values = {}
+            return _enrollment_form(request, enrollment, values, public_application=is_public)
     except AuthenticationFailed:
         return _no_store(RedirectResponse("/parent-portal/register/status?state=invalid", status_code=303))
     return _render(request, "parent_auth/identity.html", {"form_error": ""})
 
 
-def _enrollment_form(request, enrollment, values, error="", status_code=200):
+def _enrollment_form(request, enrollment, values, error="", status_code=200, *, public_application=False):
     return _render(request, "parent_auth/enrollment.html", {
         "enrollment": enrollment, "values": values, "form_error": error,
         "child_fields": CHILD_FIELDS, "guardian_fields": GUARDIAN_FIELDS,
+        "public_application": public_application,
     }, status_code)
 
 
@@ -258,7 +308,8 @@ async def enrollment_submit(request: Request, session: Session = Depends(get_ses
     except AuthenticationFailed:
         return _no_store(RedirectResponse("/parent-portal/register/status?state=invalid", status_code=303))
     except ValueError as exc:
-        return _enrollment_form(request, enrollment, values, str(exc), 400)
+        return _enrollment_form(request, enrollment, values, str(exc), 400, public_application=
+                                session.get(ParentPublicRegistration, enrollment.registration_request_id) is not None)
     response = _render(request, "parent_auth/enrollment_submitted.html", {})
     _clear_registration_cookie(response)
     return response
@@ -574,6 +625,49 @@ def _load_admin_account(session: Session, account_id: int) -> ParentAccount:
     return account
 
 
+@router.get("/parent-accounts/registration-qr", response_class=HTMLResponse)
+def common_registration_qr_page(request: Request, session: Session = Depends(get_session),
+                                current_user=Depends(get_current_staff_user)):
+    _admin_actor(session, current_user)
+    return _render_staff(request, "parent_auth/registration_qr.html", {
+        "current_user": current_user, "accepting": public_registration_enabled(session),
+        "registration_url": public_registration_url(),
+    })
+
+
+@router.post("/parent-accounts/registration-qr")
+def common_registration_settings(enabled: str = Form(...), session: Session = Depends(get_session),
+                                 current_user=Depends(get_current_staff_user)):
+    actor = _admin_actor(session, current_user)
+    if enabled not in {"yes", "no"}:
+        raise HTTPException(400, "受付状態を選択してください")
+    from models import AuthenticationEvent
+    from time_utils import utc_now
+    settings = session.get(ParentPublicRegistrationSettings, 1) or ParentPublicRegistrationSettings()
+    settings.enabled = enabled == "yes"
+    settings.updated_by_user_id = actor.id
+    settings.updated_at = utc_now()
+    session.add(settings)
+    session.add(AuthenticationEvent(
+        event_type="parent_public_registration_setting", principal_type="staff", staff_user_id=actor.id,
+        result="success", reason_code="enabled" if settings.enabled else "disabled",
+    ))
+    session.commit()
+    return RedirectResponse("/parent-accounts/registration-qr", status_code=303)
+
+
+@router.get("/parent-accounts/registration-qr.svg")
+def common_registration_qr_image(session: Session = Depends(get_session),
+                                current_user=Depends(get_current_staff_user)):
+    _admin_actor(session, current_user)
+    import qrcode
+    from qrcode.image.svg import SvgPathFillImage
+    qr = qrcode.make(public_registration_url(), image_factory=SvgPathFillImage, border=4)
+    response = Response(qr.to_string(), media_type="image/svg+xml")
+    response.headers["Content-Disposition"] = 'inline; filename="parent-registration-qr.svg"'
+    return _no_store(response)
+
+
 @router.get("/parent-accounts/enrollment/new", response_class=HTMLResponse)
 def enrollment_invite_page(request: Request, child_id: int | None = None, guardian_order: int | None = None,
                            session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
@@ -688,6 +782,10 @@ def admin_parent_auth_page(
             "credential": credential,
             "registrations": registrations,
             "enrollments": {str(item.id): session.get(ParentEnrollment, item.id) for item in registrations},
+            "public_registrations": {str(item.id) for item in registrations if session.get(ParentPublicRegistration, item.id)},
+            "public_registration_targets": public_registration_targets(session) if any(
+                item.status == "pending_review" and session.get(ParentPublicRegistration, item.id) for item in registrations
+            ) else [],
             "enrollment_pending": bool(latest_enrollment(session, account_id) and not latest_enrollment(session, account_id).applied_at),
             "latest_enrollment": latest_enrollment(session, account_id),
             "enrollment_field_labels": FIELD_LABELS,
@@ -770,6 +868,7 @@ def admin_review(
     decision: str = Form(...),
     reason: str = Form(...),
     enrollment_confirmed: str = Form(""),
+    public_child_target: str = Form(""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -785,6 +884,7 @@ def admin_review(
             approve=decision == "approve",
             reason=reason,
             enrollment_confirmed=enrollment_confirmed == "yes",
+            public_child_target=public_child_target,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

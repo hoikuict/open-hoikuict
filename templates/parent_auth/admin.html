@@ -141,6 +141,7 @@
     <div class="mt-4 space-y-3">
       {% for registration in registrations %}
       {% set enrollment = enrollments.get(registration.id|string) %}
+      {% set public_application = registration.id|string in public_registrations|default([]) %}
       <article id="registration-{{ registration.id }}" class="scroll-mt-6 rounded-lg border border-slate-200 p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="font-semibold text-slate-900">申請 {{ loop.revindex }}</p>
@@ -150,7 +151,7 @@
         </div>
         {% if registration.submitted_at %}<p class="mt-2 text-xs text-slate-500">提出: {{ registration.submitted_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</p>{% endif %}
         {% if enrollment %}
-        <p class="mt-3 text-sm font-semibold">初回入力の依頼：{{ enrollment.child_name }}さん</p>
+        <p class="mt-3 text-sm font-semibold">{{ '共通QRからの初回申請' if public_application else '初回入力の依頼' }}：{{ enrollment.child_name }}さん</p>
         {% if enrollment.child_id %}<a href="/children/{{ enrollment.child_id }}" class="mt-2 inline-block text-sm text-indigo-700 underline">現在の園児・家族情報を確認</a>{% endif %}
         {% if enrollment.submitted_data %}
         <p class="mt-2 text-sm text-slate-600">招待先と子どもの名前、提出された情報が正しいことを確認してください。保護者氏名・生年月日は今回初めて入力された情報です。</p>
@@ -171,6 +172,16 @@
         {% if registration.status == 'pending_review' %}
         <form class="mt-4 border-t border-slate-200 pt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/registrations/{{ registration.id }}/review">
           <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+          {% if public_application %}
+          <label class="mb-4 block text-sm font-semibold text-slate-700">承認先の園児・保護者
+            <select name="public_child_target" class="mt-2 w-full rounded border border-slate-300 bg-white px-3 py-2">
+              <option value="">承認する場合は選択してください</option>
+              {% for target in public_registration_targets|default([]) %}<option value="{{ target.value }}">{{ target.label }}</option>{% endfor %}
+              <option value="new">台帳にいないため、新しい園児・家族を登録する</option>
+            </select>
+          </label>
+          <p class="mb-4 text-sm text-slate-600">氏名・生年月日と本人との関係を確認して選択してください。既存の園児を選ぶと、選択した保護者の登録に反映します。</p>
+          {% endif %}
           <label class="block text-sm font-semibold text-slate-700">確認理由
             <textarea name="reason" required rows="2" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="照合内容と確認方法を記録してください"></textarea>
           </label>

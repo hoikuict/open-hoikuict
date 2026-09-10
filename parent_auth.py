@@ -49,6 +49,7 @@ from models import (
     ParentMailDelivery,
     ParentPushSubscription,
     ParentPushSubscriptionStatus,
+    ParentPublicRegistration,
     ParentRegistrationRequest,
     ParentRegistrationSession,
     PasswordCredential,
@@ -326,6 +327,8 @@ def issue_parent_invitation(
     if enrollment:
         enrollment.registration_request_id = registration.id
         session.add(enrollment)
+        if previous and session.get(ParentPublicRegistration, previous.id):
+            session.add(ParentPublicRegistration(registration_request_id=registration.id))
     operation = "invitation_resend" if previous else "invitation_issue"
     session.add(
         ParentCredentialProvisioningAudit(
@@ -418,6 +421,9 @@ def _queue_registration_mail(
         if session.get(ParentEnrollment, registration.id):
             subject = "入園時の情報入力のお願い"
             body = f"入園に必要なお子さま・保護者・連絡先の情報をご入力ください。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。"
+        if session.get(ParentPublicRegistration, registration.id):
+            subject = "保護者アカウント 初回申請のメール確認"
+            body = f"保護者アカウントの初回申請を受け付けました。次のリンクからお子さま・保護者・連絡先の情報をご入力ください。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。お心当たりがない場合は、このメールを破棄してください。"
     else:
         link = f"{_registration_base_url()}/parent-portal/register/complete#{raw_token}"
         subject = "保護者ポータル パスワード設定のご案内"
@@ -613,6 +619,14 @@ def exchange_invitation_token(session: Session, raw_token: str) -> str:
         raise AuthenticationFailed("招待リンクを確認してください")
     if account.status != ParentAccountStatus.active:
         raise AuthenticationFailed("招待リンクを確認してください")
+    claimed = session.execute(update(ParentRegistrationRequest).where(
+        ParentRegistrationRequest.id == registration.id,
+        ParentRegistrationRequest.invitation_token_hash == token_hash(raw_token),
+        ParentRegistrationRequest.status == "invited",
+    ).values(invitation_token_hash=None, updated_at=now).execution_options(synchronize_session=False))
+    if claimed.rowcount != 1:
+        session.rollback()
+        raise AuthenticationFailed("招待リンクを確認してください")
     raw_state = _issue_registration_session(
         session,
         parent_account_id=registration.parent_account_id,
@@ -747,6 +761,7 @@ def review_parent_registration(
     approve: bool,
     reason: str,
     enrollment_confirmed: bool = False,
+    public_child_target: str = "",
 ) -> str | None:
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
@@ -764,6 +779,8 @@ def review_parent_registration(
             if not enrollment_confirmed:
                 raise ValueError("初回入力の内容と保護者・園児の対応を確認してください")
             from parent_enrollment import apply_enrollment
+            from parent_public_registration import select_public_registration_target
+            select_public_registration_target(session, registration, public_child_target)
             apply_enrollment(session, registration, account, actor_user)
         elif not (
             registration.guardian_name_matched
