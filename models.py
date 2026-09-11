@@ -970,6 +970,60 @@ class AttendancePickupHistory(SQLModel, table=True):
     changed_at: datetime = Field(default_factory=utc_now)
 
 
+class AttendanceCorrection(SQLModel, table=True):
+    __tablename__ = "attendance_corrections"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
+    operation: str
+    reason: str
+    previous_values: dict = Field(sa_column=Column(JSON))
+    previous_charge: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    changed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    changed_by_name: str
+    changed_at: datetime = Field(default_factory=utc_now)
+
+
+class GuardianTerminalStatus(SQLModel, table=True):
+    __tablename__ = "guardian_terminal_status"
+    device_id: str = Field(primary_key=True, max_length=64)
+    label: str = Field(default="保護者端末", max_length=100)
+    monitoring_enabled: bool = Field(default=True)
+    start_hour: int = Field(default=7)
+    end_hour: int = Field(default=19)
+    last_seen_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class DocumentReviewRequest(SQLModel, table=True):
+    __tablename__ = "document_review_requests"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(max_length=200)
+    body: str = Field(default="")
+    requested_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    requested_by_name: str
+    status: str = Field(default="pending", index=True)
+    attachments: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
+    decision_note: str = Field(default="")
+    decided_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    decided_by_name: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentEmailPreference(SQLModel, table=True):
+    __tablename__ = "parent_email_preferences"
+    parent_account_id: int = Field(primary_key=True, foreign_key="parent_accounts.id")
+    attendance_confirmation_enabled: bool = Field(default=False)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentNotificationEmail(SQLModel, table=True):
+    __tablename__ = "parent_notification_emails"
+    notification_id: int = Field(primary_key=True, foreign_key="parent_notifications.id")
+    mail_id: uuid.UUID = Field(foreign_key="parent_mail_deliveries.id", unique=True, index=True)
+    expires_at: datetime
+
+
 class ExtendedCareFeeRule(SQLModel, table=True):
     __tablename__ = "extended_care_fee_rules"
 

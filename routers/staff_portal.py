@@ -75,7 +75,7 @@ def _render_staff_home(
     now = utc_now()
     local_current = localize_datetime(now, staff_user.timezone)
     target_date = local_current.date()
-    show_all = staff_user.staff_role == "admin" and scope == "all"
+    show_all = scope == "all"
 
     assignment_views = []
     classrooms = []
@@ -288,6 +288,12 @@ def _render_staff_home(
                 "url": f"/parent-accounts/{registration.parent_account_id}/authentication#registration-{registration.registration_id}",
             }
         )
+    if current_user.is_admin:
+        from models import DocumentReviewRequest
+        for item in session.exec(select(DocumentReviewRequest).where(DocumentReviewRequest.status == "pending")).all():
+            approval_queue_items.append({"kind": "document_review", "kind_label": "文書の確認依頼",
+                "title": item.title, "requester_name": item.requested_by_name, "requested_at": item.created_at,
+                "url": f"/document-reviews/{item.id}"})
     approval_queue_items.sort(key=lambda item: item["requested_at"], reverse=True)
 
     attendance_attention_count = sum(item.attention_count for item in attendance_summaries)
@@ -297,6 +303,8 @@ def _render_staff_home(
     assignment_remaining_count = max(len(assignment_names) - len(display_assignment_names), 0)
     classroom_remaining_count = max(len(classrooms) - len(attendance_summaries), 0)
 
+    from terminal_monitor_service import terminal_statuses
+    terminal_alerts = [row for row in terminal_statuses(session) if row["stale"]] if current_user.is_admin else []
     response = templates.TemplateResponse(
         request,
         "portal/index.html",
@@ -305,6 +313,7 @@ def _render_staff_home(
             "current_user": current_user,
             "staff_record": staff_user,
             "greeting": greeting_for(local_current),
+            "terminal_alerts": terminal_alerts,
             "portal_date": format_portal_date(target_date),
             "target_date": target_date,
             "updated_time": local_current.strftime("%H:%M"),
@@ -332,7 +341,7 @@ def _render_staff_home(
             "approval_queue_errors": approval_queue_errors,
             "present_count": sum(item.present_count for item in attendance_summaries),
             "show_all": show_all,
-            "can_show_all": staff_user.staff_role == "admin",
+            "can_show_all": True,
         },
     )
     return _no_store(response)

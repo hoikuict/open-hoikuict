@@ -745,6 +745,10 @@ def admin_parent_auth_page(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
+    return _admin_auth_response(request, account_id, session, current_user)
+
+
+def _admin_auth_response(request, account_id, session, current_user, *, review_error="", review_values=None, status_code=200):
     actor = _admin_actor(session, current_user)
     account = _load_admin_account(session, account_id)
     credential = session.exec(
@@ -795,11 +799,13 @@ def admin_parent_auth_page(
             "invitation_children": [link.child for link in account.child_links if link.child],
             "registration_status_labels": REGISTRATION_STATUS_LABELS,
             "action_code": "",
-            "form_error": "",
+            "form_error": review_error,
+            "review_values": review_values or {},
             "proposed_email": request.query_params.get("proposed_email")
             or account.email,
             "notice": request.query_params.get("notice", ""),
         },
+        status_code=status_code,
     )
 
 
@@ -863,6 +869,7 @@ def admin_invite(
     "/parent-accounts/{account_id}/authentication/registrations/{registration_id}/review"
 )
 def admin_review(
+    request: Request,
     account_id: int,
     registration_id: UUID,
     decision: str = Form(...),
@@ -887,6 +894,13 @@ def admin_review(
             public_child_target=public_child_target,
         )
     except ValueError as exc:
+        session.rollback()
+        if "text/html" in request.headers.get("accept", ""):
+            return _admin_auth_response(request, account_id, session, current_user,
+                review_error=str(exc), status_code=400, review_values={
+                    "registration_id": str(registration_id), "reason": reason,
+                    "public_child_target": public_child_target, "enrollment_confirmed": enrollment_confirmed,
+                })
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return RedirectResponse(
         f"/parent-accounts/{account_id}/authentication", status_code=303

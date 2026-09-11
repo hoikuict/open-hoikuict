@@ -493,6 +493,15 @@ async def staff_auth_http_exception_handler(
             original_path = f"{original_path}?{request.url.query}"
         query = urlencode({"redirect": original_path})
         return RedirectResponse(url=f"/staff/login?{query}", status_code=303)
+    if accepts_html and exc.status_code in {400, 403, 404, 409, 410} and not request.url.path.startswith("/api/"):
+        from template_utils import create_templates
+        response = create_templates().TemplateResponse(request, "errors/request.html", {
+            "message": str(exc.detail),
+            "parent_portal_mode": request.url.path.startswith("/parent-portal/"),
+            "return_url": "/parent-portal/" if request.url.path.startswith("/parent-portal/") else "/",
+        }, status_code=exc.status_code)
+        response.headers["Cache-Control"] = "no-store"
+        return response
     return await http_exception_handler(request, exc)
 
 

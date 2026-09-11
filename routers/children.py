@@ -296,8 +296,8 @@ def list_children(
     request: Request,
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
-    sort_by: str = Query(default="name"),
-    sort_order: str = Query(default="asc"),
+    sort_by: str = Query(default="birth_date"),
+    sort_order: str = Query(default="desc"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -342,8 +342,8 @@ def children_table(
     request: Request,
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
-    sort_by: str = Query(default="name"),
-    sort_order: str = Query(default="asc"),
+    sort_by: str = Query(default="birth_date"),
+    sort_order: str = Query(default="desc"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):

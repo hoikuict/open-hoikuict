@@ -184,7 +184,7 @@ class ParentPushApiTests(unittest.TestCase):
 
         self.assertEqual(
             response.json(),
-            {"push_enabled": True, "attendance_confirmation_enabled": True},
+            {"push_enabled": True, "attendance_confirmation_enabled": True, "email_enabled": False},
         )
         with Session(self.engine) as session:
             self.assertEqual(session.exec(select(ParentPushPreference)).all(), [])

@@ -522,6 +522,16 @@ def dispatch_pending_parent_mail(
         delivery = session.get(ParentMailDelivery, delivery_id)
         if delivery is None:
             continue
+        if delivery.message_type == "attendance_confirmation":
+            from parent_notification_email_service import notification_mail_is_current
+            if not notification_mail_is_current(session, delivery):
+                delivery.status = "cancelled"
+                delivery.failure_code = "notification_no_longer_valid"
+                delivery.next_retry_at = None
+                delivery.lease_expires_at = None
+                session.add(delivery)
+                session.commit()
+                continue
         if delivery.message_type in PARENT_CODE_MAIL_TYPES and not _action_code_mail_is_current(session, delivery):
             delivery.status = "cancelled"
             delivery.failure_code = "action_code_no_longer_valid"

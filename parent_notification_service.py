@@ -85,6 +85,9 @@ def notify_attendance_confirmation_needed(
                 created_at=created_at,
             ),
         )
+        from parent_notification_email_service import queue_notification_email
+        queue_notification_email(session, notification, attendance_confirmation_push_expires_at(
+            target_date=target_date, created_at=created_at))
         notifications.append(notification)
     return notifications
 

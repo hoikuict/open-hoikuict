@@ -22,6 +22,7 @@ from models import (
     ParentNotificationDelivery,
     NotificationDeliveryChannel,
     ParentPushDeliveryTarget,
+    ParentEmailPreference,
 )
 from parent_push_subscription_service import (
     PARENT_PUSH_DEVICE_COOKIE,
@@ -49,6 +50,7 @@ from security_config import (
 from parent_push_validation import validate_production_subscription
 from template_utils import create_templates
 from time_utils import utc_now
+from parent_notification_email_service import email_enabled
 
 
 router = APIRouter(prefix="/parent-portal/push", tags=["parent_push"])
@@ -104,6 +106,7 @@ class ParentPushEndpointInput(BaseModel):
 class ParentPushPreferenceInput(BaseModel):
     push_enabled: bool
     attendance_confirmation_enabled: bool
+    email_enabled: bool | None = None
 
 
 class ParentPushReceiptInput(BaseModel):
@@ -131,6 +134,7 @@ def push_settings(
             "current_parent_user": parent,
             "parent_portal_mode": True,
             "preference": preference,
+            "email_preference": session.get(ParentEmailPreference, parent.id),
             "active_subscriptions": active_subscriptions,
             "vapid_key_available": bool(parent_push_vapid_public_key()),
             "push_available": _push_available(),
@@ -302,6 +306,7 @@ def get_preferences(
         "attendance_confirmation_enabled": (
             preference.attendance_confirmation_enabled if preference else True
         ),
+        "email_enabled": email_enabled(session, parent.id),
     }
 
 
@@ -451,11 +456,17 @@ def save_preferences(
         push_enabled=payload.push_enabled,
         attendance_confirmation_enabled=payload.attendance_confirmation_enabled,
     )
+    if payload.email_enabled is not None:
+        email_preference = session.get(ParentEmailPreference, parent.id) or ParentEmailPreference(parent_account_id=parent.id)
+        email_preference.attendance_confirmation_enabled = payload.email_enabled
+        email_preference.updated_at = utc_now()
+        session.add(email_preference)
     session.commit()
     session.refresh(preference)
     return {
         "push_enabled": preference.push_enabled,
         "attendance_confirmation_enabled": preference.attendance_confirmation_enabled,
+        "email_enabled": email_enabled(session, parent.id),
     }
 
 

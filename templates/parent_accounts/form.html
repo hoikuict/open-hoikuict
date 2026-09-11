@@ -85,8 +85,10 @@
 
     <fieldset class="rounded-lg border border-slate-200 p-4">
       <legend class="px-2 text-sm font-semibold text-slate-700">閲覧を許可する園児（明示的な紐付け）</legend>
+      <p class="text-sm text-slate-600">選択した家族のきょうだいを表示します。閲覧を許可する園児にチェックしてください。既存の許可は保持されます。</p>
+      <button type="button" id="select-family-children" class="mt-2 rounded border border-indigo-300 px-3 py-2 text-indigo-700">この家族の園児をまとめて選択</button>
       <div class="mt-2 grid gap-2 md:grid-cols-2">
-      {% for child in children %}<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="child_ids" value="{{ child.id }}" {% if child.id in selected_child_ids %}checked{% endif %}> {{ child.full_name }}{% if child.classroom %} / {{ child.classroom.name }}{% endif %}</label>{% endfor %}
+      {% for child in children %}<label class="flex items-center gap-2 text-sm" data-family-child="{{ child.family_id or '' }}"><input type="checkbox" name="child_ids" value="{{ child.id }}" {% if child.id in selected_child_ids %}checked{% endif %}> {{ child.full_name }}{% if child.classroom %} / {{ child.classroom.name }}{% endif %}</label>{% endfor %}
       </div>
     </fieldset>
 
@@ -101,6 +103,18 @@
 (() => {
   const choices = JSON.parse(document.getElementById('guardian-account-choices').textContent);
   const selector = document.getElementById('guardian-link');
+  const familyInput = selector.form.elements.family_id;
+  const rows = [...document.querySelectorAll('[data-family-child]')];
+  const showFamily = () => rows.forEach(row => {
+    row.hidden = Boolean(familyInput.value && row.dataset.familyChild !== familyInput.value && !row.querySelector('input').checked);
+    row.style.display = row.hidden ? 'none' : '';
+  });
+  document.getElementById('select-family-children').addEventListener('click', () => {
+    if (!familyInput.value) return;
+    rows.forEach(row => { if (row.dataset.familyChild === familyInput.value) row.querySelector('input').checked = true; });
+    showFamily();
+  });
+  familyInput.addEventListener('change', showFamily);
   selector.addEventListener('change', () => {
     const choice = choices.find(item => item.value === selector.value);
     if (!choice) return;
@@ -109,7 +123,9 @@
     for (const [name, value] of Object.entries(choice.fields)) {
       if (form.elements[name]) form.elements[name].value = value || '';
     }
+    showFamily();
   });
+  showFamily();
 })();
 </script>
 {% endblock %}

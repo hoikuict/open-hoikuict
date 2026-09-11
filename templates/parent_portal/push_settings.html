@@ -50,6 +50,7 @@
 
   <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h2 class="text-lg font-semibold text-slate-900">受け取る通知</h2>
+    <p class="mt-2 text-sm text-slate-600">出欠確認のお願いは、プッシュとメールの両方で受け取れます。両方を希望する場合は、それぞれにチェックして保存してください。</p>
     <form id="preference-form" class="mt-4 space-y-4">
       <label class="flex items-start gap-3">
         <input id="push-enabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600" {% if not preference or preference.push_enabled %}checked{% endif %}>
@@ -57,8 +58,9 @@
       </label>
       <label class="flex items-start gap-3">
         <input id="attendance-enabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600" {% if not preference or preference.attendance_confirmation_enabled %}checked{% endif %}>
-        <span><strong class="block text-sm text-slate-900">出欠確認のお願い</strong><span class="text-sm text-slate-500">当日の出欠確認が必要な場合に受け取ります。</span></span>
+        <span><strong class="block text-sm text-slate-900">出欠確認をプッシュで受け取る</strong><span class="text-sm text-slate-500">当日の出欠確認が必要な場合に受け取ります。</span></span>
       </label>
+      <label class="flex items-start gap-3"><input id="email-enabled" type="checkbox" class="mt-1 h-4 w-4" {% if email_preference and email_preference.attendance_confirmation_enabled %}checked{% endif %}><span><strong class="block text-sm">出欠確認をメールでも受け取る</strong><span class="text-sm text-slate-500">登録メールアドレスに送ります。プッシュを使わず、メールのみ受け取ることもできます。</span></span></label>
       <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">設定を保存</button>
       <span id="preference-message" class="ml-3 text-sm text-slate-600"></span>
     </form>
@@ -185,7 +187,7 @@
 
   document.getElementById('preference-form').addEventListener('submit', async event => {
     event.preventDefault();
-    const response = await jsonRequest('/parent-portal/push/preferences', {method: 'POST', body: JSON.stringify({push_enabled: document.getElementById('push-enabled').checked, attendance_confirmation_enabled: document.getElementById('attendance-enabled').checked})});
+    const response = await jsonRequest('/parent-portal/push/preferences', {method: 'POST', body: JSON.stringify({push_enabled: document.getElementById('push-enabled').checked, attendance_confirmation_enabled: document.getElementById('attendance-enabled').checked, email_enabled: document.getElementById('email-enabled').checked})});
     document.getElementById('preference-message').textContent = response.ok ? '保存しました。' : '保存できませんでした。';
   });
 

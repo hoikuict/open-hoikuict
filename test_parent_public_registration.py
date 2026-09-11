@@ -222,6 +222,23 @@ def test_email_verify_submit_explicit_approval_and_login(pilot):
     assert client.get("/parent-portal/children/profile").status_code == 200
 
 
+def test_browser_review_error_preserves_inputs_and_pending_application(pilot):
+    client, engine, _, _ = pilot
+    enable(pilot)
+    registration_id, account_id, _ = submit(pilot)
+    response = client.post(
+        f"/parent-accounts/{account_id}/authentication/registrations/{registration_id}/review",
+        data={"decision": "approve", "reason": "面談で本人確認済み", "enrollment_confirmed": "yes", "public_child_target": ""},
+        headers={"Accept": "text/html"},
+    )
+    assert response.status_code == 400 and "text/html" in response.headers["content-type"]
+    assert "面談で本人確認済み" in response.text and 'role="alert"' in response.text
+    assert response.context["review_values"]["enrollment_confirmed"] == "yes"
+    with Session(engine) as session:
+        assert session.get(ParentRegistrationRequest, registration_id).status == "pending_review"
+        assert not session.exec(select(ParentChildLink)).all()
+
+
 def test_approval_can_link_an_existing_child_without_duplicate_records(pilot):
     client, engine, ids, _ = pilot
     enable(pilot)

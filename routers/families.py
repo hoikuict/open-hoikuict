@@ -220,6 +220,7 @@ def _fill_linked_guardian_emails(
 @router.get("/", response_class=HTMLResponse)
 def family_list(
     request: Request,
+    q: str = "",
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -228,6 +229,16 @@ def family_list(
         .options(selectinload(Family.children), selectinload(Family.parent_accounts))
         .order_by(Family.family_name, Family.id)
     ).all()
+    query = q.strip().casefold()
+    if query:
+        families = [family for family in families if query in " ".join([
+            family.family_name,
+            *(child.full_name for child in family.children),
+            *(f"{child.last_name_kana} {child.first_name_kana}" for child in family.children),
+            *(account.display_name for account in family.parent_accounts),
+            *(f"{profile.get('last_name', '')} {profile.get('first_name', '')}"
+              for profile in family.guardian_profiles()),
+        ]).casefold()]
     return templates.TemplateResponse(
         request,
         "families/list.html",
@@ -235,6 +246,7 @@ def family_list(
             "request": request,
             "current_user": current_user,
             "families": families,
+            "q": q,
             "family_parent_accounts_by_id": {
                 family.id: {
                     account.id: account for account in family.parent_accounts

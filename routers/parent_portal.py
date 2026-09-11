@@ -1408,6 +1408,8 @@ def parent_survey_form(
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
     survey = _load_parent_survey(session, survey_id)
+    if survey and survey_matches_parent_targets(survey, current_parent_user) and not survey_is_open(survey, utc_now()) and "text/html" in request.headers.get("accept", ""):
+        raise HTTPException(status_code=410, detail="このアンケートは受付期間外です。締切後は回答を変更できません。アンケート一覧へ戻ってください。")
     if not survey or not survey_is_open(survey, utc_now()) or not survey_matches_parent_targets(survey, current_parent_user):
         raise HTTPException(status_code=404, detail="アンケートが見つかりません")
 
@@ -1480,6 +1482,8 @@ async def save_parent_survey_answer(
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
     survey = _load_parent_survey(session, survey_id)
+    if survey and survey_matches_parent_targets(survey, current_parent_user) and not survey_is_open(survey, utc_now()) and "text/html" in request.headers.get("accept", ""):
+        raise HTTPException(status_code=410, detail="このアンケートは受付期間外です。締切後は回答を変更できません。アンケート一覧へ戻ってください。")
     if not survey or not survey_is_open(survey, utc_now()) or not survey_matches_parent_targets(survey, current_parent_user):
         raise HTTPException(status_code=404, detail="アンケートが見つかりません")
 

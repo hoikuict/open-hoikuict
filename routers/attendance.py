@@ -17,6 +17,8 @@ from sqlmodel import Session, select
 
 from auth import Role, get_current_staff_user, require_can_edit
 from attendance_checks_service import sync_attendance_alarm
+from attendance_correction_service import cancel_punch, correction_revision
+from models import AttendanceCorrection
 from database import get_session
 from extended_care_fee_service import charge_status_label, recalculate_attendance_charge, calculation_issues_for_records
 from models import AttendanceRecord, AttendancePickupHistory, Child, ChildStatus, Classroom, ExtendedCareCharge, ExtendedCareChargeStatus
@@ -41,6 +43,7 @@ VALID_SORT_ORDERS = {"asc", "desc"}
 NOTICE_MESSAGES = {
     "export_admin_required": "CSV/Excel出力は管理者のみ利用できます。",
     "pickup_updated": "お迎え予定を保存しました。",
+    "punch_cancelled": "打刻を取り消しました。取消履歴を保存しました。残っている出欠アラームも確認してください。",
 }
 
 
@@ -885,6 +888,48 @@ def save_pickup(request: Request, child_id: int, date: str = Form(...),
         session.add(history)
         session.commit()
     return RedirectResponse(_build_redirect_url(day, return_query) + "&notice=pickup_updated", status_code=303)
+
+
+def _correction_page(request, session, current_user, child, record, return_query, error="", reason="", status_code=200):
+    history = session.exec(select(AttendanceCorrection).where(AttendanceCorrection.attendance_record_id == record.id)
+        .order_by(AttendanceCorrection.id.desc())).all()
+    return templates.TemplateResponse(request, "attendance_correction.html", {
+        "current_user": current_user, "child": child, "record": record, "history": history,
+        "revision": correction_revision(record), "return_query": return_query,
+        "return_url": _build_redirect_url(record.attendance_date, return_query), "error": error, "reason": reason,
+    }, status_code=status_code)
+
+
+def _correction_record(session, child_id, day):
+    child = session.get(Child, child_id)
+    record = session.exec(select(AttendanceRecord).where(AttendanceRecord.child_id == child_id,
+        AttendanceRecord.attendance_date == day)).first()
+    if child is None or record is None:
+        raise HTTPException(404, "打刻記録が見つかりません。")
+    return child, record
+
+
+@router.get("/{child_id}/correction", response_class=HTMLResponse)
+def correction_page(request: Request, child_id: int, date: str, return_query: str = "",
+                    session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    child, record = _correction_record(session, child_id, _parse_target_date(date))
+    return _correction_page(request, session, current_user, child, record, return_query)
+
+
+@router.post("/{child_id}/correction", response_class=HTMLResponse)
+def correction_save(request: Request, child_id: int, date: str = Form(...), operation: str = Form(...),
+                    reason: str = Form(""), revision: str = Form(...), return_query: str = Form(""),
+                    session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    child, record = _correction_record(session, child_id, _parse_target_date(date))
+    try:
+        cancel_punch(session, record, operation=operation, reason=reason, revision=revision, actor=current_user)
+    except ValueError as exc:
+        session.rollback()
+        session.refresh(record)
+        return _correction_page(request, session, current_user, child, record, return_query, str(exc), reason, 409)
+    return RedirectResponse(_build_redirect_url(record.attendance_date, return_query) + "&notice=punch_cancelled", status_code=303)
 
 
 @router.post("/{child_id}/check-in")

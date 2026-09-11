@@ -27,6 +27,7 @@
       <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 2xl:hidden">打刻</div>
       <div class="text-sm font-medium text-slate-700">
         {{ punch_label }}{% if row.check_in_at %} ({{ row.check_in_at.strftime("%H:%M") }}){% endif %}
+        {% if row.has_check_in and current_user.can_edit %}<a class="block text-xs text-rose-700 underline" href="/attendance/{{ row.child.id }}/correction?date={{ target_date_value }}">誤打刻を取り消す</a>{% endif %}
       </div>
     </div>
 

@@ -3,6 +3,7 @@
 
 {% block content %}
 <div class="mx-auto max-w-7xl space-y-6">
+  {% if current_user.is_admin %}<div class="space-y-2" hx-get="/settings/guardian-terminals/alert" hx-trigger="every 30s" hx-swap="innerHTML">{% include "guardian/_monitor_alert.html" %}</div>{% endif %}
   <section class="overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 text-white shadow-xl sm:p-8">
     <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
       <div>
@@ -139,7 +140,7 @@
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Attendance</p>
-          <h2 class="mt-1 text-xl font-bold text-slate-900">担当クラスの出席</h2>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">{{ '全クラスの出席' if show_all else '担当クラスの出席' }}</h2>
         </div>
         {% if can_show_all %}
         <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
@@ -267,6 +268,7 @@
         ('出欠確認', '/attendance-checks/'),
         ('日次連絡', '/daily-contacts'),
         ('カレンダー', '/calendar'),
+        ('文書の確認依頼', '/document-reviews/'),
         ('職員ルーム', '/staff-rooms/'),
         ('指導計画', '/plans/')
       ] %}

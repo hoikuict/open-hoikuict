@@ -269,7 +269,7 @@ def _render_thread_panel(
     replies = _thread_replies(session, parent_message.id)
     return templates.TemplateResponse(
         request,
-        "staff_rooms/_thread_panel.html",
+        "staff_rooms/_thread_panel.html" if request.headers.get("HX-Request") == "true" else "staff_rooms/thread.html",
         {
             "request": request,
             "parent_message": parent_message,

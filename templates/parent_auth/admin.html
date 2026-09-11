@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}保護者認証管理{% endblock %}
 {% block content %}
+{% if form_error %}<p role="alert" class="mb-5 rounded-xl bg-rose-50 p-5 font-semibold text-rose-800">{{ form_error }}</p>{% endif %}
 {% set latest_registration = registrations[0] if registrations else none %}
 {% if credential and credential.disabled_at %}
   {% set authentication_status = "停止中" %}
@@ -170,25 +171,26 @@
         </dl>
         {% endif %}
         {% if registration.status == 'pending_review' %}
+        {% set saved_review = review_values|default({}) if (review_values|default({})).get("registration_id") == registration.id|string else {} %}
         <form class="mt-4 border-t border-slate-200 pt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/registrations/{{ registration.id }}/review">
           <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
           {% if public_application %}
           <label class="mb-4 block text-sm font-semibold text-slate-700">承認先の園児・保護者
             <select name="public_child_target" class="mt-2 w-full rounded border border-slate-300 bg-white px-3 py-2">
               <option value="">承認する場合は選択してください</option>
-              {% for target in public_registration_targets|default([]) %}<option value="{{ target.value }}">{{ target.label }}</option>{% endfor %}
-              <option value="new">台帳にいないため、新しい園児・家族を登録する</option>
+              {% for target in public_registration_targets|default([]) %}<option value="{{ target.value }}" {% if saved_review.get("public_child_target") == target.value %}selected{% endif %}>{{ target.label }}</option>{% endfor %}
+              <option value="new" {% if saved_review.get("public_child_target") == "new" %}selected{% endif %}>台帳にいないため、新しい園児・家族を登録する</option>
             </select>
           </label>
           <p class="mb-4 text-sm text-slate-600">氏名・生年月日と本人との関係を確認して選択してください。既存の園児を選ぶと、選択した保護者の登録に反映します。</p>
           {% endif %}
           <label class="block text-sm font-semibold text-slate-700">確認理由
-            <textarea name="reason" required rows="2" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="照合内容と確認方法を記録してください"></textarea>
+            <textarea name="reason" required rows="2" class="mt-2 w-full rounded border border-slate-300 px-3 py-2" placeholder="照合内容と確認方法を記録してください">{{ saved_review.get("reason", "") }}</textarea>
           </label>
           <div class="mt-3 flex flex-wrap gap-2">
-            {% if enrollment %}<label class="flex w-full items-start gap-2 text-sm"><input type="checkbox" name="enrollment_confirmed" value="yes" class="mt-1">招待先・保護者と園児の対応・入力内容を確認しました。承認すると台帳へ反映し、対象園児の閲覧を許可します。</label>{% endif %}
-            <button name="decision" value="approve" class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">承認</button>
-            <button name="decision" value="reject" class="rounded border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">却下</button>
+            {% if enrollment %}<label class="flex w-full items-start gap-2 text-sm"><input type="checkbox" name="enrollment_confirmed" value="yes" class="mt-1" {% if saved_review.get("enrollment_confirmed") == "yes" %}checked{% endif %}>招待先・保護者と園児の対応・入力内容を確認しました。承認すると台帳へ反映し、対象園児の閲覧を許可します。</label>{% endif %}
+            <button name="decision" value="approve" onclick="if(this.form.public_child_target) this.form.public_child_target.required=true" class="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">承認</button>
+            <button name="decision" value="reject" onclick="if(this.form.public_child_target) this.form.public_child_target.required=false" class="rounded border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50">却下</button>
           </div>
         </form>
         {% endif %}

@@ -115,6 +115,10 @@ class GuardianTerminalTests(unittest.TestCase):
         response = self.client.get("/guardian/terminal/status")
         self.assertEqual(response.json(), {"kiosk": True, "today": self.today})
         self.assertEqual(response.headers["cache-control"], "no-store")
+        from models import GuardianTerminalStatus
+        with Session(self.engine) as session:
+            terminal = session.exec(select(GuardianTerminalStatus)).one()
+            self.assertIsNotNone(terminal.last_seen_at)
         with patch.dict(os.environ, {"HOIKUICT_KIOSK_TOKEN": "rotated"}):
             self.assertEqual(self.client.get("/guardian/terminal/status").status_code, 404)
             self.assertIn('id="kiosk-token"', self.client.get("/guardian/terminal").text)

@@ -54,6 +54,7 @@ class ScheduleItem:
     state: str
     state_label: str
     location: str | None
+    is_all_day: bool = False
 
 
 @dataclass(slots=True)
@@ -152,7 +153,7 @@ def classroom_scope(
     show_all: bool = False,
 ) -> tuple[list[Classroom], list[AssignmentView]]:
     assignments = active_assignments(session, staff_user.id, target_date)
-    if staff_user.staff_role == "admin" and (show_all or not assignments):
+    if show_all or (staff_user.staff_role == "admin" and not assignments):
         classrooms = session.exec(
             select(Classroom).order_by(Classroom.display_order, Classroom.id)
         ).all()
@@ -166,12 +167,11 @@ def build_schedule_items(
     target_date: date,
     now: datetime,
     *,
-    limit: int = 6,
+    limit: int | None = None,
 ) -> tuple[list[ScheduleItem], int]:
     contexts = [
         item
         for item in list_calendar_contexts(session, staff_user.id, include_archived=False)
-        if item.is_visible
     ]
     occurrences = list_occurrences(
         session,
@@ -214,9 +214,10 @@ def build_schedule_items(
                 state=state,
                 state_label=state_label,
                 location=occurrence.location if occurrence.can_view_details else None,
+                is_all_day=occurrence.is_all_day,
             )
         )
-    return result, max(len(active_occurrences) - limit, 0)
+    return result, max(len(active_occurrences) - limit, 0) if limit is not None else 0
 
 
 def build_attendance_summaries(
@@ -402,4 +403,4 @@ def build_timeline_messages(
 
 
 def next_schedule_item(items: list[ScheduleItem]) -> ScheduleItem | None:
-    return next((item for item in items if item.state in {"current", "upcoming"}), None)
+    return next((item for item in items if not item.is_all_day and item.state in {"current", "upcoming"}), None)

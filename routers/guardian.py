@@ -422,7 +422,23 @@ def guardian_terminal(request: Request, session: Session = Depends(get_session))
 
 
 @router.get("/terminal/status", dependencies=[Depends(require_kiosk_access)])
-def guardian_terminal_status():
+def guardian_terminal_status(request: Request, session: Session = Depends(get_session)):
+    from kiosk_security import KIOSK_DEVICE_COOKIE, kiosk_device_cookie_is_valid
+    from models import GuardianTerminalStatus
+    from sqlalchemy.exc import IntegrityError
+    from time_utils import utc_now
+    cookie = request.cookies.get(KIOSK_DEVICE_COOKIE)
+    if kiosk_device_cookie_is_valid(cookie):
+        device_id = cookie.split(".", 1)[0]
+        terminal = session.get(GuardianTerminalStatus, device_id)
+        if terminal is None:
+            terminal = GuardianTerminalStatus(device_id=device_id, label="保護者端末 " + device_id[:6])
+        terminal.last_seen_at = utc_now()
+        session.add(terminal)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
     return {"kiosk": True, "today": local_today().isoformat()}
 
 

@@ -298,6 +298,9 @@
           </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.planned_pickup_time if row.planned_pickup_time else "—" }}</td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.pickup_person if row.pickup_person else "—" }}
+            {% if current_user and current_user.can_edit %}
+            {% if row.attendance_record_id %}<a href="/attendance/{{ row.child_id }}/correction?date={{ row.attendance_date }}&return_query={{ current_query_string|urlencode }}" class="mt-1 block text-xs text-rose-700 underline">打刻の取消・履歴</a>{% endif %}
+            {% endif %}
             {% if current_user and current_user.can_edit and row.is_enrolled and row.check_in_at %}
             <a href="/attendance/{{ row.child_id }}/pickup?date={{ row.attendance_date }}&return_query={{ current_query_string | urlencode }}" class="mt-1 block text-xs font-semibold text-indigo-700 underline">お迎え予定を変更</a>
             {% endif %}
