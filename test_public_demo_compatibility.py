@@ -5,9 +5,10 @@ import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import SQLModel, Session, select
 
 import main
 from auth import mock_auth_enabled
@@ -17,6 +18,7 @@ from models import (
     CareTimeCategory,
     Child,
     ChildCareCertification,
+    DocumentReviewRequest,
     ExtendedCareCalculationSetting,
     ExtendedCareFeeRule,
     NotificationDeliveryChannel,
@@ -27,6 +29,7 @@ from models import (
     ParentPushDeliveryTarget,
     ParentPushDeliveryTargetStatus,
     ParentPushSubscription,
+    User,
 )
 from parent_push_runtime import run_parent_push_worker_once
 from plan_docs.contracts import DocumentType
@@ -77,6 +80,21 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
         validate_runtime_security()
         self.assertTrue(mock_auth_enabled())
 
+    def test_public_demo_keeps_mock_auth_and_does_not_start_password_mail_workers(self):
+        from security_config import parent_auth_mode, staff_auth_mode
+
+        with (
+            patch.dict(os.environ, {"HOIKUICT_STAFF_AUTH_MODE": "local_password", "HOIKUICT_PARENT_AUTH_MODE": "local_password"}),
+            patch.object(main, "parent_mail_worker_loop") as parent_mail,
+            patch.object(main, "staff_mail_worker_loop") as staff_mail,
+        ):
+            with TestClient(main.app) as client:
+                self.assertEqual(client.get("/staff/login").status_code, 200)
+                self.assertEqual(staff_auth_mode(), "mock")
+                self.assertEqual(parent_auth_mode(), "mock")
+            parent_mail.assert_not_called()
+            staff_mail.assert_not_called()
+
     def test_http_clients_receive_isolated_demo_sessions(self):
         with TestClient(main.app) as client:
             first_response = client.get("/healthz")
@@ -98,7 +116,13 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                         PlanDocumentRow.document_type == DocumentType.DAILY_PLAN.value
                     )
                 ).all()
-                self.assertEqual(len(daily_plans), 6)
+                template = Path(__file__).parent / "demo_data" / "demo-template.sqlite3"
+                with sqlite3.connect(template.resolve().as_uri() + "?mode=ro", uri=True) as packaged:
+                    expected = packaged.execute(
+                        "SELECT COUNT(*) FROM plan_documents WHERE document_type = ?",
+                        (DocumentType.DAILY_PLAN.value,),
+                    ).fetchone()[0]
+                self.assertEqual(len(daily_plans), expected)
                 child = children[0]
                 self.assertIsNotNone(child)
                 child.last_name = "SessionOne"
@@ -158,6 +182,65 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
             self.assertIs(session.get_bind(), expected)
         finally:
             dependency.close()
+
+    def test_current_workflows_render_and_reviews_stay_in_their_demo_session(self):
+        from csrf import CSRF_COOKIE_NAME
+        from routers import document_reviews
+
+        with patch.object(document_reviews, "UPLOAD_ROOT", self.runtime_dir / "review-files"):
+            with TestClient(main.app, base_url="https://testserver") as client:
+                response = client.get("/staff/login")
+                first_id = response.headers["X-Demo-Session-Id"]
+                manager = get_demo_session_manager()
+                with Session(manager.get_engine(first_id)) as session:
+                    admin = session.exec(select(User).where(User.staff_role == "admin")).first()
+                    admin_id = str(admin.id)
+                headers = {"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}
+                response = client.post("/staff/login", data={"user_id": admin_id, "redirect_to": "/"}, headers=headers)
+                self.assertEqual(response.status_code, 200)
+                for path in ("/", "/document-reviews/", "/notices", "/families/", "/parent-accounts", "/staff/users", "/staff-rooms/", "/meeting-notes/", "/data-transfers/", "/extended-care-fees/settings", "/settings/guardian-terminals"):
+                    with self.subTest(path=path):
+                        response = client.get(path)
+                        self.assertEqual(response.status_code, 200)
+                        self.assertIn('href="/document-reviews/"', response.text)
+                        self.assertNotIn('href="/settings/backups"', response.text)
+                        self.assertNotRegex(response.text, r'href="/parent-accounts/[^"?]+/authentication')
+                self.assertEqual(client.get("/settings/backups").status_code, 404)
+                self.assertEqual(client.post("/settings/backups/create", headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}).status_code, 404)
+                headers = {"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}
+                response = client.post(
+                    "/document-reviews/", data={"title": "セッション内の確認依頼", "body": "架空の確認本文"},
+                    files={"attachments": ("review.txt", b"isolated attachment", "text/plain")},
+                    headers=headers,
+                )
+                self.assertEqual(response.status_code, 200)
+                review_path = response.url.path
+                self.assertIn("架空の確認本文", response.text)
+                self.assertEqual(client.get(review_path + "/attachments/0").content, b"isolated attachment")
+                response = client.post(review_path + "/decision", data={"decision": "approved", "note": "確認完了"}, headers=headers)
+                self.assertEqual(response.status_code, 200)
+                client.cookies.clear()
+                response = client.get("/staff/login")
+                second_id = response.headers["X-Demo-Session-Id"]
+                self.assertNotEqual(first_id, second_id)
+                headers = {"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}
+                client.post("/staff/login", data={"user_id": admin_id}, headers=headers)
+                self.assertEqual(client.get(review_path).status_code, 404)
+                self.assertEqual(client.get(review_path + "/attachments/0").status_code, 404)
+                with Session(manager.get_engine(second_id)) as session:
+                    self.assertEqual(session.exec(select(DocumentReviewRequest)).all(), [])
+                with Session(manager.get_engine(first_id)) as session:
+                    self.assertEqual(session.exec(select(DocumentReviewRequest)).one().status, "approved")
+
+    def test_packaged_snapshot_supports_all_current_model_columns(self):
+        main.initialize_application()
+        with sqlite3.connect(get_demo_session_manager().settings.base_db_path) as snapshot:
+            for table_name, table in SQLModel.metadata.tables.items():
+                with self.subTest(table=table_name):
+                    actual = {row[1] for row in snapshot.execute(f'PRAGMA table_info("{table_name}")')}
+                    self.assertTrue({column.name for column in table.columns} <= actual)
+            self.assertEqual(snapshot.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+            self.assertEqual(snapshot.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_packaged_demo_database_is_migrated_for_review_outcomes(self):
         main.initialize_application()

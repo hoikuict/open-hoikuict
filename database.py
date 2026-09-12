@@ -123,6 +123,24 @@ def _upgrade_parent_push_snapshot(db_path: Path) -> None:
 
 def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
     """Bring the packaged demo database up to the schema expected by this release."""
+    workflow_columns = {
+        "notices": {"body_html": "VARCHAR"},
+        "messages": {"author_user_id": "CHAR(32) REFERENCES users(id)"},
+        "data_transfer_logs": {
+            "change_metadata": "JSON NOT NULL DEFAULT '[]'",
+            "actor_id": "TEXT",
+        },
+        "plan_document_actions": {"actor_name": "VARCHAR"},
+    }
+    for table_name, additions in workflow_columns.items():
+        columns = {
+            row[1] for row in connection.execute(f"PRAGMA table_info({table_name})")
+        }
+        for column_name, column_type in additions.items():
+            if columns and column_name not in columns:
+                connection.execute(
+                    f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+                )
     identity_columns = {
         "children": {
             "registration_verification_name": "VARCHAR(200)",
@@ -411,12 +429,16 @@ def create_db_and_tables() -> None:
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
     _migrate_add_guardian_columns()
+    _migrate_parent_mail_delivery_columns()
     _migrate_add_family_columns()
     _migrate_add_message_columns()
+    _migrate_data_transfer_audit()
     _migrate_add_meeting_note_columns()
+    _migrate_notice_columns()
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
+    _migrate_plan_document_action_columns()
     _migrate_plan_review_notification_columns()
     _migrate_parent_push_delivery_columns()
     _migrate_billing_fee_labels()
@@ -611,22 +633,40 @@ def _migrate_add_parent_account_columns() -> None:
 
 def _migrate_add_guardian_columns() -> None:
     try:
-        with engine.connect() as conn:
-            columns = _table_columns("guardians")
-            if not columns:
-                return
-            if "parent_account_id" not in columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE guardians ADD COLUMN parent_account_id "
-                        "INTEGER REFERENCES parent_accounts(id)"
+        columns = _table_columns("guardians")
+        if columns:
+            with engine.begin() as conn:
+                if "parent_account_id" not in columns:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE guardians ADD COLUMN parent_account_id "
+                            "INTEGER REFERENCES parent_accounts(id)"
+                        )
                     )
-                )
-            if "email" not in columns:
-                conn.execute(text("ALTER TABLE guardians ADD COLUMN email VARCHAR"))
-            conn.commit()
+                if "email" not in columns:
+                    conn.execute(text("ALTER TABLE guardians ADD COLUMN email VARCHAR"))
     except Exception as exc:
         _log_migration_skip("guardian column", exc)
+
+
+def _migrate_parent_mail_delivery_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            cols = _table_columns("parent_mail_deliveries")
+            if not cols:
+                return
+            if "processing_started_at" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN processing_started_at DATETIME"))
+            if "lease_expires_at" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN lease_expires_at DATETIME"))
+            if "next_retry_at" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN next_retry_at DATETIME"))
+            if "action_token_hash" not in cols:
+                conn.execute(text("ALTER TABLE parent_mail_deliveries ADD COLUMN action_token_hash VARCHAR(64) REFERENCES credential_action_tokens(token_hash)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_parent_mail_deliveries_action_token_hash ON parent_mail_deliveries (action_token_hash)"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("parent mail delivery column", exc)
 
 
 def _migrate_add_family_columns() -> None:
@@ -644,6 +684,15 @@ def _migrate_add_family_columns() -> None:
         _log_migration_skip("family column", exc)
 
 
+def _migrate_data_transfer_audit() -> None:
+    with engine.begin() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(data_transfer_logs)")}
+        if columns and "change_metadata" not in columns:
+            connection.exec_driver_sql("ALTER TABLE data_transfer_logs ADD COLUMN change_metadata JSON NOT NULL DEFAULT '[]'")
+        if columns and "actor_id" not in columns:
+            connection.exec_driver_sql("ALTER TABLE data_transfer_logs ADD COLUMN actor_id TEXT")
+
+
 def _migrate_add_message_columns() -> None:
     try:
         with engine.connect() as conn:
@@ -655,6 +704,9 @@ def _migrate_add_message_columns() -> None:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
                 if "deleted_by" not in message_cols:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_by VARCHAR"))
+                if "author_user_id" not in message_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN author_user_id CHAR(32) REFERENCES users(id)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_author_user_id ON messages(author_user_id)"))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("message column", exc)
@@ -669,6 +721,17 @@ def _migrate_add_meeting_note_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("meeting note column", exc)
+
+
+def _migrate_notice_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("notices")
+            if columns and "body_html" not in columns:
+                conn.execute(text("ALTER TABLE notices ADD COLUMN body_html VARCHAR"))
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("notice column", exc)
 
 
 def _migrate_add_calendar_columns() -> None:
@@ -791,6 +854,24 @@ def _migrate_plan_document_child_record_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("plan document child record columns", exc)
+
+
+def _migrate_plan_document_action_columns() -> None:
+    try:
+        with engine.connect() as conn:
+            columns = _table_columns("plan_document_actions")
+            if not columns:
+                return
+            if "actor_name" not in columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE plan_document_actions "
+                        "ADD COLUMN actor_name VARCHAR"
+                    )
+                )
+            conn.commit()
+    except Exception as exc:
+        _log_migration_skip("plan document action columns", exc)
 
 
 def _migrate_plan_review_notification_columns() -> None:
@@ -1484,7 +1565,14 @@ def seed_parent_portal_data() -> None:
 
 
 def bootstrap_family_records() -> None:
+    from models import Family
+
     with Session(engine) as session:
+        # The bootstrap migrates ledgers from before families existed. Once a
+        # family ledger exists, unlinked imports must be associated explicitly;
+        # restarting must not create duplicates or overwrite existing contacts.
+        if session.exec(select(Family.id).limit(1)).first() is not None:
+            return
         bootstrap_family_data(session)
         session.commit()
 

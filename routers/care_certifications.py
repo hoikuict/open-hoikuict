@@ -170,4 +170,3 @@ def _redirect(child_id: int, **params: str) -> RedirectResponse:
         url=f"/children/{child_id}?{urlencode(params)}#care-certifications",
         status_code=303,
     )
-

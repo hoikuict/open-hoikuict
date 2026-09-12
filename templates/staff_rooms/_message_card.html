@@ -5,6 +5,8 @@
       <p class="truncate text-xs text-slate-500">{{ message.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
     </div>
     <div class="flex shrink-0 items-center gap-2">
+      {% set deletable_message = message %}
+      {% include "staff_rooms/_delete_button.html" %}
       {% set parent_message = message %}
       {% set reply_count = reply_counts.get(message.id, 0) %}
       {% include "staff_rooms/_thread_button.html" %}
@@ -12,7 +14,7 @@
   </div>
 
   <div class="mt-2 rounded-lg {% if message.is_deleted %}bg-slate-100{% else %}bg-slate-50{% endif %} px-3 py-2">
-    <p class="whitespace-pre-line text-sm leading-5 text-slate-700">{{ message.display_body }}</p>
+    <p class="whitespace-pre-line break-words text-sm leading-5 text-slate-700 [&_a]:text-indigo-700 [&_a]:underline">{{ message.display_body|urlize(target='_blank', rel='noopener noreferrer') }}</p>
   </div>
 
   {% if not message.is_deleted and message.attachments %}

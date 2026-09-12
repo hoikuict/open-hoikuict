@@ -1,0 +1,2 @@
+{% for row in terminal_alerts %}<p role="alert" class="rounded-xl border border-rose-300 bg-rose-50 p-4 font-semibold text-rose-800">{{ row.terminal.label }}から2分以上応答がありません。通信・電源・画面を確認してください。</p>{% endfor %}
+<a href="/settings/guardian-terminals" class="inline-block text-sm text-indigo-700 underline">保護者端末の接続状況</a>

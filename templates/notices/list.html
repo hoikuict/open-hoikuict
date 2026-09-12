@@ -74,11 +74,11 @@
       {% for notice in notices %}
       <tr>
         <td class="px-4 py-3">
-          <div class="font-medium text-gray-800">{{ notice.title }}</div>
+          <a href="/notices/{{ notice.id }}/preview" class="font-medium text-gray-800 hover:text-indigo-700 hover:underline">{{ notice.title }}</a>
           <div class="text-xs text-gray-500">{{ notice.updated_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</div>
         </td>
         <td class="px-4 py-3">
-          <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {% if notice.status.value == 'published' %}bg-emerald-100 text-emerald-700{% else %}bg-gray-100 text-gray-600{% endif %}">{{ notice.status.label }}</span>
+          <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {% if notice.status.value == 'published' %}bg-emerald-100 text-emerald-700{% elif notice.status.value == 'pending_approval' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 text-gray-600{% endif %}">{{ notice.status.label }}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {% if notice.priority.value == 'high' %}bg-rose-100 text-rose-700{% else %}bg-sky-100 text-sky-700{% endif %}">{{ notice.priority.label }}</span>
@@ -86,9 +86,12 @@
         <td class="px-4 py-3">{{ target_labels.get(notice.id, '-') }}</td>
         <td class="px-4 py-3">{{ notice.reads|length }}</td>
         <td class="px-4 py-3">
-          {% if current_user and current_user.can_edit %}
-          <a href="/notices/{{ notice.id }}/edit" class="text-indigo-600 hover:underline">編集</a>
-          {% endif %}
+          <div class="flex flex-wrap gap-3">
+            <a href="/notices/{{ notice.id }}/preview" class="text-indigo-600 hover:underline">{% if notice.status.value == 'pending_approval' and current_user.is_admin %}確認・承認{% else %}確認{% endif %}</a>
+            {% if current_user and current_user.can_edit and notice.status.value == 'draft' %}
+            <a href="/notices/{{ notice.id }}/edit" class="text-indigo-600 hover:underline">編集</a>
+            {% endif %}
+          </div>
         </td>
       </tr>
       {% else %}

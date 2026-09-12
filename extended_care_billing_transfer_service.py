@@ -225,13 +225,11 @@ def build_extended_care_transfer_preview(
     fee_item = session.exec(
         select(FeeItem).where(FeeItem.code == setting.fee_item_code)
     ).first()
-    claims_by_family: dict[int, BillingClaim] = {}
     lines_by_child: dict[int, list[BillingChargeLine]] = {}
     if cycle is not None:
         claims = session.exec(
             select(BillingClaim).where(BillingClaim.billing_cycle_id == cycle.id)
         ).all()
-        claims_by_family = {claim.family_id: claim for claim in claims}
         claim_ids = [claim.id for claim in claims if claim.id is not None]
         if fee_item is not None and claim_ids:
             lines = session.exec(

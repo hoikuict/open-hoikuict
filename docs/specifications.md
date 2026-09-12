@@ -1,6 +1,6 @@
 # 仕様書・設計文書一覧
 
-このページを、仕様書関係の入口とする。実装状況は2026年8月12日時点のリポジトリを基準にしている。
+このページを、仕様書関係の入口とする。実装状況は2026年8月23日時点のリポジトリを基準にしている。
 
 ## ステータスの意味
 
@@ -21,12 +21,15 @@
 | [児童記録・児童票・保育要録](child-records-spec.md) | 一部実装 | 設定版、観察ログ、訂正・無効化、タイムライン、児童票作成・進捗一覧まで。個別指導計画との双方向参照、保育要録、送付管理は未実装 |
 | [園児健康管理レビュー](health-record-spec-review.md) | 一部実装・履歴 | 健康プロフィール、アレルギー、健診記録、時系列グラフ、旧データ移行を実装。感染症・与薬等の後続フェーズは未実装 |
 | [インポート・エクスポート](import-export-spec.md) | 実装済み | クラス、家庭、園児、保護者アカウント、保護者・園児紐付けのCSV/Excel入出力と事前検証 |
+| [ベータ開始時の本番データ移行](beta-production-data-migration-spec.md) | 計画 | 新規DBへの本番CSV移行、家庭共有プロフィール同期、検証、切替・ロールバック。ベータ開始前に実装・リハーサル必須 |
 | [認可施設帳票入力](ninka-input-screen-spec.md) | 実装済み（初期段階） | データ入出力画面内のExcelアップロード、集計・補正、帳票出力 |
 | [保育認定・保育必要量・延長保育料金連携](care-need-certification-spec.md) | 一部実装 | 園児別の期間管理、施設専用入力、区分別朝夕料金、計算モード切替、請求安全性、デモデータまで。訂正画面・差額プレビュー・専用CSVは後続 |
 | [延長保育料金自動計算](extended-care-fee-spec.md) | 実装済み | 日別自動計算、再計算、確定・調整・対象外、月次画面、CSV、料金ルール |
 | [延長保育料金・請求転送](extended-care-billing-transfer-spec.md) | 実装済み | プレビュー、転送・再転送・解除、競合処理、ロック、監査 |
 | [職員ポータル](staff-personal-portal-spec.md) | 実装済み | `/`、`/staff/portal`、`/staff/attention`、担当クラス・予定・要確認・タイムライン |
 | [職員権限・請求口座情報](staff-permissions-and-billing-accounts-spec.md) | 実装済み | 集約権限画面、園児台帳管理・請求口座管理権限、口座情報の秘匿、監査ログ |
+| [オンプレ・閉域向け自前認証](local-authentication-spec.md) | 一部実装 | 職員のArgon2id資格情報、opaque session、login throttle、初期設定、管理者発行の再設定コード、監査、初期管理者CLI。保護者認証、本人変更、MFAは未実装 |
+| [オンプレ保護者認証](parent-local-authentication-spec.md) | 計画 | 登録メールへの招待、保護者・園児情報照合、園承認、職員認証基盤を共用するローカル認証、明示的な園児認可、β専用DB運用の実装前仕様 |
 | [保護者向けプッシュ通知](parent-push-notification-spec.md) | 一部実装 | モデル、capture transport、Target展開、lease・再試行ワーカー、出欠確認からのキュー作成まで。ブラウザ購読、Service Worker、Web Push実送信、端末別確認画面は未実装 |
 | [施設設定](facility-settings-spec.md) | 計画 | `FacilitySettings` と `/settings/facility` は未実装 |
 | [職員有給管理](paid-leave-management-spec.md) | 計画 | 有給台帳・申請・承認ルートとモデルは未実装 |
@@ -45,6 +48,9 @@
 
 | 文書 | 役割 |
 | --- | --- |
+| [バックアップ・復元仕様](backup-restore-spec.md) | 保護対象、RPO/RTO、保持、暗号化、検査、復元・廃棄の現行契約 |
+| [TrueNAS・Dockge・Cloudflare 実運用試験構成仕様](pilot-deployment-spec.md) | 段階的な実運用試験の構成、境界、設定、受け入れ条件 |
+| [TrueNAS・Dockge・Cloudflare 実運用試験手順書](truenas-dockge-cloudflare-pilot-runbook.md) | 準備、初回起動、検証、backup・復元、更新、障害対応 |
 | [画面遷移リスト](screen-transition-list.md) | 登録済みの主要画面と導線 |
 | [デモデータ仕様](demo-data.md) | デモデータの規模、期間、投入方法、整合性 |
 | [開発者向け](development.md) | ローカル開発、テスト、DB方針 |

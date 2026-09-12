@@ -230,4 +230,3 @@ def _periods_overlap(
     end_b: Optional[date],
 ) -> bool:
     return start_a <= (end_b or date.max) and start_b <= (end_a or date.max)
-

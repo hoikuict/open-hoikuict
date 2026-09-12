@@ -10,10 +10,15 @@ from typing import Iterable, Optional
 from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from family_support import sync_family_to_children, sync_parent_child_links
+from family_support import apply_family_shared_data, sync_family_to_children, sync_parent_child_links
+from family_csv import GUARDIAN_HEADERS, family_csv_values, plan_family, preview_family_changes
+from import_state import ledger_state, state_revision, audit_changes
+from staff_csv import STAFF_HEADERS, plan_staff
+from child_csv import child_import_changes
 from models import (
     Child,
     ChildStatus,
@@ -23,6 +28,7 @@ from models import (
     ParentAccount,
     ParentAccountStatus,
     ParentChildLink,
+    User,
 )
 from time_utils import utc_now
 
@@ -53,6 +59,7 @@ class ParsedImportRows:
     rows: list[tuple[int, dict[str, str]]]
     skipped_count: int = 0
     errors: list[TransferMessage] = field(default_factory=list)
+    warnings: list[TransferMessage] = field(default_factory=list)
 
 
 @dataclass
@@ -67,6 +74,10 @@ class ImportPreviewResult:
     errors: list[TransferMessage] = field(default_factory=list)
     warnings: list[TransferMessage] = field(default_factory=list)
     preview_token: Optional[str] = None
+    revision: str = ""
+    changes: list[dict] = field(default_factory=list)
+    audit_metadata: list[dict] = field(default_factory=list)
+    actor_id: str | None = None
 
     @property
     def can_commit(self) -> bool:
@@ -74,6 +85,7 @@ class ImportPreviewResult:
 
 
 DATASETS: dict[str, DatasetDefinition] = {
+    "staff_users": DatasetDefinition(id="staff_users", label="職員", sheet_name="staff_users", headers=STAFF_HEADERS),
     "classrooms": DatasetDefinition(
         id="classrooms",
         label="クラス",
@@ -85,6 +97,7 @@ DATASETS: dict[str, DatasetDefinition] = {
         label="家庭",
         sheet_name="families",
         headers=("ID", "家庭名", "住所", "電話番号"),
+        optional_headers=GUARDIAN_HEADERS,
     ),
     "children": DatasetDefinition(
         id="children",
@@ -280,8 +293,10 @@ def build_xlsx_content(rows: list[list[str]], sheet_name: str) -> bytes:
 
 def export_rows(session: Session, dataset: str, *, classroom_id: str = "", status: str = "") -> list[list[str]]:
     definition = get_dataset(dataset)
-    rows = [list(definition.headers)]
-    if dataset == "classrooms":
+    rows = [list(definition.all_headers)]
+    if dataset == "staff_users":
+        rows.extend([[str(u.id), u.display_name, u.email, str(u.staff_sort_order)] for u in session.exec(select(User).where(User.is_active == True).order_by(User.staff_sort_order, User.id)).all()])
+    elif dataset == "classrooms":
         rows.extend(_export_classrooms(session))
     elif dataset == "families":
         rows.extend(_export_families(session))
@@ -309,7 +324,7 @@ def _export_classrooms(session: Session) -> list[list[str]]:
 
 def _export_families(session: Session) -> list[list[str]]:
     families = session.exec(select(Family).order_by(Family.family_name, Family.id)).all()
-    return [[_text(item.id), item.family_name, _text(item.home_address), _text(item.home_phone)] for item in families]
+    return [[_text(item.id), item.family_name, _text(item.home_address), _text(item.home_phone), *family_csv_values(item)] for item in families]
 
 
 def _export_children(session: Session, *, classroom_id: str = "", status: str = "") -> list[list[str]]:
@@ -442,7 +457,8 @@ def parse_import_file(dataset: str, filename: str, content: bytes) -> ParsedImpo
             continue
         rows.append((row_number, expected_values))
 
-    return ParsedImportRows(rows=rows, skipped_count=skipped_count, errors=[])
+    return ParsedImportRows(rows=rows, skipped_count=skipped_count, errors=[],
+        warnings=[TransferMessage(1, header, "", "未対応の列は取り込みません。") for header in headers if header and header not in definition.all_headers])
 
 
 def preview_import(session: Session, dataset: str, filename: str, content: bytes) -> ImportPreviewResult:
@@ -455,6 +471,8 @@ def preview_import(session: Session, dataset: str, filename: str, content: bytes
         total_rows=len(parsed.rows),
         skipped_count=parsed.skipped_count,
         errors=list(parsed.errors),
+        warnings=list(parsed.warnings),
+        revision=state_revision(ledger_state(session)),
     )
     if result.errors:
         return result
@@ -463,31 +481,56 @@ def preview_import(session: Session, dataset: str, filename: str, content: bytes
     return result
 
 
-def commit_import(session: Session, dataset: str, filename: str, content: bytes, *, actor_name: str) -> ImportPreviewResult:
-    result = preview_import(session, dataset, filename, content)
-    if result.errors:
-        _record_import_log(session, dataset, filename, actor_name, result, "failed")
-        session.commit()
-        return result
+def commit_import(session: Session, dataset: str, filename: str, content: bytes, *, actor_name: str, expected_revision: str | None = None, actor_id: str | None = None) -> ImportPreviewResult:
+    from child_profile_history import build_child_profile_snapshot, record_child_profile_history
 
-    parsed = parse_import_file(dataset, filename, content)
-    applied = ImportPreviewResult(
-        dataset=result.dataset,
-        dataset_label=result.dataset_label,
-        filename=result.filename,
-        total_rows=result.total_rows,
-        skipped_count=result.skipped_count,
-    )
-    _plan_import(session, dataset, parsed.rows, applied, commit=True)
-    if applied.errors:
-        session.rollback()
-        _record_import_log(session, dataset, filename, actor_name, applied, "failed")
+    # End the read transaction, then hold the writer lock through validation and commit.
+    session.rollback()
+    if session.get_bind().dialect.name != "sqlite":
+        return ImportPreviewResult(dataset=dataset, dataset_label=get_dataset(dataset).label, filename=filename,
+            errors=[TransferMessage(0, "構成", "", "CSVの確定は現在SQLite構成に対応しています。")])
+    try:
+        session.execute(sql_text("BEGIN IMMEDIATE"))
+        before = ledger_state(session)
+        result = preview_import(session, dataset, filename, content)
+        result.actor_id = actor_id
+        if expected_revision and expected_revision != state_revision(before):
+            result.errors.append(TransferMessage(0, "台帳", "", "事前確認後に台帳が更新されました。もう一度ファイルを事前検証してください。"))
+        if result.errors:
+            session.rollback()
+            _record_import_log(session, dataset, filename, actor_name, result, "failed")
+            session.commit()
+            return result
+        snapshots = {}
+        if dataset in {"families", "children"}:
+            snapshots = {child.id: build_child_profile_snapshot(session, child) for child in session.exec(select(Child)).all()}
+        parsed = parse_import_file(dataset, filename, content)
+        applied = ImportPreviewResult(dataset=result.dataset, dataset_label=result.dataset_label,
+            filename=result.filename, total_rows=result.total_rows, skipped_count=result.skipped_count, actor_id=actor_id)
+        _plan_import(session, dataset, parsed.rows, applied, commit=True)
+        if applied.errors:
+            session.rollback()
+            _record_import_log(session, dataset, filename, actor_name, applied, "failed")
+            session.commit()
+            return applied
+        session.flush()
+        if dataset in {"families", "children"}:
+            for child in session.exec(select(Child)).all():
+                record_child_profile_history(session, child, actor_name=actor_name,
+                    action="updated" if child.id in snapshots else "created",
+                    previous_snapshot=snapshots.get(child.id), source="csv_import")
+        applied.audit_metadata = audit_changes(before, ledger_state(session))
+        _record_import_log(session, dataset, filename, actor_name, applied, "success")
         session.commit()
         return applied
-
-    _record_import_log(session, dataset, filename, actor_name, applied, "success")
-    session.commit()
-    return applied
+    except Exception:
+        session.rollback()
+        # Do not expose database errors or personal values to logs or the response.
+        failed = ImportPreviewResult(dataset=dataset, dataset_label=get_dataset(dataset).label, filename=filename, actor_id=actor_id,
+            errors=[TransferMessage(0, "取り込み", "", "保存できませんでした。今回の変更は取り消しました。内容を再確認してください。")])
+        _record_import_log(session, dataset, filename, actor_name, failed, "failed")
+        session.commit()
+        return failed
 
 
 def _read_csv_matrix(content: bytes) -> list[list[str]]:
@@ -525,6 +568,8 @@ def _read_xlsx_matrix(content: bytes) -> list[list[str]]:
         for cell in row.findall("main:c", namespace):
             cell_ref = cell.attrib.get("r", "")
             column_index = _xlsx_column_index(cell_ref)
+            if cell.find("main:f", namespace) is not None and cell.find("main:v", namespace) is None:
+                raise ValueError(f"{cell_ref} に計算結果のない数式があります。Excelで再計算・保存してから取り込んでください。")
             while len(values) <= column_index:
                 values.append("")
             values[column_index] = _xlsx_cell_value(cell, shared_strings, namespace)
@@ -569,7 +614,9 @@ def _plan_import(
     *,
     commit: bool,
 ) -> None:
-    if dataset == "classrooms":
+    if dataset == "staff_users":
+        plan_staff(session, rows, result, commit=commit)
+    elif dataset == "classrooms":
         _plan_classrooms(session, rows, result, commit=commit)
     elif dataset == "families":
         _plan_families(session, rows, result, commit=commit)
@@ -629,60 +676,29 @@ def _plan_classrooms(
                 session.add(classroom)
 
 
-def _plan_families(
-    session: Session,
-    rows: list[tuple[int, dict[str, str]]],
-    result: ImportPreviewResult,
-    *,
-    commit: bool,
-) -> None:
-    seen: set[str] = set()
-    touched_family_ids: set[int] = set()
+def _plan_families(session, rows, result, *, commit):
+    seen = set()
     for row_number, row in rows:
         start_errors = len(result.errors)
         family = _resolve_family_for_import(session, row, row_number, result)
-        family_name = row["家庭名"]
-        home_phone = row["電話番号"]
-
-        if family is None and not family_name:
-            result.errors.append(TransferMessage(row_number, "家庭名", family_name, "新規登録時は家庭名が必須です。"))
-
-        key = _row_key("families", row, fallback=f"{family_name}|{home_phone}")
-        _check_duplicate_key(seen, key, row_number, "家庭名", family_name, result)
-
+        if family is None and not row["家庭名"]:
+            result.errors.append(TransferMessage(row_number, "家庭名", "", "新規登録時は家庭名が必須です。"))
+        key = f"families:id:{family.id}" if family else _row_key("families", row, fallback=f"{row['家庭名']}|{row['電話番号']}")
+        _check_duplicate_key(seen, key, row_number, "家庭", "", result)
+        payload, errors = plan_family(session, family, row)
+        for error in errors:
+            error.row_number = row_number
+        result.errors.extend(errors)
         if len(result.errors) != start_errors:
             continue
-
+        preview_family_changes(session, result, row_number, family, payload)
         if family is None:
             result.create_count += 1
-            if commit:
-                family = Family(
-                    family_name=family_name,
-                    home_address=row["住所"] or None,
-                    home_phone=home_phone or None,
-                    updated_at=utc_now(),
-                )
-                session.add(family)
-                session.flush()
-                if family.id is not None:
-                    touched_family_ids.add(family.id)
         else:
             result.update_count += 1
-            if commit:
-                if family_name:
-                    family.family_name = family_name
-                if row["住所"]:
-                    family.home_address = row["住所"]
-                if home_phone:
-                    family.home_phone = home_phone
-                family.updated_at = utc_now()
-                session.add(family)
-                session.flush()
-                if family.id is not None:
-                    touched_family_ids.add(family.id)
-
-    if commit:
-        _sync_family_ids(session, touched_family_ids, sync_children=True)
+        if commit:
+            family = family or Family(family_name=payload["family_name"])
+            apply_family_shared_data(session, family, payload, preserve_missing_data=True)
 
 
 def _plan_children(
@@ -694,6 +710,7 @@ def _plan_children(
 ) -> None:
     seen: set[str] = set()
     touched_family_ids: set[int] = set()
+    sync_child_ids: set[int] = set()
     for row_number, row in rows:
         start_errors = len(result.errors)
         child = _resolve_child_for_import(session, row, row_number, result)
@@ -711,22 +728,23 @@ def _plan_children(
             if child is None and not row[header]:
                 result.errors.append(TransferMessage(row_number, header, row[header], "新規登録時は必須です。"))
 
+        if child and family and child.family_id != family.id and child.guardians:
+            if not family.guardian_profiles():
+                result.errors.append(TransferMessage(row_number, "家庭ID", "", "移動先の家庭に保護者情報がありません。家庭の情報を先に登録してください。"))
+
         target_last_kana = row["姓カナ"] or (child.last_name_kana if child else "")
         target_first_kana = row["名カナ"] or (child.first_name_kana if child else "")
         target_birth_date = birth_date or (child.birth_date if child else None)
-        if target_last_kana and target_first_kana and target_birth_date:
-            same_child = _find_child_by_natural(session, target_last_kana, target_first_kana, target_birth_date)
-            if same_child and (child is None or same_child.id != child.id):
-                result.errors.append(
-                    TransferMessage(row_number, "園児", f"{target_last_kana} {target_first_kana}", "同じ園児がすでに登録されています。")
-                )
 
-        key = _row_key("children", row, fallback=f"{target_last_kana}|{target_first_kana}|{target_birth_date}")
+        key = f"children:id:{child.id}" if child else _row_key("children", row, fallback=f"{target_last_kana}|{target_first_kana}|{target_birth_date}")
         _check_duplicate_key(seen, key, row_number, "園児", key, result)
 
         if len(result.errors) != start_errors:
             continue
 
+        sync_profile = child_import_changes(session, result, row_number, child, family, classroom, row,
+            birth_date=birth_date, enrollment_date=enrollment_date, withdrawal_date=withdrawal_date,
+            status=status, verification_name=verification_name, verification_name_type=verification_name_type)
         if child is None:
             result.create_count += 1
             if commit:
@@ -787,7 +805,14 @@ def _plan_children(
                     if family_id:
                         touched_family_ids.add(family_id)
 
+        if commit and sync_profile:
+            sync_child_ids.add(child.id)
+
     if commit:
+        for family_id in touched_family_ids:
+            target = session.get(Family, family_id)
+            if target:
+                sync_family_to_children(session, target, child_ids=sync_child_ids, preserve_empty_contacts=True)
         _sync_family_ids(session, touched_family_ids, sync_children=False)
 
 
@@ -899,6 +924,23 @@ def _plan_parent_child_links(
 
         target_parent_id = parent.id if parent else (link.parent_account_id if link else None)
         target_child_id = child.id if child else (link.child_id if link else None)
+        target_parent = parent or (session.get(ParentAccount, target_parent_id) if target_parent_id else None)
+        target_child = child or (session.get(Child, target_child_id) if target_child_id else None)
+        if (
+            target_parent is not None
+            and target_child is not None
+            and target_parent.family_id is not None
+            and target_child.family_id is not None
+            and target_parent.family_id != target_child.family_id
+        ):
+            result.errors.append(
+                TransferMessage(
+                    row_number,
+                    "保護者・園児",
+                    f"保護者ID={target_parent.id}, 園児ID={target_child.id}",
+                    "保護者と園児が異なる家庭に所属しているため、紐づけできません。",
+                )
+            )
         if link is None and target_parent_id and target_child_id:
             link = session.exec(
                 select(ParentChildLink).where(
@@ -1003,7 +1045,14 @@ def _resolve_child_for_import(
         return child
     parsed_birth_date = _parse_date(row["生年月日"], row_number, "生年月日", result, required=False)
     if row["姓カナ"] and row["名カナ"] and parsed_birth_date:
-        return _find_child_by_natural(session, row["姓カナ"], row["名カナ"], parsed_birth_date)
+        return _resolve_unique_child_by_natural(
+            session,
+            row["姓カナ"],
+            row["名カナ"],
+            parsed_birth_date,
+            row_number,
+            result,
+        )
     return None
 
 
@@ -1126,8 +1175,16 @@ def _resolve_child_reference(
             if required:
                 result.errors.append(TransferMessage(row_number, "園児", "", "園児IDまたは園児姓カナ・園児名カナ・園児生年月日が必須です。"))
             return None
-        child = _find_child_by_natural(session, row["園児姓カナ"], row["園児名カナ"], birth_date)
-        if child is None:
+        start_errors = len(result.errors)
+        child = _resolve_unique_child_by_natural(
+            session,
+            row["園児姓カナ"],
+            row["園児名カナ"],
+            birth_date,
+            row_number,
+            result,
+        )
+        if child is None and len(result.errors) == start_errors:
             result.errors.append(TransferMessage(row_number, "園児", f"{row['園児姓カナ']} {row['園児名カナ']}", "指定された園児が見つかりません。"))
         return child
 
@@ -1144,14 +1201,43 @@ def _resolve_child_reference(
     return child
 
 
-def _find_child_by_natural(session: Session, last_name_kana: str, first_name_kana: str, birth_date: date) -> Optional[Child]:
-    return session.exec(
-        select(Child).where(
-            Child.last_name_kana == last_name_kana,
-            Child.first_name_kana == first_name_kana,
-            Child.birth_date == birth_date,
+def _find_children_by_natural(
+    session: Session,
+    last_name_kana: str,
+    first_name_kana: str,
+    birth_date: date,
+) -> list[Child]:
+    return list(
+        session.exec(
+            select(Child).where(
+                Child.last_name_kana == last_name_kana,
+                Child.first_name_kana == first_name_kana,
+                Child.birth_date == birth_date,
+            )
+        ).all()
+    )
+
+
+def _resolve_unique_child_by_natural(
+    session: Session,
+    last_name_kana: str,
+    first_name_kana: str,
+    birth_date: date,
+    row_number: int,
+    result: ImportPreviewResult,
+) -> Optional[Child]:
+    matches = _find_children_by_natural(session, last_name_kana, first_name_kana, birth_date)
+    if len(matches) > 1:
+        result.errors.append(
+            TransferMessage(
+                row_number,
+                "園児",
+                f"{last_name_kana} {first_name_kana} {birth_date.isoformat()}",
+                "姓カナ・名カナ・生年月日が一致する園児が複数いるため、一意に特定できません。園児IDを指定してください。",
+            )
         )
-    ).first()
+        return None
+    return matches[0] if matches else None
 
 
 def _parse_int(
@@ -1382,5 +1468,7 @@ def _record_import_log(
             updated_count=result.update_count,
             skipped_count=result.skipped_count,
             error_count=len(result.errors),
+            change_metadata=result.audit_metadata,
+            actor_id=result.actor_id,
         )
     )

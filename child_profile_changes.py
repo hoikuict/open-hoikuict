@@ -374,6 +374,10 @@ def apply_child_profile_payload(
     sync_health_records_from_legacy_extra_data(session, child)
 
     family = create_family_for_child(session, child, family_name=f"{child.last_name}家")
+    # Account bindings belong to the staff-managed ledger, not a parent draft.
+    current_links = {item["order"]: item.get("parent_account_id") for item in family.guardian_profiles()}
+    for profile in normalized["guardians_data"]:
+        profile["parent_account_id"] = current_links.get(profile["order"])
     apply_family_shared_data(
         session,
         family,

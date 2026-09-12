@@ -13,6 +13,7 @@ from family_support import (
     create_family_for_child,
     family_form_data_from_family,
     guardians_data_from_payload,
+    merge_guardian_profiles,
     sync_parent_child_links,
 )
 from models import Child, Family, ParentAccount
@@ -83,6 +84,16 @@ def _render_form(
     session: Session,
 ):
     parent_accounts = _all_parent_accounts(session)
+    account_fields = {}
+    for account in parent_accounts:
+        fields = {key: getattr(account, key) or "" for key in ("email", "phone", "workplace", "workplace_address", "workplace_phone")}
+        name = account.display_name.split(maxsplit=1)
+        if len(name) == 2:
+            fields.update(last_name=name[0], first_name=name[1])
+        kana = (account.registration_verification_name or "").split(maxsplit=1)
+        if account.registration_verification_name_type == "kana" and len(kana) == 2:
+            fields.update(last_name_kana=kana[0], first_name_kana=kana[1])
+        account_fields[str(account.id)] = fields
     return templates.TemplateResponse(
         request,
         "families/form.html",
@@ -96,6 +107,7 @@ def _render_form(
             "form_data": form_data or family_form_data_from_family(family),
             "children": _all_children(session),
             "parent_accounts": parent_accounts,
+            "guardian_account_fields": account_fields,
             "parent_accounts_by_id": {
                 account.id: account for account in parent_accounts
             },
@@ -208,6 +220,7 @@ def _fill_linked_guardian_emails(
 @router.get("/", response_class=HTMLResponse)
 def family_list(
     request: Request,
+    q: str = "",
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -216,6 +229,16 @@ def family_list(
         .options(selectinload(Family.children), selectinload(Family.parent_accounts))
         .order_by(Family.family_name, Family.id)
     ).all()
+    query = q.strip().casefold()
+    if query:
+        families = [family for family in families if query in " ".join([
+            family.family_name,
+            *(child.full_name for child in family.children),
+            *(f"{child.last_name_kana} {child.first_name_kana}" for child in family.children),
+            *(account.display_name for account in family.parent_accounts),
+            *(f"{profile.get('last_name', '')} {profile.get('first_name', '')}"
+              for profile in family.guardian_profiles()),
+        ]).casefold()]
     return templates.TemplateResponse(
         request,
         "families/list.html",
@@ -223,6 +246,7 @@ def family_list(
             "request": request,
             "current_user": current_user,
             "families": families,
+            "q": q,
             "family_parent_accounts_by_id": {
                 family.id: {
                     account.id: account for account in family.parent_accounts
@@ -435,6 +459,7 @@ def update_family(
         g2_workplace_phone=g2_workplace_phone,
     )
 
+    guardians_data = merge_guardian_profiles(family.guardian_profiles(), guardians_data)
     selected_child_ids = set(_parse_ids(child_ids))
     selected_parent_account_ids = set(_parse_ids(parent_account_ids))
     selected_parent_account_ids.update(_linked_parent_account_ids(guardians_data))

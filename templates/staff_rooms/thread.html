@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}スレッド詳細 | open-hoikuict{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-4">
+  <a href="/staff-rooms/" class="inline-block font-semibold text-indigo-700 underline">連絡タイムラインに戻る</a>
+  <div id="thread-panel">{% include "staff_rooms/_thread_panel.html" %}</div>
+</div>
+{% endblock %}

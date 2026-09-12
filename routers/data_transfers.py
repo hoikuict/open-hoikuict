@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import hashlib
 import os
 import time
 from pathlib import Path
@@ -12,7 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_child_record_manager
+from auth import get_current_staff_user, require_child_record_manager, require_admin
 from data_transfer_service import (
     build_csv_content,
     build_xlsx_content,
@@ -125,12 +126,13 @@ def _render_index(
         {
             "request": request,
             "current_user": current_user,
-            "datasets": dataset_options(),
+            "datasets": [item for item in dataset_options() if item.id != "staff_users" or current_user.is_admin],
             "classrooms": _classrooms(session),
             "child_status_options": list(ChildStatus),
             "parent_status_options": list(ParentAccountStatus),
             "logs": _recent_logs(session),
             "preview_result": preview_result,
+            "selected_dataset": preview_result.dataset if preview_result else request.query_params.get("dataset", "classrooms"),
             "ninka_default_fiscal_year": default_fiscal_year(),
             "ninka_error": ninka_error,
             "notice": notice,
@@ -139,7 +141,7 @@ def _render_index(
     )
 
 
-def _save_preview_file(dataset: str, filename: str, content: bytes) -> str:
+def _save_preview_file(dataset: str, filename: str, content: bytes, *, owner: str = "", revision: str = "") -> str:
     _cleanup_stale_previews()
     directory = _preview_dir()
     directory.mkdir(parents=True, exist_ok=True)
@@ -148,6 +150,9 @@ def _save_preview_file(dataset: str, filename: str, content: bytes) -> str:
         "dataset": dataset,
         "filename": filename,
         "content": base64.b64encode(content).decode("ascii"),
+        "owner": owner,
+        "revision": revision,
+        "sha256": hashlib.sha256(content).hexdigest(),
     }
     final_path = directory / f"{token}.json"
     temporary_path = directory / f".{token}.{uuid4().hex}.tmp"
@@ -168,7 +173,7 @@ def _save_preview_file(dataset: str, filename: str, content: bytes) -> str:
     return token
 
 
-def _load_preview_file(token: str, expected_dataset: str) -> tuple[str, bytes]:
+def _load_preview_file(token: str, expected_dataset: str, *, owner: str | None = None, claim: bool = False):
     _cleanup_stale_previews()
     try:
         if UUID(str(token)).hex != token:
@@ -189,7 +194,30 @@ def _load_preview_file(token: str, expected_dataset: str) -> tuple[str, bytes]:
         raise HTTPException(status_code=400, detail="インポート確認データが壊れています") from exc
     if payload.get("dataset") != expected_dataset:
         raise HTTPException(status_code=400, detail="インポート確認データの種類が一致しません")
+    if owner is not None and (payload.get("owner") != owner or not payload.get("revision")):
+        raise HTTPException(status_code=403, detail="この確認データは利用できません。ご自身で事前検証してください。")
+    if payload.get("sha256") != hashlib.sha256(content).hexdigest():
+        raise HTTPException(status_code=400, detail="確認データが変更されています。もう一度事前検証してください。")
+    if claim:
+        # Atomic rename gives a token to exactly one worker. A failed import needs a new preview.
+        claimed = path.with_suffix(f".{uuid4().hex}.claimed")
+        try:
+            path.rename(claimed)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail="この確認データはすでに使用されています。") from exc
+        claimed.unlink()
+        return str(payload["filename"]), content, payload["revision"]
     return str(payload.get("filename") or f"{expected_dataset}.csv"), content
+
+
+def _preview_owner(user) -> str:
+    return str(user.user_id) if user.user_id else f"mock:{user.role.value}:{user.name}"
+
+
+def _require_dataset_access(user, dataset):
+    require_child_record_manager(user)
+    if dataset == "staff_users":
+        require_admin(user)
 
 
 def _delete_preview_file(token: str) -> None:
@@ -217,6 +245,7 @@ def download_template(
 ):
     require_child_record_manager(current_user)
     dataset, extension = _split_file_name(file_name)
+    _require_dataset_access(current_user, dataset)
     return _download_response(
         rows=template_rows(dataset),
         dataset=dataset,
@@ -235,6 +264,7 @@ def download_export(
 ):
     require_child_record_manager(current_user)
     dataset, extension = _split_file_name(file_name)
+    _require_dataset_access(current_user, dataset)
     rows = export_rows(session, dataset, classroom_id=classroom_id, status=status)
     return _download_response(
         rows=rows,
@@ -252,7 +282,7 @@ async def preview_import_file(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_child_record_manager(current_user)
+    _require_dataset_access(current_user, dataset)
     try:
         get_dataset(dataset)
     except ValueError as exc:
@@ -262,7 +292,7 @@ async def preview_import_file(
     filename = file.filename or f"{dataset}.csv"
     result = preview_import(session, dataset, filename, content)
     if not result.errors and result.total_rows > 0:
-        result.preview_token = _save_preview_file(dataset, filename, content)
+        result.preview_token = _save_preview_file(dataset, filename, content, owner=_preview_owner(current_user), revision=result.revision)
     return _render_index(request, session, current_user, preview_result=result)
 
 
@@ -275,23 +305,17 @@ async def commit_import_file(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    require_child_record_manager(current_user)
+    _require_dataset_access(current_user, dataset)
     try:
         get_dataset(dataset)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    if preview_token:
-        filename, content = _load_preview_file(preview_token, dataset)
-    elif file is not None:
-        content = await file.read()
-        filename = file.filename or f"{dataset}.csv"
-    else:
-        raise HTTPException(status_code=400, detail="インポートファイルがありません")
-
-    result = commit_import(session, dataset, filename, content, actor_name=current_user.name)
-    if preview_token and not result.errors:
-        _delete_preview_file(preview_token)
+    if not preview_token:
+        raise HTTPException(status_code=400, detail="先に事前検証を行い、変更内容を確認してください。")
+    filename, content, revision = _load_preview_file(preview_token, dataset, owner=_preview_owner(current_user), claim=True)
+    result = commit_import(session, dataset, filename, content, actor_name=current_user.name,
+                           expected_revision=revision, actor_id=str(current_user.user_id) if current_user.user_id else None)
     if result.errors:
         return _render_index(request, session, current_user, preview_result=result, status_code=400)
     return RedirectResponse(

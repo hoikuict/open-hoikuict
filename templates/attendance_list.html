@@ -2,18 +2,27 @@
 {% block title %}登降園管理 | open-hoikuict{% endblock %}
 
 {% block content %}
+<style>
+  #attendance-table-scroll[data-hide-extended="true"] [data-extended-column] { display: none; }
+</style>
 <div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
   <div>
     <h1 class="text-xl font-bold text-gray-700">登降園管理</h1>
     <p class="text-sm text-gray-500 mt-1">クラス・期間・時間帯・園児名で絞り込み、一覧は時間順やクラス順で並び替えできます。</p>
   </div>
   <div class="no-print flex items-center gap-2 flex-wrap">
+    <label class="flex items-center gap-2 rounded border border-gray-300 px-3 py-2 text-sm">
+      <input id="attendance-extended-toggle" type="checkbox" checked aria-controls="attendance-table-scroll">
+      延長料金の列を表示
+    </label>
     <button
       type="button"
+      id="attendance-search-toggle"
+      aria-controls="attendance-search-panel"
+      aria-expanded="false"
       class="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50"
-      onclick="const panel = document.getElementById('attendance-search-panel'); panel.classList.toggle('hidden');"
     >
-      検索詳細
+      検索詳細{% if filters.has_search_filters %}（条件適用中）{% endif %}
     </button>
     <a href="/attendance/export.csv?{{ current_query_string }}" class="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700">CSV出力</a>
     <a href="/attendance/export.xlsx?{{ current_query_string }}" class="px-3 py-1.5 bg-sky-600 text-white text-sm rounded hover:bg-sky-700">Excel出力</a>
@@ -35,7 +44,8 @@
     <form method="get" action="/attendance" class="flex items-center gap-2 flex-wrap">
       <input type="hidden" name="start_date" value="{{ filters.start_date.isoformat() }}">
       <input type="hidden" name="end_date" value="{{ filters.end_date.isoformat() }}">
-      <input type="hidden" name="child_name" value="{{ filters.child_name }}">
+      <input type="hidden" name="child_id" value="{{ filters.child_id_value }}">
+      {% if filters.child_name and not filters.child_id %}<input type="hidden" name="child_name" value="{{ filters.child_name }}">{% endif %}
       <input type="hidden" name="classroom_id" value="{{ filters.classroom_id_value }}">
       <input type="hidden" name="time_field" value="{{ filters.time_field }}">
       <input type="hidden" name="time_from" value="{{ filters.time_from_value }}">
@@ -56,7 +66,7 @@
   </div>
 </div>
 
-<div id="attendance-search-panel" class="no-print mb-4 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden {% if not filters.has_search_filters %}hidden{% endif %}">
+<div id="attendance-search-panel" class="hidden no-print mb-4 bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
   <div class="px-4 py-3 bg-gray-50 text-sm font-medium text-gray-700 border-b border-gray-200">
     検索詳細
   </div>
@@ -86,17 +96,6 @@
         >
       </div>
       <div>
-        <label for="child-name" class="block text-sm text-gray-600 mb-1">園児名</label>
-        <input
-          id="child-name"
-          type="text"
-          name="child_name"
-          value="{{ filters.child_name }}"
-          placeholder="例: 太郎"
-          class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-        >
-      </div>
-      <div>
         <label for="classroom-id" class="block text-sm text-gray-600 mb-1">クラス</label>
         <select id="classroom-id" name="classroom_id" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
           <option value="">すべて</option>
@@ -104,6 +103,16 @@
           <option value="{{ classroom.id }}" {% if filters.classroom_id == classroom.id %}selected{% endif %}>{{ classroom.name }}</option>
           {% endfor %}
         </select>
+      </div>
+      <div>
+        <label for="child-id" class="block text-sm text-gray-600 mb-1">園児名</label>
+        <select id="child-id" name="child_id" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+          <option value="">すべて</option>
+          {% for child in child_options %}
+          <option value="{{ child.id }}" data-classroom-id="{{ child.classroom_id or '' }}" {% if filters.classroom_id and child.classroom_id != filters.classroom_id %}hidden disabled{% endif %} {% if filters.child_id == child.id %}selected{% endif %}>{{ child.full_name }}</option>
+          {% endfor %}
+        </select>
+        <p id="child-select-help" class="mt-1 text-xs text-gray-500">クラスを選ぶと、そのクラスの園児だけを表示します。</p>
       </div>
       <div>
         <label for="time-field" class="block text-sm text-gray-600 mb-1">時間帯の対象</label>
@@ -145,6 +154,38 @@
   </form>
 </div>
 
+<script>
+(() => {
+  const toggle = document.getElementById("attendance-search-toggle");
+  const panel = document.getElementById("attendance-search-panel");
+  const classroomSelect = document.getElementById("classroom-id");
+  const childSelect = document.getElementById("child-id");
+
+  toggle?.addEventListener("click", () => {
+    const willOpen = panel?.classList.contains("hidden") ?? false;
+    panel?.classList.toggle("hidden");
+    toggle.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) classroomSelect?.focus();
+  });
+
+  const syncChildOptions = () => {
+    if (!classroomSelect || !childSelect) return;
+    const selectedClassroomId = classroomSelect.value;
+    for (const option of childSelect.options) {
+      if (!option.value) continue;
+      const belongsToSelectedClass =
+        !selectedClassroomId || option.dataset.classroomId === selectedClassroomId;
+      option.hidden = !belongsToSelectedClass;
+      option.disabled = !belongsToSelectedClass;
+      if (!belongsToSelectedClass && option.selected) childSelect.value = "";
+    }
+  };
+
+  classroomSelect?.addEventListener("change", syncChildOptions);
+  syncChildOptions();
+})();
+</script>
+
 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
   <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
     <p class="text-xs text-gray-500">表示件数</p>
@@ -178,7 +219,7 @@
     {% endif %}
   </div>
 
-  <div class="overflow-x-auto">
+  <div id="attendance-table-scroll" class="overflow-x-auto">
     <table class="min-w-full text-sm">
       <thead class="bg-indigo-50 text-indigo-800">
         <tr>
@@ -188,9 +229,9 @@
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">登園</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">降園</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">状態</th>
-          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">延長分数</th>
-          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">延長料金</th>
-          <th class="px-4 py-2 text-left font-medium whitespace-nowrap">延長状態</th>
+          <th data-extended-column class="px-4 py-2 text-left font-medium whitespace-nowrap">延長分数</th>
+          <th data-extended-column class="px-4 py-2 text-left font-medium whitespace-nowrap">延長料金</th>
+          <th data-extended-column class="px-4 py-2 text-left font-medium whitespace-nowrap">延長状態</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">お迎え予定時刻</th>
           <th class="px-4 py-2 text-left font-medium whitespace-nowrap">お迎え予定者</th>
           {% if filters.is_single_day %}
@@ -222,21 +263,21 @@
               <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">降園済み</span>
             {% endif %}
           </td>
-          <td class="px-4 py-2 whitespace-nowrap">
+          <td data-extended-column class="px-4 py-2 whitespace-nowrap">
             {% if row.extended_care_minutes is not none %}
             {{ row.extended_care_minutes }} 分
             {% else %}
             —
             {% endif %}
           </td>
-          <td class="px-4 py-2 whitespace-nowrap">
+          <td data-extended-column class="px-4 py-2 whitespace-nowrap">
             {% if row.extended_care_amount is not none %}
             {{ "{:,}".format(row.extended_care_amount) }} 円
             {% else %}
             —
             {% endif %}
           </td>
-          <td class="px-4 py-2 whitespace-nowrap">
+          <td data-extended-column class="px-4 py-2">
             {% if row.extended_care_status_label == "要確認" %}
               <span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full">要確認</span>
             {% elif row.extended_care_status_label == "確認済み" %}
@@ -246,7 +287,9 @@
             {% elif row.extended_care_status_label == "0円" %}
               <span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">0円</span>
             {% elif row.extended_care_status_label == "未計算" %}
-              <span class="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">未計算</span>
+              <span class="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full whitespace-nowrap">料金未算出</span>
+              <p class="mt-1 min-w-40 max-w-64 text-xs text-red-700">{{ row.extended_care_reason }}</p>
+              <a href="/extended-care-fees/?month={{ row.attendance_date.strftime('%Y-%m') }}&child_name={{ row.child_name | urlencode }}" class="text-xs text-indigo-700 underline">理由・設定を確認</a>
             {% elif row.extended_care_status_label == "対象外" %}
               <span class="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">対象外</span>
             {% else %}
@@ -254,18 +297,25 @@
             {% endif %}
           </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.planned_pickup_time if row.planned_pickup_time else "—" }}</td>
-          <td class="px-4 py-2 whitespace-nowrap">{{ row.pickup_person if row.pickup_person else "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ row.pickup_person if row.pickup_person else "—" }}
+            {% if current_user and current_user.can_edit %}
+            {% if row.attendance_record_id %}<a href="/attendance/{{ row.child_id }}/correction?date={{ row.attendance_date }}&return_query={{ current_query_string|urlencode }}" class="mt-1 block text-xs text-rose-700 underline">打刻の取消・履歴</a>{% endif %}
+            {% endif %}
+            {% if current_user and current_user.can_edit and row.is_enrolled and row.check_in_at %}
+            <a href="/attendance/{{ row.child_id }}/pickup?date={{ row.attendance_date }}&return_query={{ current_query_string | urlencode }}" class="mt-1 block text-xs font-semibold text-indigo-700 underline">お迎え予定を変更</a>
+            {% endif %}
+          </td>
           {% if filters.is_single_day %}
           <td class="px-4 py-2 whitespace-nowrap no-print">
             {% if current_user and current_user.can_edit and row.is_enrolled %}
               {% if not row.check_in_at %}
-              <form method="post" action="/attendance/{{ row.child_id }}/check-in" class="inline">
+              <form method="post" action="/attendance/{{ row.child_id }}/check-in" class="inline" data-preserve-attendance-scroll>
                 <input type="hidden" name="date" value="{{ filters.display_date_value }}">
                 <input type="hidden" name="return_query" value="{{ current_query_string }}">
                 <button type="submit" class="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">登園打刻</button>
               </form>
               {% elif not row.check_out_at %}
-              <form method="post" action="/attendance/{{ row.child_id }}/check-out" class="inline">
+              <form method="post" action="/attendance/{{ row.child_id }}/check-out" class="inline" data-preserve-attendance-scroll>
                 <input type="hidden" name="date" value="{{ filters.display_date_value }}">
                 <input type="hidden" name="return_query" value="{{ current_query_string }}">
                 <button type="submit" class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">降園打刻</button>
@@ -290,4 +340,56 @@
     </table>
   </div>
 </div>
+{% endblock %}
+
+{% block body_end %}
+<script>
+  (() => {
+    const toggle = document.getElementById('attendance-extended-toggle');
+    const table = document.getElementById('attendance-table-scroll');
+    const key = 'attendance-show-extended';
+    try { toggle.checked = localStorage.getItem(key) !== 'false'; } catch (_) {}
+    const apply = () => { table.dataset.hideExtended = String(!toggle.checked); };
+    toggle.addEventListener('change', () => {
+      apply();
+      try { localStorage.setItem(key, String(toggle.checked)); } catch (_) {}
+    });
+    apply();
+  })();
+  (() => {
+    const storageKey = 'attendance-punch-scroll';
+    const table = document.getElementById('attendance-table-scroll');
+    const queryKey = (query) => {
+      const params = new URLSearchParams(query);
+      params.sort();
+      return params.toString();
+    };
+    document.querySelectorAll('[data-preserve-attendance-scroll]').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        if (event.defaultPrevented) return;
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify({
+            query: queryKey(form.elements.return_query.value),
+            x: window.scrollX,
+            y: window.scrollY,
+            tableX: table.scrollLeft,
+            savedAt: Date.now(),
+          }));
+        } catch (_) { /* Punching still works when browser storage is unavailable. */ }
+      });
+    });
+    try {
+      const position = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+      sessionStorage.removeItem(storageKey);
+      if (!position || position.query !== queryKey(window.location.search)
+          || Date.now() - position.savedAt > 60000) return;
+      const restore = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+        table.scrollLeft = position.tableX;
+        window.scrollTo(position.x, position.y);
+      }));
+      if (document.readyState === 'complete') restore();
+      else window.addEventListener('load', restore, { once: true });
+    } catch (_) { /* Ignore expired or unavailable browser state. */ }
+  })();
+</script>
 {% endblock %}

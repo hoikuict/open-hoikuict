@@ -12,6 +12,14 @@
   {% endif %}
 </div>
 
+<form method="get" action="/families/" class="mb-5 flex flex-wrap gap-3">
+  <label class="flex-1">家族・園児・保護者を検索
+    <input name="q" value="{{ q }}" placeholder="家族名・園児名・保護者名" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+  </label>
+  <button class="self-end rounded bg-indigo-600 px-4 py-2 text-white">検索</button>
+  {% if q %}<a href="/families/" class="self-end px-3 py-2 text-indigo-700 underline">解除</a>{% endif %}
+</form>
+<p class="mb-3 text-sm text-slate-500">{{ families|length }}家族</p>
 <div class="grid gap-4">
   {% for family in families %}
   <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

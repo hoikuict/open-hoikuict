@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}文書の確認依頼 | open-hoikuict{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-6">
+<h1 class="text-2xl font-bold">文書の確認依頼</h1>
+<p>作成した文書を添付するか本文を貼り付けて、管理者に確認を依頼できます。依頼は管理者ホームの承認待ちに表示されます。</p>
+{% if current_user.can_edit %}<details class="rounded-xl border bg-white p-5"><summary class="cursor-pointer text-lg font-bold">新しい確認依頼</summary>
+<form method="post" enctype="multipart/form-data" class="mt-5 space-y-4">
+<label class="block">件名<input name="title" required maxlength="200" class="mt-1 block w-full rounded border p-3"></label>
+<label class="block">確認してほしい内容<textarea name="body" rows="6" maxlength="20000" class="mt-1 block w-full rounded border p-3"></textarea></label>
+<label class="block">文書を添付<input type="file" name="attachments" multiple accept=".pdf,.docx,.doc,.xlsx,.xls,.odt,.txt,.png,.jpg,.jpeg" class="mt-2 block"></label>
+<p class="text-sm text-slate-500">1件10MB、合計20MB、5件まで。提出後の文書は変更できません。修正時は新しい依頼として提出してください。</p>
+<button class="rounded bg-indigo-600 px-5 py-3 text-white">管理者に確認を依頼する</button></form></details>{% endif %}
+{% for item in items %}<a href="/document-reviews/{{ item.id }}" class="block rounded-xl border bg-white p-5"><p class="font-bold">{{ item.title }}</p><p class="mt-2 text-sm">{{ {'pending':'確認待ち','approved':'確認済み','returned':'差戻し'}.get(item.status, item.status) }} / {{ item.requested_by_name }} / {{ item.created_at|jst_datetime }}</p></a>{% else %}<p>確認依頼はありません。</p>{% endfor %}
+</div>
+{% endblock %}

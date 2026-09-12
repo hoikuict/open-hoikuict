@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "guardian/terminal_base.html" if terminal_mode else "base.html" %}
 {% block title %}キオスク有効化{% endblock %}
 {% block content %}
 <section class="mx-auto max-w-md rounded-xl bg-white p-6 shadow">

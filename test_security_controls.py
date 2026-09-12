@@ -1,5 +1,6 @@
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
 
@@ -29,11 +30,30 @@ from security_config import (
 )
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from testing_helpers import authenticate_mock_staff, configure_test_environment
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 
 class SecurityControlTests(unittest.TestCase):
     def setUp(self):
         configure_test_environment()
+
+    @staticmethod
+    def _valid_production_settings() -> dict[str, str]:
+        return {
+            "HOIKUICT_ENV": "production",
+            "HOIKUICT_SECRET_KEY": "s" * 40,
+            "HOIKUICT_STAFF_AUTH_MODE": "local_password",
+            "HOIKUICT_PARENT_AUTH_MODE": "local_password",
+            "HOIKUICT_LOGIN_THROTTLE_HMAC_KEY": "t" * 40,
+            "HOIKUICT_PASSWORD_BLOCKLIST_PATH": "password-blocklist.txt",
+            "HOIKUICT_PARENT_MAIL_TRANSPORT": "smtp",
+            "HOIKUICT_PARENT_REGISTRATION_BASE_URL": "https://parents.example.jp",
+            "HOIKUICT_SMTP_HOST": "mail.example.local",
+            "HOIKUICT_SMTP_PORT": "587",
+            "HOIKUICT_SMTP_STARTTLS": "1",
+            "HOIKUICT_PARENT_MAIL_FROM": "noreply@example.jp",
+            "FORWARDED_ALLOW_IPS": "172.18.0.0/16",
+        }
 
     def test_staff_cookie_is_required_for_protected_dependency(self):
         app = FastAPI()
@@ -56,7 +76,9 @@ class SecurityControlTests(unittest.TestCase):
 
     def test_unauthenticated_browser_get_redirects_to_mock_login(self):
         app = FastAPI()
-        app.add_exception_handler(StarletteHTTPException, staff_auth_http_exception_handler)
+        app.add_exception_handler(
+            StarletteHTTPException, staff_auth_http_exception_handler
+        )
 
         @app.get("/protected")
         def protected(current_user=Depends(get_current_staff_user)):
@@ -71,9 +93,11 @@ class SecurityControlTests(unittest.TestCase):
             self.assertEqual(browser_response.status_code, 303)
             self.assertEqual(
                 browser_response.headers["location"],
-                "/staff/login",
+                "/staff/login?redirect=%2Fprotected%3Fpage%3D2",
             )
-            api_response = client.get("/protected", headers={"Accept": "application/json"})
+            api_response = client.get(
+                "/protected", headers={"Accept": "application/json"}
+            )
             self.assertEqual(api_response.status_code, 401)
             with patch.dict(os.environ, {"HOIKUICT_ENABLE_MOCK_AUTH": "0"}):
                 disabled_response = client.get(
@@ -138,14 +162,77 @@ class SecurityControlTests(unittest.TestCase):
                 validate_runtime_security()
 
     def test_production_uses_safe_defaults_for_cookie_and_csrf(self):
-        settings = {
-            "HOIKUICT_ENV": "production",
-            "HOIKUICT_SECRET_KEY": "s" * 40,
-        }
-        with patch.dict(os.environ, settings, clear=True):
+        settings = self._valid_production_settings()
+        with (
+            patch.dict(os.environ, settings, clear=True),
+            patch(
+                "security_config.os.path.isfile",
+                return_value=True,
+            ),
+        ):
             self.assertTrue(secure_cookie_enabled())
             self.assertTrue(csrf_enforced())
             validate_runtime_security()
+
+    def test_production_requires_explicit_trusted_proxy_networks(self):
+        settings = self._valid_production_settings()
+        settings.pop("FORWARDED_ALLOW_IPS")
+        with (
+            patch.dict(os.environ, settings, clear=True),
+            patch(
+                "security_config.os.path.isfile",
+                return_value=True,
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "FORWARDED_ALLOW_IPS"):
+                validate_runtime_security()
+
+    def test_production_rejects_unbounded_or_invalid_trusted_proxies(self):
+        for value in ("*", "reverse-proxy"):
+            with self.subTest(value=value):
+                settings = {
+                    **self._valid_production_settings(),
+                    "FORWARDED_ALLOW_IPS": value,
+                }
+                with (
+                    patch.dict(os.environ, settings, clear=True),
+                    patch(
+                        "security_config.os.path.isfile",
+                        return_value=True,
+                    ),
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "FORWARDED_ALLOW_IPS"):
+                        validate_runtime_security()
+
+    def test_proxy_headers_only_replace_client_ip_for_trusted_proxy(self):
+        app = FastAPI()
+
+        @app.get("/client-ip")
+        def client_ip(request: Request):
+            return {"host": request.client.host}
+
+        wrapped_app = ProxyHeadersMiddleware(app, trusted_hosts=["10.0.0.0/8"])
+        forwarded_headers = {"X-Forwarded-For": "198.51.100.24"}
+        with TestClient(wrapped_app, client=("10.1.2.3", 50000)) as trusted_client:
+            self.assertEqual(
+                trusted_client.get("/client-ip", headers=forwarded_headers).json(),
+                {"host": "198.51.100.24"},
+            )
+        with TestClient(wrapped_app, client=("203.0.113.8", 50000)) as untrusted_client:
+            self.assertEqual(
+                untrusted_client.get("/client-ip", headers=forwarded_headers).json(),
+                {"host": "203.0.113.8"},
+            )
+
+    def test_container_startup_enables_trusted_proxy_headers(self):
+        repository = Path(__file__).resolve().parent
+        dockerfile = (repository / "Dockerfile").read_text(encoding="utf-8")
+        compose = (repository / "deploy" / "dockge" / "compose.yaml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('"--proxy-headers"', dockerfile)
+        self.assertIn("FORWARDED_ALLOW_IPS:", compose)
 
     def test_production_rejects_explicitly_disabled_cookie_or_csrf(self):
         settings = {
@@ -162,7 +249,7 @@ class SecurityControlTests(unittest.TestCase):
         with patch.dict(os.environ, {"HOIKUICT_ENV": "development"}, clear=True):
             self.assertEqual(parent_push_transport(), "capture")
 
-    def test_production_rejects_parent_push_transport_until_feature_is_complete(self):
+    def test_production_rejects_capture_and_unconfigured_webpush(self):
         for transport in ("capture", "webpush"):
             with self.subTest(transport=transport):
                 settings = {
@@ -173,7 +260,7 @@ class SecurityControlTests(unittest.TestCase):
                 with patch.dict(os.environ, settings, clear=True):
                     with self.assertRaisesRegex(
                         RuntimeError,
-                        "プッシュ通知transportを有効化できません",
+                        "capture" if transport == "capture" else "HOIKUICT_PUSH_VAPID_PUBLIC_KEY",
                     ):
                         validate_runtime_security()
 
@@ -362,7 +449,9 @@ class SecurityControlTests(unittest.TestCase):
                 self.assertEqual(client.get("/staff/login").status_code, 404)
                 self.assertEqual(client.get("/protected").status_code, 401)
                 self.assertEqual(client.post("/session").status_code, 200)
-                self.assertEqual(client.get("/protected").json()["name"], "外部認証職員")
+                self.assertEqual(
+                    client.get("/protected").json()["name"], "外部認証職員"
+                )
                 self.assertEqual(client.delete("/session").status_code, 200)
                 self.assertEqual(client.get("/protected").status_code, 401)
         finally:

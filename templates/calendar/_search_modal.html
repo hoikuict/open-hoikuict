@@ -31,7 +31,7 @@
   <div class="space-y-3">
     {% for occurrence in results %}
     <button
-      hx-get="/events/{{ occurrence.source_event_id }}?original_start_at={{ occurrence.original_start_at.isoformat() }}&mode={{ view_mode }}&date={{ anchor_date }}"
+      hx-get="/events/{{ occurrence.source_event_id }}?original_start_at={{ occurrence.original_start_at.isoformat() | urlencode }}&mode={{ view_mode }}&date={{ anchor_date }}"
       hx-target="#event-modal"
       hx-swap="innerHTML"
       class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:bg-slate-50"

@@ -119,6 +119,7 @@ class ParentContactType(str, Enum):
 
 class ParentNotificationKind(str, Enum):
     attendance_confirmation_request = "attendance_confirmation_request"
+    push_test = "push_test"
 
 
 class NotificationDeliveryChannel(str, Enum):
@@ -227,12 +228,14 @@ class ChildProfileChangeRequestStatus(str, Enum):
 
 class NoticeStatus(str, Enum):
     draft = "draft"
+    pending_approval = "pending_approval"
     published = "published"
 
     @property
     def label(self) -> str:
         return {
             self.draft: "下書き",
+            self.pending_approval: "承認待ち",
             self.published: "公開中",
         }[self]
 
@@ -953,6 +956,74 @@ class AttendanceRecord(SQLModel, table=True):
     )
 
 
+class AttendancePickupHistory(SQLModel, table=True):
+    __tablename__ = "attendance_pickup_history"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
+    previous_time: Optional[str] = None
+    previous_person: Optional[str] = None
+    new_time: str
+    new_person: str
+    changed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    changed_by_name: str
+    changed_at: datetime = Field(default_factory=utc_now)
+
+
+class AttendanceCorrection(SQLModel, table=True):
+    __tablename__ = "attendance_corrections"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
+    operation: str
+    reason: str
+    previous_values: dict = Field(sa_column=Column(JSON))
+    previous_charge: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    changed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    changed_by_name: str
+    changed_at: datetime = Field(default_factory=utc_now)
+
+
+class GuardianTerminalStatus(SQLModel, table=True):
+    __tablename__ = "guardian_terminal_status"
+    device_id: str = Field(primary_key=True, max_length=64)
+    label: str = Field(default="保護者端末", max_length=100)
+    monitoring_enabled: bool = Field(default=True)
+    start_hour: int = Field(default=7)
+    end_hour: int = Field(default=19)
+    last_seen_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class DocumentReviewRequest(SQLModel, table=True):
+    __tablename__ = "document_review_requests"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(max_length=200)
+    body: str = Field(default="")
+    requested_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    requested_by_name: str
+    status: str = Field(default="pending", index=True)
+    attachments: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
+    decision_note: str = Field(default="")
+    decided_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    decided_by_name: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentEmailPreference(SQLModel, table=True):
+    __tablename__ = "parent_email_preferences"
+    parent_account_id: int = Field(primary_key=True, foreign_key="parent_accounts.id")
+    attendance_confirmation_enabled: bool = Field(default=False)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentNotificationEmail(SQLModel, table=True):
+    __tablename__ = "parent_notification_emails"
+    notification_id: int = Field(primary_key=True, foreign_key="parent_notifications.id")
+    mail_id: uuid.UUID = Field(foreign_key="parent_mail_deliveries.id", unique=True, index=True)
+    expires_at: datetime
+
+
 class ExtendedCareFeeRule(SQLModel, table=True):
     __tablename__ = "extended_care_fee_rules"
 
@@ -1139,6 +1210,138 @@ class ParentChildLink(SQLModel, table=True):
 
     parent_account: Optional[ParentAccount] = Relationship(back_populates="child_links")
     child: Optional[Child] = Relationship(back_populates="parent_links")
+
+
+class ParentChildLinkAudit(SQLModel, table=True):
+    __tablename__ = "parent_child_link_audits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    operation: str = Field(index=True, max_length=16)
+    actor_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    actor_name: str = Field(max_length=100)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class ParentRegistrationRequest(SQLModel, table=True):
+    __tablename__ = "parent_registration_requests"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    email_normalized_snapshot: str = Field(max_length=255)
+    status: str = Field(default="invited", index=True, max_length=32)
+    invitation_token_hash: Optional[str] = Field(default=None, index=True, max_length=64)
+    invitation_expires_at: Optional[datetime] = Field(default=None, index=True)
+    verification_attempt_count: int = Field(default=0)
+    guardian_name_matched: bool = Field(default=False)
+    child_name_matched: bool = Field(default=False)
+    child_birth_date_matched: bool = Field(default=False)
+    matched_child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    submitted_at: Optional[datetime] = None
+    reviewed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    reviewed_at: Optional[datetime] = None
+    review_reason: Optional[str] = Field(default=None, max_length=500)
+    completion_token_hash: Optional[str] = Field(default=None, index=True, max_length=64)
+    completion_expires_at: Optional[datetime] = Field(default=None, index=True)
+    completed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentEnrollment(SQLModel, table=True):
+    """An invitation-bound intake draft; it grants no access to child records."""
+    __tablename__ = "parent_enrollments"
+
+    registration_request_id: uuid.UUID = Field(primary_key=True, foreign_key="parent_registration_requests.id")
+    child_name: str = Field(max_length=200)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    guardian_order: Optional[int] = None
+    source_snapshot: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    submitted_data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    applied_at: Optional[datetime] = None
+
+
+class ParentPublicRegistrationSettings(SQLModel, table=True):
+    __tablename__ = "parent_public_registration_settings"
+
+    id: int = Field(default=1, primary_key=True)
+    enabled: bool = False
+    updated_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentPublicRegistration(SQLModel, table=True):
+    """Identifies self-service requests without granting any ledger access."""
+    __tablename__ = "parent_public_registrations"
+
+    registration_request_id: uuid.UUID = Field(primary_key=True, foreign_key="parent_registration_requests.id")
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentRegistrationSession(SQLModel, table=True):
+    __tablename__ = "parent_registration_sessions"
+
+    token_hash: str = Field(primary_key=True, max_length=64)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    registration_request_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="parent_registration_requests.id",
+        index=True,
+    )
+    credential_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="password_credentials.id",
+        index=True,
+    )
+    purpose: str = Field(index=True, max_length=32)
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime = Field(index=True)
+    consumed_at: Optional[datetime] = None
+
+
+class ParentCredentialProvisioningAudit(SQLModel, table=True):
+    __tablename__ = "parent_credential_provisioning_audits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    credential_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="password_credentials.id",
+        index=True,
+    )
+    operation: str = Field(index=True, max_length=48)
+    actor_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    reason: str = Field(max_length=500)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class ParentMailDelivery(SQLModel, table=True):
+    __tablename__ = "parent_mail_deliveries"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    registration_request_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="parent_registration_requests.id",
+        index=True,
+    )
+    action_token_hash: Optional[str] = Field(
+        default=None, foreign_key="credential_action_tokens.token_hash", max_length=64, index=True,
+    )
+    message_type: str = Field(index=True, max_length=32)
+    recipient: str = Field(max_length=255)
+    subject: str = Field(max_length=255)
+    body: str
+    status: str = Field(default="pending", index=True, max_length=16)
+    attempt_count: int = Field(default=0)
+    failure_code: Optional[str] = Field(default=None, max_length=64)
+    processing_started_at: Optional[datetime] = None
+    lease_expires_at: Optional[datetime] = Field(default=None, index=True)
+    next_retry_at: Optional[datetime] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    last_attempt_at: Optional[datetime] = None
+    sent_at: Optional[datetime] = None
 
 
 class DailyContactEntry(SQLModel, table=True):
@@ -1546,6 +1749,7 @@ class Notice(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
     body: str
+    body_html: Optional[str] = None
     priority: NoticePriority = Field(default=NoticePriority.normal)
     status: NoticeStatus = Field(default=NoticeStatus.draft)
     publish_start_at: Optional[datetime] = None
@@ -1556,6 +1760,49 @@ class Notice(SQLModel, table=True):
 
     targets: List["NoticeTarget"] = Relationship(back_populates="notice")
     reads: List["NoticeRead"] = Relationship(back_populates="notice")
+    attachments: List["NoticeAttachment"] = Relationship(back_populates="notice")
+    workflow_actions: List["NoticeWorkflowAction"] = Relationship(back_populates="notice")
+
+
+class NoticeAttachment(SQLModel, table=True):
+    __tablename__ = "notice_attachments"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    notice_id: int = Field(foreign_key="notices.id", index=True)
+    original_filename: str
+    storage_path: str
+    content_type: str
+    file_size: int = Field(default=0)
+    is_image: bool = Field(default=False)
+    display_size: str = Field(default="medium", max_length=16)
+    display_order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    notice: Optional[Notice] = Relationship(back_populates="attachments")
+
+
+class NoticeWorkflowAction(SQLModel, table=True):
+    __tablename__ = "notice_workflow_actions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    notice_id: int = Field(foreign_key="notices.id", index=True)
+    action: str = Field(index=True, max_length=32)
+    actor_ref: Optional[str] = Field(default=None, max_length=64)
+    actor_name: str = Field(max_length=100)
+    comment: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+    notice: Optional[Notice] = Relationship(back_populates="workflow_actions")
+
+    @property
+    def action_label(self) -> str:
+        return {
+            "submitted": "承認申請",
+            "approved": "承認・公開",
+            "rejected": "差戻し",
+            "cancelled": "申請取消",
+            "unpublished": "公開停止・下書き化",
+        }.get(self.action, self.action)
 
 
 class MeetingNote(SQLModel, table=True):
@@ -1908,6 +2155,7 @@ class Message(SQLModel, table=True):
     room_id: int = Field(foreign_key="classrooms.id", index=True)
     parent_message_id: Optional[int] = Field(default=None, foreign_key="messages.id", index=True)
     author_name: str
+    author_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     body: str = Field(default="")
     created_at: datetime = Field(default_factory=utc_now, index=True)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -2372,6 +2620,208 @@ class User(SQLModel, table=True):
         )
 
 
+class PasswordCredential(SQLModel, table=True):
+    __tablename__ = "password_credentials"
+    __table_args__ = (
+        UniqueConstraint(
+            "principal_type",
+            "login_id_normalized",
+            name="uq_password_credential_principal_login",
+        ),
+        UniqueConstraint("staff_user_id", name="uq_password_credential_staff_user"),
+        UniqueConstraint("parent_account_id", name="uq_password_credential_parent_account"),
+        CheckConstraint(
+            "(principal_type = 'staff' AND staff_user_id IS NOT NULL "
+            "AND parent_account_id IS NULL) OR "
+            "(principal_type = 'parent' AND parent_account_id IS NOT NULL "
+            "AND staff_user_id IS NULL)",
+            name="ck_password_credential_principal",
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    principal_type: str = Field(index=True, max_length=16)
+    staff_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    parent_account_id: Optional[int] = Field(
+        default=None,
+        foreign_key="parent_accounts.id",
+        index=True,
+    )
+    login_id: str = Field(max_length=255)
+    login_id_normalized: str = Field(index=True, max_length=255)
+    password_hash: Optional[str] = Field(default=None, max_length=512)
+    hash_scheme: str = Field(default="argon2id", max_length=32)
+    must_change_password: bool = Field(default=False)
+    password_changed_at: Optional[datetime] = None
+    credential_version: int = Field(default=1)
+    disabled_at: Optional[datetime] = None
+    disabled_reason: Optional[str] = Field(default=None, max_length=255)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class CredentialActionToken(SQLModel, table=True):
+    __tablename__ = "credential_action_tokens"
+
+    token_hash: str = Field(primary_key=True, max_length=64)
+    credential_id: uuid.UUID = Field(
+        foreign_key="password_credentials.id",
+        index=True,
+    )
+    action: str = Field(index=True, max_length=32)
+    created_by_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime = Field(index=True)
+    consumed_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+
+
+class StaffPasswordRecovery(SQLModel, table=True):
+    __tablename__ = "staff_password_recoveries"
+
+    token_hash: str = Field(primary_key=True, max_length=64)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    credential_id: uuid.UUID = Field(foreign_key="password_credentials.id", index=True)
+    credential_version: int
+    recipient: str = Field(max_length=255)
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime = Field(index=True)
+    consumed_at: Optional[datetime] = None
+
+
+class StaffMailDelivery(SQLModel, table=True):
+    __tablename__ = "staff_mail_deliveries"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    recovery_token_hash: Optional[str] = Field(
+        default=None, foreign_key="staff_password_recoveries.token_hash", index=True
+    )
+    message_type: str = Field(max_length=32)
+    recipient: str = Field(max_length=255)
+    subject: str = Field(max_length=255)
+    body: str
+    status: str = Field(default="pending", index=True, max_length=16)
+    attempt_count: int = Field(default=0)
+    failure_code: Optional[str] = Field(default=None, max_length=64)
+    lease_expires_at: Optional[datetime] = None
+    next_retry_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    expires_at: datetime = Field(index=True)
+    sent_at: Optional[datetime] = None
+
+
+class AuthSession(SQLModel, table=True):
+    __tablename__ = "auth_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "(principal_type = 'staff' AND staff_user_id IS NOT NULL "
+            "AND parent_account_id IS NULL) OR "
+            "(principal_type = 'parent' AND parent_account_id IS NOT NULL "
+            "AND staff_user_id IS NULL)",
+            name="ck_auth_session_principal",
+        ),
+    )
+
+    token_hash: str = Field(primary_key=True, max_length=64)
+    principal_type: str = Field(index=True, max_length=16)
+    credential_id: uuid.UUID = Field(
+        foreign_key="password_credentials.id",
+        index=True,
+    )
+    staff_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    parent_account_id: Optional[int] = Field(
+        default=None,
+        foreign_key="parent_accounts.id",
+        index=True,
+    )
+    credential_version: int
+    mfa_satisfied_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    last_seen_at: datetime = Field(default_factory=utc_now)
+    idle_expires_at: datetime = Field(index=True)
+    absolute_expires_at: datetime = Field(index=True)
+    revoked_at: Optional[datetime] = Field(default=None, index=True)
+    revoke_reason: Optional[str] = Field(default=None, max_length=64)
+
+
+class LoginThrottle(SQLModel, table=True):
+    __tablename__ = "login_throttles"
+
+    bucket_hash: str = Field(primary_key=True, max_length=64)
+    bucket_type: str = Field(index=True, max_length=16)
+    failure_count: int = Field(default=0)
+    window_started_at: datetime = Field(default_factory=utc_now)
+    blocked_until: Optional[datetime] = Field(default=None, index=True)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class AuthenticationEvent(SQLModel, table=True):
+    __tablename__ = "authentication_events"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    event_type: str = Field(index=True, max_length=48)
+    result: str = Field(index=True, max_length=16)
+    reason_code: str = Field(max_length=64)
+    principal_type: str = Field(index=True, max_length=16)
+    staff_user_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="users.id",
+        index=True,
+    )
+    parent_account_id: Optional[int] = Field(
+        default=None,
+        foreign_key="parent_accounts.id",
+        index=True,
+    )
+    credential_id: Optional[uuid.UUID] = Field(
+        default=None,
+        foreign_key="password_credentials.id",
+        index=True,
+    )
+    request_id: Optional[str] = Field(default=None, max_length=128)
+    network_bucket_hash: Optional[str] = Field(default=None, max_length=64)
+    occurred_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class InitialAdminBootstrapAudit(SQLModel, table=True):
+    __tablename__ = "initial_admin_bootstrap_audits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    credential_id: uuid.UUID = Field(foreign_key="password_credentials.id", index=True)
+    actor: str = Field(max_length=100)
+    approver: str = Field(max_length=100)
+    reason: str = Field(max_length=500)
+    database_fingerprint: str = Field(max_length=64)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+
+class StaffCredentialProvisioningAudit(SQLModel, table=True):
+    __tablename__ = "staff_credential_provisioning_audits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    credential_id: uuid.UUID = Field(foreign_key="password_credentials.id", index=True)
+    operation: str = Field(max_length=32)
+    actor: str = Field(max_length=100)
+    approver: str = Field(max_length=100)
+    reason: str = Field(max_length=500)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
+
+
 class StaffPermissionChangeLog(SQLModel, table=True):
     __tablename__ = "staff_permission_change_logs"
 
@@ -2613,4 +3063,6 @@ class DataTransferLog(SQLModel, table=True):
     updated_count: int = Field(default=0)
     skipped_count: int = Field(default=0)
     error_count: int = Field(default=0)
+    change_metadata: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    actor_id: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now, index=True)

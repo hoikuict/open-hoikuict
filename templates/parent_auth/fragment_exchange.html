@@ -1,0 +1,13 @@
+<script>
+(() => {
+  const token = location.hash.slice(1);
+  if (!token) return;
+  // Remove the secret from browser history before exchanging it by POST.
+  history.replaceState(null, "", location.pathname);
+  const form = document.querySelector('[data-registration-exchange]');
+  form.elements.token.value = token;
+  const message = document.getElementById('message');
+  if (message) message.textContent = 'リンクを確認しています。';
+  form.submit();
+})();
+</script>

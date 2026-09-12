@@ -14,3 +14,27 @@ __pycache__
 *.db-shm
 backups
 *.log
+
+# Keep workstation data and nested checkouts out of a fresh installation.
+.agents
+.codex
+.local-dev
+.ruff_cache
+data
+storage
+runtime
+test_uploads
+site
+tmp*
+.tmp*
+**/*.sqlite
+**/*.sqlite3
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.sqlite3-wal
+**/*.sqlite3-shm
+# These two versioned databases are the bundled writing examples.
+!gen_bunnrei/bunrei.sqlite
+!gen_bunnrei/facility.sqlite
+# Public demo ships only its versioned, synthetic baseline database.
+!demo_data/demo-template.sqlite3

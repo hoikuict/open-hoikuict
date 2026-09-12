@@ -38,6 +38,24 @@ python -m uvicorn main:app --reload
 
 起動後、ブラウザで <http://127.0.0.1:8000/> を開きます。
 
+### ローカル認証版βを起動する
+
+モック環境とDBを分離したパスワード認証版は、`.env.beta.example` を基にGit管理外の `.env.beta.local` を用意して起動します。
+
+```powershell
+.\scripts\start_beta.ps1
+```
+
+既定URLは <http://127.0.0.1:8001/> です。DBや管理者を起動時に作り直さないため、一度設定した認証情報と業務データは再起動後も保持されます。詳細は [`docs/environment-profiles.md`](docs/environment-profiles.md) を参照してください。
+
+## TrueNASで空の状態から実機検証を始める
+
+新しい保存領域に、デモデータなし・パスワード認証ありで導入する手順は
+[初心者向けの導入手順書](docs/truenas-beginner-installation-guide.md)を参照してください。
+SSH接続からCloudflare・Gmail・保護者登録・通知の確認まで、今回の実機検証を基に説明しています。
+設定の詳細は[TrueNASへの初期導入](docs/truenas-fresh-install.md)にもまとめています。
+専用のComposeと環境変数雛形は`deploy/truenas/`にあります。
+
 ## 100人規模デモデータを投入する
 
 このリポジトリには、定員100人規模の認可保育園を想定したデモデータを同梱しています。
@@ -70,6 +88,9 @@ python -m uvicorn main:app --reload
 - [導入ロードマップ](docs/roadmap.md)
 - [開発者向けセットアップ](docs/development.md)
 - [運用責任と本番導入前チェック](docs/operations.md)
+- [TrueNAS・Dockge・Cloudflare 実運用試験構成仕様](docs/pilot-deployment-spec.md)
+- [TrueNAS・Dockge・Cloudflare 実運用試験手順書](docs/truenas-dockge-cloudflare-pilot-runbook.md)
+- [バックアップ・復元仕様](docs/backup-restore-spec.md)
 - [セキュリティ最低ライン](docs/security.md)
 - [個人情報・ダミーデータ方針](docs/privacy.md)
 - [デモデータ仕様](docs/demo-data.md)

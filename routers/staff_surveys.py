@@ -138,6 +138,8 @@ def staff_survey_form(
         return _login_redirect(request)
 
     survey = _load_staff_survey(session, survey_id)
+    if survey and survey_matches_staff_targets(survey, staff_user, _equivalent_staff_user_id_strings(session, staff_user)) and not survey_is_open(survey, utc_now()) and "text/html" in request.headers.get("accept", ""):
+        raise HTTPException(status_code=410, detail="このアンケートは受付期間外です。締切後は回答を変更できません。アンケート一覧へ戻ってください。")
     if not survey or not _staff_can_access_survey(session, survey, staff_user):
         raise HTTPException(status_code=404, detail="アンケートが見つかりません")
     scope = resolve_staff_answer_scope(survey, staff_user)
@@ -172,6 +174,8 @@ async def save_staff_survey_answer(
         return _login_redirect(request)
 
     survey = _load_staff_survey(session, survey_id)
+    if survey and survey_matches_staff_targets(survey, staff_user, _equivalent_staff_user_id_strings(session, staff_user)) and not survey_is_open(survey, utc_now()) and "text/html" in request.headers.get("accept", ""):
+        raise HTTPException(status_code=410, detail="このアンケートは受付期間外です。締切後は回答を変更できません。アンケート一覧へ戻ってください。")
     if not survey or not _staff_can_access_survey(session, survey, staff_user):
         raise HTTPException(status_code=404, detail="アンケートが見つかりません")
     scope = resolve_staff_answer_scope(survey, staff_user)

@@ -5,12 +5,35 @@
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div>
     <h1 class="text-2xl font-bold text-slate-800">保護者アカウント</h1>
-    <p class="text-sm text-slate-500">保護者は家族に所属し、その家族の園児へ自動で紐づきます。</p>
+    <p class="text-sm text-slate-500">園児への閲覧権限は、保護者ごとの明示的な紐付けで管理します。</p>
   </div>
   {% if current_user and current_user.can_manage_child_records %}
+  <div class="flex flex-wrap gap-2">
+  {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">保護者に初回入力を依頼</a>{% endif %}
+  {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/registration-qr" class="rounded border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700">共通QR・申請受付</a>{% endif %}
   <a href="/parent-accounts/new" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:self-auto">新規登録</a>
+  </div>
   {% endif %}
 </div>
+
+{% if pending_registrations %}
+<section class="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 p-5" aria-labelledby="pending-registrations-heading">
+  <h2 id="pending-registrations-heading" class="text-lg font-semibold text-indigo-900">確認待ちの初回登録（{{ pending_registrations|length }}件）</h2>
+  <p class="mt-1 text-sm text-indigo-800">保護者から提出が届いています。内容を確認して承認すると登録に反映し、パスワード設定の案内メールを送ります。</p>
+  <ul class="mt-4 space-y-3">
+    {% for registration in pending_registrations %}
+    <li class="flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="min-w-0">
+        <p class="font-semibold text-slate-800">{{ registration.child_name ~ 'さんの初回入力' if registration.child_name else registration.display_name ~ 'さんの登録申請' }}</p>
+        <p class="mt-1 break-all text-sm text-slate-600">{{ registration.email }}</p>
+        <p class="mt-1 text-xs text-slate-500">提出: {{ registration.submitted_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</p>
+      </div>
+      {% if not is_public_demo() %}<a href="/parent-accounts/{{ registration.parent_account_id }}/authentication#registration-{{ registration.registration_id }}" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">提出内容を確認する</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% if notifications %}
 <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-5">
@@ -93,9 +116,9 @@
           {% endif %}
         </td>
         <td class="px-4 py-3 text-slate-700">
-          {% if account.family and account.family.children %}
-            {% for child in account.family.children %}
-            {{ child.full_name }}{% if not loop.last %}<br>{% endif %}
+          {% if account.child_links %}
+            {% for link in account.child_links %}
+            {% if link.child %}{{ link.child.full_name }}{% endif %}{% if not loop.last %}<br>{% endif %}
             {% endfor %}
           {% else %}
           -
@@ -107,7 +130,8 @@
             {% if current_user and current_user.can_manage_child_records %}
             <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
             {% endif %}
-            <a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>
+            {% if current_user and current_user.is_admin %}{% if not is_public_demo() %}<a href="/parent-accounts/{{ account.id }}/authentication" class="rounded border border-emerald-300 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-50">認証管理</a>{% endif %}{% endif %}
+            {% if parent_mock_login_available %}<a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>{% endif %}
           </div>
         </td>
       </tr>
@@ -155,9 +179,9 @@
         <div class="min-w-0">
           <dt class="text-xs font-medium text-slate-500">紐づく園児</dt>
           <dd class="mt-1 break-words text-slate-700">
-            {% if account.family and account.family.children %}
-              {% for child in account.family.children %}
-              {{ child.full_name }}{% if not loop.last %}<br>{% endif %}
+            {% if account.child_links %}
+              {% for link in account.child_links %}
+              {{ link.child.full_name }}{% if not loop.last %}<br>{% endif %}
               {% endfor %}
             {% else %}
             -
@@ -175,7 +199,8 @@
       {% if current_user and current_user.can_manage_child_records %}
       <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">編集</a>
       {% endif %}
-      <a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>
+      {% if current_user and current_user.is_admin %}{% if not is_public_demo() %}<a href="/parent-accounts/{{ account.id }}/authentication" class="rounded border border-emerald-300 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-50">認証管理</a>{% endif %}{% endif %}
+      {% if parent_mock_login_available %}<a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>{% endif %}
     </div>
   </article>
   {% else %}

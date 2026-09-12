@@ -1,0 +1,111 @@
+# TrueNAS / Dockge: see docs/truenas-fresh-install.md
+services:
+  app:
+    image: ${APP_IMAGE:?required}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Tokyo
+      HOIKUICT_ENV: production
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKU_NURSERY_REF: ${HOIKU_NURSERY_REF:?required}
+      HOIKUICT_ENABLE_MOCK_AUTH: "0"
+      HOIKUICT_ENABLE_MOCK_ROLE_OVERRIDE: "0"
+      HOIKUICT_STAFF_AUTH_MODE: local_password
+      HOIKUICT_PARENT_AUTH_MODE: local_password
+      HOIKUICT_SECRET_KEY: ${HOIKUICT_SECRET_KEY:?required}
+      HOIKUICT_LOGIN_THROTTLE_HMAC_KEY: ${HOIKUICT_LOGIN_THROTTLE_HMAC_KEY:?required}
+      HOIKUICT_COOKIE_SECURE: "1"
+      HOIKUICT_CSRF_ENFORCE: "1"
+      HOIKUICT_ALLOWED_ORIGINS: https://${PILOT_HOSTNAME:?required}
+      FORWARDED_ALLOW_IPS: ${PILOT_NETWORK_CIDR:?required}
+      HOIKUICT_KIOSK_ACCESS_MODE: disabled
+      HOIKUICT_PUSH_TRANSPORT: disabled
+      HOIKUICT_PARENT_MAIL_TRANSPORT: smtp
+      HOIKUICT_PARENT_REGISTRATION_BASE_URL: https://${PILOT_HOSTNAME:?required}
+      HOIKUICT_SMTP_HOST: ${HOIKUICT_SMTP_HOST:?required}
+      HOIKUICT_SMTP_PORT: ${HOIKUICT_SMTP_PORT:?required}
+      HOIKUICT_SMTP_STARTTLS: "1"
+      HOIKUICT_SMTP_USERNAME: ${HOIKUICT_SMTP_USERNAME:-}
+      HOIKUICT_SMTP_PASSWORD: ${HOIKUICT_SMTP_PASSWORD:-}
+      HOIKUICT_PARENT_MAIL_FROM: ${HOIKUICT_PARENT_MAIL_FROM:?required}
+      HOIKUICT_PASSWORD_BLOCKLIST_PATH: /run/secrets/password-blocklist.txt
+      HOIKUICT_PREVIEW_DIR: /data/data_transfer_previews
+      HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+    volumes:
+      - ${APP_RUNTIME_PATH:?required}/data:/data
+      - ${APP_RUNTIME_PATH:?required}/storage:/app/storage
+      - ${APP_SECRETS_PATH:?required}/password-blocklist.txt:/run/secrets/password-blocklist.txt:ro
+    expose: ["8000"]
+    networks: [pilot_network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:?required}
+    user: "65532:65532"
+    restart: unless-stopped
+    command: tunnel run --token-file /run/secrets/tunnel-token
+    volumes:
+      - ${APP_SECRETS_PATH:?required}/tunnel-token:/run/secrets/tunnel-token:ro
+    networks: [pilot_network]
+    depends_on:
+      app:
+        condition: service_healthy
+
+  backup:
+    image: ${APP_IMAGE:?required}
+    pull_policy: never
+    profiles: [operations]
+    restart: "no"
+    network_mode: none
+    environment:
+      TZ: Asia/Tokyo
+      HOIKUICT_ENV: production
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKU_NURSERY_REF: ${HOIKU_NURSERY_REF:?required}
+      HOIKUICT_STORAGE_ROOT: /app/storage
+    volumes:
+      - ${APP_RUNTIME_PATH:?required}/data:/data
+      - ${APP_RUNTIME_PATH:?required}/storage:/app/storage
+      - ${BACKUP_SET_PATH:?required}:/backup
+    entrypoint: ["python", "-m", "scripts.backup_runtime"]
+    command: ["--help"]
+
+  backup-worker:
+    image: ${APP_IMAGE:?required}
+    pull_policy: never
+    profiles: [backup-ui-trial]
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      TZ: Asia/Tokyo
+      HOIKUICT_ENV: production
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKU_NURSERY_REF: ${HOIKU_NURSERY_REF:?required}
+      HOIKUICT_STORAGE_ROOT: /app/storage
+      HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+      HOIKUICT_BACKUP_OUTPUT_ROOT: /backup
+      HOIKUICT_BACKUP_GIT_SHA: ${BACKUP_GIT_SHA:?required}
+      HOIKUICT_BACKUP_APP_IMAGE: ${BACKUP_APP_IMAGE:?required}
+      HOIKUICT_BACKUP_COMPOSE_SHA256: ${BACKUP_COMPOSE_SHA256:?required}
+      HOIKUICT_BACKUP_CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:?required}
+    volumes:
+      - ${APP_RUNTIME_PATH:?required}/data:/data
+      - ${APP_RUNTIME_PATH:?required}/storage:/app/storage
+      - ${BACKUP_SET_PATH:?required}:/backup
+    entrypoint: ["python", "-m", "scripts.backup_worker"]
+
+networks:
+  pilot_network:
+    ipam:
+      config:
+        - subnet: ${PILOT_NETWORK_CIDR:?required}

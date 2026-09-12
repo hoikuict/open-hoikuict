@@ -1,5 +1,8 @@
 import unittest
 import json
+import re
+from html import unescape
+from urllib.parse import parse_qs, urlsplit
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
@@ -27,6 +30,30 @@ from models import (
 
 
 class CalendarFeatureTests(unittest.TestCase):
+    def test_monthly_weekday_create_edit_roundtrip(self):
+        from models import RecurrenceRule
+        self._login(self.user_a_id)
+        form = {"calendar_id": str(self.a_personal_id), "title": "毎月の確認",
+                "timezone": "Asia/Tokyo", "start_value": "2026-09-08T09:00",
+                "end_value": "2026-09-08T10:00", "recurrence_mode": "monthly",
+                "recurrence_monthly_weekday": "2TU", "recurrence_count": "3"}
+        created = self.client.post("/events", data=form, follow_redirects=False)
+        self.assertEqual(created.status_code, 303)
+        with Session(self.engine) as session:
+            event = session.exec(select(Event).where(Event.title == "毎月の確認")).one()
+            event_id = event.id
+            rule = session.get(RecurrenceRule, event.recurrence_rule_id)
+            self.assertEqual(rule.by_weekday, "2TU")
+        page = self.client.get(f"/events/{event_id}/edit", params={"original_start_at": "2026-09-08T00:00:00+00:00"})
+        self.assertEqual(page.status_code, 200)
+        self.assertRegex(page.text, r'value="2TU"\s+selected')
+        form.update(scope="all", title="曜日指定を編集", recurrence_monthly_weekday="-1TU", original_start_at="2026-09-08T00:00:00+00:00")
+        saved = self.client.post(f"/events/{event_id}", data=form, follow_redirects=False)
+        self.assertEqual(saved.status_code, 303)
+        with Session(self.engine) as session:
+            event = session.get(Event, event_id)
+            self.assertEqual(session.get(RecurrenceRule, event.recurrence_rule_id).by_weekday, "-1TU")
+
     def setUp(self):
         configure_test_environment()
         self.engine = create_engine(
@@ -224,6 +251,84 @@ class CalendarFeatureTests(unittest.TestCase):
                 self.user_b_id: CalendarMemberRole.editor,
             },
         )
+
+    def test_new_staff_receive_existing_shared_calendars_and_events(self):
+        with Session(self.engine) as session:
+            new_staff = User(email="new-staff@example.test", display_name="新任職員", staff_role="can_edit")
+            session.add(new_staff)
+            session.add(Event(
+                calendar_id=self.shared_calendar_id, created_by_user_id=self.user_a_id,
+                title="全職員への連絡", start_at=datetime(2026, 9, 9, 0),
+                end_at=datetime(2026, 9, 9, 1),
+            ))
+            session.commit()
+            new_staff_id = new_staff.id
+        self._login(new_staff_id)
+        for _ in range(2):
+            response = self.client.get("/calendar?date=2026-09-09")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("全職員への連絡", response.text)
+            self.assertNotIn("田中先生の個人カレンダー", response.text)
+        with Session(self.engine) as session:
+            memberships = session.exec(select(CalendarMember).where(CalendarMember.user_id == new_staff_id)).all()
+            self.assertEqual([(m.calendar_id, m.role) for m in memberships], [(self.shared_calendar_id, CalendarMemberRole.editor)])
+            preference = session.exec(select(CalendarUserPreference).where(CalendarUserPreference.user_id == new_staff_id)).one()
+            self.assertTrue(preference.is_visible)
+
+    def test_missing_membership_is_repaired_without_resetting_hidden_preference(self):
+        with Session(self.engine) as session:
+            member = session.exec(select(CalendarMember).where(
+                CalendarMember.calendar_id == self.shared_calendar_id, CalendarMember.user_id == self.user_b_id,
+            )).one()
+            session.delete(member)
+            preference = session.exec(select(CalendarUserPreference).where(
+                CalendarUserPreference.calendar_id == self.shared_calendar_id, CalendarUserPreference.user_id == self.user_b_id,
+            )).one()
+            preference.is_visible = False
+            preference.display_order = 77
+            session.add(preference)
+            session.commit()
+        self._login(self.user_b_id)
+        self.assertEqual(self.client.get("/calendar").status_code, 200)
+        with Session(self.engine) as session:
+            member = session.exec(select(CalendarMember).where(
+                CalendarMember.calendar_id == self.shared_calendar_id, CalendarMember.user_id == self.user_b_id,
+            )).one()
+            self.assertEqual(member.role, CalendarMemberRole.editor)
+            preference = session.exec(select(CalendarUserPreference).where(
+                CalendarUserPreference.calendar_id == self.shared_calendar_id, CalendarUserPreference.user_id == self.user_b_id,
+            )).one()
+            self.assertFalse(preference.is_visible)
+            self.assertEqual(preference.display_order, 77)
+
+    def test_new_read_only_staff_cannot_edit_shared_events(self):
+        with Session(self.engine) as session:
+            viewer = User(email="new-viewer@example.test", display_name="閲覧職員", staff_role="view_only")
+            session.add(viewer)
+            session.commit()
+            viewer_id = viewer.id
+        self._login(viewer_id)
+        self.assertEqual(self.client.get("/calendar").status_code, 200)
+        with Session(self.engine) as session:
+            member = session.exec(select(CalendarMember).where(CalendarMember.user_id == viewer_id)).one()
+            self.assertEqual(member.role, CalendarMemberRole.viewer)
+        response = self.client.post("/events", data={
+            "calendar_id": str(self.shared_calendar_id), "title": "登録不可",
+            "start_value": "2026-09-09T09:00", "end_value": "2026-09-09T10:00",
+        }, follow_redirects=False)
+        self.assertEqual(response.status_code, 403)
+
+    def test_shared_sync_excludes_inactive_and_nonstaff_users(self):
+        with Session(self.engine) as session:
+            users = [
+                User(email="inactive@example.test", display_name="無効職員", is_active=False),
+                User(email="nonstaff@example.test", display_name="職員以外", staff_sort_order=200),
+            ]
+            session.add_all(users)
+            session.commit()
+            for user in users:
+                calendar_module._sync_staff_shared_calendars(session, user)
+                self.assertEqual(session.exec(select(CalendarMember).where(CalendarMember.user_id == user.id)).all(), [])
 
     def test_htmx_calendar_creation_updates_shell_and_new_event_form(self):
         self._login(self.user_a_id)
@@ -518,6 +623,57 @@ class CalendarFeatureTests(unittest.TestCase):
         self.assertIn("閉じる", search_response.text)
         self.assertIn('hx-target="#event-modal"', search_response.text)
         self.assertIn("園内研修", search_response.text)
+
+    def test_recurring_links_open_details_edit_and_save_one_occurrence(self):
+        self._login(self.user_a_id)
+        for all_day in (False, True):
+            with self.subTest(all_day=all_day):
+                title = "繰り返し終日" if all_day else "繰り返し朝会"
+                form = {
+                    "calendar_id": str(self.a_personal_id), "title": title,
+                    "timezone": "Asia/Tokyo", "start_value": "2026-04-14T09:00",
+                    "end_value": "2026-04-14T10:00", "recurrence_mode": "daily",
+                    "recurrence_count": "3", "mode": "month", "anchor_date": "2026-04-14",
+                }
+                if all_day:
+                    form["is_all_day"] = "true"
+                created = self.client.post("/events", data=form, follow_redirects=False)
+                self.assertEqual(created.status_code, 303)
+                with Session(self.engine) as session:
+                    event = session.exec(select(Event).where(Event.title == title)).one()
+                pages = [f"/calendar?mode={mode}&date=2026-04-15" for mode in ("month", "week", "day")]
+                pages.append(f"/search/events?q={title}&date=2026-04-15&date_from=2026-04-14&date_to=2026-04-16")
+                for page in pages:
+                    rendered = self.client.get(page)
+                    self.assertEqual(rendered.status_code, 200)
+                    links = [unescape(url) for url in re.findall(r'hx-get="([^"]+)"', rendered.text)
+                             if f"/events/{event.id}?" in url]
+                    self.assertTrue(links, page)
+                    for link in links:
+                        original = parse_qs(urlsplit(link).query)["original_start_at"][0]
+                        self.assertNotIn(" ", original)
+                        details = self.client.get(link)
+                        self.assertEqual(details.status_code, 200, link)
+                        edit_links = [unescape(url) for url in re.findall(r'hx-get="([^"]+)"', details.text)
+                                      if f"/events/{event.id}/edit?" in url]
+                        self.assertEqual(len(edit_links), 1)
+                        edit = self.client.get(edit_links[0])
+                        self.assertEqual(edit.status_code, 200, edit_links[0])
+                        self.assertIn('name="scope"', edit.text)
+                # Save the selected occurrence using the hidden field from the rendered form.
+                original = unescape(re.search(r'name="original_start_at" value="([^"]+)"', edit.text).group(1))
+                start_value = unescape(re.search(r'name="start_value" value="([^"]+)"', edit.text).group(1))
+                end_value = unescape(re.search(r'name="end_value" value="([^"]+)"', edit.text).group(1))
+                saved = self.client.post(f"/events/{event.id}", data={
+                    **form, "title": title + "変更", "scope": "one",
+                    "original_start_at": original, "start_value": start_value, "end_value": end_value,
+                }, follow_redirects=False)
+                self.assertEqual(saved.status_code, 303)
+                details = self.client.get(f"/events/{event.id}", params={"original_start_at": original})
+                self.assertEqual(details.status_code, 200)
+                self.assertIn(title + "変更", details.text)
+                with Session(self.engine) as session:
+                    self.assertEqual(session.get(Event, event.id).title, title)
 
     def test_recurring_update_requires_original_start_at_for_scope_one(self):
         self._login(self.user_a_id)

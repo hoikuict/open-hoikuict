@@ -84,6 +84,9 @@ class AttendanceReportTests(unittest.TestCase):
             session.add(retired)
             session.flush()
 
+            self.taro_id = taro.id
+            self.hanako_id = hanako.id
+
             session.add(
                 AttendanceRecord(
                     child_id=taro.id,
@@ -131,33 +134,71 @@ class AttendanceReportTests(unittest.TestCase):
         age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
         return f"{age}歳"
 
+    @staticmethod
+    def _child_table_cell(child_name: str) -> str:
+        return f'<td class="px-4 py-2 whitespace-nowrap">{child_name}</td>'
+
     def test_single_day_view_keeps_absent_enrolled_children_and_shows_classrooms(self):
         response = self.client.get("/attendance?date=2026-02-15")
 
         self.assertEqual(response.status_code, 200)
         html = response.text
         self.assertIn("検索詳細", html)
-        self.assertIn("田中 太郎", html)
-        self.assertIn("佐藤 花子", html)
+        self.assertIn(self._child_table_cell("田中 太郎"), html)
+        self.assertIn(self._child_table_cell("佐藤 花子"), html)
         self.assertIn("うさぎ組", html)
         self.assertIn("ひよこ組", html)
         self.assertIn("未登園 1 名", html)
-        self.assertNotIn("山田 次郎", html)
+        self.assertNotIn(self._child_table_cell("山田 次郎"), html)
 
     def test_can_filter_and_sort_by_classroom(self):
         sorted_response = self.client.get("/attendance?date=2026-02-15&sort_by=classroom&sort_order=asc")
         self.assertEqual(sorted_response.status_code, 200)
         sorted_html = sorted_response.text
-        self.assertLess(sorted_html.index("佐藤 花子"), sorted_html.index("田中 太郎"))
+        self.assertLess(
+            sorted_html.index(self._child_table_cell("佐藤 花子")),
+            sorted_html.index(self._child_table_cell("田中 太郎")),
+        )
 
         filtered_response = self.client.get(
             f"/attendance?start_date=2026-02-01&end_date=2026-03-31&classroom_id={self.usagi_id}"
         )
         self.assertEqual(filtered_response.status_code, 200)
         filtered_html = filtered_response.text
-        self.assertIn("田中 太郎", filtered_html)
-        self.assertNotIn("佐藤 花子", filtered_html)
-        self.assertNotIn("山田 次郎", filtered_html)
+        self.assertIn(self._child_table_cell("田中 太郎"), filtered_html)
+        self.assertNotIn(self._child_table_cell("佐藤 花子"), filtered_html)
+        self.assertNotIn(self._child_table_cell("山田 次郎"), filtered_html)
+
+    def test_child_dropdown_is_linked_to_classroom_and_search_panel_stays_collapsed(self):
+        response = self.client.get(
+            f"/attendance?date=2026-02-15&classroom_id={self.usagi_id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.text
+        self.assertIn('id="attendance-search-panel" class="hidden ', html)
+        self.assertIn("検索詳細（条件適用中）", html)
+        self.assertIn('id="child-id" name="child_id"', html)
+        self.assertIn(
+            f'value="{self.taro_id}" data-classroom-id="{self.usagi_id}"',
+            html,
+        )
+        self.assertIn(
+            f'value="{self.hanako_id}" data-classroom-id="{self.hiyoko_id}"',
+            html,
+        )
+        self.assertIn('classroomSelect?.addEventListener("change", syncChildOptions)', html)
+
+    def test_can_filter_attendance_by_selected_child_id(self):
+        response = self.client.get(
+            f"/attendance?start_date=2026-02-01&end_date=2026-03-31"
+            f"&classroom_id={self.usagi_id}&child_id={self.taro_id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self._child_table_cell("田中 太郎"), response.text)
+        self.assertNotIn(self._child_table_cell("佐藤 花子"), response.text)
+        self.assertIn(f'name="child_id" value="{self.taro_id}"', response.text)
 
     def test_range_filters_and_time_sorting(self):
         response = self.client.get(
@@ -170,7 +211,7 @@ class AttendanceReportTests(unittest.TestCase):
         html = response.text
         self.assertIn("2026-03-02", html)
         self.assertIn("2026-02-15", html)
-        self.assertNotIn("佐藤 花子", html)
+        self.assertNotIn(self._child_table_cell("佐藤 花子"), html)
         self.assertLess(html.index("2026-03-02"), html.index("2026-02-15"))
 
     def test_csv_export_respects_filters(self):

@@ -66,6 +66,7 @@ class PlanDocumentAction(SQLModel, table=True):
     action: str
     comment: Optional[str] = None
     actor_ref: str
+    actor_name: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
 
 

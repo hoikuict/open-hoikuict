@@ -1,0 +1,28 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}共通QR・申請受付{% endblock %}
+{% block content %}
+<style>
+.wrap{max-width:48rem}.qr-poster{text-align:center;padding:1.5rem 0}.qr-poster img{width:280px;max-width:100%;height:auto}.qr-url{overflow-wrap:anywhere;font-size:.875rem}.qr-steps{text-align:left;max-width:28rem;margin:1rem auto;line-height:1.9}.qr-controls{border-top:1px solid #e2e8f0;margin-top:1rem;padding-top:1rem}.qr-state{font-weight:700;color:{{ '#047857' if accepting else '#b45309' }}}
+@media print{.no-print{display:none!important}.wrap{max-width:none;padding:0}.card{border:0;box-shadow:none}.qr-poster{padding:2rem 0}.qr-poster img{width:70mm}.qr-url{font-size:11pt}}
+</style>
+<div class="no-print"><a href="/parent-accounts/">← 保護者アカウント一覧</a><p class="qr-state">現在の受付：{{ '受付中' if accepting else '停止中' }}</p></div>
+<section class="qr-poster" aria-label="配布用の登録案内">
+  <h1>保護者アカウントの初回申請</h1>
+  <p>スマートフォンでQRコードを読み取ってください。</p>
+  <img src="/parent-accounts/registration-qr.svg" alt="保護者アカウントの初回申請ページを開くQRコード" width="280" height="280">
+  <p class="qr-url"><a href="{{ registration_url }}">{{ registration_url }}</a></p>
+  <ol class="qr-steps"><li>ご本人のメールアドレスを入力</li><li>届いたメールから、お子さま・保護者の情報を入力</li><li>園が確認・承認</li><li>メールの案内からパスワードを設定して利用開始</li></ol>
+  <p class="muted">登録済みの方は保護者ログインをご利用ください。<br>操作でお困りの場合は園へお問い合わせください。</p>
+</section>
+<section class="qr-controls no-print" aria-label="園の受付設定">
+  <h2>配布と受付の管理</h2>
+  <p>このQRは全員共通です。掲示・配布してご利用ください。受付を停止しても、提出済みの申請の確認や既存アカウントのログインは続けられます。</p>
+  <div class="row"><button type="button" onclick="window.print()">案内を印刷</button><a class="button secondary" href="/parent-accounts/registration-qr.svg" download="parent-registration-qr.svg">QR画像を保存</a></div>
+  <form method="post" action="/parent-accounts/registration-qr">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <input type="hidden" name="enabled" value="{{ 'no' if accepting else 'yes' }}">
+    <button type="submit" class="{{ 'secondary' if accepting else '' }}">{{ '新しい申請の受付を停止する' if accepting else '新しい申請の受付を開始する' }}</button>
+  </form>
+  <p class="muted">同じ接続元からは10分間に5回まで。上限に達すると15分間受付を制限します。同じメールアドレスへの案内は1日3回までです。園のWi-Fiなど同じ接続を使う場合は、時間をあけて操作してください。</p>
+</section>
+{% endblock %}

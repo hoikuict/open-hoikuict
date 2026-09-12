@@ -1,4 +1,6 @@
 import csv
+import hashlib
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from io import BytesIO, StringIO
@@ -10,13 +12,16 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import selectinload
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 from auth import Role, get_current_staff_user, require_can_edit
 from attendance_checks_service import sync_attendance_alarm
+from attendance_correction_service import cancel_punch, correction_revision
+from models import AttendanceCorrection
 from database import get_session
-from extended_care_fee_service import charge_status_label, recalculate_attendance_charge
-from models import AttendanceRecord, Child, ChildStatus, Classroom, ExtendedCareCharge, ExtendedCareChargeStatus
+from extended_care_fee_service import charge_status_label, recalculate_attendance_charge, calculation_issues_for_records
+from models import AttendanceRecord, AttendancePickupHistory, Child, ChildStatus, Classroom, ExtendedCareCharge, ExtendedCareChargeStatus
 from time_utils import local_naive_now, local_today, utc_now
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
@@ -37,6 +42,8 @@ VALID_SORT_FIELDS = {
 VALID_SORT_ORDERS = {"asc", "desc"}
 NOTICE_MESSAGES = {
     "export_admin_required": "CSV/Excel出力は管理者のみ利用できます。",
+    "pickup_updated": "お迎え予定を保存しました。",
+    "punch_cancelled": "打刻を取り消しました。取消履歴を保存しました。残っている出欠アラームも確認してください。",
 }
 
 
@@ -44,6 +51,8 @@ NOTICE_MESSAGES = {
 class AttendanceFilterParams:
     start_date: date
     end_date: date
+    child_id: Optional[int]
+    child_id_value: str
     child_name: str
     classroom_id: Optional[int]
     classroom_id_value: str
@@ -70,6 +79,7 @@ class AttendanceFilterParams:
             [
                 self.start_date != today,
                 self.end_date != today,
+                self.child_id is not None,
                 bool(self.child_name),
                 self.classroom_id is not None,
                 self.time_field != "either",
@@ -85,7 +95,9 @@ class AttendanceFilterParams:
             "sort_by": self.sort_by,
             "sort_order": self.sort_order,
         }
-        if self.child_name:
+        if self.child_id_value:
+            params["child_id"] = self.child_id_value
+        elif self.child_name:
             params["child_name"] = self.child_name
         if self.classroom_id_value:
             params["classroom_id"] = self.classroom_id_value
@@ -121,6 +133,7 @@ class AttendanceReportRow:
     extended_care_amount: Optional[int]
     extended_care_status_label: str
     extended_care_requires_attention: bool
+    extended_care_reason: str = ""
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return local_today()
@@ -164,6 +177,7 @@ def _build_filters(
     target_date: Optional[str],
     start_date: Optional[str],
     end_date: Optional[str],
+    child_id: Optional[str],
     child_name: Optional[str],
     classroom_id: Optional[str],
     time_field: Optional[str],
@@ -196,10 +210,13 @@ def _build_filters(
     normalized_sort_by = sort_by if sort_by in VALID_SORT_FIELDS else "attendance_date"
     normalized_sort_order = sort_order if sort_order in VALID_SORT_ORDERS else "asc"
     normalized_classroom_id = _parse_optional_int(classroom_id)
+    normalized_child_id = _parse_optional_int(child_id)
 
     return AttendanceFilterParams(
         start_date=start,
         end_date=end,
+        child_id=normalized_child_id,
+        child_id_value=str(normalized_child_id) if normalized_child_id is not None else "",
         child_name=(child_name or "").strip(),
         classroom_id=normalized_classroom_id,
         classroom_id_value=str(normalized_classroom_id) if normalized_classroom_id is not None else "",
@@ -284,6 +301,12 @@ def _matches_child_name(row: AttendanceReportRow, child_name: str) -> bool:
         row.child_name_kana.replace(" ", ""),
     ]
     return any(needle in _normalize_text(value) for value in haystacks)
+
+
+def _matches_child(row: AttendanceReportRow, filters: AttendanceFilterParams) -> bool:
+    if filters.child_id is not None:
+        return row.child_id == filters.child_id
+    return _matches_child_name(row, filters.child_name)
 
 
 def _matches_classroom(row: AttendanceReportRow, classroom_id: Optional[int]) -> bool:
@@ -439,10 +462,16 @@ def _build_report_rows(session: Session, filters: AttendanceFilterParams) -> lis
     filtered_rows = [
         row
         for row in rows
-        if _matches_child_name(row, filters.child_name)
+        if _matches_child(row, filters)
         and _matches_classroom(row, filters.classroom_id)
         and _matches_time_range(row, filters)
     ]
+    records_by_id = {record.id: record for record in records}
+    issues = calculation_issues_for_records(session, [records_by_id[row.attendance_record_id]
+                                            for row in filtered_rows if row.extended_care_status_label == "未計算"])
+    for row in filtered_rows:
+        if row.extended_care_status_label == "未計算":
+            row.extended_care_reason = issues[row.attendance_record_id]
     return _sort_rows(filtered_rows, filters.sort_by, filters.sort_order)
 
 
@@ -625,6 +654,7 @@ def attendance_list(
     target_date: Optional[str] = Query(default=None, alias="date"),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    child_id: Optional[str] = Query(default=None),
     child_name: Optional[str] = Query(default=None),
     classroom_id: Optional[str] = Query(default=None),
     time_field: Optional[str] = Query(default="either"),
@@ -640,6 +670,7 @@ def attendance_list(
         target_date=target_date,
         start_date=start_date,
         end_date=end_date,
+        child_id=child_id,
         child_name=child_name,
         classroom_id=classroom_id,
         time_field=time_field,
@@ -651,6 +682,9 @@ def attendance_list(
     rows = _build_report_rows(session, filters)
     summary = _build_summary(rows)
     classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+    children = session.exec(
+        select(Child).order_by(Child.last_name_kana, Child.first_name_kana, Child.id)
+    ).all()
 
     return templates.TemplateResponse(
         request,
@@ -668,6 +702,7 @@ def attendance_list(
             "checked_out_count": summary["checked_out_count"],
             "not_checked_in_count": summary["not_checked_in_count"],
             "classroom_options": classrooms,
+            "child_options": children,
             "time_field_options": [
                 {"value": "either", "label": "登園・降園どちらか"},
                 {"value": "check_in", "label": "登園のみ"},
@@ -696,6 +731,7 @@ def export_attendance_csv(
     target_date: Optional[str] = Query(default=None, alias="date"),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    child_id: Optional[str] = Query(default=None),
     child_name: Optional[str] = Query(default=None),
     classroom_id: Optional[str] = Query(default=None),
     time_field: Optional[str] = Query(default="either"),
@@ -713,6 +749,7 @@ def export_attendance_csv(
         target_date=target_date,
         start_date=start_date,
         end_date=end_date,
+        child_id=child_id,
         child_name=child_name,
         classroom_id=classroom_id,
         time_field=time_field,
@@ -737,6 +774,7 @@ def export_attendance_xlsx(
     target_date: Optional[str] = Query(default=None, alias="date"),
     start_date: Optional[str] = Query(default=None),
     end_date: Optional[str] = Query(default=None),
+    child_id: Optional[str] = Query(default=None),
     child_name: Optional[str] = Query(default=None),
     classroom_id: Optional[str] = Query(default=None),
     time_field: Optional[str] = Query(default="either"),
@@ -754,6 +792,7 @@ def export_attendance_xlsx(
         target_date=target_date,
         start_date=start_date,
         end_date=end_date,
+        child_id=child_id,
         child_name=child_name,
         classroom_id=classroom_id,
         time_field=time_field,
@@ -770,6 +809,127 @@ def export_attendance_xlsx(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _pickup_record(session: Session, child_id: int, day: date) -> tuple[Child, AttendanceRecord]:
+    child = session.get(Child, child_id)
+    if not child:
+        raise HTTPException(404, "園児が見つかりません")
+    if child.status != ChildStatus.enrolled:
+        raise HTTPException(400, "在園児のお迎え予定のみ変更できます")
+    record = session.exec(select(AttendanceRecord).where(
+        AttendanceRecord.child_id == child_id, AttendanceRecord.attendance_date == day,
+    )).first()
+    if not record or not record.check_in_at:
+        raise HTTPException(400, "先に登園打刻を行ってください")
+    return child, record
+
+
+def _pickup_revision(record: AttendanceRecord) -> str:
+    return hashlib.sha256(repr((record.id, record.updated_at, record.planned_pickup_time,
+                                record.pickup_person)).encode()).hexdigest()
+
+
+def _pickup_form(request, session, current_user, child, record, return_query, *, error="", values=None, status_code=200):
+    history = session.exec(select(AttendancePickupHistory).where(
+        AttendancePickupHistory.attendance_record_id == record.id,
+    ).order_by(AttendancePickupHistory.id.desc()).limit(10)).all()
+    return templates.TemplateResponse(request, "attendance_pickup.html", {
+        "current_user": current_user, "child": child, "record": record, "history": history,
+        "revision": _pickup_revision(record), "return_query": return_query or "",
+        "return_url": _build_redirect_url(record.attendance_date, return_query),
+        "error": error, "values": values or {
+            "planned_pickup_time": record.planned_pickup_time or "", "pickup_person": record.pickup_person or "",
+        },
+    }, status_code=status_code)
+
+
+@router.get("/{child_id}/pickup", response_class=HTMLResponse)
+def edit_pickup(request: Request, child_id: int, date: str, return_query: str = "",
+                session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    child, record = _pickup_record(session, child_id, _parse_target_date(date))
+    return _pickup_form(request, session, current_user, child, record, return_query)
+
+
+@router.post("/{child_id}/pickup", response_class=HTMLResponse)
+def save_pickup(request: Request, child_id: int, date: str = Form(...),
+                planned_pickup_time: str = Form(""), pickup_person: str = Form(""),
+                revision: str = Form(...), return_query: str = Form(""),
+                session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    day = _parse_target_date(date)
+    child, record = _pickup_record(session, child_id, day)
+    values = {"planned_pickup_time": planned_pickup_time.strip(), "pickup_person": pickup_person.strip()}
+    if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", values["planned_pickup_time"]):
+        return _pickup_form(request, session, current_user, child, record, return_query,
+                            error="お迎え予定時刻を時・分で入力してください。", values=values, status_code=400)
+    if not values["pickup_person"] or len(values["pickup_person"]) > 100 or any(ord(c) < 32 for c in values["pickup_person"]):
+        return _pickup_form(request, session, current_user, child, record, return_query,
+                            error="お迎え予定者を100文字以内で入力してください。", values=values, status_code=400)
+    if revision != _pickup_revision(record):
+        return _pickup_form(request, session, current_user, child, record, return_query,
+                            error="別の操作で記録が更新されました。最新の内容を確認して入力し直してください。", status_code=409)
+    if (record.planned_pickup_time, record.pickup_person) != (values["planned_pickup_time"], values["pickup_person"]):
+        history = AttendancePickupHistory(
+            attendance_record_id=record.id, previous_time=record.planned_pickup_time,
+            previous_person=record.pickup_person, new_time=values["planned_pickup_time"],
+            new_person=values["pickup_person"], changed_by_user_id=current_user.user_id,
+            changed_by_name=current_user.name,
+        )
+        result = session.execute(update(AttendanceRecord).where(
+            AttendanceRecord.id == record.id, AttendanceRecord.updated_at == record.updated_at,
+        ).values(**values, updated_at=utc_now()).execution_options(synchronize_session=False))
+        if result.rowcount != 1:
+            session.rollback()
+            session.refresh(record)
+            return _pickup_form(request, session, current_user, child, record, return_query,
+                                error="別の操作で記録が更新されました。最新の内容を確認して入力し直してください。", status_code=409)
+        session.add(history)
+        session.commit()
+    return RedirectResponse(_build_redirect_url(day, return_query) + "&notice=pickup_updated", status_code=303)
+
+
+def _correction_page(request, session, current_user, child, record, return_query, error="", reason="", status_code=200):
+    history = session.exec(select(AttendanceCorrection).where(AttendanceCorrection.attendance_record_id == record.id)
+        .order_by(AttendanceCorrection.id.desc())).all()
+    return templates.TemplateResponse(request, "attendance_correction.html", {
+        "current_user": current_user, "child": child, "record": record, "history": history,
+        "revision": correction_revision(record), "return_query": return_query,
+        "return_url": _build_redirect_url(record.attendance_date, return_query), "error": error, "reason": reason,
+    }, status_code=status_code)
+
+
+def _correction_record(session, child_id, day):
+    child = session.get(Child, child_id)
+    record = session.exec(select(AttendanceRecord).where(AttendanceRecord.child_id == child_id,
+        AttendanceRecord.attendance_date == day)).first()
+    if child is None or record is None:
+        raise HTTPException(404, "打刻記録が見つかりません。")
+    return child, record
+
+
+@router.get("/{child_id}/correction", response_class=HTMLResponse)
+def correction_page(request: Request, child_id: int, date: str, return_query: str = "",
+                    session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    child, record = _correction_record(session, child_id, _parse_target_date(date))
+    return _correction_page(request, session, current_user, child, record, return_query)
+
+
+@router.post("/{child_id}/correction", response_class=HTMLResponse)
+def correction_save(request: Request, child_id: int, date: str = Form(...), operation: str = Form(...),
+                    reason: str = Form(""), revision: str = Form(...), return_query: str = Form(""),
+                    session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    child, record = _correction_record(session, child_id, _parse_target_date(date))
+    try:
+        cancel_punch(session, record, operation=operation, reason=reason, revision=revision, actor=current_user)
+    except ValueError as exc:
+        session.rollback()
+        session.refresh(record)
+        return _correction_page(request, session, current_user, child, record, return_query, str(exc), reason, 409)
+    return RedirectResponse(_build_redirect_url(record.attendance_date, return_query) + "&notice=punch_cancelled", status_code=303)
 
 
 @router.post("/{child_id}/check-in")

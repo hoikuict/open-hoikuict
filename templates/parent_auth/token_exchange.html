@@ -1,0 +1,16 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<h1>{{ heading }}</h1>
+{% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
+<p id="message">メールのリンクから進めない場合は、同じメールにある登録コードを貼り付けてください。</p>
+<p class="muted">登録コードが記載されていないメールは、メール内のリンクを長押ししてコピーし、貼り付けてください。Cloudflareの認証コードとは別です。</p>
+<form data-registration-exchange method="post" action="{{ verify_url }}" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <label for="registration-token">登録コードまたはメールのリンク</label>
+  <input id="registration-token" name="token" type="text" required maxlength="2048" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="registration-help">
+  <p id="registration-help" class="muted">最新のメールからコピーしてください。リンクと登録コードは24時間有効です。</p>
+  <button type="submit">登録を続ける</button>
+</form>
+{% include "parent_auth/fragment_exchange.html" %}
+{% endblock %}

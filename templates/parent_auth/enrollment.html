@@ -1,0 +1,34 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}{{ '保護者アカウントの初回情報入力' if public_application else '入園時の初回情報入力' }}{% endblock %}
+{% macro field(key, label, required=false) %}
+<label>{{ label }}{% if required %} <span class="muted">（必須）</span>{% endif %}
+  {% if key in ['allergy', 'medical_notes'] %}<textarea name="{{ key }}" rows="3" maxlength="2000">{{ values.get(key, '') }}</textarea>
+  {% else %}<input name="{{ key }}" value="{{ values.get(key, '') }}" {% if required %}required{% endif %} maxlength="300" type="{{ 'date' if key in ['birth_date', 'enrollment_date'] else ('tel' if key.endswith('phone') else 'text') }}">{% endif %}
+</label>
+{% endmacro %}
+{% block content %}
+<style>.wrap{max-width:48rem}.enrollment-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 1rem}fieldset{min-width:0;border:0;padding:0;margin:2rem 0}legend{font-weight:750;font-size:1.15rem}summary{cursor:pointer;font-weight:650}@media(max-width:540px){.enrollment-grid{grid-template-columns:1fr}.wrap{padding:1rem .75rem}}</style>
+<h1>{{ '保護者アカウントの初回情報入力' if public_application else '入園時の初回情報入力' }}</h1>
+{% if public_application %}<p>お子さまと保護者ご本人の情報を入力してください。メールアドレスは確認済みのものを使用します。</p>{% else %}<p>{{ enrollment.child_name }}さんの入園に必要な情報を入力してください。メールアドレスは招待先をそのまま使用します。</p>{% endif %}
+<p class="muted">園が内容を確認して承認すると登録に反映され、パスワード設定の案内メールが届きます。入力画面の有効時間は2時間です。</p>
+{% if enrollment.child_id %}<p class="muted">任意項目を空欄にした場合、園に登録済みの情報はそのまま残ります。登録済み情報の削除が必要な場合は園へお知らせください。</p>{% endif %}
+{% if form_error %}<p role="alert" class="error">{{ form_error }}</p>{% endif %}
+<form method="post" action="/parent-portal/register/enrollment">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <fieldset><legend>お子さま</legend><div class="enrollment-grid">
+    {% for key in ['last_name','first_name','last_name_kana','first_name_kana','birth_date','enrollment_date'] %}{{ field(key, child_fields[key], true) }}{% endfor %}
+  </div></fieldset>
+  <fieldset><legend>ご自宅の連絡先</legend>{{ field('home_address', '自宅住所', true) }}{{ field('home_phone', '自宅電話（ある場合）') }}</fieldset>
+  <fieldset><legend>入力する保護者ご本人</legend><div class="enrollment-grid">
+    {% for key, label in guardian_fields.items() %}{{ field('g1_' ~ key, label, key in ['last_name','first_name','last_name_kana','first_name_kana','relationship','phone']) }}{% endfor %}
+  </div><p class="muted">勤務先がない場合は空欄で構いません。</p></fieldset>
+  {% if not enrollment.child_id %}
+  <details {% if values.get('g2_last_name') %}open{% endif %}><summary>もう1人の保護者を登録する（任意）</summary>
+    <p class="muted">家族情報として登録します。この方のログインアカウントは園が別途招待します。</p>
+    <div class="enrollment-grid">{% for key, label in guardian_fields.items() %}{{ field('g2_' ~ key, label) }}{% endfor %}</div>
+  </details>
+  {% endif %}
+  <fieldset><legend>健康面で伝えたいこと（任意）</legend>{{ field('allergy', 'アレルギー（複数はカンマ区切り）') }}{{ field('medical_notes', '健康面で伝えたいこと') }}</fieldset>
+  <button type="submit">入力内容を園に提出する</button>
+</form>
+{% endblock %}

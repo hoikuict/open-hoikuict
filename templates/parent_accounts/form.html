@@ -6,20 +6,40 @@
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-slate-800">{{ submit_label }}</h1>
-      <p class="text-sm text-slate-500">保護者アカウントを家族単位で紐づけます。</p>
+      <p class="text-sm text-slate-500">家族の保護者情報を引き継いで登録できます。保存後は氏名・連絡先・勤務先が双方の画面に反映されます。</p>
     </div>
     <a href="/parent-accounts/" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
   </div>
 
   <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+      <label for="guardian-link" class="block text-sm font-semibold text-slate-700">家族プロフィールの保護者と紐付ける</label>
+      <select id="guardian-link" name="guardian_link" class="mt-2 w-full rounded border border-slate-300 bg-white px-3 py-2">
+        <option value="none">紐付けなし</option>
+        {% for choice in guardian_choices %}<option value="{{ choice.value }}" {% if selected_guardian_link == choice.value %}selected{% endif %}>{{ choice.label }}</option>{% endfor %}
+      </select>
+      <p class="mt-2 text-xs text-slate-600">選ぶと入力済みの情報を取り込みます。閲覧を許可する園児は下のチェック欄で確認してください。</p>
+    </div>
     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">表示名</label>
         <input type="text" name="display_name" required value="{{ account.display_name if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">家族と紐付ける場合は姓と名をスペースで区切ってください。</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
         <input type="email" name="email" required value="{{ account.email if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">招待・連絡先に使います。利用開始後のログインID変更は「認証管理」で行います。</p>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">登録照合用氏名</label>
+        <input type="text" name="registration_verification_name" value="{{ account.registration_verification_name if account and account.registration_verification_name else '' }}" maxlength="200" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">日本人はカナ、外国人は本人確認済みの英字表記を登録します。</p>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-600">照合表記</label>
+        <select name="registration_verification_name_type" class="w-full rounded border border-slate-300 px-3 py-2"><option value="">未設定</option><option value="kana" {% if account and account.registration_verification_name_type == 'kana' %}selected{% endif %}>カナ</option><option value="latin" {% if account and account.registration_verification_name_type == 'latin' %}selected{% endif %}>英字</option></select>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">電話番号</label>
@@ -28,6 +48,7 @@
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">現住所</label>
         <input type="text" name="home_address" value="{{ account.home_address if account and account.home_address else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <p class="mt-1 text-xs text-slate-500">家族と同じ住所は共通で更新されます。別居などで異なる住所を登録している場合は保持されます。</p>
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">勤務先</label>
@@ -62,10 +83,49 @@
       </div>
     </div>
 
+    <fieldset class="rounded-lg border border-slate-200 p-4">
+      <legend class="px-2 text-sm font-semibold text-slate-700">閲覧を許可する園児（明示的な紐付け）</legend>
+      <p class="text-sm text-slate-600">選択した家族のきょうだいを表示します。閲覧を許可する園児にチェックしてください。既存の許可は保持されます。</p>
+      <button type="button" id="select-family-children" class="mt-2 rounded border border-indigo-300 px-3 py-2 text-indigo-700">この家族の園児をまとめて選択</button>
+      <div class="mt-2 grid gap-2 md:grid-cols-2">
+      {% for child in children %}<label class="flex items-center gap-2 text-sm" data-family-child="{{ child.family_id or '' }}"><input type="checkbox" name="child_ids" value="{{ child.id }}" {% if child.id in selected_child_ids %}checked{% endif %}> {{ child.full_name }}{% if child.classroom %} / {{ child.classroom.name }}{% endif %}</label>{% endfor %}
+      </div>
+    </fieldset>
+
     <div class="flex gap-3">
       <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">{{ submit_label }}</button>
       <a href="/parent-accounts/" class="rounded border border-slate-300 px-4 py-2 hover:bg-slate-50">キャンセル</a>
     </div>
   </form>
 </div>
+<script id="guardian-account-choices" type="application/json">{{ guardian_choices|tojson }}</script>
+<script>
+(() => {
+  const choices = JSON.parse(document.getElementById('guardian-account-choices').textContent);
+  const selector = document.getElementById('guardian-link');
+  const familyInput = selector.form.elements.family_id;
+  const rows = [...document.querySelectorAll('[data-family-child]')];
+  const showFamily = () => rows.forEach(row => {
+    row.hidden = Boolean(familyInput.value && row.dataset.familyChild !== familyInput.value && !row.querySelector('input').checked);
+    row.style.display = row.hidden ? 'none' : '';
+  });
+  document.getElementById('select-family-children').addEventListener('click', () => {
+    if (!familyInput.value) return;
+    rows.forEach(row => { if (row.dataset.familyChild === familyInput.value) row.querySelector('input').checked = true; });
+    showFamily();
+  });
+  familyInput.addEventListener('change', showFamily);
+  selector.addEventListener('change', () => {
+    const choice = choices.find(item => item.value === selector.value);
+    if (!choice) return;
+    const form = selector.form;
+    form.elements.family_id.value = String(choice.family_id);
+    for (const [name, value] of Object.entries(choice.fields)) {
+      if (form.elements[name]) form.elements[name].value = value || '';
+    }
+    showFamily();
+  });
+  showFamily();
+})();
+</script>
 {% endblock %}

@@ -27,6 +27,7 @@ from models import (
 )
 from staff_user_service import equivalent_staff_user_ids, list_active_staff_users
 from time_utils import ensure_utc_from_local, utc_now
+from auth import parent_auth_is_mock
 
 
 @dataclass(frozen=True)
@@ -102,7 +103,7 @@ def _parse_optional_int(value: str | None) -> int | None:
 
 
 def linked_children(parent_account: ParentAccount) -> list[Child]:
-    if parent_account.family and parent_account.family.children:
+    if parent_auth_is_mock() and parent_account.family and parent_account.family.children:
         children = list(parent_account.family.children)
     else:
         children = [link.child for link in parent_account.child_links if link.child is not None]

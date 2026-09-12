@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Literal, Optional, Protocol
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlencode
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import HTTPConnection
 
 from csrf import rotate_csrf_token
-from security_config import secure_cookie_enabled
+from security_config import is_public_demo, parent_auth_mode, secure_cookie_enabled, staff_auth_mode
 from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 
 
@@ -33,6 +33,10 @@ MOCK_PARENT_ACCOUNT_COOKIE = "mock_parent_account_id"
 MOCK_CALENDAR_USER_COOKIE = "mock_calendar_user_id"
 MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
 MOCK_CHILD_RECORDS_PERMISSION_COOKIE = "mock_can_manage_child_records"
+LOCAL_STAFF_SESSION_COOKIE = "hoikuict_staff_session"
+PRODUCTION_STAFF_SESSION_COOKIE = "__Host-hoikuict_staff_session"
+LOCAL_PARENT_SESSION_COOKIE = "hoikuict_parent_session"
+PRODUCTION_PARENT_SESSION_COOKIE = "__Host-hoikuict_parent_session"
 
 
 def _auth_cookie_kwargs() -> dict[str, object]:
@@ -45,7 +49,7 @@ def _auth_cookie_kwargs() -> dict[str, object]:
 
 
 def mock_auth_enabled() -> bool:
-    return os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1" or os.getenv("PUBLIC_DEMO_MODE") == "1"
+    return os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1" or is_public_demo()
 
 
 @dataclass(slots=True)
@@ -93,23 +97,31 @@ class StaffSessionSubject:
 
 
 class StaffAuthBackend(Protocol):
-    mode: Literal["mock", "external"]
+    mode: Literal["mock", "local_password", "external", "disabled"]
 
     def resolve_principal(self, connection: HTTPConnection) -> StaffUser | None: ...
 
     def establish_session(self, response: Response, subject: StaffSessionSubject) -> None: ...
 
-    def clear_session(self, response: Response) -> None: ...
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None: ...
 
 
 class ParentPortalAuthBackend(Protocol):
-    mode: Literal["mock", "external"]
+    mode: Literal["mock", "local_password", "external", "disabled"]
 
     def get_parent_account_id(self, request: Request) -> Optional[int]: ...
 
     def set_parent_session(self, response: Response, parent_account_id: int) -> None: ...
 
-    def clear_parent_session(self, response: Response) -> None: ...
+    def clear_parent_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None: ...
 
 
 class MockStaffAuthBackend:
@@ -171,7 +183,11 @@ class MockStaffAuthBackend:
         )
         rotate_csrf_token(response)
 
-    def clear_session(self, response: Response) -> None:
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
         for cookie_name in (
             MOCK_ROLE_COOKIE,
             MOCK_STAFF_NAME_COOKIE,
@@ -180,6 +196,95 @@ class MockStaffAuthBackend:
         ):
             response.delete_cookie(cookie_name, path="/")
         rotate_csrf_token(response)
+
+
+class LocalPasswordStaffAuthBackend:
+    mode: Literal["local_password"] = "local_password"
+
+    @property
+    def cookie_name(self) -> str:
+        return (
+            PRODUCTION_STAFF_SESSION_COOKIE
+            if secure_cookie_enabled()
+            else LOCAL_STAFF_SESSION_COOKIE
+        )
+
+    def resolve_principal(self, connection: HTTPConnection) -> StaffUser | None:
+        raw_token = connection.cookies.get(self.cookie_name)
+        if not raw_token:
+            return None
+        import database
+        from local_auth import resolve_staff_session
+        from sqlmodel import Session
+
+        with Session(database.engine) as session:
+            user = resolve_staff_session(session, raw_token)
+            if user is None:
+                return None
+            try:
+                role = Role(user.staff_role)
+            except ValueError:
+                role = Role.CAN_EDIT
+            return StaffUser(
+                role=role,
+                name=user.display_name,
+                user_id=user.id,
+                can_manage_child_records=user.can_manage_child_records_effective,
+            )
+
+    def establish_session(self, response: Response, subject: StaffSessionSubject) -> None:
+        raise RuntimeError("local password sessionには認証済みopaque tokenが必要です")
+
+    def set_session_token(self, response: Response, raw_token: str) -> None:
+        from local_auth import staff_session_cookie_max_age
+
+        response.set_cookie(
+            self.cookie_name,
+            raw_token,
+            max_age=staff_session_cookie_max_age(),
+            **_auth_cookie_kwargs(),
+        )
+        rotate_csrf_token(response)
+
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
+        if connection is not None:
+            raw_token = connection.cookies.get(self.cookie_name)
+            if raw_token:
+                import database
+                from local_auth import revoke_session_token
+                from sqlmodel import Session
+
+                with Session(database.engine) as session:
+                    revoke_session_token(session, raw_token)
+        response.delete_cookie(
+            self.cookie_name,
+            path="/",
+            secure=secure_cookie_enabled(),
+            httponly=True,
+            samesite="lax",
+        )
+        rotate_csrf_token(response)
+
+
+class DisabledStaffAuthBackend:
+    mode: Literal["disabled"] = "disabled"
+
+    def resolve_principal(self, connection: HTTPConnection) -> StaffUser | None:
+        return None
+
+    def establish_session(self, response: Response, subject: StaffSessionSubject) -> None:
+        raise RuntimeError("職員認証は無効です")
+
+    def clear_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
+        return None
 
 
 class MockParentPortalAuthBackend:
@@ -205,9 +310,82 @@ class MockParentPortalAuthBackend:
         )
         rotate_csrf_token(response)
 
-    def clear_parent_session(self, response: Response) -> None:
+    def clear_parent_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
+        del connection
         response.delete_cookie(MOCK_PARENT_ACCOUNT_COOKIE, path="/")
         rotate_csrf_token(response)
+
+
+class LocalPasswordParentPortalAuthBackend:
+    mode: Literal["local_password"] = "local_password"
+
+    @property
+    def cookie_name(self) -> str:
+        return PRODUCTION_PARENT_SESSION_COOKIE if secure_cookie_enabled() else LOCAL_PARENT_SESSION_COOKIE
+
+    def get_parent_account_id(self, request: Request) -> Optional[int]:
+        raw_token = request.cookies.get(self.cookie_name)
+        if not raw_token:
+            return None
+        import database
+        from parent_auth import resolve_parent_session
+        from sqlmodel import Session
+
+        with Session(database.engine) as session:
+            account = resolve_parent_session(session, raw_token)
+            return account.id if account else None
+
+    def set_parent_session(self, response: Response, parent_account_id: int) -> None:
+        raise RuntimeError("local password sessionには認証済みopaque tokenが必要です")
+
+    def set_session_token(self, response: Response, raw_token: str) -> None:
+        response.set_cookie(
+            self.cookie_name,
+            raw_token,
+            max_age=7 * 24 * 60 * 60,
+            **_auth_cookie_kwargs(),
+        )
+        rotate_csrf_token(response)
+
+    def clear_parent_session(
+        self,
+        response: Response,
+        connection: HTTPConnection | None = None,
+    ) -> None:
+        if connection is not None:
+            raw_token = connection.cookies.get(self.cookie_name)
+            if raw_token:
+                import database
+                from parent_auth import revoke_parent_session_token
+                from sqlmodel import Session
+
+                with Session(database.engine) as session:
+                    revoke_parent_session_token(session, raw_token)
+        response.delete_cookie(
+            self.cookie_name,
+            path="/",
+            secure=secure_cookie_enabled(),
+            httponly=True,
+            samesite="lax",
+        )
+        rotate_csrf_token(response)
+
+
+class DisabledParentPortalAuthBackend:
+    mode: Literal["disabled"] = "disabled"
+
+    def get_parent_account_id(self, request: Request) -> Optional[int]:
+        return None
+
+    def set_parent_session(self, response: Response, parent_account_id: int) -> None:
+        raise RuntimeError("保護者認証は無効です")
+
+    def clear_parent_session(self, response: Response, connection: HTTPConnection | None = None) -> None:
+        return None
 
 
 _staff_auth_backend: StaffAuthBackend = MockStaffAuthBackend()
@@ -229,12 +407,37 @@ def reset_auth_backends() -> None:
     configure_parent_portal_auth_backend(MockParentPortalAuthBackend())
 
 
+def configure_auth_backends_from_environment() -> None:
+    mode = staff_auth_mode()
+    if mode == "mock":
+        configure_staff_auth_backend(MockStaffAuthBackend())
+    elif mode == "local_password":
+        configure_staff_auth_backend(LocalPasswordStaffAuthBackend())
+    else:
+        configure_staff_auth_backend(DisabledStaffAuthBackend())
+    parent_mode = parent_auth_mode()
+    if parent_mode == "mock":
+        configure_parent_portal_auth_backend(MockParentPortalAuthBackend())
+    elif parent_mode == "local_password":
+        configure_parent_portal_auth_backend(LocalPasswordParentPortalAuthBackend())
+    else:
+        configure_parent_portal_auth_backend(DisabledParentPortalAuthBackend())
+
+
 def staff_auth_is_mock() -> bool:
     return getattr(_staff_auth_backend, "mode", None) == "mock"
 
 
+def staff_auth_is_local_password() -> bool:
+    return getattr(_staff_auth_backend, "mode", None) == "local_password"
+
+
 def parent_auth_is_mock() -> bool:
     return getattr(_parent_portal_auth_backend, "mode", None) == "mock"
+
+
+def parent_auth_is_local_password() -> bool:
+    return getattr(_parent_portal_auth_backend, "mode", None) == "local_password"
 
 
 def require_mock_staff_auth() -> None:
@@ -242,8 +445,18 @@ def require_mock_staff_auth() -> None:
         raise HTTPException(status_code=404, detail="Not Found")
 
 
+def require_local_staff_auth() -> None:
+    if not staff_auth_is_local_password():
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
 def require_mock_parent_auth() -> None:
     if not mock_auth_enabled() or not parent_auth_is_mock():
+        raise HTTPException(status_code=404, detail="Not Found")
+
+
+def require_local_parent_auth() -> None:
+    if not parent_auth_is_local_password():
         raise HTTPException(status_code=404, detail="Not Found")
 
 
@@ -256,10 +469,39 @@ async def staff_auth_http_exception_handler(
         exc.status_code == 401
         and request.method.upper() == "GET"
         and accepts_html
-        and mock_auth_enabled()
-        and staff_auth_is_mock()
+        and request.url.path.startswith("/parent-portal/")
+        and request.url.path != "/parent-portal/login"
+        and parent_auth_is_local_password()
     ):
-        return RedirectResponse(url="/staff/login", status_code=303)
+        original_path = request.url.path
+        if request.url.query:
+            original_path = f"{original_path}?{request.url.query}"
+        query = urlencode({"redirect": original_path})
+        return RedirectResponse(url=f"/parent-portal/login?{query}", status_code=303)
+    login_available = staff_auth_is_local_password() or (
+        staff_auth_is_mock() and mock_auth_enabled()
+    )
+    if (
+        exc.status_code == 401
+        and request.method.upper() == "GET"
+        and accepts_html
+        and request.url.path != "/staff/login"
+        and login_available
+    ):
+        original_path = request.url.path
+        if request.url.query:
+            original_path = f"{original_path}?{request.url.query}"
+        query = urlencode({"redirect": original_path})
+        return RedirectResponse(url=f"/staff/login?{query}", status_code=303)
+    if accepts_html and exc.status_code in {400, 403, 404, 409, 410} and not request.url.path.startswith("/api/"):
+        from template_utils import create_templates
+        response = create_templates().TemplateResponse(request, "errors/request.html", {
+            "message": str(exc.detail),
+            "parent_portal_mode": request.url.path.startswith("/parent-portal/"),
+            "return_url": "/parent-portal/" if request.url.path.startswith("/parent-portal/") else "/",
+        }, status_code=exc.status_code)
+        response.headers["Cache-Control"] = "no-store"
+        return response
     return await http_exception_handler(request, exc)
 
 
@@ -286,8 +528,20 @@ def set_parent_account_cookie(response: Response, parent_account_id: int) -> Non
     _parent_portal_auth_backend.set_parent_session(response, parent_account_id)
 
 
-def clear_parent_account_cookie(response: Response) -> None:
-    _parent_portal_auth_backend.clear_parent_session(response)
+def set_local_parent_session_cookie(response: Response, raw_token: str) -> None:
+    if not isinstance(_parent_portal_auth_backend, LocalPasswordParentPortalAuthBackend):
+        raise RuntimeError("local password保護者認証が有効ではありません")
+    _parent_portal_auth_backend.set_session_token(response, raw_token)
+
+
+def clear_parent_account_cookie(
+    response: Response,
+    connection: HTTPConnection | None = None,
+) -> None:
+    try:
+        _parent_portal_auth_backend.clear_parent_session(response, connection)
+    except TypeError:
+        _parent_portal_auth_backend.clear_parent_session(response)
 
 
 def get_current_staff_user_id(request: Request) -> Optional[UUID]:
@@ -339,8 +593,25 @@ def set_staff_cookies(
     )
 
 
-def clear_staff_cookies(response: Response) -> None:
-    _staff_auth_backend.clear_session(response)
+def set_local_staff_session_cookie(response: Response, raw_token: str) -> None:
+    if not isinstance(_staff_auth_backend, LocalPasswordStaffAuthBackend):
+        raise RuntimeError("local password職員認証が有効ではありません")
+    _staff_auth_backend.set_session_token(response, raw_token)
+
+
+def clear_staff_cookies(
+    response: Response,
+    connection: HTTPConnection | None = None,
+) -> None:
+    if connection is None:
+        _staff_auth_backend.clear_session(response)
+        return
+    try:
+        _staff_auth_backend.clear_session(response, connection)
+    except TypeError:
+        # Preserve compatibility with existing external adapters that implement
+        # the original one-argument clear_session contract.
+        _staff_auth_backend.clear_session(response)
 
 
 MockUser = StaffUser

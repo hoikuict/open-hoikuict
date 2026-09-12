@@ -1,0 +1,22 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}再設定{% endblock %}
+{% block content %}
+<h1>{% if purpose == 'parent_activate' %}初回パスワード設定{% else %}パスワード再設定{% endif %}</h1>
+{% if request.query_params.get('verified') == '1' %}
+  {% if form_error %}<p class="error">{{ form_error }}</p>{% endif %}
+  <form method="post" action="/parent-portal/{{ 'activate' if purpose == 'parent_activate' else 'reset' }}/complete">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <label>新しいパスワード<input type="password" name="password" minlength="8" maxlength="128" required autocomplete="new-password" data-password-field></label>
+    <label>確認用パスワード<input type="password" name="password_confirmation" minlength="8" maxlength="128" required autocomplete="new-password" data-password-field></label>
+    <label class="password-visibility"><input type="checkbox" data-password-toggle><span>入力したパスワードを表示</span></label>
+    <button type="submit">再設定する</button>
+  </form>
+{% else %}
+  <p class="muted">施設からの案内メール、または直接交付された6文字のコードを入力してください。コードは発行から24時間有効で、Cloudflareの認証コードとは別です。</p>{% if form_error %}<p class="error">{{ form_error }}</p>{% endif %}
+  <form method="post" action="/parent-portal/{{ 'activate' if purpose == 'parent_activate' else 'reset' }}/verify">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <label>{% if purpose == 'parent_activate' %}有効化コード{% else %}再設定コード{% endif %}<input name="{{ 'activation_code' if purpose == 'parent_activate' else 'reset_code' }}" minlength="6" maxlength="6" required autocomplete="one-time-code"></label>
+    <button type="submit">コードを確認する</button>
+  </form>
+{% endif %}
+{% endblock %}

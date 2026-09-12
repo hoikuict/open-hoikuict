@@ -5,8 +5,9 @@
 <div class="mx-auto max-w-3xl space-y-6">
   <div>
     <p class="text-sm font-medium text-indigo-600">保護者ポータル</p>
-    <h1 class="mt-1 text-2xl font-bold text-slate-900">プッシュ通知設定</h1>
-    <p class="mt-2 text-sm text-slate-600">権限の確認は、下の登録ボタンを押したときだけ行います。</p>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">通知設定</h1>
+    <p class="mt-2 text-sm text-slate-600">保存中の通知設定と、この端末の通知状態を確認できます。</p>
+    <a href="/parent-portal/" class="mt-2 inline-block text-sm text-indigo-600 hover:underline">ホームへ戻る</a>
   </div>
 
   <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -20,21 +21,39 @@
     {% if public_demo_mode %}
     <p id="demo-owner-warning" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800{% if not browser_subscription_owner_mismatch %} hidden{% endif %}">この端末の通知は、切替前の保護者に登録されています。下の解除ボタンでいったん解除してから、現在の保護者で登録し直してください。</p>
     {% endif %}
-    {% if not vapid_key_available %}
-    <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">VAPID公開鍵が未設定のため、端末登録はまだ利用できません。</p>
+    {% if not push_available %}
+    <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">園側の通知設定は準備中です。下の受信設定は保存できます。利用開始の案内後、この端末で通知を受け取る設定をしてください。</p>
     {% endif %}
     {% if test_device_mode %}
     <p class="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">{% if public_demo_mode %}公開デモ環境です。登録した端末と配送データは、このブラウザのデモセッション内だけで管理され、セッション期限後に削除されます。{% else %}development環境です。この画面から登録した端末は、開発用Web Pushの送信対象として明示登録されます。{% endif %}</p>
     {% endif %}
     <div class="mt-5 flex flex-wrap gap-3">
-      <button id="enable-push" type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300" {% if not vapid_key_available %}disabled{% endif %}>この端末で通知を受け取る</button>
+      <button id="enable-push" type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300" {% if not push_available %}disabled{% endif %}>この端末で通知を受け取る</button>
       <button id="disable-push" type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300" disabled>この端末の通知を解除する</button>
     </div>
+    {% if push_available %}
+    <button id="test-push" type="button" disabled class="mt-4 rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:text-slate-400">この端末へテスト通知を送る</button>
+    <p id="test-push-message" role="status" class="mt-2 text-sm text-slate-600"></p>
+    {% endif %}
     <p class="mt-4 text-xs leading-5 text-slate-500">iPhone / iPadでは、対応OSでこのサイトをホーム画面へ追加してから通知を有効にしてください。</p>
   </section>
 
   <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-slate-900">登録済み端末</h2>
+    <p class="mt-2 text-sm text-slate-600">このアカウントで通知が有効な端末は <strong id="registered-device-count">{{ active_subscriptions|length }}台</strong> です。</p>
+    <ul id="registered-device-list" class="mt-4 space-y-2">
+      {% for subscription in active_subscriptions %}
+      <li class="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+        <strong class="text-slate-800">{{ subscription.device_label or '名称未設定の端末' }}</strong>
+        <span class="mt-1 block text-xs text-slate-500">最終確認: {{ (subscription.last_seen_at or subscription.updated_at)|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <h2 class="text-lg font-semibold text-slate-900">受け取る通知</h2>
+    <p class="mt-2 text-sm text-slate-600">出欠確認のお願いは、プッシュとメールの両方で受け取れます。両方を希望する場合は、それぞれにチェックして保存してください。</p>
     <form id="preference-form" class="mt-4 space-y-4">
       <label class="flex items-start gap-3">
         <input id="push-enabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600" {% if not preference or preference.push_enabled %}checked{% endif %}>
@@ -42,8 +61,9 @@
       </label>
       <label class="flex items-start gap-3">
         <input id="attendance-enabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600" {% if not preference or preference.attendance_confirmation_enabled %}checked{% endif %}>
-        <span><strong class="block text-sm text-slate-900">出欠確認のお願い</strong><span class="text-sm text-slate-500">当日の出欠確認が必要な場合に受け取ります。</span></span>
+        <span><strong class="block text-sm text-slate-900">出欠確認をプッシュで受け取る</strong><span class="text-sm text-slate-500">当日の出欠確認が必要な場合に受け取ります。</span></span>
       </label>
+      <label class="flex items-start gap-3"><input id="email-enabled" type="checkbox" class="mt-1 h-4 w-4" {% if email_preference and email_preference.attendance_confirmation_enabled %}checked{% endif %}><span><strong class="block text-sm">出欠確認をメールでも受け取る</strong><span class="text-sm text-slate-500">登録メールアドレスに送ります。プッシュを使わず、メールのみ受け取ることもできます。</span></span></label>
       <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">設定を保存</button>
       <span id="preference-message" class="ml-3 text-sm text-slate-600"></span>
     </form>
@@ -65,6 +85,8 @@
   let registration = null;
   let subscription = null;
   let ownershipConflict = {{ 'true' if browser_subscription_owner_mismatch else 'false' }};
+  let serverRegistered = false;
+  const testButton = document.getElementById('test-push');
 
   const permissionLabel = value => ({default: '未確認', granted: '許可', denied: '拒否'})[value] || value;
   const showMessage = (text, error = false) => {
@@ -75,8 +97,9 @@
     const hasOwnershipConflict = ownershipConflict && Boolean(subscription);
     supportedEl.textContent = supported ? '対応' : '非対応';
     permissionEl.textContent = supported ? permissionLabel(Notification.permission) : '利用不可';
-    subscriptionEl.textContent = hasOwnershipConflict ? '切替前の保護者に登録済み' : (subscription ? 'この端末は登録済み' : '未登録');
+    subscriptionEl.textContent = hasOwnershipConflict ? '切替前の保護者に登録済み' : (subscription && serverRegistered ? 'この端末は登録済み' : '未登録');
     enableButton.disabled = !supported || !vapidKeyAvailable || hasOwnershipConflict;
+    if (testButton) testButton.disabled = !subscription || !serverRegistered || hasOwnershipConflict;
     disableButton.disabled = !subscription;
     disableButton.textContent = hasOwnershipConflict ? '切替前の保護者の通知を解除する' : 'この端末の通知を解除する';
     demoOwnerWarning?.classList.toggle('hidden', !hasOwnershipConflict);
@@ -90,11 +113,29 @@
     ...options,
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken, ...(options.headers || {})}
   });
+  const serviceWorkerUrl = '/parent-portal/push-service-worker.js?v=20260830-2';
+
+  async function refreshDevices() {
+    const response = await fetch('/parent-portal/push/subscriptions/current');
+    if (!response.ok) throw new Error('端末の登録状態を確認できませんでした。再ログインしてお試しください。');
+    const state = await response.json();
+    serverRegistered = state.registered;
+    const list = document.getElementById('registered-device-list');
+    list.replaceChildren();
+    for (const device of state.devices) {
+      const item = document.createElement('li');
+      item.className = 'rounded-lg bg-slate-50 px-4 py-3 text-sm';
+      item.textContent = device.device_label;
+      list.appendChild(item);
+    }
+    document.getElementById('registered-device-count').textContent = `${state.devices.length}台`;
+  }
 
   async function initialize() {
     if (!supported) { updateStatus(); return; }
-    registration = await navigator.serviceWorker.register('/parent-portal/push-service-worker.js', {scope: '/parent-portal/'});
+    registration = await navigator.serviceWorker.register(serviceWorkerUrl, {scope: '/parent-portal/'});
     subscription = await registration.pushManager.getSubscription();
+    await refreshDevices();
     updateStatus();
   }
 
@@ -105,10 +146,13 @@
       const configResponse = await fetch('/parent-portal/push/public-key');
       const config = await configResponse.json();
       if (!config.available || !config.public_key) throw new Error('VAPID公開鍵が設定されていません。');
-      registration ||= await navigator.serviceWorker.register('/parent-portal/push-service-worker.js', {scope: '/parent-portal/'});
+      registration ||= await navigator.serviceWorker.register(serviceWorkerUrl, {scope: '/parent-portal/'});
+      await navigator.serviceWorker.ready;
       subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: applicationServerKey(config.public_key)});
       const response = await jsonRequest('/parent-portal/push/subscriptions', {method: 'POST', body: JSON.stringify({...subscription.toJSON(), device_label: navigator.platform || 'ブラウザ端末', is_test_device: {{ 'true' if test_device_mode else 'false' }}})});
       if (!response.ok) throw new Error('端末を登録できませんでした。');
+      serverRegistered = true;
+      await refreshDevices();
       updateStatus();
       showMessage('この端末を登録しました。');
     } catch (error) { showMessage(error.message || '端末登録に失敗しました。', true); }
@@ -123,14 +167,37 @@
       await subscription.unsubscribe();
       subscription = null;
       ownershipConflict = false;
+      serverRegistered = false;
+      await refreshDevices();
       updateStatus();
       showMessage('この端末の通知を解除しました。');
     } catch (error) { showMessage(error.message || '端末解除に失敗しました。', true); }
   });
 
+  testButton?.addEventListener('click', async () => {
+    const resultEl = document.getElementById('test-push-message');
+    testButton.disabled = true;
+    try {
+      const response = await jsonRequest('/parent-portal/push/test', {method: 'POST'});
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : '送信を受け付けられませんでした。');
+      resultEl.textContent = '送信を受け付けました。端末に通知が表示されるか確認してください。';
+      const labels = {pending: '送信待ち', processing: '送信中', retry_wait: '再送待ち', accepted: '通知サービスが受け付けました。端末で表示を確認してください。', shown: '端末から通知表示の報告を受け取りました。', clicked: '通知を開いたことを確認しました。', failed: '通知を送れませんでした。園へお問い合わせください。', suppressed: '通知設定または登録状態により送信を停止しました。', expired: 'テスト通知の送信期限が切れました。'};
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const statusResponse = await fetch(`/parent-portal/push/test/${result.notification_id}`);
+        if (!statusResponse.ok) break;
+        const status = (await statusResponse.json()).status;
+        resultEl.textContent = labels[status] || '送信状況を確認中です。';
+        if (['shown', 'clicked', 'failed', 'suppressed', 'expired'].includes(status)) break;
+      }
+    } catch (error) { resultEl.textContent = error.message || 'テスト通知を送れませんでした。'; }
+    finally { updateStatus(); }
+  });
+
   document.getElementById('preference-form').addEventListener('submit', async event => {
     event.preventDefault();
-    const response = await jsonRequest('/parent-portal/push/preferences', {method: 'POST', body: JSON.stringify({push_enabled: document.getElementById('push-enabled').checked, attendance_confirmation_enabled: document.getElementById('attendance-enabled').checked})});
+    const response = await jsonRequest('/parent-portal/push/preferences', {method: 'POST', body: JSON.stringify({push_enabled: document.getElementById('push-enabled').checked, attendance_confirmation_enabled: document.getElementById('attendance-enabled').checked, email_enabled: document.getElementById('email-enabled').checked})});
     document.getElementById('preference-message').textContent = response.ok ? '保存しました。' : '保存できませんでした。';
   });
 

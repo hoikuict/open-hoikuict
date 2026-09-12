@@ -7,8 +7,15 @@ from sqlmodel import Session
 
 import database
 from demo_runtime import get_demo_session_manager, is_public_demo_enabled
-from parent_push_service import create_parent_push_transport, run_parent_push_worker_cycle
-from security_config import deployment_environment, parent_push_transport
+from parent_push_service import (
+    create_parent_push_transport,
+    run_parent_push_worker_cycle,
+)
+from security_config import (
+    deployment_environment,
+    parent_auth_mode,
+    parent_push_transport,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -16,9 +23,12 @@ DEFAULT_WORKER_INTERVAL_SECONDS = 2.0
 
 
 def parent_push_worker_enabled() -> bool:
-    return (
-        (deployment_environment() == "development" or is_public_demo_enabled())
-        and parent_push_transport() in {"capture", "webpush"}
+    environment = deployment_environment()
+    transport = parent_push_transport()
+    return ((environment == "development" or is_public_demo_enabled()) and transport in {"capture", "webpush"}) or (
+        environment == "production"
+        and transport == "webpush"
+        and parent_auth_mode() == "local_password"
     )
 
 

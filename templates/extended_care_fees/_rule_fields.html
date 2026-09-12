@@ -1,0 +1,50 @@
+{% macro number_field(name, label, value, minimum=0, maximum='') %}
+<label class="block text-sm text-slate-700">{{ label }}
+  <input type="number" name="{{ name }}" value="{{ value }}" min="{{ minimum }}" {% if maximum != '' %}max="{{ maximum }}"{% endif %} required class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
+</label>
+{% endmacro %}
+
+{% macro rule_fields(v, categories) %}
+<div class="space-y-5" data-rule-fields>
+  <fieldset class="grid gap-4 md:grid-cols-3">
+    <legend class="mb-3 font-semibold text-slate-800">1. 対象と適用期間</legend>
+    <label class="text-sm font-semibold text-slate-700">保育必要量
+      <select name="care_time_category" required class="mt-1 w-full rounded border border-indigo-300 px-3 py-3" data-rule-category>
+        <option value="" disabled {% if v.care_time_category == 'choose' %}selected{% endif %}>区分を選択してください</option>
+        {% for category in categories %}<option value="{{ category.value }}" {% if v.care_time_category == category.value %}selected{% endif %}>{{ category.label }}</option>{% endfor %}
+        <option value="legacy" {% if not v.care_time_category %}selected{% endif %}>従来計算（区分なし）</option>
+      </select>
+    </label>
+    <label class="text-sm text-slate-700 md:col-span-2">ルール名<input name="name" value="{{ v.name }}" required placeholder="例：短時間 延長保育料" class="mt-1 w-full rounded border border-slate-300 px-3 py-3"></label>
+    <label class="text-sm text-slate-700">適用開始日<input type="date" name="effective_from" value="{{ v.effective_from }}" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></label>
+    <label class="text-sm text-slate-700">適用終了日（任意）<input type="date" name="effective_to" value="{{ v.effective_to or '' }}" class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if v.is_active %}checked{% endif %}>このルールを有効にする</label>
+  </fieldset>
+  <p class="text-sm text-slate-600">標準時間と短時間は、同じ期間にそれぞれ登録できます。同じ区分では期間を重ねられません。ルール名を変えるだけでは区分は変わりません。</p>
+  <fieldset class="grid gap-4 md:grid-cols-2" data-category-fields>
+    <legend class="mb-2 font-semibold text-slate-800">2. 延長料金がかからない通常保育時間</legend>
+    <p class="md:col-span-2 text-sm text-slate-600">園で定めた通常保育の開始・終了時刻を入力します。朝延長は開始時刻より前、夕延長は終了時刻より後を計算します。</p>
+    <label class="text-sm text-slate-700">通常保育開始<input type="time" name="normal_start_time" value="{{ v.normal_start_time or '' }}" class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></label>
+    <label class="text-sm text-slate-700">通常保育終了<input type="time" name="normal_end_time" value="{{ v.normal_end_time or '' }}" class="mt-1 w-full rounded border border-slate-300 px-3 py-2"></label>
+  </fieldset>
+  <label class="block text-sm text-slate-700" data-legacy-field>従来計算の延長開始時刻
+    <input type="time" name="start_time" value="{{ v.start_time }}" required class="mt-1 rounded border border-slate-300 px-3 py-2">
+    <span class="ml-2 text-xs text-slate-500">標準時間・短時間の計算では通常保育終了を使います。</span>
+  </label>
+  <fieldset class="grid gap-4 md:grid-cols-3" data-category-fields>
+    <legend class="mb-3 font-semibold text-slate-800"><label><input type="checkbox" name="morning_enabled" value="1" {% if v.morning_enabled %}checked{% endif %}> 朝延長を計算</label></legend>
+    {{ number_field('morning_grace_minutes', '朝の猶予時間（分）', v.morning_grace_minutes, 0, 120) }}
+    {{ number_field('morning_rounding_minutes', '朝の課金単位（分ごと）', v.morning_rounding_minutes, 1, 120) }}
+    {{ number_field('morning_unit_price', '朝の1単位の料金（円）', v.morning_unit_price) }}
+  </fieldset>
+  <fieldset class="grid gap-4 md:grid-cols-3">
+    <legend class="mb-3 font-semibold text-slate-800"><label><input type="checkbox" name="evening_enabled" value="1" {% if v.evening_enabled %}checked{% endif %}> 夕延長を計算</label></legend>
+    {{ number_field('grace_minutes', '夕の猶予時間（分）', v.evening_grace_minutes if v.evening_grace_minutes is defined and v.evening_grace_minutes is not none else v.grace_minutes, 0, 120) }}
+    {{ number_field('rounding_minutes', '夕の課金単位（分ごと）', v.evening_rounding_minutes if v.evening_rounding_minutes is defined and v.evening_rounding_minutes is not none else v.rounding_minutes, 1, 120) }}
+    {{ number_field('unit_price', '夕の1単位の料金（円）', v.evening_unit_price if v.evening_unit_price is defined and v.evening_unit_price is not none else v.unit_price) }}
+  </fieldset>
+  <p class="text-sm text-slate-600">例：課金単位15分・料金100円なら15分ごとに100円（端数切り上げ）。課金単位1分なら1分ごとの料金です。従来計算は夕延長のみです。</p>
+  <label class="block text-sm text-slate-700">日別上限額（円・任意）<input type="number" min="0" name="daily_cap_amount" value="{{ v.daily_cap_amount if v.daily_cap_amount is not none else '' }}" class="mt-1 rounded border border-slate-300 px-3 py-2"><span class="ml-2 text-xs text-slate-500">朝・夕の合計額の上限。空欄は上限なし。</span></label>
+  <p data-rule-preview aria-live="polite" class="font-semibold text-indigo-800"></p>
+</div>
+{% endmacro %}

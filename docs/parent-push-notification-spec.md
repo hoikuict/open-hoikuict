@@ -26,14 +26,14 @@
 - 配送を有効な購読ごとのTargetへ冪等に展開できる
 - Target単位でclaim、lease回復、再試行、Attempt履歴を管理できる
 - developmentでは外部送信しないcapture transportをバックグラウンド実行できる
-- productionでは `capture` と `webpush` の有効化を起動時に拒否する
+- productionでは既定は`disabled`。`capture`を拒否し、`webpush`は本番認証・HTTPS・一致する鍵ペアなどを起動時に検証して明示的に有効化する
 - 保護者は通知設定画面から明示操作でブラウザ購読を登録・解除できる
 - 明示ログアウトでは現在端末だけを無効化し、セッション期限切れでは購読を維持する
 - development確認画面で秘密情報を除いたcapture配送内容を確認できる
 - developmentではVAPID設定が揃った場合に限り、テスト端末へ `pywebpush` で実送信できる
 - 404 / 410は購読失効、429 / 5xxは再試行可能エラーとしてTarget単位で処理する
 
-一方、現行の保護者認証はモックバックエンドのみである。本番プッシュ通知を有効化する前に、保護者を継続的かつ安全に識別できる本番用認証バックエンドが必要である。
+保護者の本番認証はlocal_passwordバックエンドを使用する。2026-09-06にTrueNAS実機向けの本番構成対応と本人の現在端末へのテスト通知を追加した。設定・制約は[本番構成の設定・テスト手順](parent-push-production-setup.md)を参照する。全OSの実機受入確認は引き続き必要。
 
 ### 1.2 目的
 
@@ -571,7 +571,7 @@ Phase 1の最大送信試行回数は5回とする。待機時間の目安は `3
 
 - `development`: `capture`
 - `test`: `capture`。テスト内ではインメモリtransportへ差し替え可能
-- `production`: `disabled`。実Web Pushと本番認証が完成するまで `capture` / `webpush` の指定を起動時に拒否
+- `production`: 既定は`disabled`。`capture`は禁止。`webpush`はlocal_password認証・HTTPS・VAPID鍵ペアを検証して有効化
 
 現行実装ではWeb Push送信に `pywebpush==2.3.0` を利用し、`aes128gcm`、10秒タイムアウト、配送期限に基づく最大6時間のTTLを指定する。
 
@@ -646,7 +646,7 @@ development限定で `/dev/push-notifications` を追加する。productionで�
 ### 15.1 認証前提
 
 - 購読登録・解除・通知設定変更には有効な保護者ログインを必須とする
-- 本番用 `ParentPortalAuthBackend` が未実装の間はproductionのWeb Pushを有効化しない
+- productionのWeb Pushは本番用`LocalPasswordParentPortalAuthBackend`と有効な保護者資格情報を使用する
 - 他の保護者のアカウントIDや購読IDを指定して操作できないようにする
 
 ### 15.2 機密情報

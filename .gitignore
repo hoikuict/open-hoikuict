@@ -34,11 +34,16 @@ env/
 !demo_data/demo-template.sqlite3
 hoikuict.db
 data/
+.db-wal
+.db-shm
+*.db-wal
+*.db-shm
 
 # Environment / secrets
 .env
 .env.local
 *.local
+.local-dev/
 
 # IDE
 .idea/

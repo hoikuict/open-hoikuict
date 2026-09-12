@@ -33,12 +33,15 @@ nav:
       - 児童記録・児童票・保育要録: child-records-spec.md
       - 園児健康管理: health-record-spec-review.md
       - インポート・エクスポート: import-export-spec.md
+      - ベータ開始時の本番データ移行: beta-production-data-migration-spec.md
       - 認可施設帳票入力: ninka-input-screen-spec.md
       - 保育認定・保育必要量・延長料金連携（一部実装）: care-need-certification-spec.md
       - 延長保育料金: extended-care-fee-spec.md
       - 延長保育料金・請求転送: extended-care-billing-transfer-spec.md
       - 職員ポータル: staff-personal-portal-spec.md
       - 職員権限・請求口座: staff-permissions-and-billing-accounts-spec.md
+      - オンプレ・閉域向け自前認証（一部実装）: local-authentication-spec.md
+      - オンプレ保護者認証（計画）: parent-local-authentication-spec.md
       - 保護者向けプッシュ通知: parent-push-notification-spec.md
       - 保護者向けプッシュ通知 実機確認: parent-push-real-device-test.md
       - 施設設定（計画）: facility-settings-spec.md
@@ -49,7 +52,12 @@ nav:
           - 日案文例コーパス契約: daily-plan-corpus-contract.md
           - 統合仕様 v2.1: spec-plan-docs-integration-v2-revised.md
   - 開発・運用:
+      - 初心者向け TrueNAS導入手順書: truenas-beginner-installation-guide.md
       - 開発者向け: development.md
+      - β・モック・デモの環境分離: environment-profiles.md
+      - 実運用試験構成仕様: pilot-deployment-spec.md
+      - 実運用試験手順書: truenas-dockge-cloudflare-pilot-runbook.md
+      - バックアップ・復元仕様: backup-restore-spec.md
       - 運用責任: operations.md
       - セキュリティ最低ライン: security.md
       - 個人情報とダミーデータ: privacy.md

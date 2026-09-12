@@ -96,6 +96,18 @@
         <input type="number" min="1" name="recurrence_interval" value="{{ recurrence_interval }}" placeholder="間隔" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
         <input type="text" name="recurrence_by_weekday" value="{{ recurrence_by_weekday }}" placeholder="曜日 例: MO,WE" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
         <input type="text" name="recurrence_by_month_day" value="{{ recurrence_by_month_day }}" placeholder="日付 例: 1,15" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
+        <label class="md:col-span-2 text-sm text-slate-700">毎月の曜日指定（「毎月」を選んだ場合）
+          <select name="recurrence_monthly_weekday" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm">
+            <option value="">日付で指定する</option>
+            {% for ordinal, ordinal_label in [(1, '第1'), (2, '第2'), (3, '第3'), (4, '第4'), (5, '第5'), (-1, '最終')] %}
+              {% for weekday, weekday_label in [('MO', '月曜日'), ('TU', '火曜日'), ('WE', '水曜日'), ('TH', '木曜日'), ('FR', '金曜日'), ('SA', '土曜日'), ('SU', '日曜日')] %}
+                {% set selection = ordinal|string ~ weekday %}
+                <option value="{{ selection }}" {% if recurrence_mode == 'monthly' and recurrence_by_weekday == selection %}selected{% endif %}>{{ ordinal_label }}{{ weekday_label }}</option>
+              {% endfor %}
+            {% endfor %}
+          </select>
+          <span class="mt-1 block text-xs text-slate-500">第5曜日がない月には予定を作りません。曜日指定を選ぶと日付指定は使いません。</span>
+        </label>
         <input type="number" min="1" name="recurrence_count" value="{{ recurrence_count }}" placeholder="回数" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
         <input type="date" name="recurrence_until" value="{{ recurrence_until }}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm">
       </div>

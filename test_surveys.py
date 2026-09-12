@@ -547,6 +547,27 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertIn("公開終了", detail_response.text)
         self.assertIn('value="closed" selected', edit_response.text)
 
+    def test_expired_answer_links_return_html_without_reopening_answers(self):
+        from auth import staff_auth_http_exception_handler
+        from starlette.exceptions import HTTPException
+        self.app.add_exception_handler(HTTPException, staff_auth_http_exception_handler)
+        # TestClient's middleware stack may already have been constructed at login.
+        self.app.middleware_stack = None
+        with Session(self.engine) as session:
+            for survey_id in [self.parent_survey_id, self.staff_survey_id]:
+                survey = session.get(Survey, survey_id)
+                survey.closes_at = datetime(2020, 1, 1)
+                session.add(survey)
+            session.commit()
+        self._login_parent()
+        self._login_staff()
+        for url in [f"/parent-portal/surveys/{self.parent_survey_id}", f"/staff-surveys/{self.staff_survey_id}"]:
+            for method in [self.client.get, self.client.post]:
+                response = method(url, headers={"Accept": "text/html"})
+                self.assertEqual(response.status_code, 410)
+                self.assertIn("受付期間外", response.text)
+                self.assertIn("text/html", response.headers["content-type"])
+
     def test_survey_form_normalizes_offset_datetime_to_jst(self):
         response = self.client.post(
             "/surveys/",

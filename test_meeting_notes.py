@@ -108,6 +108,26 @@ class MeetingNoteRouterTests(unittest.TestCase):
         self.assertIn("書式オプション", detail_response.text)
         self.assertIn("pointerup", detail_response.text)
 
+    def test_editable_note_has_persistent_image_size_controls(self):
+        with Session(self.engine) as session:
+            note = MeetingNote(title="写真付き議事録")
+            session.add(note)
+            session.commit()
+            session.refresh(note)
+            note_id = note.id
+
+        response = self.client.get(f"/meeting-notes/{note_id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('id="meeting-image-size-toolbar"', response.text)
+        self.assertIn('data-image-width="25%"', response.text)
+        self.assertIn('data-image-width="50%"', response.text)
+        self.assertIn('data-image-width="75%"', response.text)
+        self.assertIn('data-image-width="100%"', response.text)
+        self.assertIn("const DEFAULT_IMAGE_WIDTH = '50%'", response.text)
+        self.assertIn("editor.formatText(selectedImageIndex, 1, 'width'", response.text)
+        self.assertIn("Quill.sources.USER", response.text)
+
     def test_list_can_search_title_body_author_and_id(self):
         with Session(self.engine) as session:
             safety_note = MeetingNote(

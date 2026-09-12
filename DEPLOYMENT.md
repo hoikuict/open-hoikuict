@@ -36,7 +36,9 @@ To enable the opt-in Web Push experience on `demo.hoikuict.net`, also set:
 
 Keep the VAPID key pair stable across deployments so an existing browser subscription remains usable. Store the private key only in Dockge's environment/secret management; never commit it.
 
-The ordinary production mode still rejects `capture` and `webpush`. The exception applies only when `PUBLIC_DEMO_MODE=1`, the exact public origin is configured, and all Web Push security checks pass.
+The public demo retains mock staff/parent selection and isolated session databases, including when production security settings are enabled. Local password registration and mail workers are not activated in this mode. Web Push requires the exact demo origin and the demo security checks above; only registered test devices receive actual demo pushes. Ordinary production Web Push uses the separate local-password configuration described in `docs/parent-push-production-setup.md`.
+
+The September 13 main integration includes document review requests in the staff sidebar, attendance corrections, guardian terminal screens, fee settings, and family/contact improvements. The packaged synthetic database is upgraded in a runtime copy before creating browser sessions. Host backup management is unavailable in public demo mode.
 
 ## Dockge
 

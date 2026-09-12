@@ -10,7 +10,7 @@
 
   {% for occurrence in results %}
   <button
-    hx-get="/events/{{ occurrence.source_event_id }}?original_start_at={{ occurrence.original_start_at.isoformat() }}"
+    hx-get="/events/{{ occurrence.source_event_id }}?original_start_at={{ occurrence.original_start_at.isoformat() | urlencode }}"
     hx-target="#event-modal"
     hx-swap="innerHTML"
     class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm hover:bg-slate-50"

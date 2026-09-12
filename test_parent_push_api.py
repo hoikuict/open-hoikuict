@@ -146,7 +146,7 @@ class ParentPushApiTests(unittest.TestCase):
             subscription = session.exec(select(ParentPushSubscription)).one()
             self.assertTrue(subscription.is_test_device)
 
-    def test_production_registration_ignores_test_device_request(self):
+    def test_production_registration_is_blocked_when_push_is_disabled(self):
         self._login(self.first_parent_id)
         with patch.dict(os.environ, {"HOIKUICT_ENV": "production"}):
             response = self.client.post(
@@ -154,10 +154,9 @@ class ParentPushApiTests(unittest.TestCase):
                 json=self._subscription_payload(is_test_device=True),
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 503)
         with Session(self.engine) as session:
-            subscription = session.exec(select(ParentPushSubscription)).one()
-            self.assertFalse(subscription.is_test_device)
+            self.assertIsNone(session.exec(select(ParentPushSubscription)).first())
 
     def test_public_demo_registration_marks_explicit_test_device(self):
         self._login(self.first_parent_id)
@@ -202,7 +201,7 @@ class ParentPushApiTests(unittest.TestCase):
 
         self.assertEqual(
             response.json(),
-            {"push_enabled": True, "attendance_confirmation_enabled": True},
+            {"push_enabled": True, "attendance_confirmation_enabled": True, "email_enabled": False},
         )
         with Session(self.engine) as session:
             self.assertEqual(session.exec(select(ParentPushPreference)).all(), [])
@@ -371,8 +370,31 @@ class ParentPushApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("この端末で通知を受け取る", response.text)
-        self.assertIn("VAPID公開鍵が未設定", response.text)
+        self.assertIn("園側の通知設定は準備中", response.text)
         self.assertIn("enableButton.addEventListener('click'", response.text)
+
+    def test_push_settings_shows_saved_values_and_registered_device_count(self):
+        self._login(self.first_parent_id)
+        self.client.post(
+            "/parent-portal/push/preferences",
+            json={
+                "push_enabled": False,
+                "attendance_confirmation_enabled": True,
+            },
+        )
+        self.client.post(
+            "/parent-portal/push/subscriptions",
+            json=self._subscription_payload(device_label="確認用スマートフォン"),
+        )
+
+        response = self.client.get("/parent-portal/push-settings")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("確認用スマートフォン", response.text)
+        self.assertIn('id="registered-device-count">1台</strong>', response.text)
+        checkbox_start = response.text.index('id="push-enabled"')
+        checkbox_end = response.text.index(">", checkbox_start)
+        self.assertNotIn("checked", response.text[checkbox_start:checkbox_end])
 
     def test_public_key_is_available_only_to_authenticated_parent(self):
         self._login(self.first_parent_id)
@@ -405,7 +427,7 @@ class ParentPushApiTests(unittest.TestCase):
         )
         self.assertIn("safeActionUrl", worker.text)
         self.assertIn("event.waitUntil(self.skipWaiting())", worker.text)
-        self.assertIn("event.waitUntil(clients.claim())", worker.text)
+        self.assertIn("event.waitUntil(self.clients.claim())", worker.text)
         self.assertIn("postReceipt(receiptData, 'shown')", worker.text)
         self.assertIn(
             "const navigationPromise = openActionUrl(actionUrl)",
@@ -426,6 +448,7 @@ class ParentPushApiTests(unittest.TestCase):
             "await postReceipt(event.notification.data, 'clicked')",
             worker.text,
         )
+        self.assertIn("self.skipWaiting()", worker.text)
 
 
 if __name__ == "__main__":

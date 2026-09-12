@@ -17,11 +17,14 @@ services:
       HOIKUICT_CSRF_ENFORCE: ${HOIKUICT_CSRF_ENFORCE:-1}
       HOIKUICT_SECRET_KEY: ${HOIKUICT_SECRET_KEY:?HOIKUICT_SECRET_KEY is required}
       HOIKUICT_ALLOWED_ORIGINS: ${HOIKUICT_ALLOWED_ORIGINS:?HOIKUICT_ALLOWED_ORIGINS is required}
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:?FORWARDED_ALLOW_IPS is required}
       HOIKUICT_KIOSK_ACCESS_MODE: ${HOIKUICT_KIOSK_ACCESS_MODE:-disabled}
       HOIKUICT_PUSH_TRANSPORT: ${HOIKUICT_PUSH_TRANSPORT:-disabled}
       HOIKUICT_PREVIEW_DIR: /data/data_transfer_previews
+      HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
     volumes:
-      - hoikuict_data:/data
+      - ${APP_DATA_PATH:-hoikuict_data}:/data
+      - ${APP_STORAGE_PATH:-hoikuict_storage}:/app/storage
     ports:
       - "${APP_PORT:-8000}:8000"
     healthcheck:
@@ -34,5 +37,67 @@ services:
       timeout: 5s
       retries: 3
 
+  backup:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: open-hoikuict:local
+    pull_policy: build
+    profiles:
+      - operations
+    restart: "no"
+    network_mode: none
+    environment:
+      TZ: Asia/Tokyo
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKUICT_STORAGE_ROOT: /app/storage
+    volumes:
+      - ${APP_DATA_PATH:-hoikuict_data}:/data
+      - ${APP_STORAGE_PATH:-hoikuict_storage}:/app/storage
+      - ${BACKUP_SET_PATH:-hoikuict_backups}:/backup
+    entrypoint:
+      - python
+      - -m
+      - scripts.backup_runtime
+    command:
+      - --help
+
+  backup-worker:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: open-hoikuict:local
+    pull_policy: build
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      TZ: Asia/Tokyo
+      HOIKUICT_ENV: ${HOIKUICT_ENV:-production}
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKU_NURSERY_REF: ${NURSERY_REF:-ひかり保育園}
+      HOIKUICT_STORAGE_ROOT: /app/storage
+      HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+      HOIKUICT_BACKUP_OUTPUT_ROOT: /backup
+      HOIKUICT_BACKUP_GIT_SHA: ${BACKUP_GIT_SHA:-0000000000000000000000000000000000000000}
+      HOIKUICT_BACKUP_APP_IMAGE: ${BACKUP_APP_IMAGE:-open-hoikuict:local}
+      HOIKUICT_BACKUP_COMPOSE_SHA256: ${BACKUP_COMPOSE_SHA256:-}
+      HOIKUICT_BACKUP_COMPOSE_FILE: /app/deploy/dockge/compose.yaml
+      HOIKUICT_BACKUP_CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-unknown}
+    volumes:
+      - ${APP_DATA_PATH:-hoikuict_data}:/data
+      - ${APP_STORAGE_PATH:-hoikuict_storage}:/app/storage
+      - ${BACKUP_SET_PATH:-hoikuict_backups}:/backup
+    entrypoint:
+      - python
+      - -m
+      - scripts.backup_worker
+
 volumes:
   hoikuict_data:
+  hoikuict_storage:
+  hoikuict_backups:

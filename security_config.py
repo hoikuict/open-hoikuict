@@ -1,4 +1,5 @@
 import os
+from ipaddress import ip_network
 from importlib.util import find_spec
 from urllib.parse import urlsplit
 
@@ -22,6 +23,36 @@ def is_public_demo() -> bool:
     }
 
 
+def staff_auth_mode() -> str:
+    if is_public_demo():
+        return "mock"
+    raw = (os.getenv("HOIKUICT_STAFF_AUTH_MODE") or "").strip().lower()
+    if not raw:
+        if not is_production() and os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1":
+            return "mock"
+        return "disabled"
+    if raw not in {"mock", "local_password", "disabled"}:
+        raise RuntimeError(
+            "HOIKUICT_STAFF_AUTH_MODE は mock / local_password / disabled のいずれかです"
+        )
+    return raw
+
+
+def parent_auth_mode() -> str:
+    if is_public_demo():
+        return "mock"
+    raw = (os.getenv("HOIKUICT_PARENT_AUTH_MODE") or "").strip().lower()
+    if not raw:
+        if not is_production() and os.getenv("HOIKUICT_ENABLE_MOCK_AUTH") == "1":
+            return "mock"
+        return "disabled"
+    if raw not in {"mock", "local_password", "disabled"}:
+        raise RuntimeError(
+            "HOIKUICT_PARENT_AUTH_MODE は mock / local_password / disabled のいずれかです"
+        )
+    return raw
+
+
 def parent_push_transport() -> str:
     default = "disabled" if is_production() else "capture"
     return (os.getenv("HOIKUICT_PUSH_TRANSPORT") or default).strip().lower()
@@ -41,6 +72,35 @@ def parent_push_vapid_subject() -> str:
 
 def public_origin() -> str:
     return (os.getenv("HOIKUICT_PUBLIC_ORIGIN") or "").strip().rstrip("/")
+
+
+def staff_recovery_base_url() -> str:
+    value = (
+        os.getenv("HOIKUICT_STAFF_RECOVERY_BASE_URL")
+        or os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL")
+        or "http://localhost:8000"
+    ).strip()
+    try:
+        parsed = urlsplit(value)
+        valid = (
+            parsed.scheme in ({"https"} if is_production() else {"http", "https"})
+            and parsed.hostname
+            and not parsed.username
+            and not parsed.password
+            and parsed.path in {"", "/"}
+            and not parsed.query
+            and not parsed.fragment
+            and "\\" not in value
+            and not any(character.isspace() for character in value)
+        )
+        parsed.port  # Validate malformed port numbers, too.
+    except ValueError:
+        valid = False
+    if not valid:
+        raise RuntimeError(
+            "管理者の再設定URLには有効な施設URLを設定してください（本番はHTTPS）"
+        )
+    return value.rstrip("/")
 
 
 def _boolean_setting(name: str, *, production_default: bool) -> bool:
@@ -63,6 +123,11 @@ def allowed_origins() -> set[str]:
     return {item.strip().rstrip("/") for item in raw.split(",") if item.strip()}
 
 
+def forwarded_allow_ips() -> tuple[str, ...]:
+    raw = os.getenv("FORWARDED_ALLOW_IPS", "")
+    return tuple(item.strip() for item in raw.split(",") if item.strip())
+
+
 def websocket_origin_allowed(websocket: WebSocket) -> bool:
     origin = (websocket.headers.get("origin") or "").strip().rstrip("/")
     configured = allowed_origins()
@@ -71,7 +136,10 @@ def websocket_origin_allowed(websocket: WebSocket) -> bool:
     if not origin:
         return not is_production()
     parsed = urlsplit(origin)
-    return bool(parsed.scheme in {"http", "https"} and parsed.netloc == websocket.headers.get("host"))
+    return bool(
+        parsed.scheme in {"http", "https"}
+        and parsed.netloc == websocket.headers.get("host")
+    )
 
 
 def kiosk_access_mode() -> str:
@@ -85,7 +153,9 @@ def websocket_runtime_available() -> bool:
 def validate_runtime_security() -> None:
     environment = deployment_environment()
     if environment not in {"development", "production", "test"}:
-        raise RuntimeError("HOIKUICT_ENV は development / production / test のいずれかです")
+        raise RuntimeError(
+            "HOIKUICT_ENV は development / production / test のいずれかです"
+        )
     if not websocket_runtime_available():
         raise RuntimeError(
             "WebSocketドライバーがありません。プロジェクトの仮想環境で "
@@ -96,6 +166,17 @@ def validate_runtime_security() -> None:
         raise RuntimeError("HOIKUICT_KIOSK_ACCESS_MODE が不正です")
     if mode == "token" and not os.getenv("HOIKUICT_KIOSK_TOKEN"):
         raise RuntimeError("tokenモードでは HOIKUICT_KIOSK_TOKEN が必要です")
+    auth_mode = staff_auth_mode()
+    parent_mode = parent_auth_mode()
+    if auth_mode == "local_password" and os.getenv("HOIKUICT_STAFF_RECOVERY_BASE_URL"):
+        staff_recovery_base_url()
+    if auth_mode == "local_password" or parent_mode == "local_password":
+        throttle_key = os.getenv("HOIKUICT_LOGIN_THROTTLE_HMAC_KEY", "")
+        if len(throttle_key.encode("utf-8")) < 32:
+            raise RuntimeError(
+                "local_password認証には32バイト以上の "
+                "HOIKUICT_LOGIN_THROTTLE_HMAC_KEY が必要です"
+            )
     push_transport = parent_push_transport()
     if push_transport not in {"disabled", "capture", "webpush"}:
         raise RuntimeError("HOIKUICT_PUSH_TRANSPORT は disabled / capture / webpush のいずれかです")
@@ -119,10 +200,65 @@ def validate_runtime_security() -> None:
         errors.append("HOIKUICT_CSRF_ENFORCE=1 が必要です")
     if len(os.getenv("HOIKUICT_SECRET_KEY", "")) < 32:
         errors.append("32文字以上の HOIKUICT_SECRET_KEY が必要です")
+    if auth_mode != "local_password":
+        errors.append("HOIKUICT_STAFF_AUTH_MODE=local_password が必要です")
+    if parent_mode != "local_password":
+        errors.append("HOIKUICT_PARENT_AUTH_MODE=local_password が必要です")
+    trusted_proxies = forwarded_allow_ips()
+    if not trusted_proxies:
+        errors.append(
+            "FORWARDED_ALLOW_IPS に信頼するリバースプロキシのIPまたはCIDRが必要です"
+        )
+    elif "*" in trusted_proxies:
+        errors.append("productionでは FORWARDED_ALLOW_IPS=* を使用できません")
+    else:
+        invalid_proxies = []
+        for proxy in trusted_proxies:
+            try:
+                ip_network(proxy, strict=False)
+            except ValueError:
+                invalid_proxies.append(proxy)
+        if invalid_proxies:
+            errors.append(
+                "FORWARDED_ALLOW_IPS はIPまたはCIDRで指定してください: "
+                + ", ".join(invalid_proxies)
+            )
+    parent_mail_transport = (
+        (os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT") or "disabled").strip().lower()
+    )
+    if parent_mail_transport != "smtp":
+        errors.append("HOIKUICT_PARENT_MAIL_TRANSPORT=smtp が必要です")
+    registration_url = urlsplit(
+        (os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL") or "").strip()
+    )
+    if (
+        registration_url.scheme != "https"
+        or not registration_url.netloc
+        or registration_url.query
+        or registration_url.fragment
+    ):
+        errors.append("HTTPSの HOIKUICT_PARENT_REGISTRATION_BASE_URL が必要です")
+    for setting_name in (
+        "HOIKUICT_SMTP_HOST",
+        "HOIKUICT_SMTP_PORT",
+        "HOIKUICT_PARENT_MAIL_FROM",
+    ):
+        if not (os.getenv(setting_name) or "").strip():
+            errors.append(f"{setting_name} が必要です")
+    if os.getenv("HOIKUICT_SMTP_STARTTLS") != "1":
+        errors.append("HOIKUICT_SMTP_STARTTLS=1 が必要です")
+    blocklist_path = os.getenv("HOIKUICT_PASSWORD_BLOCKLIST_PATH", "").strip()
+    if not blocklist_path or not os.path.isfile(blocklist_path):
+        errors.append("読取可能な HOIKUICT_PASSWORD_BLOCKLIST_PATH が必要です")
     if mode == "open":
         errors.append("productionではguardian openモードを使用できません")
-    if push_transport != "disabled":
-        errors.append("productionでは保護者プッシュ通知transportを有効化できません")
+    if push_transport == "capture":
+        errors.append("productionではcaptureのプッシュ通知transportを有効化できません")
+    elif push_transport == "webpush":
+        try:
+            _validate_production_webpush_configuration()
+        except RuntimeError as exc:
+            errors.append(str(exc))
     if errors:
         raise RuntimeError("productionセキュリティ設定が不正です: " + "; ".join(errors))
 
@@ -136,13 +272,13 @@ def _validate_development_webpush_configuration() -> None:
     }
     missing = [name for name, value in required.items() if not value]
     if missing:
-        raise RuntimeError(
-            "developmentのwebpushには次の設定が必要です: " + ", ".join(missing)
-        )
+        raise RuntimeError("webpushには次の設定が必要です: " + ", ".join(missing))
 
     subject = urlsplit(parent_push_vapid_subject())
     if subject.scheme not in {"mailto", "https"}:
-        raise RuntimeError("HOIKUICT_PUSH_VAPID_SUBJECT は mailto: または https:// で指定してください")
+        raise RuntimeError(
+            "HOIKUICT_PUSH_VAPID_SUBJECT は mailto: または https:// で指定してください"
+        )
 
     origin = urlsplit(public_origin())
     is_local_http = origin.scheme == "http" and origin.hostname in {
@@ -178,3 +314,52 @@ def _validate_public_demo_webpush_configuration() -> None:
         errors.append("HOIKUICT_PUBLIC_ORIGIN=https://demo.hoikuict.net が必要です")
     if errors:
         raise RuntimeError("公開デモWeb Push設定が不正です: " + "; ".join(errors))
+
+
+def _validate_production_webpush_configuration() -> None:
+    import base64
+    import hmac
+    from pathlib import Path
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    _validate_development_webpush_configuration()
+    origin = urlsplit(public_origin())
+    if (
+        origin.scheme != "https"
+        or origin.username
+        or origin.password
+        or "\\" in public_origin()
+        or any(c.isspace() for c in public_origin())
+        or public_origin() not in allowed_origins()
+        or public_origin()
+        != os.getenv("HOIKUICT_PARENT_REGISTRATION_BASE_URL", "").rstrip("/")
+    ):
+        raise RuntimeError(
+            "本番プッシュ通知のHTTPS originを施設URL・許可originと一致させてください"
+        )
+    try:
+        origin.port
+        private_key = serialization.load_pem_private_key(
+            Path(parent_push_vapid_private_key()).read_bytes(), password=None
+        )
+        if not isinstance(private_key, ec.EllipticCurvePrivateKey) or not isinstance(
+            private_key.curve, ec.SECP256R1
+        ):
+            raise ValueError("wrong key type")
+        expected = (
+            base64.urlsafe_b64encode(
+                private_key.public_key().public_bytes(
+                    serialization.Encoding.X962,
+                    serialization.PublicFormat.UncompressedPoint,
+                )
+            )
+            .decode("ascii")
+            .rstrip("=")
+        )
+        if not hmac.compare_digest(expected, parent_push_vapid_public_key()):
+            raise ValueError("key mismatch")
+    except (OSError, ValueError, TypeError):
+        raise RuntimeError(
+            "本番通知用のP-256秘密鍵ファイルとVAPID公開鍵の組み合わせを確認してください"
+        ) from None

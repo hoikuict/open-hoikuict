@@ -147,16 +147,28 @@
           <div><div class="text-xs font-medium text-slate-500">氏名（カナ）</div><div class="mt-1 text-sm text-slate-800">{{ guardian.last_name_kana or "-" }} {{ guardian.first_name_kana or "" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">続柄</div><div class="mt-1 text-sm text-slate-800">{{ guardian.relationship or "-" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">メールアドレス</div><div class="mt-1 break-all text-sm text-slate-800">{{ guardian.email or "-" }}</div></div>
-          <div><div class="text-xs font-medium text-slate-500">保護者アカウント</div><div class="mt-1 text-sm text-slate-800">{% if linked_account %}{{ linked_account.display_name }}（{{ linked_account.status.label }}）{% else %}-{% endif %}</div></div>
+          <div><div class="text-xs font-medium text-slate-500">保護者アカウント</div><div class="mt-1 text-sm text-slate-800">{% if linked_account %}{% if is_public_demo() %}{{ linked_account.display_name }}（{{ linked_account.status.label }}）{% else %}<a href="/parent-accounts/{{ linked_account.id }}/authentication" class="text-indigo-700 hover:underline">{{ linked_account.display_name }}（{{ linked_account.status.label }}）</a>{% endif %}{% else %}-{% endif %}</div></div>
           <div><div class="text-xs font-medium text-slate-500">電話番号</div><div class="mt-1 text-sm text-slate-800">{{ guardian.phone or "-" }}</div></div>
           <div class="md:col-span-2"><div class="text-xs font-medium text-slate-500">勤務先</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace or "-" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">勤務先住所</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_address or "-" }}</div></div>
           <div><div class="text-xs font-medium text-slate-500">勤務先電話番号</div><div class="mt-1 text-sm text-slate-800">{{ guardian.workplace_phone or "-" }}</div></div>
         </div>
+        {% if current_user.can_manage_child_records or current_user.is_admin %}
+        <div class="mt-4 flex flex-wrap gap-3 border-t border-slate-200 pt-3 text-sm">
+          {% if linked_account %}
+          <a href="/parent-accounts/{{ linked_account.id }}/edit" class="font-semibold text-indigo-700 hover:underline">保護者情報を編集</a>
+          {% if current_user.is_admin %}{% if not is_public_demo() %}<a href="/parent-accounts/{{ linked_account.id }}/authentication" class="font-semibold text-indigo-700 hover:underline">招待・登録状況を確認</a>{% endif %}{% endif %}
+          {% elif child.family %}
+          {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new?child_id={{ child.id }}&guardian_order={{ guardian.order }}" class="font-semibold text-indigo-700 hover:underline">この保護者に初回入力を依頼</a>{% endif %}
+          <a href="/parent-accounts/new?family_id={{ child.family.id }}&guardian_order={{ guardian.order }}&child_id={{ child.id }}" class="font-semibold text-indigo-700 hover:underline">この保護者のアカウントを登録</a>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
       {% else %}
       <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500 lg:col-span-2">
         家族プロフィールに保護者情報はまだ登録されていません。
+        {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new?child_id={{ child.id }}" class="mt-3 block font-semibold text-indigo-700 hover:underline">保護者に初回入力を依頼</a>{% endif %}
       </div>
       {% endfor %}
     </div>

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -20,6 +20,18 @@ from template_utils import create_templates
 
 templates = create_templates()
 MESSAGE_UPLOAD_ROOT = Path("storage") / "message_attachments"
+
+
+def can_delete_message(message: Message, current_user) -> bool:
+    return bool(current_user and current_user.can_edit and not message.is_deleted and (
+        current_user.is_admin or (
+            message.author_user_id is not None
+            and message.author_user_id == getattr(current_user, "user_id", None)
+        )
+    ))
+
+
+templates.env.globals["can_delete_message"] = can_delete_message
 
 
 @dataclass(slots=True)
@@ -80,7 +92,7 @@ def _load_reply_target(
         .options(selectinload(Message.attachments), selectinload(Message.room))
         .where(Message.id == reply_to_message_id)
     ).first()
-    if not target_message:
+    if not target_message or target_message.is_deleted:
         raise HTTPException(status_code=404, detail="返信先メッセージが見つかりません。")
 
     if target_message.room_id != parent_message.room_id:
@@ -172,6 +184,7 @@ def _create_message(
     body: str,
     parent_message_id: int | None,
     uploaded_files: list[UploadFile],
+    author_user_id: UUID | None = None,
 ) -> Message:
     normalized_body = (body or "").strip()
     stored_attachments = _store_attachments(uploaded_files)
@@ -183,6 +196,7 @@ def _create_message(
             room_id=room_id,
             parent_message_id=parent_message_id,
             author_name=author_name,
+            author_user_id=author_user_id,
             body=normalized_body,
             created_at=utc_now(),
             updated_at=utc_now(),
@@ -255,7 +269,7 @@ def _render_thread_panel(
     replies = _thread_replies(session, parent_message.id)
     return templates.TemplateResponse(
         request,
-        "staff_rooms/_thread_panel.html",
+        "staff_rooms/_thread_panel.html" if request.headers.get("HX-Request") == "true" else "staff_rooms/thread.html",
         {
             "request": request,
             "parent_message": parent_message,
@@ -270,13 +284,14 @@ def _render_thread_panel(
     )
 
 
-def _render_message_list(request: Request, *, session: Session):
+def _render_message_list(request: Request, *, session: Session, current_user):
     return templates.TemplateResponse(
         request,
         "staff_rooms/_message_list.html",
         {
             "request": request,
             "messages": _timeline_parent_messages(session),
+            "current_user": current_user,
             "reply_counts": _reply_counts(session),
         },
     )
@@ -301,8 +316,7 @@ def timeline_partial(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    _ = current_user
-    return _render_message_list(request, session=session)
+    return _render_message_list(request, session=session, current_user=current_user)
 
 
 @router.post("/messages")
@@ -323,6 +337,7 @@ def create_parent_message(
             session,
             room_id=default_room.id,
             author_name=_author_name(current_user),
+            author_user_id=getattr(current_user, "user_id", None),
             body=body,
             parent_message_id=None,
             uploaded_files=attachments,
@@ -385,6 +400,7 @@ def create_thread_reply(
             session,
             room_id=parent_message.room_id,
             author_name=_author_name(current_user),
+            author_user_id=getattr(current_user, "user_id", None),
             body=body,
             parent_message_id=parent_message.id,
             uploaded_files=attachments,
@@ -409,6 +425,26 @@ def create_thread_reply(
     )
 
 
+@router.post("/messages/{message_id}/delete")
+def delete_message(
+    message_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_can_edit(current_user)
+    message = session.get(Message, message_id)
+    if message is None:
+        raise HTTPException(404, "投稿が見つかりません。")
+    if not can_delete_message(message, current_user):
+        raise HTTPException(403, "この投稿を削除する権限がありません。")
+    message.deleted_at = utc_now()
+    message.updated_at = message.deleted_at
+    message.deleted_by = str(getattr(current_user, "user_id", None) or current_user.name)
+    session.add(message)
+    session.commit()
+    return RedirectResponse(url="/staff-rooms/", status_code=303)
+
+
 @router.get("/attachments/{attachment_id}")
 def download_attachment(
     attachment_id: int,
@@ -417,7 +453,7 @@ def download_attachment(
 ):
     _ = current_user
     attachment = session.get(MessageAttachment, attachment_id)
-    if not attachment:
+    if not attachment or attachment.message is None or attachment.message.is_deleted:
         raise HTTPException(status_code=404, detail="添付ファイルが見つかりません。")
 
     absolute_path = MESSAGE_UPLOAD_ROOT / attachment.storage_path

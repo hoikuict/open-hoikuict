@@ -50,6 +50,7 @@ from models import (
     Classroom,
     Family,
     ParentChildLink,
+    ParentRegistrationRequest,
 )
 from time_utils import format_jst_datetime, local_today, utc_now
 
@@ -295,8 +296,8 @@ def list_children(
     request: Request,
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
-    sort_by: str = Query(default="name"),
-    sort_order: str = Query(default="asc"),
+    sort_by: str = Query(default="birth_date"),
+    sort_order: str = Query(default="desc"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -341,8 +342,8 @@ def children_table(
     request: Request,
     status: Optional[str] = Query(default="enrolled"),
     fields: list[str] = Query(default=[]),
-    sort_by: str = Query(default="name"),
-    sort_order: str = Query(default="asc"),
+    sort_by: str = Query(default="birth_date"),
+    sort_order: str = Query(default="desc"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -637,6 +638,8 @@ def create_child(
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
     first_name_kana: str = Form(...),
+    registration_verification_name: str = Form(""),
+    registration_verification_name_type: str = Form(""),
     birth_date: Optional[str] = Form(None),
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
@@ -747,6 +750,8 @@ def create_child(
         first_name=first_name.strip(),
         last_name_kana=last_name_kana.strip(),
         first_name_kana=first_name_kana.strip(),
+        registration_verification_name=registration_verification_name.strip() or None,
+        registration_verification_name_type=registration_verification_name_type if registration_verification_name_type in {"kana", "latin"} else None,
         birth_date=parsed_birth_date,
         enrollment_date=parsed_enrollment_date,
         withdrawal_date=parsed_withdrawal_date,
@@ -1031,6 +1036,8 @@ def update_child(
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
     first_name_kana: str = Form(...),
+    registration_verification_name: str = Form(""),
+    registration_verification_name_type: str = Form(""),
     birth_date: Optional[str] = Form(None),
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
@@ -1071,6 +1078,11 @@ def update_child(
     previous_snapshot = build_child_profile_snapshot(session, child)
     ensure_initial_child_profile_history(session, child, snapshot=previous_snapshot)
     old_family_id = child.family_id
+    old_registration_identity = (
+        child.registration_verification_name,
+        child.registration_verification_name_type,
+        child.birth_date,
+    )
     parsed_birth_date = _parse_date(birth_date)
     parsed_enrollment_date = _parse_date(enrollment_date)
     parsed_withdrawal_date = _parse_date(withdrawal_date)
@@ -1142,6 +1154,8 @@ def update_child(
     child.first_name = first_name.strip()
     child.last_name_kana = last_name_kana.strip()
     child.first_name_kana = first_name_kana.strip()
+    child.registration_verification_name = registration_verification_name.strip() or None
+    child.registration_verification_name_type = registration_verification_name_type if registration_verification_name_type in {"kana", "latin"} else None
     child.birth_date = parsed_birth_date
     child.enrollment_date = parsed_enrollment_date
     child.withdrawal_date = parsed_withdrawal_date
@@ -1151,6 +1165,26 @@ def update_child(
     child.updated_at = utc_now()
     session.add(child)
     session.flush()
+    if old_registration_identity != (
+        child.registration_verification_name,
+        child.registration_verification_name_type,
+        child.birth_date,
+    ):
+        linked_parent_ids = session.exec(
+            select(ParentChildLink.parent_account_id).where(ParentChildLink.child_id == child.id)
+        ).all()
+        if linked_parent_ids:
+            for registration in session.exec(
+                select(ParentRegistrationRequest).where(
+                    ParentRegistrationRequest.parent_account_id.in_(linked_parent_ids),
+                    ParentRegistrationRequest.status.in_(["invited", "pending_review", "approved"]),
+                )
+            ).all():
+                registration.status = "cancelled"
+                registration.invitation_token_hash = None
+                registration.completion_token_hash = None
+                registration.updated_at = utc_now()
+                session.add(registration)
 
     if selected_family:
         move_child_to_family(session, child, selected_family)

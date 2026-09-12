@@ -1,0 +1,17 @@
+# Runtime databases must not be distributed by git archive, even if an old
+# diagnostic artifact was accidentally committed. Bundled *.sqlite examples stay.
+*.db export-ignore
+*.db-wal export-ignore
+*.db-shm export-ignore
+.env export-ignore
+.env.local export-ignore
+.env.beta.local export-ignore
+data export-ignore
+storage export-ignore
+backups export-ignore
+runtime export-ignore
+*.sqlite3-wal export-ignore
+*.sqlite3-shm export-ignore
+
+# Preserve PDF bytes and keep them out of text diffs.
+*.pdf binary

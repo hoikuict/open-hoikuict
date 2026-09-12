@@ -1,0 +1,20 @@
+{% extends "parent_auth/base.html" %}
+{% block title %}保護者アカウントの初回申請{% endblock %}
+{% block content %}
+<h1>保護者アカウントの初回申請</h1>
+{% if accepting %}
+<p>ご本人のメールアドレスを入力してください。届いたメールから、お子さまと保護者の情報を登録できます。</p>
+<p class="muted">園が申請内容とお子さまとの関係を確認して承認すると、パスワード設定の案内が届きます。</p>
+{% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
+<form method="post" action="/parent-portal/register/apply">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <label for="signup-email">保護者ご本人のメールアドレス</label>
+  <input id="signup-email" name="email" type="email" value="{{ email }}" required maxlength="255" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false">
+  <p class="muted">このアドレスがログインIDになります。保護者ごとに別のアドレスをご使用ください。</p>
+  <button type="submit">登録案内メールを受け取る</button>
+</form>
+{% else %}
+<p>現在、このページからの初回申請は受け付けていません。登録方法は園へお問い合わせください。</p>
+{% endif %}
+<p class="muted">すでに登録済みの方は <a href="/parent-portal/login">保護者ログイン</a> へお進みください。</p>
+{% endblock %}

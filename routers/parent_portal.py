@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -11,6 +11,7 @@ from auth import (
     clear_parent_account_cookie,
     get_current_parent_account_id,
     set_parent_account_cookie,
+    parent_auth_is_mock,
     require_mock_parent_auth,
 )
 from child_profile_changes import (
@@ -32,6 +33,7 @@ from models import (
     DailyContactReplyStatus,
     Family,
     Notice,
+    NoticeAttachment,
     NoticeRead,
     NoticeStatus,
     ParentAccount,
@@ -39,6 +41,7 @@ from models import (
     ParentContactType,
     ParentChildLink,
     ParentNotification,
+    PasswordCredential,
     ProfileChangeNotification,
     Survey,
     SurveyAnswer,
@@ -47,6 +50,7 @@ from models import (
     SurveyQuestion,
     SurveyStatus,
 )
+from notice_content import notice_attachment_path, render_notice_body_html
 from parent_push_subscription_service import (
     PARENT_PUSH_DEVICE_COOKIE,
     clear_parent_push_device_cookie,
@@ -235,7 +239,9 @@ def _get_parent_account(request: Request, session: Session) -> Optional[ParentAc
 
 
 def _linked_children(parent_account: ParentAccount) -> list[Child]:
-    if parent_account.family and parent_account.family.children:
+    # Legacy mock data did not always contain explicit links. Real authentication
+    # never expands authorization from family membership.
+    if parent_auth_is_mock() and parent_account.family and parent_account.family.children:
         children = list(parent_account.family.children)
     else:
         children = [link.child for link in parent_account.child_links if link.child is not None]
@@ -471,7 +477,7 @@ def parent_logout(
             session.commit()
     response = RedirectResponse(url="/parent-portal/login", status_code=303)
     clear_parent_push_device_cookie(response)
-    clear_parent_account_cookie(response)
+    clear_parent_account_cookie(response, request)
     return response
 
 
@@ -605,6 +611,13 @@ def parent_home(
     )
 
 
+def _has_linked_family_profile(account: ParentAccount) -> bool:
+    return bool(account.family and any(
+        profile.get("parent_account_id") == account.id
+        for profile in account.family.guardian_profiles()
+    ))
+
+
 @router.get("/profile", response_class=HTMLResponse)
 def parent_profile_form(
     request: Request,
@@ -615,6 +628,16 @@ def parent_profile_form(
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
+    if _has_linked_family_profile(current_parent_user):
+        return RedirectResponse(url="/parent-portal/children/profile", status_code=303)
+
+    credential = session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.principal_type == "parent",
+            PasswordCredential.parent_account_id == current_parent_user.id,
+        )
+    ).first()
+
     return templates.TemplateResponse(
         request,
         "parent_portal/profile.html",
@@ -622,8 +645,9 @@ def parent_profile_form(
             "request": request,
             "current_parent_user": current_parent_user,
             "parent_portal_mode": True,
-            "notice": "プロフィールを更新しました。" if notice == "updated" else "",
+            "notice": "登録情報を更新しました。" if notice == "updated" else "",
             "form_error": "",
+            "login_id": credential.login_id if credential else "",
         },
     )
 
@@ -675,7 +699,38 @@ def save_parent_profile(
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
+    if _has_linked_family_profile(current_parent_user):
+        return RedirectResponse(url="/parent-portal/children/profile", status_code=303)
+
     normalized_email = (email or "").strip()
+    credential = session.exec(
+        select(PasswordCredential).where(
+            PasswordCredential.principal_type == "parent",
+            PasswordCredential.parent_account_id == current_parent_user.id,
+        )
+    ).first()
+    if not normalized_email or len(normalized_email) > 255 or "@" not in normalized_email:
+        return templates.TemplateResponse(
+            request,
+            "parent_portal/profile.html",
+            {
+                "request": request,
+                "current_parent_user": current_parent_user,
+                "parent_portal_mode": True,
+                "notice": "",
+                "form_error": "受信可能なメールアドレスを入力してください。",
+                "login_id": credential.login_id if credential else "",
+                "form_data": {
+                    "email": normalized_email,
+                    "phone": phone,
+                    "home_address": home_address,
+                    "workplace": workplace,
+                    "workplace_address": workplace_address,
+                    "workplace_phone": workplace_phone,
+                },
+            },
+            status_code=400,
+        )
     existing = session.exec(
         select(ParentAccount).where(
             ParentAccount.email == normalized_email,
@@ -692,6 +747,7 @@ def save_parent_profile(
                 "parent_portal_mode": True,
                 "notice": "",
                 "form_error": "このメールアドレスは別の保護者アカウントで利用されています。",
+                "login_id": credential.login_id if credential else "",
                 "form_data": {
                     "email": normalized_email,
                     "phone": phone,
@@ -1352,6 +1408,8 @@ def parent_survey_form(
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
     survey = _load_parent_survey(session, survey_id)
+    if survey and survey_matches_parent_targets(survey, current_parent_user) and not survey_is_open(survey, utc_now()) and "text/html" in request.headers.get("accept", ""):
+        raise HTTPException(status_code=410, detail="このアンケートは受付期間外です。締切後は回答を変更できません。アンケート一覧へ戻ってください。")
     if not survey or not survey_is_open(survey, utc_now()) or not survey_matches_parent_targets(survey, current_parent_user):
         raise HTTPException(status_code=404, detail="アンケートが見つかりません")
 
@@ -1424,6 +1482,8 @@ async def save_parent_survey_answer(
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
     survey = _load_parent_survey(session, survey_id)
+    if survey and survey_matches_parent_targets(survey, current_parent_user) and not survey_is_open(survey, utc_now()) and "text/html" in request.headers.get("accept", ""):
+        raise HTTPException(status_code=410, detail="このアンケートは受付期間外です。締切後は回答を変更できません。アンケート一覧へ戻ってください。")
     if not survey or not survey_is_open(survey, utc_now()) or not survey_matches_parent_targets(survey, current_parent_user):
         raise HTTPException(status_code=404, detail="アンケートが見つかりません")
 
@@ -1520,7 +1580,10 @@ def parent_notification_detail(
 ):
     current_parent_user = _get_parent_account(request, session)
     if not current_parent_user:
-        return RedirectResponse(url="/parent-portal/login", status_code=303)
+        return RedirectResponse(
+            url=f"/parent-portal/login?redirect=/parent-portal/notifications/{notification_id}",
+            status_code=303,
+        )
 
     notification = session.exec(
         select(ParentNotification).where(
@@ -1563,7 +1626,11 @@ def parent_notice_detail(
 
     notice = session.exec(
         select(Notice)
-        .options(selectinload(Notice.targets), selectinload(Notice.reads))
+        .options(
+            selectinload(Notice.targets),
+            selectinload(Notice.reads),
+            selectinload(Notice.attachments),
+        )
         .where(Notice.id == notice_id)
     ).first()
     if not notice or not _notice_is_active(notice, utc_now()) or not _notice_matches_account(notice, current_parent_user):
@@ -1593,5 +1660,43 @@ def parent_notice_detail(
             "current_parent_user": current_parent_user,
             "parent_portal_mode": True,
             "notice": notice,
+            "notice_body_html": render_notice_body_html(notice.body, notice.body_html),
         },
+    )
+
+
+@router.get("/notices/attachments/{attachment_id}")
+def parent_notice_attachment(
+    request: Request,
+    attachment_id: int,
+    download: bool = Query(default=False),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    attachment = session.get(NoticeAttachment, attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="添付ファイルが見つかりません。")
+    notice = session.exec(
+        select(Notice)
+        .options(selectinload(Notice.targets))
+        .where(Notice.id == attachment.notice_id)
+    ).first()
+    if (
+        notice is None
+        or not _notice_is_active(notice, utc_now())
+        or not _notice_matches_account(notice, current_parent_user)
+    ):
+        raise HTTPException(status_code=404, detail="添付ファイルが見つかりません。")
+
+    path = notice_attachment_path(attachment.storage_path)
+    if path is None or not path.exists():
+        raise HTTPException(status_code=404, detail="添付ファイルの保存先が見つかりません。")
+    return FileResponse(
+        path,
+        media_type=attachment.content_type,
+        filename=attachment.original_filename,
+        content_disposition_type="attachment" if download else "inline",
     )
