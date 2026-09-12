@@ -33,6 +33,8 @@ theme:
     - content.code.copy
 extra_css:
   - stylesheets/extra.css
+hooks:
+  - hooks/docs_assets.py
 extra:
   social:
     - icon: fontawesome/brands/github
