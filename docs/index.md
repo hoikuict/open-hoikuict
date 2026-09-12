@@ -1,77 +1,117 @@
-# open-hoikuict
+---
+title: オープン保育ICTへようこそ
+hide:
+  - navigation
+  - toc
+  - footer
+---
 
-## 保育園の毎日の仕事を、もっとわかりやすく
+<div class="welcome-page" markdown>
 
-open-hoikuict（オープン保育ICT）は、保育園で毎日使う情報を、ひとつの場所で確認・共有できるようにするプロジェクトです。
+<div class="welcome-hero" markdown>
 
-園児の情報、出欠、保護者からの連絡、職員同士の申し送りなどを、パソコンやタブレットから扱えます。
+<h1 class="welcome-artwork"><img src="assets/images/hirake-hero.png" alt="HIRAKE!! 保育の実践で、保育をひらこう。" width="2814" height="1536" fetchpriority="high"></h1>
 
-<div class="home-actions">
-  <a class="home-button home-button-primary" href="https://demo.hoikuict.net/">まずはデモを試す</a>
-  <a class="home-button home-button-secondary" href="https://hoiku-docs-demo.hoikuict.net/">文書作成デモを見る</a>
-  <a class="home-button home-button-secondary" href="https://plan-writer.hoikuict.net/">指導案作成を試す</a>
+<div class="welcome-action" markdown>
+
+[まずはデモを試してみる](https://demo.hoikuict.net/){ .home-button .home-button-primary .welcome-demo }
+
+<p class="welcome-demo-help">開いたら、おためし用の職員を選んで進めます。</p>
+
+<p class="welcome-note">デモは架空の園児やご家庭のデータを使っています。<br>実際のお子さんやご家庭の名前・連絡先は入力しないでください。</p>
+
 </div>
 
-!!! warning "デモをご利用になる前に"
-    現在は、お試し・検証中のサービスです。実在する園児、保護者、職員の名前や連絡先などは入力しないでください。実際の保育園で利用するには、安全管理やバックアップ、職員ごとの利用権限などの準備が必要です。
+</div>
 
-## こんな困りごとはありませんか
+<p class="welcome-eyebrow">保育士さんと、園で働くみなさんへ</p>
 
-- 園児の情報が、紙や表計算ファイルなどに分かれている
-- 欠席やお迎え時間の連絡を、何度も書き写している
-- 大切な申し送りが、ほかの連絡に埋もれてしまう
-- 職員によって情報の確認方法が違い、引き継ぎに時間がかかる
-- 市販の保育ICTサービスを導入する前に、実際の操作を試してみたい
+## 毎日の「確認」と「連絡」を、もう少し楽に。
 
-open-hoikuictは、こうした日々の小さな手間を減らし、必要な情報を見つけやすくすることを目指しています。
+園児のこと、保護者からの連絡、お迎えの予定。<br>
+いつも確認している情報を、ひとつの場所で見られたら。
 
-## できること
+オープン保育ICTは、園児の情報や保護者との連絡、日々の保育の記録を、パソコンやタブレットで確認できる仕組みです。<br>
+園での使いやすさを確かめながら、少しずつ育てているプロジェクトです。
 
-### 園児とご家庭の情報を確認する
+むずかしい仕組みは、ひとまず気にせずに。いつものお仕事を思い浮かべながら、気になる画面から触ってみてください。
 
-園児の基本情報、ご家庭の連絡先、所属クラスなどをまとめて確認できます。
+## たとえば、こんな場面で
 
-### 登園・降園と出欠を確認する
+<div class="welcome-scenes" markdown>
 
-登園・降園時刻、欠席、お迎え予定者などを一覧で確認できます。
+<div class="welcome-scene" markdown>
 
-### 保護者からの連絡を受け取る
+<p class="welcome-scene-label">朝の確認に</p>
 
-欠席、体調、食事、睡眠、服薬などの連絡を、園児ごとに確認できます。
+### 「今日はお休みかな？」
 
-### 職員同士で情報を共有する
+保護者から届いた欠席や体調の連絡を確認。登園の記録と見比べて、朝の様子を把握できます。
 
-お知らせ、申し送り、議事録、カレンダーを使って、園内の情報を共有できます。
+</div>
 
-### 健康に関する情報を管理する
+<div class="welcome-scene" markdown>
 
-健康プロフィール、アレルギー、エピペン、熱性けいれん等の優先管理事項、健診記録を確認できます。感染症管理や与薬依頼は今後の拡張です。
+<p class="welcome-scene-label">お迎えの前に</p>
 
-### 保育の計画や文書を作る
+### 「何時に、誰がお迎え？」
 
-指導計画や園内文書の作成を支援する機能も試せます。
+お迎えの時刻や予定者を確認。変更があったときも、職員同士で同じ情報を見られます。
 
-## こんな方におすすめです
+</div>
 
-- 保育園の園長、主任、保育士、看護師、事務担当者
-- 紙や表計算ファイルでの管理を少しずつ見直したい方
-- 自分たちの園に合う情報共有の方法を考えたい方
-- 保育ICTサービスの操作や業務の流れを試してみたい方
+<div class="welcome-scene" markdown>
 
-## まずはデモをお試しください
+<p class="welcome-scene-label">保育の振り返りに</p>
 
-デモでは、すべて架空の園児・保護者・職員データを使っています。実際の画面を操作しながら、どのように使えるかを確認できます。
+### 「あのとき、どんな様子だった？」
 
-1. [デモを開く](https://demo.hoikuict.net/children/)
-2. 画面左側のメニューから、気になる機能を選ぶ
-3. 導入について詳しく知りたい場合は、[導入ロードマップ](roadmap.md)を読む
+子どもの様子や日々の記録を残して、あとから振り返ることができます。保育の計画づくりにもつながります。
 
-安全な運用については、[個人情報とダミーデータ](privacy.md)、[セキュリティ最低ライン](security.md)、[運用責任と本番導入前チェック](operations.md)をご覧ください。
+</div>
 
-## みんなで育てるプロジェクトです
+</div>
 
-open-hoikuictは、特定の会社だけで作る完成品ではありません。保育現場で働く方や開発に関わる方の意見を取り入れながら、少しずつ改善しています。
+<div class="welcome-try" markdown>
 
-「こんな機能がほしい」「この画面がわかりにくい」といった声も、今後の改善につながります。
+## 最初は、見るだけでも大丈夫。
 
-実装者・レビュー担当者は、[仕様書・設計文書一覧](specifications.md)から現行仕様、実装済み範囲、将来計画を確認できます。
+職員を選ぶ画面が出たら、担任などの「この職員で入る」を押してみてください。
+
+まずは「園児一覧」で、お子さんの情報を見てみましょう。<br>
+次に「出欠一覧」や「日次連絡」など、気になる画面へ進んでみてください。
+
+全部の機能を覚える必要はありません。<br>
+「これなら、うちの園でも使えそう」を、ひとつ見つけてもらえたらうれしいです。
+
+[おためし画面を開く](https://demo.hoikuict.net/){ .home-button .home-button-primary }
+
+</div>
+
+<div class="welcome-updates" markdown>
+
+## 活動のお知らせ
+
+取り組みが気になったら、noteやXも、のぞいてみてください。
+
+[noteを読む →](https://note.com/openhoikueict){ .home-button .home-button-secondary }
+[Xを見る →](https://x.com/openhoikuict){ .home-button .home-button-secondary }
+
+</div>
+
+<div class="welcome-staff" markdown>
+
+## 園で使ってみたくなったら
+
+実際に園で使うためには、大切な情報を守る設定や、困ったときの備えが必要です。<br>
+パソコンやシステムに詳しい担当者の方と、一緒に準備を進めてください。
+
+導入の手順や詳しい機能の説明は、こちらにまとめています。
+
+[導入・運用・開発を担当する方へ →](technical-guide.md){ .welcome-technical-link }
+
+[GitHubでプロジェクトを見る →](https://github.com/hoikuict/open-hoikuict){ .home-button .home-button-secondary }
+
+</div>
+
+</div>

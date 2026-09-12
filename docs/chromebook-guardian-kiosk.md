@@ -25,9 +25,9 @@ HOIKUICT_KIOSK_ACCESS_MODE: "token"
 HOIKUICT_KIOSK_TOKEN: ${HOIKUICT_KIOSK_TOKEN:?required}
 ```
 
-`.env` 等の秘密値の保管先へ登録トークンを設定し、既存の更新手順でアプリコンテナーを再作成します。単なる再起動では環境変数は更新されません。本番更新の順序は[TrueNAS導入手順の第18章](truenas-beginner-installation-guide.md#18-バックアップと更新の基本)を参照してください。
+`.env` 等の秘密値の保管先へ登録トークンを設定し、既存の更新手順でアプリコンテナーを再作成します。単なる再起動では環境変数は更新されません。本番更新の順序は[TrueNAS導入手順の第18章](truenas-beginner-installation-guide.md#maintenance)を参照してください。
 
-職場での初回確認には、[2026年9月10日用のチェック欄付き手順書](../output/pdf/20260910_Chromebook保護者キオスク_職場確認手順書.pdf)を使用できます。手順書に記載した反映状況は作成時点のものなので、実際の配備版を管理者が確認してください。
+初回確認は本ページの手順に沿って行い、実際の配備版を管理者が記録してください。端末名・監視時間・無応答時の確認は[日常運用](operations.md)を参照します。
 
 ## 端末を準備する
 

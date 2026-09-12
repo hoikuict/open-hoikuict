@@ -1,119 +1,68 @@
 # open-hoikuict
 
-open-hoikuict は、保育園の日常業務を現場で確かめながら育てていくための、オープンソースの保育ICTプロジェクトです。
-園児名簿、家庭・保護者管理、登降園、保護者からの日次連絡、出欠確認、お知らせ、カレンダー、職員ルーム、アンケート、健康情報の管理を段階的に整備しています。
+園児・家庭の情報、登降園、保護者との連絡、健康記録、保育計画、請求、職員の情報共有を扱う、オープンソースの保育ICTプロジェクトです。
 
-> **現在の位置づけ**  
-> このリポジトリは公開準備・デモ・検証段階です。実在する園児・保護者・職員の個人情報、健康情報、連絡先を投入しないでください。
-> 本番運用に進む場合は、認証、権限、監査ログ、バックアップ、個人情報保護、サポート体制を各施設・法人の責任で確認してください。
+**[デモを試す](https://demo.hoikuict.net/) · [プロジェクトサイト](https://open.hoikuict.net/) · [詳しい資料](docs/technical-guide.md) · [導入方法](docs/getting-started.md) · [機能と実装状況](docs/features.md) · [開発手順](docs/development.md)**
 
-## デモ
+## 現在の状況
 
-- 公式サイト: <https://open.hoikuict.net>
-- デモ: <https://demo.hoikuict.net/children/>
-- 保育計画作成デモ: <https://plan-writer.hoikuict.net/documents/>
+2026年9月13日時点で、職員・保護者のローカルパスワード認証、共通QRによる保護者登録、Web Push、端末監視、バックアップ管理まで実装が進み、TrueNASでの実機検証・更新記録があります。
+
+機能の実装と施設での運用開始は別に確認します。公開デモ・ローカル検証には架空データを使い、実データを扱う範囲は[運用試験の受入条件](docs/pilot-deployment-spec-v2.md)に沿って施設で決めてください。
 
 ## 主な機能
 
-- 園児・家庭・保護者アカウント管理
-- 保護者との日次連絡、欠席連絡、体調連絡
-- 登園・降園時刻、迎え予定者、出欠確認
-- 出欠・連絡内容の不整合アラート
-- お知らせ配信、既読確認
-- 園児健康情報、アレルギー、健診記録
-- 職員カレンダー、施設共有カレンダー
-- 職員ルーム、議事録、アンケート
-- CSV/Excel による一部マスタデータの入出力
+- 園児・家庭・クラス・保護者管理、CSV/Excel入出力、プロフィール変更申請
+- 登降園・出欠確認・専用キオスク、お迎え予定の変更、誤打刻の取消と履歴
+- 保護者の日次連絡、お知らせ・アンケート、出欠確認依頼のプッシュ・任意メール通知
+- 健康プロフィール・アレルギー・健診、子どもの記録、児童票
+- 年案・月案・週案・日案、文例、版管理、振り返り
+- 保育必要量別の延長料金、月次確認、請求転送、口座管理、全銀データ出力
+- 職員ホーム、カレンダー、職員ルーム、議事録、園内記録、文書の確認依頼
+- 職員・保護者認証、明示的な園児の閲覧許可、端末監視、バックアップCLI・管理画面
+
+後続計画と制限は[機能一覧](docs/features.md)と[仕様一覧](docs/specifications.md)を参照してください。保育計画は本体の `/plans/` に統合されています。
 
 ## ローカルで試す
+
+CIとDockerの基準はPython 3.12です。以下はmacOS / Linuxの初回セットアップです。Windows PowerShellの手順は[開発ガイド](docs/development.md)にあります。
 
 ```bash
 git clone https://github.com/hoikuict/open-hoikuict.git
 cd open-hoikuict
-python -m venv .venv
-source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m uvicorn main:app --reload
+python3.12 -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env
+export HOIKUICT_DATABASE_URL=sqlite:///./hoikuict-dev.db
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-起動後、ブラウザで <http://127.0.0.1:8000/> を開きます。
+`http://127.0.0.1:8000/` を開きます。通常起動は業務デモデータを投入しません。モックでの画面確認には[専用DBへの100人規模デモ投入](docs/demo-data.md)、パスワード認証の確認には[ローカルβ設定と初期管理者作成](docs/environment-profiles.md)を使います。
 
-### ローカル認証版βを起動する
+公開デモの案内先は[保育ICTデモ](https://demo.hoikuict.net/)です。配備先の版により、このリポジトリの最新機能と差がある場合があります。
 
-モック環境とDBを分離したパスワード認証版は、`.env.beta.example` を基にGit管理外の `.env.beta.local` を用意して起動します。
+## 導入・運用
 
-```powershell
-.\scripts\start_beta.ps1
-```
+- [TrueNASへの導入ガイド](docs/truenas-beginner-installation-guide.md)と[初期構成の詳細](docs/truenas-fresh-install.md)
+- [職員・保護者のアカウント](docs/accounts.md)、[共通QR登録](docs/parent-public-registration.md)
+- [日々の業務](docs/daily-work.md)、[通知ガイド](docs/notifications.md)、[家庭・園児CSV](docs/family-guardian-csv-guide.md)
+- [日常運用と障害対応](docs/operations.md)、[本番設定](docs/security.md)、[バックアップ・復元](docs/backup-restore-spec.md)
+- [画面・URL一覧](docs/screen-transition-list.md)、[コード構成](docs/architecture.md)、[変更履歴](docs/history.md)
 
-既定URLは <http://127.0.0.1:8001/> です。DBや管理者を起動時に作り直さないため、一度設定した認証情報と業務データは再起動後も保持されます。詳細は [`docs/environment-profiles.md`](docs/environment-profiles.md) を参照してください。
+正式対応DBはSQLiteです。WAL、外部キー制約、busy timeoutとSQLite向けの組み込みスキーマ更新を使用します。非SQLiteでは外部スキーマ管理と `HOIKUICT_ALLOW_UNMANAGED_SCHEMA=1` が必要です。正式なマルチDB移行手順は提供していません。
 
-## TrueNASで空の状態から実機検証を始める
-
-新しい保存領域に、デモデータなし・パスワード認証ありで導入する手順は
-[初心者向けの導入手順書](docs/truenas-beginner-installation-guide.md)を参照してください。
-SSH接続からCloudflare・Gmail・保護者登録・通知の確認まで、今回の実機検証を基に説明しています。
-設定の詳細は[TrueNASへの初期導入](docs/truenas-fresh-install.md)にもまとめています。
-専用のComposeと環境変数雛形は`deploy/truenas/`にあります。
-
-## 100人規模デモデータを投入する
-
-このリポジトリには、定員100人規模の認可保育園を想定したデモデータを同梱しています。
-全データは架空で、メールアドレスは `demo.open-hoikuict.example` ドメインを使っています。
+## ドキュメントを編集する
 
 ```bash
-# 既存DBを消してよいローカル/デモ環境でのみ実行
-python -m scripts.seed_demo_100 --wipe-all
-
-# アプリを起動
-python -m uvicorn main:app --reload
+python -m mkdocs serve --dev-addr 127.0.0.1:8008
+python -m mkdocs build --strict
 ```
 
-含まれる主なデータは次のとおりです。
+プレビューは `http://127.0.0.1:8008/` です。ページ構成・リンク検査・公開対象の扱いは[ドキュメント更新ガイド](docs/documentation.md)を参照してください。
 
-- 6クラス、園児100人、家庭84世帯、保護者アカウント156件
-- 2026-04-13〜2026-05-15 の登降園・日次連絡データ
-- 延長保育料金ルールと日別自動計算済みデータ
-- 欠席連絡、体温、睡眠、朝食、排便、服薬、保護者メモ
-- 出欠確認と、確認用に用意した不整合アラート
-- お知らせ、既読、職員メッセージ、カレンダー予定
-- 健康情報、アレルギー、健診記録、園児情報変更申請、アンケート
+## ライセンス・問い合わせ
 
-詳細は [`demo_data/README.md`](demo_data/README.md) と [`docs/demo-data.md`](docs/demo-data.md) を参照してください。
+[MIT License](LICENSE)。ソフトウェアは無保証で提供します。運用責任とサポート体制は施設・法人で確認してください。
 
-## ドキュメント
-
-- [仕様書・設計文書一覧](docs/specifications.md)
-- [現在の主要画面遷移](docs/screen-transition-list.md)
-- [導入ロードマップ](docs/roadmap.md)
-- [開発者向けセットアップ](docs/development.md)
-- [運用責任と本番導入前チェック](docs/operations.md)
-- [TrueNAS・Dockge・Cloudflare 実運用試験構成仕様](docs/pilot-deployment-spec.md)
-- [TrueNAS・Dockge・Cloudflare 実運用試験手順書](docs/truenas-dockge-cloudflare-pilot-runbook.md)
-- [バックアップ・復元仕様](docs/backup-restore-spec.md)
-- [セキュリティ最低ライン](docs/security.md)
-- [個人情報・ダミーデータ方針](docs/privacy.md)
-- [デモデータ仕様](docs/demo-data.md)
-- [職員個人ポータル機能仕様](docs/staff-personal-portal-spec.md)
-- [職員有給管理機能仕様](docs/paid-leave-management-spec.md)
-- [職員権限設定・請求口座情報管理仕様](docs/staff-permissions-and-billing-accounts-spec.md)
-- [延長保育料金・請求転送仕様](docs/extended-care-billing-transfer-spec.md)
-- [FAQ](docs/faq.md)
-
-## ライセンス
-
-このリポジトリでは MIT License を置いています。正式採用する場合は、著作権者名を確認し、必要に応じて専門家へ相談してください。
-
-## サポートと問い合わせ
-
-- 不具合・改善提案: GitHub Issues
-- セキュリティ連絡: `openhoikuict@gmail.com`
-- 公式サイト: <https://open.hoikuict.net>
-
-このプロジェクトは無保証で提供されます。自治体提出、監査、補助金、個人情報保護、医療的ケアなどの判断は、各施設・法人・自治体の規程に従ってください。
-
-## データベース対応
-
-正式サポートするデータベースは SQLite です。組み込みマイグレーションは SQLite 専用で、WAL、外部キー検証、busy timeout を起動時に設定します。
-
-PostgreSQL等を使用する場合は外部でスキーマを管理し、`HOIKUICT_ALLOW_UNMANAGED_SCHEMA=1` を明示してください。アプリは登録済みSQLModelメタデータと実スキーマを照合し、不足があれば起動を停止します。現時点ではAlembicによる正式なマルチDB移行は提供していません。
+不具合・改善提案は[GitHub Issues](https://github.com/hoikuict/open-hoikuict/issues)、セキュリティ問題は公開せず `openhoikuict@gmail.com` へ連絡してください。[CONTRIBUTING.md](CONTRIBUTING.md)、[SUPPORT.md](SUPPORT.md)、[SECURITY.md](SECURITY.md)も参照してください。

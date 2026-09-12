@@ -1,9 +1,12 @@
-# TrueNAS・Dockge・Cloudflare 実運用試験手順書
+# 旧版: TrueNAS・Dockge・Cloudflare 実運用試験手順書
 
 > 対象仕様: [実運用試験構成仕様](pilot-deployment-spec.md)  
 > バックアップ: [バックアップ・復元仕様](backup-restore-spec.md)  
 > 対象段階: 架空データによる段階A・B  
 > 注意: `<pool>`、`<hostname>`、`<approved-sha>`等は実環境の値へ置き換える。秘密値を作業記録へ貼り付けない。
+
+!!! note "旧手順書"
+    これは当初の運用試験手順です。新規導入・更新は[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)、試験条件は[改訂版仕様](pilot-deployment-spec-v2.md)を使用します。
 
 ## 1. 結論と開始条件
 
@@ -296,7 +299,7 @@ ComposeをDockgeへ保存する前に、展開結果へ秘密値が意図せず�
 docker compose config --quiet
 ```
 
-## 8. Cloudflareの準備
+## 8. Cloudflareの準備 {#cloudflare-setup}
 
 ### 8.1 Accessを先に作る
 

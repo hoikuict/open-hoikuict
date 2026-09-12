@@ -1,28 +1,19 @@
-# ライセンス
+# ライセンス・問い合わせ
 
-## なぜライセンスが必要か
+リポジトリのライセンスは **MIT License** です。著作権表記は `Copyright (c) 2026 open-hoikuict contributors` で、正確な条件は[リポジトリのLICENSE](https://github.com/hoikuict/open-hoikuict/blob/main/LICENSE)を参照してください。
 
-GitHub で公開されているだけでは、利用者が自由に利用・変更・再配布できるとは限りません。オープンソースとして使ってもらうには、利用者に何を許可し、どの条件を守ってもらうかを明確にする必要があります。
+依存ライブラリや外部から持ち込む素材・データについては、それぞれの利用条件も確認します。
 
-## このバンドルの提案
+## 不具合・改善提案
 
-このバンドルでは MIT License を `LICENSE` として置いています。MIT License は短く、商用利用、改変、再配布を許可する、シンプルなパーミッシブライセンスです。
+[GitHub Issues](https://github.com/hoikuict/open-hoikuict/issues)へ、利用している版、操作手順、期待する動作、実際の動作を記載してください。実在の個人情報や認証情報は含めません。
 
-正式採用前に確認すること:
+コードの変更は[CONTRIBUTING.md](https://github.com/hoikuict/open-hoikuict/blob/main/CONTRIBUTING.md)、サポート範囲は[SUPPORT.md](https://github.com/hoikuict/open-hoikuict/blob/main/SUPPORT.md)を参照してください。
 
-- 著作権者名をどう書くか
-- 既存コード・依存ライブラリのライセンスと矛盾しないか
-- 法人・園として公開する場合の承認が必要か
-- ドキュメント、画像、ロゴ、商標を別扱いにするか
+## セキュリティの連絡
 
-## README への記載例
+脆弱性や個人情報の露出が疑われる内容は公開Issueへ載せず、**openhoikuict@gmail.com** へ連絡してください。詳細は[SECURITY.md](https://github.com/hoikuict/open-hoikuict/blob/main/SECURITY.md)を参照します。
 
-```md
-## License
+## 施設での運用
 
-This project is licensed under the MIT License. See [LICENSE](../LICENSE) for details.
-```
-
-## 注意
-
-ライセンス判断は法的判断を含みます。不安がある場合は専門家へ相談してください。
+ソフトウェアは無保証で提供されます。運用担当者、問い合わせ対応、バックアップと復旧、個人情報の管理は施設・法人で定めます。[日常運用と障害対応](operations.md)を参照してください。

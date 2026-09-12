@@ -1,15 +1,18 @@
 # 保護者向けプッシュ通知機能仕様書
 
 - 対象リポジトリ: open-hoikuict
-- ステータス: Draft / Step 1〜Step 4実装済み・実機確認未実施
+- ステータス: Web Push・本番構成の実装あり、OS別の実機受入は別途記録
 - 作成日: 2026-08-12
-- 実装状況: Phase 1実装完了（PC・Android・iPhone/iPadの実機確認未実施）
+- 現況確認: 2026-09-13。端末別の確認結果は実機記録を参照
 - 初期対象: 出欠未確認時の保護者確認依頼
 - 関連: 保護者ポータル、保護者アカウント、出欠確認、認証、セキュリティ
 
-> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture / Web Push transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、Target単位の表示・クリック確認API、development確認画面、日次運用指標、保存期間処理は実装済みである。developmentのWeb Pushは、本人が設定画面から明示登録したテスト端末だけへ送信できる。PC・Android・iPhone/iPadの実機による送受信確認は未実施であり、Phase 1の受入完了にはその記録が必要である。
+> `ParentPushSubscription`、`ParentPushDeliveryTarget`、`ParentPushDeliveryAttempt`、capture / Web Push transport、Target展開、端末別lease・再試行ワーカー、出欠確認からのpush配送キュー作成、ブラウザ購読API、Manifest、Service Worker、通知設定画面、明示ログアウト時の現在端末無効化、Target単位の表示・クリック確認API、development確認画面、日次運用指標、保存期間処理は実装済みである。developmentのWeb Pushは、本人が設定画面から明示登録したテスト端末だけへ送信できる。この設計書だけではPC・Android・iPhone/iPadすべての実機受入完了を示さず、Phase 1の受入には端末ごとの記録が必要である。
 
 ---
+
+!!! note "2026年9月の追加"
+    本番設定と本人の現在端末へのテスト通知に加え、出欠確認依頼の任意メール通知を追加しています。メールは既存アカウントで初期値OFFです。[通知ガイド](notifications.md)と[9月11日の変更](spec-improvements-2026-09-11.md)を参照してください。
 
 ## 1. 背景と目的
 

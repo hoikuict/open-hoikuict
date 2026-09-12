@@ -88,7 +88,7 @@ secretsのblocklistはappの実行userから読める必要がある。ホスト
 
 ## 2. 設定を完成させる
 
-[Compose](../deploy/truenas/compose.yaml)と[環境変数雛形](../deploy/truenas/.env.example)を使う。
+[Compose](https://github.com/hoikuict/open-hoikuict/blob/main/deploy/truenas/compose.yaml)と[環境変数雛形](https://github.com/hoikuict/open-hoikuict/blob/main/deploy/truenas/.env.example)を使う。
 `.env`のすべての`<...>`を置き換える。リポジトリ直下のローカル用設定は使わない。
 
 - `APP_IMAGE`: 直前にbuildした`open-hoikuict:<deploy-full-sha>`。
@@ -109,7 +109,7 @@ Tunnel tokenを`secrets/tunnel-token`に保存する。
 cloudflaredの実行UID/GIDがComposeの`65532:65532`と一致することと、tokenの読取り権限を確認する。
 
 Accessの個別許可を設定してから、Tunnelの検証ホスト名を`http://app:8000`へ接続する。
-詳細は[既存手順のCloudflare準備](truenas-dockge-cloudflare-pilot-runbook.md#8-cloudflareの準備)を参照する。
+詳細は[既存手順のCloudflare準備](truenas-dockge-cloudflare-pilot-runbook.md#cloudflare-setup)を参照する。
 
 ```bash
 docker compose --profile '*' config --quiet

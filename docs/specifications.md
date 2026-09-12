@@ -1,67 +1,76 @@
-# 仕様書・設計文書一覧
+# 仕様・設計文書一覧
 
-このページを、仕様書関係の入口とする。実装状況は2026年8月23日時点のリポジトリを基準にしている。
+現況確認: **2026年9月13日**。利用者向けの概要は[機能と実装状況](features.md)、操作入口は[使い方](daily-work.md)、URLは[画面一覧](screen-transition-list.md)を参照してください。
 
-## ステータスの意味
+## ステータスの読み方
 
 | 表記 | 意味 |
 | --- | --- |
-| 現行 | 現在の実装・運用で参照する契約または一覧 |
-| 実装済み | 主な受入条件が実装され、自動テストがある |
-| 一部実装 | 文書の一部フェーズだけが実装済み |
-| 計画 | 実装前の設計案。現在の画面やデータ構造として扱わない |
-| 履歴 | 統合・レビュー時点の判断を残す文書。現況は冒頭の注記を優先する |
+| 現行 | 現在の実装で参照する契約・手順 |
+| 実装あり | 記載する主要機能がリポジトリに存在する。配備・実機受入の完了とは別 |
+| 一部実装 | 実装済みの範囲と後続の設計を含む |
+| 計画 | 未実装の拡張。現行の画面・運用手順として扱わない |
+| 履歴 | 当時の設計判断や作業記録。冒頭の現況注記と新しいガイドを優先 |
 
-仕様本文に将来フェーズが含まれる場合、文書全体を「実装済み」とは扱わない。現在のURL確認には[画面遷移リスト](screen-transition-list.md)、外部連携の安定契約には[連携契約](integration-contract.md)を使う。
+一つの仕様書に将来フェーズがある場合、文書全体を実装済みとは扱いません。
 
-## 業務機能仕様
+## 園児・家庭・記録
 
-| 文書 | 状況 | 現在の実装 |
+| 文書 | 状況 | 現在の範囲・残件 |
 | --- | --- | --- |
-| [児童記録・児童票・保育要録](child-records-spec.md) | 一部実装 | 設定版、観察ログ、訂正・無効化、タイムライン、児童票作成・進捗一覧まで。個別指導計画との双方向参照、保育要録、送付管理は未実装 |
-| [園児健康管理レビュー](health-record-spec-review.md) | 一部実装・履歴 | 健康プロフィール、アレルギー、健診記録、時系列グラフ、旧データ移行を実装。感染症・与薬等の後続フェーズは未実装 |
-| [インポート・エクスポート](import-export-spec.md) | 実装済み | クラス、家庭、園児、保護者アカウント、保護者・園児紐付けのCSV/Excel入出力と事前検証 |
-| [ベータ開始時の本番データ移行](beta-production-data-migration-spec.md) | 計画 | 新規DBへの本番CSV移行、家庭共有プロフィール同期、検証、切替・ロールバック。ベータ開始前に実装・リハーサル必須 |
-| [認可施設帳票入力](ninka-input-screen-spec.md) | 実装済み（初期段階） | データ入出力画面内のExcelアップロード、集計・補正、帳票出力 |
-| [保育認定・保育必要量・延長保育料金連携](care-need-certification-spec.md) | 一部実装 | 園児別の期間管理、施設専用入力、区分別朝夕料金、計算モード切替、請求安全性、デモデータまで。訂正画面・差額プレビュー・専用CSVは後続 |
-| [延長保育料金自動計算](extended-care-fee-spec.md) | 実装済み | 日別自動計算、再計算、確定・調整・対象外、月次画面、CSV、料金ルール |
-| [延長保育料金・請求転送](extended-care-billing-transfer-spec.md) | 実装済み | プレビュー、転送・再転送・解除、競合処理、ロック、監査 |
-| [職員ポータル](staff-personal-portal-spec.md) | 実装済み | `/`、`/staff/portal`、`/staff/attention`、担当クラス・予定・要確認・タイムライン |
-| [職員権限・請求口座情報](staff-permissions-and-billing-accounts-spec.md) | 実装済み | 集約権限画面、園児台帳管理・請求口座管理権限、口座情報の秘匿、監査ログ |
-| [オンプレ・閉域向け自前認証](local-authentication-spec.md) | 一部実装 | 職員のArgon2id資格情報、opaque session、login throttle、初期設定、管理者発行の再設定コード、監査、初期管理者CLI。保護者認証、本人変更、MFAは未実装 |
-| [オンプレ保護者認証](parent-local-authentication-spec.md) | 計画 | 登録メールへの招待、保護者・園児情報照合、園承認、職員認証基盤を共用するローカル認証、明示的な園児認可、β専用DB運用の実装前仕様 |
-| [保護者向けプッシュ通知](parent-push-notification-spec.md) | 一部実装 | モデル、capture transport、Target展開、lease・再試行ワーカー、出欠確認からのキュー作成まで。ブラウザ購読、Service Worker、Web Push実送信、端末別確認画面は未実装 |
-| [施設設定](facility-settings-spec.md) | 計画 | `FacilitySettings` と `/settings/facility` は未実装 |
-| [職員有給管理](paid-leave-management-spec.md) | 計画 | 有給台帳・申請・承認ルートとモデルは未実装 |
+| [児童記録・児童票・保育要録](child-records-spec.md) | 一部実装 | 観察ログ、訂正・無効化、設定版、児童票・進捗一覧。保育要録・送付管理等は後続 |
+| [健康管理レビュー](health-record-spec-review.md) | 一部実装・履歴 | プロフィール、アレルギー、健診・グラフ。感染症・与薬等は後続 |
+| [インポート・エクスポート](import-export-spec.md) | 実装あり | 職員を含む6種のマスタ、事前検証・確定、CSV/Excel。家庭の保護者①②に対応 |
+| [家庭・園児CSVガイド](family-guardian-csv-guide.md) | 現行 | 変換ツール、家庭→園児の取り込み、既存情報の保持 |
+| [家族プロフィールとアカウント同期](guardian-account-sync.md) | 現行 | 初回入力の招待、明示的な保護者紐付け、連絡先同期 |
+| [認可施設帳票入力](ninka-input-screen-spec.md) | 実装あり | データ入出力画面内のExcel入力・集計・帳票出力 |
 
-## 保育計画・児童票基盤
+## 登降園・料金・職員
+
+| 文書 | 状況 | 現在の範囲・残件 |
+| --- | --- | --- |
+| [保育認定・保育必要量](care-need-certification-spec.md) | 一部実装 | 園児別期間管理、区分別の朝夕料金、計算モード切替。専用の訂正・差額プレビュー・CSV等は後続 |
+| [延長料金](extended-care-fee-spec.md) | 実装あり | 日別計算、月次、確定・調整・対象外、CSV、ルール |
+| [延長料金・請求転送](extended-care-billing-transfer-spec.md) | 実装あり | プレビュー、転送・再転送・解除、競合処理、監査 |
+| [職員ポータル](staff-personal-portal-spec.md) | 実装あり | ホーム、担当クラス、予定、要確認、タイムライン。追加変更は9月11日記録も参照 |
+| [職員権限・請求口座](staff-permissions-and-billing-accounts-spec.md) | 実装あり | 集約権限設定、園児台帳・請求口座の専用権限、口座情報保護、監査 |
+| [9月10日の画面改善](spec-improvements-2026-09-10.md) | 実装あり・履歴 | お迎え予定変更、料金表示・区分別設定、キオスク、日別予定 |
+| [9月11日の機能追加](spec-improvements-2026-09-11.md) | 実装あり・履歴 | 打刻取消、文書確認、端末監視、メール通知、家族検索・きょうだい選択など |
+
+## 認証・通知
+
+| 文書 | 状況 | 現在の範囲・残件 |
+| --- | --- | --- |
+| [アカウントガイド](accounts.md) | 現行 | 職員・保護者の初期設定、登録経路、復旧、閲覧対象 |
+| [ローカル認証設計](local-authentication-spec.md) | 一部実装 | 職員・保護者のArgon2id認証、セッション、試行制限、コード、監査、管理者メール復旧。職員の通常パスワード変更・MFA等は後続 |
+| [保護者認証設計](parent-local-authentication-spec.md) | 一部実装・設計履歴 | ログイン、招待・承認、本人パスワード変更、園による再設定、明示的な園児認可は実装あり |
+| [共通QR登録](parent-public-registration.md) | 現行 | 受付切替、メール確認、初回申請、承認先選択、利用開始 |
+| [プッシュ通知仕様](parent-push-notification-spec.md) | 実装あり・受入継続 | 購読、Service Worker、Web Push、本番設定、配送・再試行・報告。OS別実機受入は別途記録 |
+| [通知ガイド](notifications.md) | 現行 | 出欠確認依頼のアプリ内・プッシュ・任意メール、本人端末テスト |
+
+## 保育計画と文例 {#plans}
 
 | 文書 | 状況 | 用途 |
 | --- | --- | --- |
-| [日案仕様 v1](spec-daily-plan-v1.md) | 一部実装 | SQLModel永続化、版管理、楽観ロック、実施変更、日案例選択の現行仕様と後続計画 |
-| [週案・日案追加仕様](spec-weekly-daily-plans.md) | 一部実装 | 週案・日案のMVP契約。フェーズ1は実装済み、週案・日案文例等は未実装 |
-| [日案文例コーパス受け入れ契約](daily-plan-corpus-contract.md) | 現行 | 本体が読み取る承認済みSQLite成果物の境界・スキーマ・受入条件 |
-| [保育計画統合仕様 v2.1](spec-plan-docs-integration-v2-revised.md) | 履歴・一部実装 | 統合時の設計判断。Phase 1・2は完了、Phase 3は児童記録仕様へ分割して一部実装 |
-| [連携契約](integration-contract.md) | 現行 | 文書種別、状態、セクション、参照キー、JSON互換性の安定契約 |
+| [日案仕様](spec-daily-plan-v1.md) | 一部実装 | SQLModel永続化、版管理、楽観ロック、実施変更、文例選択と後続計画 |
+| [週案・日案追加仕様](spec-weekly-daily-plans.md) | 一部実装 | 年案・月案と共通の文書基盤、週案・日案MVP。フェーズごとの範囲を本文で確認 |
+| [日案コーパス契約](daily-plan-corpus-contract.md) | 現行 | 別途用意する読み取り専用SQLite文例成果物の契約 |
+| [連携契約](integration-contract.md) | 現行 | 文書種別、状態、セクション、参照キー、JSON互換性 |
+| [保育計画統合設計](spec-plan-docs-integration-v2-revised.md) | 履歴・一部実装 | 統合時の判断。児童記録は別仕様へ分割 |
 
-## 横断資料
+## 未実装の計画
 
-| 文書 | 役割 |
+| 文書 | 現在との境界 |
 | --- | --- |
-| [バックアップ・復元仕様](backup-restore-spec.md) | 保護対象、RPO/RTO、保持、暗号化、検査、復元・廃棄の現行契約 |
-| [TrueNAS・Dockge・Cloudflare 実運用試験構成仕様](pilot-deployment-spec.md) | 段階的な実運用試験の構成、境界、設定、受け入れ条件 |
-| [TrueNAS・Dockge・Cloudflare 実運用試験手順書](truenas-dockge-cloudflare-pilot-runbook.md) | 準備、初回起動、検証、backup・復元、更新、障害対応 |
-| [画面遷移リスト](screen-transition-list.md) | 登録済みの主要画面と導線 |
-| [デモデータ仕様](demo-data.md) | デモデータの規模、期間、投入方法、整合性 |
-| [開発者向け](development.md) | ローカル開発、テスト、DB方針 |
-| [運用責任](operations.md) | 本番導入前の運用確認 |
-| [セキュリティ](security.md) | 認証、CSRF、Cookie、キオスク等の最低ライン |
-| [リリース前チェック](release-checklist.md) | リリース判定の確認項目 |
+| [施設設定](facility-settings-spec.md) | `FacilitySettings`・`/settings/facility` は未実装 |
+| [職員有給管理](paid-leave-management-spec.md) | 台帳・申請・承認ルートは未実装 |
+| [一括データ移行](beta-production-data-migration-spec.md) | 移行元ID・マニフェスト・CSV一式の一括確定は未実装。明示的な園児リンクと家庭CSVの対応は現行実装へ反映済み |
 
-## 更新ルール
+## 運用・開発の参照先
 
-1. 新しい仕様書を追加したら、この一覧と`mkdocs.yml`のナビゲーションへ追加する。
-2. 実装開始時に「計画」、主要受入条件を満たした時に「実装済み」または「一部実装」へ更新する。
-3. URL、モデル名、権限名は、提案と現行実装を混在させない。提案の場合は「案」または「未実装」と明記する。
-4. 実装で仕様を変更した場合は、同じ変更で仕様書・画面遷移リスト・関連テストを更新する。
-5. 過去の設計判断を残す文書は削除せず「履歴」とし、冒頭に現在の実装との差を記載する。
+- 導入: [TrueNAS導入ガイド](truenas-beginner-installation-guide.md)、[運用試験仕様の改訂版](pilot-deployment-spec-v2.md)。
+- 運用: [バックアップ・復元](backup-restore-spec.md)、[セキュリティ](security.md)、[リリース確認](release-checklist.md)。
+- 開発: [開発環境](development.md)、[コード構成](architecture.md)、[ドキュメント更新](documentation.md)。
+- 過去の構成案・配備記録: [変更履歴](history.md)。
+
+新機能の追加時は、この一覧・画面一覧・関連ガイド・navを一緒に見直し、実装の確認日と未実装部分を更新します。

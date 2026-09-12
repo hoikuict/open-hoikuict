@@ -6,6 +6,9 @@
 > 状態: 改訂案。構成例を含む。TrueNAS実機での受け入れ確認は未実施。  
 > 対象: TrueNAS上のDocker、Dockge、Cloudflare Tunnel / Accessを使う段階A〜Cの運用試験
 
+!!! note "構成比較は作成時点の記録"
+    本文の旧Composeとの比較は9月5日時点のものです。現在の配布構成は `deploy/truenas/`、導入操作は[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)、以降の実機更新は[変更履歴](history.md)を参照してください。実データ試験の受入条件は引き続き本書で確認します。
+
 ## 1. 文書の位置付け
 
 この文書は、既存の[実運用試験構成仕様](pilot-deployment-spec.md)を上書きせず、現在の実装との照合結果を反映した新しい版である。[旧手順書](truenas-dockge-cloudflare-pilot-runbook.md)に分散していた構成例、起動、バックアップ、復元の条件も整理する。

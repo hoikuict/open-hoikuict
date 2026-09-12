@@ -1,9 +1,12 @@
-# TrueNAS・Dockge・Cloudflare 実運用試験構成仕様
+# 旧版: TrueNAS・Dockge・Cloudflare 実運用試験構成仕様
 
 > 状態: 計画（実運用試験前の承認用）  
 > 基準日: 2026年8月31日  
 > 対象: TrueNAS SCALE上のDocker、Dockge、Cloudflare Tunnel / Access  
 > 重要: この文書の受け入れ条件を満たすまでは、実在する園児・保護者・職員の情報を投入しない。
+
+!!! note "旧構成案"
+    この文書は8月31日時点の設計履歴です。現在の構成と受入条件は[改訂版](pilot-deployment-spec-v2.md)、導入・更新操作は[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)を参照してください。
 
 ## 1. 目的
 

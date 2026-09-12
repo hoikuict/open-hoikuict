@@ -1,68 +1,151 @@
+site_name: オープン保育ICT
+site_url: https://open.hoikuict.net/
+site_description: 保育士さんと、園で働くみなさんへ。園児の情報や保護者との連絡、日々の記録を、まずはデモで気軽におためしください。
 repo_name: hoikuict/open-hoikuict
 repo_url: https://github.com/hoikuict/open-hoikuict
 edit_uri: edit/main/docs/
-site_name: open.hoikuict.net | 保育園のためのICT・GAS運用オープンガイド
-site_url: https://open.hoikuict.net/
-site_description: 保育園職員による、保育現場のためのICT化ノウハウ共有サイト。
 theme:
   name: material
   language: ja
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: ダークモードに切り替え
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: ライトモードに切り替え
   features:
     - navigation.tabs
     - navigation.sections
-    - toc.integrate
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
     - search.suggest
     - search.highlight
+    - content.code.copy
 extra_css:
   - stylesheets/extra.css
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/hoikuict/open-hoikuict
+      name: GitHubでプロジェクトを見る
+    - icon: simple/note
+      link: https://note.com/openhoikueict
+      name: noteを読む
+    - icon: fontawesome/brands/x-twitter
+      link: https://x.com/openhoikuict
+      name: Xを見る
 plugins:
-  - search
+  - search:
+      lang: ja
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.tasklist:
       custom_checkbox: true
+# Local review notes are not part of the published guide. Keep their files intact.
+exclude_docs: |
+  /beta-implementation-policy-review-2026-09-05.md
+  /competitive-differentiation-analysis-2026-09-05.md
+  /comprehensive-project-review-2026-09-05.md
+  /kernel-main-consistency-review-2026-09-05.md
+  /next-direction-discussion-2026-09-06.md
+  /next-validation-milestone-2026-09-05.md
+  /parent-auth-registration-guide-2026-09-06.md
+  /spec-change-validity-review-2026-09-11.md
+  /staff-auth-registration-guide-2026-09-06.md
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
 nav:
   - はじめに: index.md
-  - 導入ロードマップ: roadmap.md
-  - 仕様・設計:
-      - 仕様書一覧: specifications.md
-      - 画面遷移: screen-transition-list.md
-      - 連携契約: integration-contract.md
-      - 児童記録・児童票・保育要録: child-records-spec.md
-      - 園児健康管理: health-record-spec-review.md
-      - インポート・エクスポート: import-export-spec.md
-      - ベータ開始時の本番データ移行: beta-production-data-migration-spec.md
-      - 認可施設帳票入力: ninka-input-screen-spec.md
-      - 保育認定・保育必要量・延長料金連携（一部実装）: care-need-certification-spec.md
-      - 延長保育料金: extended-care-fee-spec.md
-      - 延長保育料金・請求転送: extended-care-billing-transfer-spec.md
-      - 職員ポータル: staff-personal-portal-spec.md
-      - 職員権限・請求口座: staff-permissions-and-billing-accounts-spec.md
-      - オンプレ・閉域向け自前認証（一部実装）: local-authentication-spec.md
-      - オンプレ保護者認証（計画）: parent-local-authentication-spec.md
-      - 保護者向けプッシュ通知: parent-push-notification-spec.md
-      - 保護者向けプッシュ通知 実機確認: parent-push-real-device-test.md
-      - 施設設定（計画）: facility-settings-spec.md
-      - 職員有給管理（計画）: paid-leave-management-spec.md
-      - 保育計画:
-          - 日案仕様 v1: spec-daily-plan-v1.md
-          - 週案・日案追加仕様: spec-weekly-daily-plans.md
-          - 日案文例コーパス契約: daily-plan-corpus-contract.md
-          - 統合仕様 v2.1: spec-plan-docs-integration-v2-revised.md
-  - 開発・運用:
-      - 初心者向け TrueNAS導入手順書: truenas-beginner-installation-guide.md
-      - 開発者向け: development.md
-      - β・モック・デモの環境分離: environment-profiles.md
-      - 実運用試験構成仕様: pilot-deployment-spec.md
-      - 実運用試験手順書: truenas-dockge-cloudflare-pilot-runbook.md
-      - バックアップ・復元仕様: backup-restore-spec.md
-      - 運用責任: operations.md
-      - セキュリティ最低ライン: security.md
-      - 個人情報とダミーデータ: privacy.md
-      - デモデータ: demo-data.md
-      - 園内運用テンプレ: templates.md
-      - リリース前チェック: release-checklist.md
-  - ライセンス: license.md
-  - FAQ: faq.md
+  - デモを試す: https://demo.hoikuict.net/
+  - 詳しい資料:
+      - technical-guide.md
+      - 全体像・機能:
+          - 機能と実装状況: features.md
+          - 導入までの進め方: roadmap.md
+          - よくある質問: faq.md
+          - ライセンス・問い合わせ: license.md
+      - 導入:
+          - 導入方法を選ぶ: getting-started.md
+          - ローカル環境の設定: environment-profiles.md
+          - TrueNAS導入ガイド: truenas-beginner-installation-guide.md
+          - TrueNAS初期構成の詳細: truenas-fresh-install.md
+          - デモデータ: demo-data.md
+      - 使い方:
+          - 日々の業務: daily-work.md
+          - アカウントと利用開始: accounts.md
+          - 共通QRで保護者登録: parent-public-registration.md
+          - 招待・家族プロフィール同期: guardian-account-sync.md
+          - 家庭・園児CSVの取り込み: family-guardian-csv-guide.md
+          - 保護者通知: notifications.md
+          - キオスク端末の設定: chromebook-guardian-kiosk.md
+          - 画面・URL一覧: screen-transition-list.md
+      - 運用:
+          - 日常運用と障害対応: operations.md
+          - 本番設定・セキュリティ: security.md
+          - 個人情報・ダミーデータ: privacy.md
+          - Web Pushの本番設定: parent-push-production-setup.md
+          - Web Pushの実機確認: parent-push-real-device-test.md
+          - バックアップ・復元: backup-restore-spec.md
+          - 運用試験の構成と受入条件: pilot-deployment-spec-v2.md
+          - リリース・更新時の確認: release-checklist.md
+          - 園内運用テンプレート: templates.md
+      - 仕様:
+          - specifications.md
+          - 園児・家庭・記録:
+              - 児童記録・児童票・保育要録: child-records-spec.md
+              - 健康管理の設計と後続計画: health-record-spec-review.md
+              - インポート・エクスポート: import-export-spec.md
+              - 認可施設帳票入力: ninka-input-screen-spec.md
+          - 登降園・料金・職員:
+              - 保育認定・保育必要量: care-need-certification-spec.md
+              - 延長保育料金: extended-care-fee-spec.md
+              - 延長料金の請求転送: extended-care-billing-transfer-spec.md
+              - 職員ポータル: staff-personal-portal-spec.md
+              - 職員権限・請求口座: staff-permissions-and-billing-accounts-spec.md
+          - 認証・通知:
+              - ローカル認証の設計: local-authentication-spec.md
+              - 保護者認証の設計: parent-local-authentication-spec.md
+              - プッシュ通知: parent-push-notification-spec.md
+          - 保育計画:
+              - 日案: spec-daily-plan-v1.md
+              - 週案・日案の追加仕様: spec-weekly-daily-plans.md
+              - 日案文例コーパス契約: daily-plan-corpus-contract.md
+              - 連携契約: integration-contract.md
+          - 未実装の計画:
+              - 施設設定: facility-settings-spec.md
+              - 職員有給管理: paid-leave-management-spec.md
+              - 一括データ移行: beta-production-data-migration-spec.md
+      - 開発:
+          - 開発環境とテスト: development.md
+          - コード構成・データ保存: architecture.md
+          - ドキュメントの更新: documentation.md
+      - 変更履歴:
+          - history.md
+          - 2026-09-13 実機更新記録: deployment-2026-09-13.md
+          - 2026-09-11 機能追加: spec-improvements-2026-09-11.md
+          - 2026-09-10 画面改善: spec-improvements-2026-09-10.md
+          - 2026-09-07 検証対応: validation-changes-2026-09-07.md
+          - 過去の設計・作業記録:
+              - 保育計画の統合設計: spec-plan-docs-integration-v2-revised.md
+              - 旧運用試験仕様: pilot-deployment-spec.md
+              - 旧運用試験手順: truenas-dockge-cloudflare-pilot-runbook.md
+              - 2026-09-11 更新作業の引き継ぎ: handoff-2026-09-11-spec-deployment.md
