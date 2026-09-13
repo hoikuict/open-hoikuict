@@ -211,3 +211,30 @@ def review_decision(
         raise HTTPException(409, "この依頼は確認済みです。画面を開き直してください。")
     session.commit()
     return RedirectResponse(f"/document-reviews/{review_id}", status_code=303)
+
+
+@router.post("/{review_id}/dismiss-return")
+def dismiss_return_notification(
+    review_id: int,
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    item = _load(session, review_id, current_user)
+    if (
+        current_user.user_id is None
+        or item.requested_by_user_id != current_user.user_id
+        or item.status != "returned"
+    ):
+        raise HTTPException(404, "差し戻し通知が見つかりません。")
+    session.execute(
+        update(DocumentReviewRequest)
+        .where(
+            DocumentReviewRequest.id == item.id,
+            DocumentReviewRequest.requested_by_user_id == current_user.user_id,
+            DocumentReviewRequest.status == "returned",
+            DocumentReviewRequest.return_acknowledged_at.is_(None),
+        )
+        .values(return_acknowledged_at=utc_now())
+    )
+    session.commit()
+    return RedirectResponse("/#returned-documents", status_code=303)

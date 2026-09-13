@@ -1,0 +1,39 @@
+{% if returned_documents or returned_review_error %}
+<section id="returned-documents" aria-labelledby="returned-documents-title" class="scroll-mt-20 rounded-3xl border border-rose-300 bg-rose-50/70 p-5 shadow-sm sm:p-6">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h2 id="returned-documents-title" class="text-xl font-bold text-rose-900">{{ '差し戻しがあります' if returned_documents else '差し戻し' }}</h2>
+      {% if returned_documents %}<p class="mt-2 text-sm text-rose-800">理由を確認して、文書を修正・再提出してください。</p>{% endif %}
+    </div>
+    {% if returned_documents %}<span class="rounded-full bg-rose-600 px-3 py-1 text-xs font-bold text-white">{{ returned_document_count }}件</span>{% endif %}
+  </div>
+  {% if returned_review_error %}<p role="alert" class="mt-4 rounded-xl border border-rose-200 bg-white p-4 text-sm text-rose-700">{{ returned_review_error }}</p>{% endif %}
+  <div class="mt-5 grid gap-3 lg:grid-cols-2">
+    {% for item in returned_documents %}
+    <article class="min-w-0 rounded-2xl border border-rose-200 bg-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800">{{ item.kind_label }}</span>
+        <time class="text-xs text-slate-500">{{ item.returned_at|jst_datetime("%m-%d %H:%M") }}</time>
+      </div>
+      <h3 class="mt-3 break-words font-bold text-slate-900">{{ item.title }}</h3>
+      <p class="mt-2 break-words text-sm text-slate-600">{{ item.decided_by_name }}さんから差し戻されました。</p>
+      <p class="mt-3 whitespace-pre-wrap break-words rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-900">{{ item.note or '理由は文書の詳細をご確認ください。' }}</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        {% if item.open_action %}
+        <form method="post" action="{{ item.open_action }}">
+          <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700">文書を確認</button>
+        </form>
+        {% else %}
+        <a href="{{ item.url }}" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700">文書を確認</a>
+        {% endif %}
+        <form method="post" action="{{ item.dismiss_url }}">
+          <input type="hidden" name="redirect_to" value="/">
+          <button type="submit" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">確認済みにして消す</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% if returned_documents %}<p class="mt-4 text-xs text-slate-600">確認済みにするとホームの表示だけが消えます。差し戻しの理由は文書の詳細で引き続き確認できます。</p>{% endif %}
+</section>
+{% endif %}

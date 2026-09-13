@@ -14,6 +14,7 @@ from database import get_session
 from models import (
     ChildProfileChangeRequest,
     ChildProfileChangeRequestStatus,
+    DocumentReviewRequest,
     Notice,
     NoticeStatus,
     User,
@@ -95,6 +96,8 @@ def _render_staff_home(
     pending_notices = []
     pending_child_change_requests = []
     pending_parent_registrations = []
+    returned_document_reviews = []
+    returned_review_error = ""
 
     try:
         classrooms, assignment_views = classroom_scope(
@@ -168,6 +171,52 @@ def _render_staff_home(
         plan_notification_error = "帳票通知を取得できませんでした。再読み込みしてください。"
         if staff_user.staff_role == "admin":
             approval_queue_errors.append(plan_notification_error)
+
+    try:
+        returned_document_reviews = session.exec(
+            select(DocumentReviewRequest).where(
+                DocumentReviewRequest.requested_by_user_id == staff_user.id,
+                DocumentReviewRequest.status == "returned",
+                DocumentReviewRequest.return_acknowledged_at.is_(None),
+            )
+        ).all()
+    except Exception:
+        logger.exception(
+            "staff portal returned document reviews load failed",
+            extra={"staff_user_id": str(staff_user.id)},
+        )
+        returned_review_error = "文書の確認依頼の差し戻し情報を取得できませんでした。再読み込みしてください。"
+
+    returned_documents = []
+    other_plan_notifications = []
+    for notification in plan_notifications:
+        if (
+            notification.notification_kind == REVIEW_OUTCOME
+            and notification.decision_status == "rejected"
+        ):
+            returned_documents.append({
+                "kind_label": "計画文書・児童票",
+                "title": notification.document_title,
+                "decided_by_name": notification.decided_by_name or notification.requested_by_name,
+                "note": notification.decision_comment,
+                "returned_at": notification.created_at,
+                "open_action": f"/plans/notifications/{notification.id}/open",
+                "dismiss_url": f"/plans/notifications/{notification.id}/dismiss",
+            })
+        else:
+            other_plan_notifications.append(notification)
+    plan_notifications = other_plan_notifications
+    for item in returned_document_reviews:
+        returned_documents.append({
+            "kind_label": "文書の確認依頼",
+            "title": item.title,
+            "decided_by_name": item.decided_by_name or "管理者",
+            "note": item.decision_note,
+            "returned_at": item.decided_at or item.created_at,
+            "url": f"/document-reviews/{item.id}",
+            "dismiss_url": f"/document-reviews/{item.id}/dismiss-return",
+        })
+    returned_documents.sort(key=lambda item: item["returned_at"], reverse=True)
 
     if staff_user.staff_role == "admin":
         try:
@@ -289,7 +338,6 @@ def _render_staff_home(
             }
         )
     if current_user.is_admin:
-        from models import DocumentReviewRequest
         for item in session.exec(select(DocumentReviewRequest).where(DocumentReviewRequest.status == "pending")).all():
             approval_queue_items.append({"kind": "document_review", "kind_label": "文書の確認依頼",
                 "title": item.title, "requester_name": item.requested_by_name, "requested_at": item.created_at,
@@ -336,6 +384,9 @@ def _render_staff_home(
                 1 for notification in plan_notifications if notification.read_at is None
             ),
             "plan_notification_error": plan_notification_error,
+            "returned_documents": returned_documents,
+            "returned_document_count": len(returned_documents),
+            "returned_review_error": returned_review_error,
             "approval_queue_items": approval_queue_items,
             "approval_queue_count": len(approval_queue_items),
             "approval_queue_errors": approval_queue_errors,

@@ -74,6 +74,7 @@ def create_db_and_tables() -> None:
     _migrate_data_transfer_audit()
     _migrate_add_meeting_note_columns()
     _migrate_notice_columns()
+    _migrate_document_review_columns()
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
@@ -371,6 +372,16 @@ def _migrate_notice_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("notice column", exc)
+
+
+def _migrate_document_review_columns() -> None:
+    with engine.begin() as conn:
+        columns = _table_columns("document_review_requests")
+        if columns and "return_acknowledged_at" not in columns:
+            conn.execute(text(
+                "ALTER TABLE document_review_requests "
+                "ADD COLUMN return_acknowledged_at DATETIME"
+            ))
 
 
 def _migrate_add_calendar_columns() -> None:
