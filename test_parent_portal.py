@@ -38,6 +38,11 @@ from models import (
     ParentRegistrationRequest,
     PasswordCredential,
     ProfileChangeNotification,
+    Survey,
+    SurveyAnswer,
+    SurveyStatus,
+    SurveyTarget,
+    SurveyTargetType,
     User,
 )
 import notice_content
@@ -244,6 +249,100 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("田中 はると", response.text)
         self.assertIn("遠足のお知らせ", response.text)
         self.assertNotIn("限定連絡", response.text)
+        self.assertNotIn('href="/"', response.text)
+        self.assertIn('href="/parent-portal/attention"', response.text)
+
+    def test_parent_attention_requires_login_and_handles_no_remaining_items(self):
+        response = self.client.get("/parent-portal/attention", follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            "/parent-portal/login?redirect=/parent-portal/attention",
+        )
+
+        self._login_parent(self.parent_account_id)
+        self.client.get(f"/parent-portal/notices/{self.public_notice_id}")
+        response = self.client.get("/parent-portal/attention")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["updates"], [])
+        self.assertIn("未読・未回答はありません。", response.text)
+        self.assertNotIn('href="/"', response.text)
+        self.assertEqual(self.client.get("/parent-portal/").context["unread_notice_count"], 0)
+
+    def test_parent_attention_matches_count_and_only_lists_accessible_pending_items(self):
+        with Session(self.engine) as session:
+            session.add(NoticeRead(
+                notice_id=self.public_notice_id, parent_account_id=self.parent_account_id,
+            ))
+            for index in range(6):
+                session.add(Notice(
+                    title=f"未読のテスト連絡{index}", body="確認用の連絡です。",
+                    status=NoticeStatus.published,
+                    publish_start_at=utc_now() - timedelta(hours=1),
+                ))
+            notification = ParentNotification(
+                parent_account_id=self.parent_account_id, child_id=self.child_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="未読の出欠確認", body="確認用の通知です。",
+                source_type="test-attention", source_id="unread",
+            )
+            session.add(notification)
+            session.add(ParentNotification(
+                parent_account_id=self.parent_account_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="既読の出欠確認", body="既に確認済みです。", is_read=True,
+                source_type="test-attention", source_id="read",
+            ))
+            session.add(ParentNotification(
+                parent_account_id=self.single_parent_account_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="別家庭の出欠確認", body="別の家庭向けです。",
+                source_type="test-attention", source_id="other-family",
+            ))
+            surveys = [
+                Survey(title="未回答のテストアンケート", status=SurveyStatus.published),
+                Survey(title="回答済みのテストアンケート", status=SurveyStatus.published),
+                Survey(title="別家庭のテストアンケート", status=SurveyStatus.published),
+                Survey(title="未公開のテストアンケート", status=SurveyStatus.draft),
+            ]
+            session.add_all(surveys)
+            session.flush()
+            for index, survey in enumerate(surveys):
+                session.add(SurveyTarget(
+                    survey_id=survey.id,
+                    target_type=SurveyTargetType.child if index == 2 else SurveyTargetType.all,
+                    target_value=str(self.other_child_id) if index == 2 else None,
+                ))
+            session.add(SurveyAnswer(survey_id=surveys[1].id, family_id=self.main_family_id))
+            session.commit()
+            notification_id = notification.id
+            unanswered_survey_id = surveys[0].id
+
+        self._login_parent(self.parent_account_id)
+        home = self.client.get("/parent-portal/")
+        response = self.client.get("/parent-portal/attention")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(home.context["unread_notice_count"], 8)
+        self.assertEqual(len(home.context["latest_updates"]), 5)
+        self.assertEqual(len(response.context["updates"]), 8)
+        for index in range(6):
+            self.assertIn(f"未読のテスト連絡{index}", response.text)
+        self.assertIn(f'href="/parent-portal/notifications/{notification_id}"', response.text)
+        self.assertIn(f'href="/parent-portal/surveys/{unanswered_survey_id}"', response.text)
+        for excluded_title in (
+            "遠足のお知らせ", "限定連絡", "既読の出欠確認", "別家庭の出欠確認",
+            "回答済みのテストアンケート", "別家庭のテストアンケート", "未公開のテストアンケート",
+        ):
+            self.assertNotIn(excluded_title, response.text)
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(NoticeRead)).all()), 1)
+            self.assertFalse(session.get(ParentNotification, notification_id).is_read)
+
+        detail = self.client.get(f"/parent-portal/notifications/{notification_id}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertNotIn('href="/"', detail.text)
+        self.assertNotIn("未読の出欠確認", self.client.get("/parent-portal/attention").text)
+        self.assertEqual(self.client.get("/parent-portal/").context["unread_notice_count"], 7)
 
     def test_parent_can_read_attendance_confirmation_notification(self):
         with Session(self.engine) as session:

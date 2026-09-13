@@ -481,53 +481,15 @@ def parent_logout(
     return response
 
 
-@router.get("/", response_class=HTMLResponse)
-def parent_home(
-    request: Request,
-    target_date: Optional[str] = Query(default=None, alias="date"),
-    notice: Optional[str] = Query(default=None),
-    session: Session = Depends(get_session),
-):
-    current_parent_user = _get_parent_account(request, session)
-    if not current_parent_user:
-        return RedirectResponse(url="/parent-portal/login", status_code=303)
-
-    day = _parse_target_date(target_date)
-    children = _linked_children(current_parent_user)
-    child_ids = [child.id for child in children if child.id is not None]
-
-    entries = (
-        session.exec(
-            select(DailyContactEntry).where(
-                DailyContactEntry.child_id.in_(child_ids) if child_ids else False,
-                DailyContactEntry.target_date == day,
-            )
-        ).all()
-        if child_ids
-        else []
-    )
-    entry_by_child_id = {entry.child_id: entry for entry in entries}
-    replies = _load_published_daily_contact_replies(session, child_ids, day)
-    reply_by_child_id = {reply.child_id: reply for reply in replies}
-    reply_display_by_child_id = {
-        reply.child_id: reply_items_for_display(reply)
-        for reply in replies
-    }
-    pending_request_by_child_id = _load_pending_child_profile_requests_by_child_id(
-        session,
-        parent_account_id=current_parent_user.id,
-        child_ids=child_ids,
-    )
-
-    notices = _load_visible_notices(session, current_parent_user)
-    read_notice_ids = _read_notice_ids(current_parent_user, notices)
+def _load_parent_updates(session: Session, parent_account: ParentAccount) -> list[dict]:
+    notices = _load_visible_notices(session, parent_account)
+    read_notice_ids = _read_notice_ids(parent_account, notices)
     parent_notifications = session.exec(
         select(ParentNotification)
-        .where(ParentNotification.parent_account_id == current_parent_user.id)
+        .where(ParentNotification.parent_account_id == parent_account.id)
         .order_by(ParentNotification.created_at.desc(), ParentNotification.id.desc())
     ).all()
-    unread_parent_notifications = [item for item in parent_notifications if not item.is_read]
-    unanswered_surveys = _load_unanswered_parent_surveys(session, current_parent_user)
+    unanswered_surveys = _load_unanswered_parent_surveys(session, parent_account)
     latest_updates = [
         {
             "kind": "notice",
@@ -586,6 +548,49 @@ def parent_home(
     )
     latest_updates.sort(key=lambda item: item["sort_at"], reverse=True)
 
+    return latest_updates
+
+
+@router.get("/", response_class=HTMLResponse)
+def parent_home(
+    request: Request,
+    target_date: Optional[str] = Query(default=None, alias="date"),
+    notice: Optional[str] = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    day = _parse_target_date(target_date)
+    children = _linked_children(current_parent_user)
+    child_ids = [child.id for child in children if child.id is not None]
+
+    entries = (
+        session.exec(
+            select(DailyContactEntry).where(
+                DailyContactEntry.child_id.in_(child_ids) if child_ids else False,
+                DailyContactEntry.target_date == day,
+            )
+        ).all()
+        if child_ids
+        else []
+    )
+    entry_by_child_id = {entry.child_id: entry for entry in entries}
+    replies = _load_published_daily_contact_replies(session, child_ids, day)
+    reply_by_child_id = {reply.child_id: reply for reply in replies}
+    reply_display_by_child_id = {
+        reply.child_id: reply_items_for_display(reply)
+        for reply in replies
+    }
+    pending_request_by_child_id = _load_pending_child_profile_requests_by_child_id(
+        session,
+        parent_account_id=current_parent_user.id,
+        child_ids=child_ids,
+    )
+
+    latest_updates = _load_parent_updates(session, current_parent_user)
+
     return templates.TemplateResponse(
         request,
         "parent_portal/home.html",
@@ -601,12 +606,33 @@ def parent_home(
             "reply_display_by_child_id": reply_display_by_child_id,
             "pending_request_by_child_id": pending_request_by_child_id,
             "latest_updates": latest_updates[:5],
-            "unread_notice_count": (
-                sum(1 for item in notices if item.id not in read_notice_ids)
-                + len(unanswered_surveys)
-                + len(unread_parent_notifications)
-            ),
+            "unread_notice_count": sum(1 for item in latest_updates if item["is_unread"]),
             "flash_notice": "日次連絡を保存しました。" if notice == "saved" else "",
+        },
+    )
+
+
+@router.get("/attention", response_class=HTMLResponse)
+def parent_attention(request: Request, session: Session = Depends(get_session)):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(
+            url="/parent-portal/login?redirect=/parent-portal/attention",
+            status_code=303,
+        )
+
+    updates = [
+        item for item in _load_parent_updates(session, current_parent_user)
+        if item["is_unread"]
+    ]
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/attention.html",
+        {
+            "request": request,
+            "current_parent_user": current_parent_user,
+            "parent_portal_mode": True,
+            "updates": updates,
         },
     )
 
