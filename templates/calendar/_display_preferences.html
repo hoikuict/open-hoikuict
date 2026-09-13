@@ -1,0 +1,70 @@
+<script>
+  (() => {
+    const storageKey = "hoikuict.calendar.display." + {{ current_user.id | string | tojson }};
+    const preferences = { showSunday: false, sidebarOpen: true, createOpen: true };
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+      for (const key of Object.keys(preferences)) {
+        if (typeof saved?.[key] === "boolean") preferences[key] = saved[key];
+      }
+    } catch (_) { /* Continue with usable controls when storage is unavailable. */ }
+
+    const apply = () => {
+      document.documentElement.dataset.calendarSunday = String(preferences.showSunday);
+      document.documentElement.dataset.calendarSidebar = String(preferences.sidebarOpen);
+      const sidebar = document.getElementById("calendar-sidebar");
+      if (sidebar) sidebar.hidden = !preferences.sidebarOpen;
+      document.querySelectorAll("[data-calendar-toggle-sidebar]").forEach((button) => {
+        button.setAttribute("aria-expanded", String(preferences.sidebarOpen));
+      });
+      const sunday = document.getElementById("calendar-show-sunday");
+      if (sunday) sunday.checked = preferences.showSunday;
+      const creator = document.getElementById("calendar-create-details");
+      if (creator && creator.open !== preferences.createOpen) creator.open = preferences.createOpen;
+      const main = document.getElementById("calendar-main");
+      const status = document.getElementById("calendar-display-status");
+      if (status) status.textContent = main?.dataset.viewMode === "day" ? "1日表示" : preferences.showSunday ? "月〜日・7列表示" : "月〜土・6列表示";
+      // The main fragment changes independently of the sidebar during navigation.
+      if (sidebar && main) {
+        sidebar.querySelectorAll('input[name="mode"]').forEach((input) => { input.value = main.dataset.viewMode; });
+        sidebar.querySelectorAll('input[name="anchor_date"]').forEach((input) => { input.value = main.dataset.anchorDate; });
+      }
+      const type = document.getElementById("calendar-create-type");
+      const sharingNote = document.getElementById("calendar-sharing-note");
+      if (sharingNote && type) sharingNote.textContent = type.value === "facility_shared"
+        ? "施設共用カレンダーは作成時に全職員へ共有され、全職員が予定を登録できます。"
+        : "自分用のカレンダーです。";
+    };
+    const save = () => {
+      try { localStorage.setItem(storageKey, JSON.stringify(preferences)); } catch (_) { /* Keep the current page usable. */ }
+      apply();
+    };
+
+    apply();
+    document.addEventListener("DOMContentLoaded", apply);
+    document.addEventListener("htmx:afterSwap", apply);
+    document.addEventListener("htmx:oobAfterSwap", apply);
+    document.addEventListener("click", (event) => {
+      if (event.target.closest?.("#calendar-create-details > summary")) {
+        event.preventDefault();
+        preferences.createOpen = !preferences.createOpen;
+        save();
+        return;
+      }
+      const button = event.target.closest?.("[data-calendar-toggle-sidebar]");
+      if (!button) return;
+      preferences.sidebarOpen = !preferences.sidebarOpen;
+      save();
+      if (!preferences.sidebarOpen && button.closest("#calendar-sidebar")) {
+        document.getElementById("calendar-sidebar-toggle")?.focus();
+      }
+    });
+    document.addEventListener("change", (event) => {
+      if (event.target.id === "calendar-show-sunday") {
+        preferences.showSunday = event.target.checked;
+        save();
+      }
+      if (event.target.id === "calendar-create-type") apply();
+    });
+  })();
+</script>

@@ -2,6 +2,11 @@
 
 {% block title %}カレンダー{% endblock %}
 
+{% block head %}
+{% include "calendar/_display_styles.html" %}
+{% include "calendar/_display_preferences.html" %}
+{% endblock %}
+
 {% block content %}
 {% include "calendar/_shell.html" %}
 
