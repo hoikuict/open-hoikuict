@@ -1,0 +1,34 @@
+<script>
+document.querySelectorAll('[data-photo-input]').forEach((container) => {
+  const input = container.querySelector('input[type="file"]');
+  const preview = container.querySelector('[data-photo-preview]');
+  const remove = container.querySelector('input[type="checkbox"]');
+  const original = preview.getAttribute('src');
+  let temporaryUrl;
+  input.addEventListener('change', () => {
+    if (temporaryUrl) URL.revokeObjectURL(temporaryUrl);
+    const file = input.files[0];
+    if (file && file.size > 10 * 1024 * 1024) {
+      input.setCustomValidity('写真は1枚10MB以内にしてください。');
+      input.reportValidity();
+      return;
+    }
+    input.setCustomValidity('');
+    temporaryUrl = file ? URL.createObjectURL(file) : null;
+    if (file && remove) remove.checked = false;
+    if (temporaryUrl || original) preview.src = temporaryUrl || original;
+    else preview.removeAttribute('src');
+    preview.hidden = !(temporaryUrl || original);
+  });
+  if (remove) remove.addEventListener('change', () => {
+    if (remove.checked) {
+      input.value = '';
+      input.setCustomValidity('');
+      if (temporaryUrl) URL.revokeObjectURL(temporaryUrl);
+      temporaryUrl = null;
+    }
+    preview.hidden = remove.checked || !original;
+    if (!remove.checked && original) preview.src = original;
+  });
+});
+</script>

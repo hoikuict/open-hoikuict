@@ -141,6 +141,10 @@ def _migrate_add_child_columns() -> None:
             cols = _table_columns("children")
             if not cols:
                 return
+            if "sex" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN sex VARCHAR(16) NOT NULL DEFAULT 'not_set'"))
+            if "photo_id" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN photo_id VARCHAR(32)"))
             if "home_address" not in cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN home_address VARCHAR"))
             if "home_phone" not in cols:
@@ -276,6 +280,8 @@ def _migrate_add_guardian_columns() -> None:
         columns = _table_columns("guardians")
         if columns:
             with engine.begin() as conn:
+                if "photo_id" not in columns:
+                    conn.execute(text("ALTER TABLE guardians ADD COLUMN photo_id VARCHAR(32)"))
                 if "parent_account_id" not in columns:
                     conn.execute(
                         text(

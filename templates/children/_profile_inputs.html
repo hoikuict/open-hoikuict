@@ -1,0 +1,21 @@
+{% macro photo_input(key, label, photo_id='', base_url='/children/photos/') %}
+<div class="space-y-2" data-photo-input>
+  <label for="{{ key }}_photo" class="block text-sm font-medium text-slate-600">{{ label }}（任意）</label>
+  <img {% if photo_id %}src="{{ base_url }}{{ photo_id }}"{% else %}hidden{% endif %} alt="{{ label }}のプレビュー" width="96" height="96" class="h-24 w-24 rounded-lg border border-slate-200 object-cover" data-photo-preview>
+  <input type="file" id="{{ key }}_photo" name="{{ key }}_photo" accept="image/jpeg,image/png,image/webp" class="block w-full text-sm text-slate-600">
+  <p class="text-xs text-slate-500">JPEG・PNG・WebP、1枚10MBまで。写真は職員と対象園児の閲覧権限を持つ保護者に表示されます。</p>
+  {% if photo_id %}<label class="inline-flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" name="{{ key }}_photo_remove" value="true">現在の写真を削除する</label>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro sex_input(value='not_set') %}
+<div>
+  <label for="sex" class="mb-1 block text-sm font-medium text-slate-600">性別（帳票用）</label>
+  <select id="sex" name="sex" class="w-full rounded border border-slate-300 px-3 py-2">
+    {% for key, label in [('not_set', '未設定'), ('male', '男'), ('female', '女')] %}
+    <option value="{{ key }}" {% if value == key %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <p class="mt-1 text-xs text-slate-500">保育要録などの帳票に使用する情報です。未設定でも保存できます。</p>
+</div>
+{% endmacro %}

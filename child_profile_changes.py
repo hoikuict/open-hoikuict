@@ -14,7 +14,7 @@ from family_support import (
     normalized_optional_text,
     normalized_text,
 )
-from models import Child, ChildStatus
+from models import Child, ChildSex, ChildStatus
 from time_utils import utc_now
 
 EMPTY_VALUE_LABEL = "未登録"
@@ -26,6 +26,10 @@ CHILD_PROFILE_FIELD_LABELS = {
     "last_name_kana": "姓（カナ）",
     "first_name_kana": "名（カナ）",
     "birth_date": "生年月日",
+    "sex": "性別（帳票用）",
+    "photo_id": "園児の写真",
+    "g1_photo_id": "保護者1 写真",
+    "g2_photo_id": "保護者2 写真",
     "enrollment_date": "入園日",
     "withdrawal_date": "退園日",
     "status": "在籍状況",
@@ -64,6 +68,8 @@ CHILD_DATA_FIELD_NAMES = (
     "last_name_kana",
     "first_name_kana",
     "birth_date",
+    "sex",
+    "photo_id",
     "enrollment_date",
     "withdrawal_date",
     "status",
@@ -105,6 +111,10 @@ def _display_value(field_name: str, value: Optional[str]) -> str:
     normalized = normalized_text(value)
     if field_name == "status":
         return _status_label(normalized)
+    if field_name == "sex":
+        return ChildSex(normalized or "not_set").label
+    if field_name.endswith("photo_id"):
+        return "写真あり" if normalized else "未登録"
     return normalized or EMPTY_VALUE_LABEL
 
 
@@ -119,6 +129,8 @@ def child_data_from_child(child: Child) -> dict[str, str]:
         "last_name_kana": child.last_name_kana,
         "first_name_kana": child.first_name_kana,
         "birth_date": child.birth_date.isoformat() if child.birth_date else "",
+        "sex": child.sex.value,
+        "photo_id": child.photo_id or "",
         "enrollment_date": child.enrollment_date.isoformat() if child.enrollment_date else "",
         "withdrawal_date": child.withdrawal_date.isoformat() if child.withdrawal_date else "",
         "status": child.status.value,
@@ -148,6 +160,7 @@ def normalize_child_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
     child_data["enrollment_date"] = _normalized_date_text(child_source.get("enrollment_date"))
     child_data["withdrawal_date"] = _normalized_date_text(child_source.get("withdrawal_date"))
     child_data["status"] = _normalized_status(child_source.get("status"))
+    child_data["sex"] = child_data["sex"] or "not_set"
     child_data["allergy"] = _normalized_allergy_text(child_source.get("allergy"))
     family_data = normalize_family_payload(payload)
 
@@ -261,8 +274,24 @@ def build_child_profile_payload(
 def merge_child_profile_form_data(child: Child, request_data: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     form_data = child_profile_form_data_from_child(child)
     if request_data:
-        form_data.update(normalize_child_profile_payload(request_data))
+        form_data.update(normalize_child_profile_payload(with_current_photo_fields(child, request_data)))
     return form_data
+
+
+def with_current_photo_fields(child: Child, payload: dict[str, Any]) -> dict[str, Any]:
+    """Older clients and pending requests must not clear newly added fields."""
+    from copy import deepcopy
+
+    result = deepcopy(payload)
+    source = result.get("child_data") if isinstance(result.get("child_data"), dict) else result
+    source.setdefault("sex", child.sex.value)
+    source.setdefault("photo_id", child.photo_id or "")
+    existing = child.family.guardian_profiles() if child.family else []
+    by_order = {p["order"]: p.get("photo_id") for p in existing}
+    for profile in result.get("guardians_data", []):
+        if profile["order"] in by_order:
+            profile.setdefault("photo_id", by_order[profile["order"]])
+    return result
 
 
 def resolve_child_profile_change_payload(
@@ -282,7 +311,7 @@ def resolve_child_profile_change_payload(
         *[key for key in FIELD_ORDER if key.startswith("g")],
     }
     if current_keys.intersection(payload):
-        return _structured_child_profile_payload(normalize_child_profile_payload(payload))
+        return _structured_child_profile_payload(normalize_child_profile_payload(with_current_photo_fields(child, payload)))
 
     # Early demo data stored an emergency contact update as {"phone": "..."}.
     # Rebuild the full payload from the current profile so approval only changes
@@ -304,6 +333,8 @@ def resolve_child_profile_change_payload(
 
 def validate_child_profile_payload(payload: dict[str, Any]) -> Optional[str]:
     normalized = normalize_child_profile_payload(payload)
+    if normalized["sex"] not in {sex.value for sex in ChildSex}:
+        return "性別は未設定・男・女から選択してください。"
     if not normalized["birth_date"] or not normalized["enrollment_date"]:
         return "生年月日と入園日は必須です。"
     try:
@@ -321,7 +352,7 @@ def validate_child_profile_payload(payload: dict[str, Any]) -> Optional[str]:
 
 def build_child_profile_change_details(child: Child, payload: dict[str, Any]) -> dict[str, dict[str, str]]:
     current = child_profile_form_data_from_child(child)
-    updated = normalize_child_profile_payload(payload)
+    updated = normalize_child_profile_payload(with_current_photo_fields(child, payload))
     details: dict[str, dict[str, str]] = {}
     for field_name in FIELD_ORDER:
         old_value = current.get(field_name, "")
@@ -332,6 +363,8 @@ def build_child_profile_change_details(child: Child, payload: dict[str, Any]) ->
                 "old": _display_value(field_name, old_value),
                 "new": _display_value(field_name, new_value),
             }
+            if field_name.endswith("photo_id"):
+                details[field_name].update(old_photo_id=old_value or "", new_photo_id=new_value or "")
     return details
 
 
@@ -347,13 +380,15 @@ def apply_child_profile_payload(
     *,
     applied_at: Optional[datetime] = None,
 ) -> dict[str, Any]:
-    normalized = normalize_child_profile_payload(payload)
+    normalized = normalize_child_profile_payload(with_current_photo_fields(child, payload))
     validation_error = validate_child_profile_payload(normalized)
     if validation_error:
         raise ValueError(validation_error)
 
     now = applied_at or utc_now()
     child.birth_date = date.fromisoformat(normalized["birth_date"])
+    child.sex = ChildSex(normalized["sex"])
+    child.photo_id = normalized["photo_id"] or None
     child.enrollment_date = date.fromisoformat(normalized["enrollment_date"])
     child.withdrawal_date = date.fromisoformat(normalized["withdrawal_date"]) if normalized["withdrawal_date"] else None
     child.status = ChildStatus(normalized["status"])

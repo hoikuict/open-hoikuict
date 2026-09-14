@@ -28,6 +28,7 @@ nav:
   - 導入ロードマップ: roadmap.md
   - 仕様・設計:
       - 仕様書一覧: specifications.md
+      - 園児・保護者の写真と園児の性別: profile-photos.md
       - 画面遷移: screen-transition-list.md
       - 連携契約: integration-contract.md
       - 児童記録・児童票・保育要録: child-records-spec.md

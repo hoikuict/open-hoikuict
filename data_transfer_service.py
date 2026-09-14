@@ -21,6 +21,7 @@ from staff_csv import STAFF_HEADERS, plan_staff
 from child_csv import child_import_changes
 from models import (
     Child,
+    ChildSex,
     ChildStatus,
     Classroom,
     DataTransferLog,
@@ -119,7 +120,7 @@ DATASETS: dict[str, DatasetDefinition] = {
             "住所",
             "電話番号",
         ),
-        optional_headers=("照合用氏名", "照合用氏名種別"),
+        optional_headers=("照合用氏名", "照合用氏名種別", "性別"),
     ),
     "parent_accounts": DatasetDefinition(
         id="parent_accounts",
@@ -353,6 +354,7 @@ def _export_children(session: Session, *, classroom_id: str = "", status: str = 
             _text(child.home_phone),
             _text(child.registration_verification_name),
             _text(child.registration_verification_name_type),
+            child.sex.label,
         ]
         for child in children
     ]
@@ -720,6 +722,12 @@ def _plan_children(
         enrollment_date = _parse_date(row["入園日"], row_number, "入園日", result, required=child is None)
         withdrawal_date = _parse_date(row["退園日"], row_number, "退園日", result, required=False)
         status = _parse_child_status(row["在園状態"], row_number, result, required=False)
+        sex_value = row.get("性別", "").strip()
+        sex = {"男": ChildSex.male, "男性": ChildSex.male, "male": ChildSex.male,
+               "女": ChildSex.female, "女性": ChildSex.female, "female": ChildSex.female,
+               "未設定": ChildSex.not_set, "not_set": ChildSex.not_set}.get(sex_value)
+        if sex_value and sex is None:
+            result.errors.append(TransferMessage(row_number, "性別", sex_value, "未設定・男・女のいずれかを指定してください。"))
         verification_name, verification_name_type = _parse_registration_name_fields(
             row, row_number, result
         )
@@ -744,7 +752,7 @@ def _plan_children(
 
         sync_profile = child_import_changes(session, result, row_number, child, family, classroom, row,
             birth_date=birth_date, enrollment_date=enrollment_date, withdrawal_date=withdrawal_date,
-            status=status, verification_name=verification_name, verification_name_type=verification_name_type)
+            status=status, sex=sex, verification_name=verification_name, verification_name_type=verification_name_type)
         if child is None:
             result.create_count += 1
             if commit:
@@ -762,6 +770,7 @@ def _plan_children(
                     enrollment_date=enrollment_date,
                     withdrawal_date=withdrawal_date,
                     status=status or ChildStatus.enrolled,
+                    sex=sex or ChildSex.not_set,
                     classroom_id=classroom.id if classroom else None,
                     family_id=family.id if family else None,
                     home_address=row["住所"] or None,
@@ -792,6 +801,8 @@ def _plan_children(
                     child.withdrawal_date = withdrawal_date
                 if status is not None:
                     child.status = status
+                if sex is not None:
+                    child.sex = sex
                 if row["クラス名"]:
                     child.classroom_id = classroom.id if classroom else None
                 if row["家庭ID"] or row["家庭名"]:

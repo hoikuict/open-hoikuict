@@ -71,6 +71,8 @@ class StructuredGuardianDataTests(unittest.TestCase):
                     "last_name_kana": "タナカ",
                     "first_name_kana": "サクラ",
                     "birth_date": "2021-04-05",
+                    "sex": "not_set",
+                    "photo_id": "",
                     "enrollment_date": "2024-04-01",
                     "withdrawal_date": "",
                     "status": "enrolled",

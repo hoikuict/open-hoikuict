@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
+from profile_photos import PhotoUploads, photo_uploads, apply_family_photo_edits
 from database import get_session
 from family_support import (
     apply_family_shared_data,
@@ -278,6 +279,7 @@ def new_family_form(
 def create_family(
     request: Request,
     family_name: str = Form(...),
+    photos: PhotoUploads = Depends(photo_uploads),
     home_address: str = Form(""),
     home_phone: str = Form(""),
     child_ids: list[str] = Form(default=[]),
@@ -309,6 +311,10 @@ def create_family(
 ):
     require_child_record_manager(current_user)
 
+    try:
+        photo_edits = photos.validate()
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     guardians_data = _guardians_data_from_form(
         g1_last_name=g1_last_name,
         g1_first_name=g1_first_name,
@@ -371,6 +377,7 @@ def create_family(
         ),
     )
 
+    apply_family_photo_edits(session, family, photo_edits, actor_name=current_user.name)
     for touched_family_id in touched_family_ids:
         _sync_family_by_id(session, touched_family_id)
 
@@ -402,6 +409,7 @@ def update_family(
     request: Request,
     family_id: int,
     family_name: str = Form(...),
+    photos: PhotoUploads = Depends(photo_uploads),
     home_address: str = Form(""),
     home_phone: str = Form(""),
     child_ids: list[str] = Form(default=[]),
@@ -434,6 +442,10 @@ def update_family(
     require_child_record_manager(current_user)
     family = _load_family(session, family_id)
 
+    try:
+        photo_edits = photos.validate()
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     guardians_data = _guardians_data_from_form(
         g1_last_name=g1_last_name,
         g1_first_name=g1_first_name,
@@ -513,6 +525,7 @@ def update_family(
         ),
     )
 
+    apply_family_photo_edits(session, family, photo_edits, actor_name=current_user.name)
     for touched_family_id in touched_family_ids:
         _sync_family_by_id(session, touched_family_id)
 

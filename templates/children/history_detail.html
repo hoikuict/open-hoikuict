@@ -72,10 +72,19 @@
             <span class="text-sm font-medium text-slate-600">{{ field.label }}</span>
             {% if field.changed %}<span class="rounded bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">変更</span>{% endif %}
           </div>
+          {% if field.key.endswith('photo_id') %}
+          <div class="flex flex-wrap gap-4">
+            {% if field.changed and history.action != 'created' %}
+            <div><div class="text-xs text-slate-500">変更前</div>{% if field.old != '未登録' %}<img src="/children/photos/{{ field.old }}" alt="変更前の写真" width="96" height="96" class="mt-1 h-24 w-24 rounded-lg object-cover">{% else %}<span class="text-sm">未登録</span>{% endif %}</div>
+            {% endif %}
+            <div><div class="text-xs text-slate-500">この時点の写真</div>{% if field.value != '未登録' %}<img src="/children/photos/{{ field.value }}" alt="この時点の写真" width="96" height="96" class="mt-1 h-24 w-24 rounded-lg object-cover">{% else %}<span class="text-sm">未登録</span>{% endif %}</div>
+          </div>
+          {% else %}
           {% if field.changed and history.action != 'created' %}
           <div class="mb-1 text-xs text-slate-500">変更前: {{ field.old }}</div>
           {% endif %}
           <div class="whitespace-pre-wrap font-medium text-slate-900">{{ field.value }}</div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>

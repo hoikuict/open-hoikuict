@@ -8,7 +8,7 @@
 - 更新済みのアプリと、園児台帳管理権限のある職員アカウント。
 - 取り込み前のデータベースのバックアップ。
 - 元の緊急連絡表Excel（`.xlsx`）。原本は保管してください。
-- [家庭・園児CSV変換ツール](../tools/family-child-csv-converter.html)。PCに保存し、ChromeまたはEdgeで開きます。
+- [家庭・園児CSV変換ツール](https://github.com/hoikuict/open-hoikuict/blob/8b35978270b704498f204365f899c5492cd88fe9/tools/family-child-csv-converter.html)。PCに保存し、ChromeまたはEdgeで開きます。
 
 変換ツールはインターネットへ情報を送信せず、ブラウザー内で処理します。ブラウザーを閉じると作業内容は消えます。
 
