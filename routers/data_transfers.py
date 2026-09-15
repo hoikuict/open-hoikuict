@@ -238,6 +238,32 @@ def data_transfer_page(
     return _render_index(request, session, current_user, notice=notice)
 
 
+@router.get("/converter", response_class=HTMLResponse)
+def migration_converter(request: Request, current_user=Depends(get_current_staff_user)):
+    require_child_record_manager(current_user)
+    schemas = [
+        {"id": item.id, "label": item.label, "headers": list(item.all_headers)}
+        for item in dataset_options() if item.id != "staff_users" or current_user.is_admin
+    ]
+    return templates.TemplateResponse(request, "data_transfers/converter.html", {
+        "current_user": current_user, "schemas": schemas,
+    }, headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "Referrer-Policy": "no-referrer",
+    })
+
+
+@router.get("/converter/assets/{filename}")
+def migration_converter_asset(filename: str, current_user=Depends(get_current_staff_user)):
+    require_child_record_manager(current_user)
+    if filename not in {"core.js", "files.js", "app.js", "style.css"}:
+        raise HTTPException(404)
+    path = Path(__file__).resolve().parents[1] / "assets" / "migration" / filename
+    return Response(path.read_bytes(), media_type="text/css" if filename.endswith(".css") else "text/javascript",
+                    headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
 @router.get("/templates/{file_name}")
 def download_template(
     file_name: str,

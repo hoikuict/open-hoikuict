@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ request.state.csrf_token | default('') }}">
+  <title>データ移行コンバーター | open-hoikuict</title>
+  <link rel="stylesheet" href="/data-transfers/converter/assets/style.css">
+  <script id="schemas" type="application/json">{{ schemas | tojson }}</script>
+  <script type="module" src="/data-transfers/converter/assets/app.js"></script>
+</head>
+<body data-offline="{{ '1' if offline | default(false) else '0' }}">
+<header class="topbar">{% if offline | default(false) %}<a href="#source">元データへ</a>{% else %}<a href="/data-transfers/">← データ入出力へ</a>{% endif %}<span>open-hoikuict</span></header>
+<main>
+  <div class="intro"><p class="eyebrow">これまでのデータを、そのまま出発点に。</p><h1>データ移行コンバーター</h1><p>Excel・CSVの列を選んで、園児や保護者の情報に対応付けます。<br>元のデータと変換結果を確認してから、アプリの事前検証へ進みます。</p><p class="privacy">{% if offline | default(false) %}単体版：ファイルの読込と変換はこの端末内で行い、ネット通信は行いません。CSVを保存して、アプリの「データ入出力」で事前検証してください。{% else %}ファイルの読込と変換はこの端末内で行います。「アプリで事前検証」を押したときに、変換したデータだけをこのアプリへ送ります。{% endif %}</p></div>
+  <nav class="steps" aria-label="変換の流れ"><a href="#source">1 元データ</a><a href="#mapping">2 列を対応付ける</a><a href="#results">3 確認して取り込む</a></nav>
+  <p id="message" role="status" aria-live="polite"></p>
+  <section id="source" class="card"><h2><span>1</span> 元データを選ぶ</h2>
+    <div class="grid"><label>Excel・CSV・TSV（20MB以内）<input id="source-file" type="file" accept=".xlsx,.csv,.tsv,.txt"></label><label>変換するデータ<select id="mode"><option value="combined">家庭・園児をまとめて変換</option><option value="guardian_rows">保護者1人1行の表 → 家庭</option>{% for item in schemas %}<option value="{{ item.id }}">{{ item.label }}</option>{% endfor %}</select></label></div>
+    <p class="hint">.xls・パスワード付きExcelは、元のアプリで .xlsx またはCSVに書き出してください。PDF・画像の読み取りは対象外です。</p>
+    <details><summary>文字コード・区切り・見出しの位置</summary><div class="grid settings">
+      <label>文字コード<select id="encoding"><option value="auto">自動（UTF-8 / Shift-JIS / BOM付きUTF-16）</option><option value="utf-8">UTF-8</option><option value="shift_jis">Shift-JIS</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option></select></label>
+      <label>区切り<select id="delimiter"><option value="auto">自動</option><option value=",">カンマ</option><option value="tab">タブ</option><option value=";">セミコロン</option></select></label>
+      <label>Excelのシート<select id="sheet" disabled><option>ファイルを選択してください</option></select></label>
+      <label>見出しの開始行<input id="header-row" type="number" min="1" max="100" value="1"></label>
+      <label>見出しの行数<select id="header-depth"><option value="1">1行</option><option value="2">2行</option><option value="3">3行</option></select></label>
+    </div><button id="reload" class="secondary" type="button">読込設定を適用</button></details>
+    <p id="source-status" class="hint">ファイルはまだ選択されていません。</p><div id="source-preview" class="table-wrap"></div>
+  </section>
+  <section id="mapping" class="card"><div class="section-heading"><h2><span>2</span> 列を対応付ける</h2><div class="actions"><button id="suggest" type="button" class="secondary" disabled>列名から候補を入れる</button><button id="load-profile-button" type="button" class="secondary">変換設定を開く</button><input id="load-profile" type="file" accept=".json" hidden><button id="save-profile" type="button" class="secondary" disabled>変換設定を保存</button></div></div>
+    <p class="hint">元の列を選び、必要なら姓名の分割や日付変換を指定します。候補は必ず確認してください。姓名の境目は推測せず、空白区切りで分けます。</p>
+    <div id="combined-options" class="grid"><label id="child-count-label">1行に含まれる園児の人数<select id="child-count"><option value="1">1人（園児ごとの名簿）</option><option value="2">最大2人</option><option value="3">最大3人</option><option value="4">最大4人（家庭ごとの回答表）</option></select></label><label>同じ家庭をまとめる元の列<select id="family-key"><option value="">まとめない（1行を1家庭とする）</option></select><p class="hint">家族番号など、家庭を一意に示す列を指定します。同じ姓・住所だけでは自動でまとめません。保護者情報は家庭ごとの保護者①・②に対応します。</p></div>
+    <div id="guardian-options" class="grid" hidden><label>保護者を区別する元の列<select id="guardian-column"><option value="">列を指定してください</option></select></label><div class="grid"><label>①として使う元の値<input id="guardian-first" value="1" placeholder="例：1、父"></label><label>②として使う元の値<input id="guardian-second" value="2" placeholder="例：2、母"></label></div><p class="hint">下の保護者①の対応付けを、各行の保護者に適用します。この区分に従って家庭の①・②へ配置します。父母などの順番は推測しません。</p></div>
+    <label class="check"><input id="allow-ids" type="checkbox">ID欄には、open-hoikuictから書き出したIDを使う（移行元アプリの番号は使わない）</label>
+    <label>項目を探す<input id="mapping-filter" type="search" placeholder="例：電話、姓、入園日"></label><div id="mapping-fields"></div>
+    <details class="unused"><summary id="unused-count">対応していない元の列</summary><p class="hint">ここに表示される列は変換結果に含まれません。必要な項目は上で対応付けてください。</p><div id="unused-columns"></div></details>
+    <button id="convert" type="button" disabled>変換結果を確認する</button>
+  </section>
+  <section id="results" class="card"><div class="section-heading"><h2><span>3</span> 確認して取り込む</h2><button id="clear" class="secondary" type="button">この端末の作業内容を消す</button></div>
+    <p id="result-status" class="hint">列の対応付けができたら、変換結果を確認してください。</p>
+    <div id="result-content" hidden>
+      <p>表の値はここで修正できます。不要な行は出力のチェックを外してください。元データ・列の対応・変換設定を変更すると、ここでの修正内容は消えます。必要なCSVは先に保存してください。</p>
+      <label class="check"><input id="review-warnings" type="checkbox">省略される列と確認事項を確認した</label>
+      <p id="result-warnings" class="warning"></p>
+      <div id="result-tabs" class="actions"></div><div id="result-issues" role="status"></div><div id="result-table" class="table-wrap"></div><div id="pagination" class="actions"></div>
+      <div id="result-actions" class="actions"></div>
+      <p class="hint">家庭・園児は、家庭を先に確定してから園児を取り込みます。{% if offline | default(false) %}保存したCSVをアプリの「データ入出力」で選び、「事前検証」を押してください。{% else %}事前検証は別タブで開きます。{% endif %}アプリの新規・更新件数と変更内容を確認し、「インポート実行」で登録を確定します。</p>
+      <p class="hint">写真や、対応先のない項目は移行されません。保護者・職員のパスワードは扱いません。家庭の取込では、保護者アカウントや園児の閲覧権限は作成されません。</p>
+    </div>
+  </section>
+  <footer>変換設定には列の対応・変換方法・値の置換ルールを保存します。元の行データ・入力した補完値・変換結果は含みません。設定を共有する場合、置換ルールに個人情報を含めないでください。ブラウザーを閉じると作業内容は消えます。</footer>
+</main>
+</body></html>

@@ -23,6 +23,14 @@
 </div>
 {% endif %}
 
+{% if current_user.can_manage_child_records %}
+<section class="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-5">
+  <h2 class="text-lg font-semibold text-slate-900">ほかのアプリ・Excelから移行する</h2>
+  <p class="my-2 text-sm text-slate-600">元データの列を対応付け、氏名・日付・クラス名を整えて取り込めます。変換設定は保存して再利用できます。</p>
+  <a href="/data-transfers/converter" class="inline-block rounded bg-indigo-600 px-4 py-2 font-semibold text-white">データ移行コンバーターを開く</a>
+</section>
+{% endif %}
+
 <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
   <h2 class="text-lg font-semibold text-slate-900">表示するデータ</h2>
   <div class="mt-4 flex flex-wrap gap-3" data-dataset-visibility>
