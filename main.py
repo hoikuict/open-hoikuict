@@ -28,6 +28,7 @@ from routers.billing import router as billing_router
 from routers.backups import router as backups_router
 from routers.calendar import mock_login_router as calendar_mock_login_router
 from routers.calendar import router as calendar_router
+from calendar_import import router as calendar_import_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.care_certifications import router as care_certifications_router
 from routers.children import router as children_router
@@ -150,6 +151,7 @@ app.include_router(parent_portal_router)
 app.include_router(parent_push_router)
 app.include_router(parent_push_settings_router)
 app.include_router(calendar_router)
+app.include_router(calendar_import_router)
 app.include_router(staff_auth_router)
 app.include_router(institutional_records_router)
 if deployment_environment() == "development":

@@ -94,14 +94,14 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('action="/staff/login"', response.text)
         self.assertIn('name="redirect_to" value="/staff-rooms/"', response.text)
-        self.assertEqual(response.text.count('name="user_id"'), 2)
+        self.assertEqual(response.text.count('name="user_id"'), 3)
         self.assertIn("職員ログイン", response.text)
         self.assertIn("未ログイン", response.text)
         self.assertIn("職員を選択する", response.text)
         self.assertLess(response.text.index("職員を選択する"), response.text.index("基本業務"))
         self.assertIn("園長", response.text)
         self.assertIn("早番パート", response.text)
-        self.assertNotIn("外部確認用", response.text)
+        self.assertIn("外部確認用", response.text)
         self.assertIn("管理者", response.text)
         self.assertIn("閲覧のみ", response.text)
         self.assertIn("園児台帳管理", response.text)
@@ -120,6 +120,16 @@ class StaffAuthRouterTests(unittest.TestCase):
         self.assertIn(f"{MOCK_STAFF_NAME_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CALENDAR_USER_COOKIE}=", set_cookie)
         self.assertIn(f"{MOCK_CHILD_RECORDS_PERMISSION_COOKIE}=1", set_cookie)
+
+    def test_inactive_staff_are_excluded_from_login_cards(self):
+        with Session(self.engine) as session:
+            user = session.get(User, self.part_timer_id)
+            user.is_active = False
+            session.add(user)
+            session.commit()
+        response = self.client.get("/staff/login")
+        self.assertNotIn("早番パート", response.text)
+        self.assertIn("外部確認用", response.text)
 
     def test_non_admin_login_from_staff_management_redirects_to_portal_home(self):
         with Session(self.engine) as session:

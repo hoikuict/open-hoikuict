@@ -6,6 +6,16 @@
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/quill-cursors@4.0.2/dist/quill-cursors.css" rel="stylesheet">
 <style>
+  #meeting-print-title { display: none; }
+  @media print {
+    @page { size: A4; margin: 18mm; }
+    .meeting-header, #markings, #meeting-image-size-toolbar, .ql-toolbar, .ql-cursors, .meeting-readonly { display: none !important; }
+    #meeting-print-title { display: block; margin-bottom: 1em; font-size: 20pt; font-weight: bold; }
+    .meeting-editor { box-shadow: none !important; border: 0 !important; }
+    .meeting-editor .ql-container, .meeting-editor .ql-editor { min-height: 0 !important; height: auto !important; overflow: visible !important; }
+    .meeting-editor .ql-editor { padding: 0; font-size: 11pt; line-height: 1.5; }
+    .meeting-editor .ql-editor img { max-height: 240mm; object-fit: contain; break-inside: avoid; outline: none !important; }
+  }
   .meeting-editor .ql-toolbar.ql-snow {
     position: fixed;
     z-index: 60;
@@ -92,11 +102,11 @@
 
 {% block content %}
 <div class="space-y-4">
-  <div class="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow lg:flex-row lg:items-center lg:justify-between">
+  <div class="meeting-header flex flex-col gap-4 rounded-2xl bg-white p-5 shadow">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
       <a
         href="/meeting-notes/"
-        class="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+        class="inline-flex shrink-0 whitespace-nowrap items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
       >
         一覧へ戻る
       </a>
@@ -118,6 +128,9 @@
       <span id="sync-status" class="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
         {% if current_user.can_edit %}接続中...{% else %}閲覧専用{% endif %}
       </span>
+      <button id="meeting-print" type="button" class="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700">印刷</button>
+      <button data-meeting-export="docx" type="button" class="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700">Wordで出力</button>
+      <button data-meeting-export="md" type="button" class="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700">Markdownで出力</button>
       {% if current_user.can_edit %}
       <button
         id="save-btn"
@@ -131,11 +144,12 @@
   </div>
 
   {% if not current_user.can_edit %}
-  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  <div class="meeting-readonly rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
     この画面は閲覧専用です。リアルタイム同期と保存は編集可能ロールで利用できます。
   </div>
   {% endif %}
 
+  <h1 id="meeting-print-title"></h1>
   <section class="meeting-editor rounded-2xl bg-white shadow">
     <div id="editor"></div>
   </section>
@@ -591,6 +605,38 @@
       updateStatus('読込失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
       return false;
     });
+
+  document.getElementById('meeting-print').addEventListener('click', async () => {
+    if (!(await contentReady)) return;
+    document.getElementById('meeting-print-title').textContent = titleInput.value;
+    window.print();
+  });
+  window.addEventListener('beforeprint', () => { document.getElementById('meeting-print-title').textContent = titleInput.value; });
+  document.querySelectorAll('[data-meeting-export]').forEach(button => button.addEventListener('click', async () => {
+    if (!(await contentReady)) return;
+    button.disabled = true;
+    try {
+      const format = button.dataset.meetingExport;
+      const response = await fetch(`/meeting-notes/${noteId}/export/${format}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+        body: JSON.stringify({ title: titleInput.value, ops: editor.getContents().ops }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(typeof error.detail === 'string' ? error.detail : '出力に失敗しました。');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = response.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || `meeting-${noteId}.${format}`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      updateStatus('出力しました', 'text-indigo-700');
+    } catch (error) { updateStatus(error.message, 'text-rose-700'); }
+    finally { button.disabled = false; }
+  }));
 
   async function saveNote() {
     if (!(await contentReady)) throw new Error('The original note could not be loaded');

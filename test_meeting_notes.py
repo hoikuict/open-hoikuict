@@ -108,6 +108,24 @@ class MeetingNoteRouterTests(unittest.TestCase):
         self.assertIn("書式オプション", detail_response.text)
         self.assertIn("pointerup", detail_response.text)
 
+    def test_viewer_can_export_current_content_without_changing_saved_note(self):
+        self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+        with Session(self.engine) as session:
+            note = MeetingNote(title="保存済みの議事録", search_text="保存済み本文")
+            session.add(note)
+            session.commit()
+            note_id = note.id
+        response = self.client.post(f"/meeting-notes/{note_id}/export/docx", json={"title": "表示中のタイトル", "ops": [{"insert": "出力本文\n"}]})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("wordprocessingml", response.headers["content-type"])
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        with Session(self.engine) as session:
+            note = session.get(MeetingNote, note_id)
+            self.assertEqual(note.title, "保存済みの議事録")
+            self.assertEqual(note.search_text, "保存済み本文")
+        missing = self.client.post("/meeting-notes/999999/export/md", json={"title": "存在しない", "ops": []})
+        self.assertEqual(missing.status_code, 404)
+
     def test_editable_note_has_persistent_image_size_controls(self):
         with Session(self.engine) as session:
             note = MeetingNote(title="写真付き議事録")

@@ -21,7 +21,8 @@
   {% if not child and not inherit_from %}
   <div class="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
     <p class="mb-2 text-sm font-medium text-indigo-800">兄弟の情報を引き継いで追加できます。</p>
-    <form action="/children/new" method="get" class="flex items-end gap-2">
+    <p class="mb-4 text-sm text-slate-600"><a href="/data-transfers/?dataset=families" class="font-semibold text-indigo-700 underline">保護者情報をCSV・Excelで取り込む／書き出す</a>（家庭データに保護者2名分の氏名・連絡先・勤務先を含みます）</p>
+  <form action="/children/new" method="get" class="flex items-end gap-2">
       <div class="flex-1">
         <label for="sibling_id" class="mb-1 block text-xs text-indigo-700">兄弟姉妹を選択</label>
         <select id="sibling_id" name="sibling_id" class="w-full rounded border border-indigo-300 px-3 py-2 text-sm">

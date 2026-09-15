@@ -3014,6 +3014,28 @@ class Event(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class CalendarImportSource(SQLModel, table=True):
+    __tablename__ = "calendar_import_sources"
+    __table_args__ = (UniqueConstraint("calendar_id", "source_key", name="uq_calendar_import_source"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    source_key: str = Field(max_length=64)
+    event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarImportBatch(SQLModel, table=True):
+    __tablename__ = "calendar_import_batches"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    items: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    expires_at: datetime = Field(index=True)
+    used_at: Optional[datetime] = None
+
+
 class EventOverride(SQLModel, table=True):
     __tablename__ = "event_overrides"
     __table_args__ = (UniqueConstraint("series_event_id", "original_start_at", name="uq_event_override"),)
