@@ -1,0 +1,20 @@
+{% macro temperature_picker(input_id) %}
+<div class="mt-3 space-y-2" data-temperature-picker="{{ input_id }}">
+  <p class="text-xs text-gray-500">整数と小数をタップしてください。その他の値は直接入力できます。</p>
+  <div class="flex flex-wrap gap-2" aria-label="体温の整数">
+    {% for whole in range(35, 41) %}<button type="button" data-temperature-whole="{{ whole }}" aria-pressed="false" class="min-h-11 min-w-11 rounded-lg border border-slate-300 px-3 py-2 aria-pressed:border-indigo-600 aria-pressed:bg-indigo-100">{{ whole }}</button>{% endfor %}
+  </div>
+  <div class="flex flex-wrap gap-2" aria-label="体温の小数">
+    {% for fraction in range(10) %}<button type="button" data-temperature-fraction="{{ fraction }}" aria-pressed="false" class="min-h-11 min-w-11 rounded-lg border border-slate-300 px-3 py-2 aria-pressed:border-indigo-600 aria-pressed:bg-indigo-100">.{{ fraction }}</button>{% endfor %}
+    <button type="button" data-temperature-clear class="min-h-11 rounded-lg border border-slate-300 px-3 py-2">クリア</button>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro choices(input_id, options) %}
+<div class="mt-3 flex flex-wrap gap-2" data-quick-choices="{{ input_id }}">
+  {% for icon, label in options %}<button type="button" data-choice="{{ label }}" aria-pressed="false" class="min-h-11 rounded-lg border border-slate-300 px-3 py-2 aria-pressed:border-indigo-600 aria-pressed:bg-indigo-100"><span aria-hidden="true">{{ icon }}</span> {{ label }}</button>{% endfor %}
+  <button type="button" data-choice="" class="min-h-11 rounded-lg border border-slate-300 px-3 py-2">クリア</button>
+</div>
+<p class="mt-1 text-xs text-gray-500">選択後も直接入力で補足・変更できます。</p>
+{% endmacro %}

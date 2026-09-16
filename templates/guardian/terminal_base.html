@@ -25,7 +25,9 @@
       data-active="{{ '1' if selected_child or selected_classroom else '0' }}" data-ready="{{ '1' if terminal_ready else '0' }}">
   <header class="bg-indigo-700 px-6 py-4 text-white">
     <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
-      <div><p class="text-xl font-bold">登園・降園</p><p class="mt-1 text-sm">{{ terminal_today }}</p></div>
+      <div><p class="text-xl font-bold">登園・降園</p><p class="mt-1 text-sm">{{ terminal_today }}</p>
+        {% if terminal_registration_number %}<p class="mt-1 break-all text-sm">登録番号 <span id="terminal-registration-number">{{ terminal_registration_number }}</span></p><p id="terminal-label" class="text-sm"></p>{% endif %}
+      </div>
       <div class="flex flex-wrap items-center gap-3">
         <span id="terminal-connection" class="text-sm" role="status">{{ '接続済み' if terminal_ready else '端末の準備' }}</span>
         <button id="terminal-fullscreen" type="button" class="rounded-lg border border-indigo-300 px-4 py-2">全画面</button>

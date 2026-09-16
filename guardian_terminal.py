@@ -17,9 +17,16 @@ def is_terminal(request: Request) -> bool:
 
 
 def render_guardian(request: Request, name: str, context: dict, *, status_code: int = 200):
+    from kiosk_security import KIOSK_DEVICE_COOKIE, kiosk_device_cookie_is_valid
+    from models import GuardianTerminalStatus
+    cookie = request.cookies.get(KIOSK_DEVICE_COOKIE)
+    registration_number = ""
+    if kiosk_device_cookie_is_valid(cookie):
+        registration_number = GuardianTerminalStatus(device_id=cookie.split(".", 1)[0]).registration_number
     return templates.TemplateResponse(request, name, {
         **context,
         "terminal_mode": is_terminal(request),
+        "terminal_registration_number": registration_number,
         "terminal_today": local_today().isoformat(),
         "terminal_start": TERMINAL_START,
         "terminal_idle_seconds": TERMINAL_IDLE_SECONDS,

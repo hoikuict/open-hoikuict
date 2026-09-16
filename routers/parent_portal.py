@@ -1,5 +1,8 @@
 from datetime import date, datetime
+from decimal import Decimal
+import re
 from typing import Optional
+import unicodedata
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -83,6 +86,23 @@ from time_utils import (
 router = APIRouter(prefix="/parent-portal", tags=["parent_portal"])
 mock_login_router = APIRouter(prefix="/parent-portal", tags=["parent-portal-mock"])
 templates = create_templates()
+
+PRESENT_TEMPERATURE_LIMIT = Decimal("37.5")
+PRESENT_TEMPERATURE_ERROR = "体温が37.5℃以上のため、出席として送信できません。入力内容を確認し、欠席する場合は「欠席」を選択してください。"
+TEMPERATURE_FORMAT_ERROR = "体温は「36.7」のような数値で入力してください。"
+
+
+def _present_temperature_error(raw: str, *, check_limit: bool = True) -> str:
+    normalized = unicodedata.normalize("NFKC", raw).strip()
+    if not normalized:
+        return ""
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*(?:°[cC]|[cC]|度)?", normalized)
+    if match is None:
+        return TEMPERATURE_FORMAT_ERROR
+    if check_limit and Decimal(match.group(1)) >= PRESENT_TEMPERATURE_LIMIT:
+        return PRESENT_TEMPERATURE_ERROR
+    return ""
+
 
 PROFILE_FIELD_LABELS = {
     "email": "メールアドレス",
@@ -204,6 +224,9 @@ def _render_contact_form(
             "notice": notice,
             "form_error": form_error,
             "form_data": _contact_form_data(entry, form_data),
+            "present_temperature_limit": str(PRESENT_TEMPERATURE_LIMIT),
+            "present_temperature_error": PRESENT_TEMPERATURE_ERROR,
+            "temperature_format_error": TEMPERATURE_FORMAT_ERROR,
             "parent_contact_types": list(ParentContactType),
             "published_reply": published_reply,
             "reply_display_items": reply_items_for_display(published_reply),
@@ -593,6 +616,12 @@ def parent_home(
     )
 
     latest_updates = _load_parent_updates(session, current_parent_user)
+    recent_replies = session.exec(
+        select(DailyContactReply).options(selectinload(DailyContactReply.child)).where(
+            DailyContactReply.child_id.in_(child_ids) if child_ids else False,
+            DailyContactReply.status == DailyContactReplyStatus.published,
+        ).order_by(DailyContactReply.published_at.desc(), DailyContactReply.id.desc()).limit(5)
+    ).all()
 
     return templates.TemplateResponse(
         request,
@@ -609,6 +638,7 @@ def parent_home(
             "reply_display_by_child_id": reply_display_by_child_id,
             "pending_request_by_child_id": pending_request_by_child_id,
             "latest_updates": latest_updates[:5],
+            "recent_replies": recent_replies,
             "unread_notice_count": sum(1 for item in latest_updates if item["is_unread"]),
             "flash_notice": "日次連絡を保存しました。" if notice == "saved" else "",
         },
@@ -1191,6 +1221,23 @@ def save_parent_contact(
             DailyContactEntry.target_date == day,
         )
     ).first()
+    if selected_contact_type in {ParentContactType.present, ParentContactType.absent_sick}:
+        temperature_error = _present_temperature_error(
+            temperature if selected_contact_type == ParentContactType.present else absence_temperature,
+            check_limit=selected_contact_type == ParentContactType.present,
+        )
+        if temperature_error:
+            return _render_contact_form(
+                request,
+                current_parent_user=current_parent_user,
+                child=child,
+                entry=entry,
+                target_date_value=day.isoformat(),
+                published_reply=published_reply,
+                form_error=temperature_error,
+                form_data=form_data,
+            )
+
     now = utc_now()
     if not entry:
         entry = DailyContactEntry(

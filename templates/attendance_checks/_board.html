@@ -1,5 +1,6 @@
 {# Keep the browser from anchoring to old rows while HTMX replaces the board. #}
 <div id="attendance-checks-board" class="space-y-6" style="overflow-anchor: none;">
+  {% if action_error %}<p role="alert" class="rounded border border-rose-300 bg-rose-50 p-4 text-rose-800">{{ action_error }}</p>{% endif %}
   {% if action_message %}
   <div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
     {{ action_message }}

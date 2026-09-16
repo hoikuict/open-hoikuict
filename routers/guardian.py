@@ -439,7 +439,10 @@ def guardian_terminal_status(request: Request, session: Session = Depends(get_se
             session.commit()
         except IntegrityError:
             session.rollback()
-    return {"kiosk": True, "today": local_today().isoformat()}
+    result = {"kiosk": True, "today": local_today().isoformat()}
+    if kiosk_device_cookie_is_valid(cookie):
+        result.update(registration_number=terminal.registration_number, label=terminal.label)
+    return result
 
 
 @router.get("/manifest.webmanifest")

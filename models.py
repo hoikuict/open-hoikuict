@@ -1016,6 +1016,10 @@ class GuardianTerminalStatus(SQLModel, table=True):
     last_seen_at: datetime = Field(default_factory=utc_now)
     created_at: datetime = Field(default_factory=utc_now)
 
+    @property
+    def registration_number(self) -> str:
+        return "-".join(self.device_id.upper()[i:i + 8] for i in range(0, len(self.device_id), 8))
+
 
 class DocumentReviewRequest(SQLModel, table=True):
     __tablename__ = "document_review_requests"
@@ -1459,6 +1463,20 @@ class AttendanceVerificationHistory(SQLModel, table=True):
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
     updated_by_name: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AttendanceContactConfirmation(SQLModel, table=True):
+    """Append-only history of staff receiving or withdrawing an oral absence contact."""
+    __tablename__ = "attendance_contact_confirmations"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    action: str = Field(default="received")
+    status: AttendanceVerificationStatus
+    method: str
+    note: str
+    recorded_by_name: str
     created_at: datetime = Field(default_factory=utc_now)
 
 

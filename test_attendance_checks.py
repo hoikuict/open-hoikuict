@@ -10,6 +10,8 @@ from auth import Role, StaffUser
 from models import (
     AttendanceAlarmHistory,
     AttendanceAlarmState,
+    AttendanceContactConfirmation,
+    AttendanceRecord,
     AttendanceVerification,
     AttendanceVerificationHistory,
     Child,
@@ -94,6 +96,63 @@ class AttendanceChecksTests(unittest.TestCase):
     def tearDown(self):
         self.client.close()
         self.engine.dispose()
+
+    def test_oral_contact_resolves_only_missing_contact_and_can_be_revoked(self):
+        path = f'/attendance-checks/{self.child_id}'
+        data = {'date': self.day.isoformat()}
+        self.client.post(path + '/verification', data={**data, 'status': 'private_absent'})
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AttendanceAlarmState)).one().reasons, ['no_contact_and_not_present'])
+        received = self.client.post(path + '/contact-confirmation', data={
+            **data, 'status': 'private_absent', 'method': 'phone', 'note': '母から電話で私用休みの連絡',
+        }, follow_redirects=False)
+        self.assertEqual(received.status_code, 303)
+        with Session(self.engine) as session:
+            self.assertFalse(session.exec(select(AttendanceAlarmState)).one().is_active)
+            confirmation = session.exec(select(AttendanceContactConfirmation)).one()
+            confirmation_id = confirmation.id
+            self.assertEqual(confirmation.recorded_by_name, '確認担当')
+            self.assertEqual(session.exec(select(DailyContactEntry)).all(), [])
+        page = self.client.get(f'/attendance-checks/?date={self.day.isoformat()}')
+        self.assertIn('電話連絡受付', page.text)
+        self.assertIn('母から電話で私用休みの連絡', page.text)
+        revoked = self.client.post(path + '/contact-confirmation', data={
+            **data, 'action': 'revoked', 'confirmation_id': confirmation_id, 'note': '対象日を誤って受付',
+        }, follow_redirects=False)
+        self.assertEqual(revoked.status_code, 303)
+        with Session(self.engine) as session:
+            self.assertTrue(session.exec(select(AttendanceAlarmState)).one().is_active)
+            self.assertEqual([c.action for c in session.exec(select(AttendanceContactConfirmation).order_by(AttendanceContactConfirmation.id)).all()], ['received', 'revoked'])
+
+    def test_oral_contact_keeps_other_alarms_and_is_scoped_to_day_and_status(self):
+        path = f'/attendance-checks/{self.child_id}'
+        data = {'date': self.day.isoformat()}
+        with Session(self.engine) as session:
+            session.add(AttendanceRecord(child_id=self.child_id, attendance_date=self.day, check_in_at=datetime(2026, 3, 22, 8)))
+            session.commit()
+        self.client.post(path + '/verification', data={**data, 'status': 'private_absent'})
+        self.client.post(path + '/contact-confirmation', data={**data, 'status': 'private_absent', 'method': 'in_person', 'note': '父から口頭で連絡'})
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AttendanceAlarmState)).one().reasons, ['punched_but_not_present'])
+        self.client.post(path + '/verification', data={**data, 'status': 'sick_absent'})
+        with Session(self.engine) as session:
+            self.assertIn('no_contact_and_not_present', session.exec(select(AttendanceAlarmState)).one().reasons)
+        self.client.post(path + '/verification', data={**data, 'status': 'present'})
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AttendanceAlarmState)).one().reasons, ['absence_contact_but_present'])
+        self.client.post(path + '/verification', data={'date': '2026-03-23', 'status': 'private_absent'})
+        with Session(self.engine) as session:
+            alarm = session.exec(select(AttendanceAlarmState).where(AttendanceAlarmState.target_date == date(2026, 3, 23))).one()
+            self.assertEqual(alarm.reasons, ['no_contact_and_not_present'])
+
+    def test_oral_contact_requires_editor_and_audit_details(self):
+        path = f'/attendance-checks/{self.child_id}/contact-confirmation'
+        data = {'date': self.day.isoformat(), 'status': 'private_absent', 'method': 'phone', 'note': ''}
+        self.assertEqual(self.client.post(path, data=data).status_code, 400)
+        self.current_user = StaffUser(role=Role.VIEW_ONLY, name='閲覧担当')
+        self.assertEqual(self.client.post(path, data={**data, 'note': '連絡あり'}).status_code, 403)
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AttendanceContactConfirmation)).all(), [])
 
     def test_editor_can_update_attendance_check(self):
         response = self.client.post(
