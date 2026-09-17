@@ -3,7 +3,7 @@
 - 文書ステータス: 一部実装
 - 初版作成日: 2026-08-13
 - 認証方式: Argon2idによるローカルパスワード認証
-- 初期実装範囲: 職員・保護者認証、ローカルセッション、資格情報ライフサイクル、管理者MFA
+- 現在の実装範囲: 職員・保護者認証、ローカルセッション、初期設定・再設定、管理者メール復旧。MFAは後続設計
 - 関連文書: [オンプレ保護者認証](parent-local-authentication-spec.md)、[セキュリティ最低ライン](security.md)、[職員ポータル仕様](staff-personal-portal-spec.md)、[連携契約](integration-contract.md)、[運用責任](operations.md)
 
 !!! info "2026年9月13日時点の実装"
@@ -59,7 +59,7 @@ open-hoikuict自身が次を担当する。
 | 資格情報 | staff principal | parent principal |
 | session Cookie | 職員専用 | 保護者専用 |
 | rate limit bucket | 職員専用 | 保護者専用 |
-| MFA方針 | 管理者必須 | 初期実装では任意・後続で必須化を検討 |
+| MFAの将来方針（未実装） | 管理者必須を計画 | 任意登録・必須化を後続で検討 |
 
 同じログイン識別子が両方に存在しても、入口とprincipal種別が違うため相互ログインできない。
 
@@ -89,7 +89,7 @@ open-hoikuict自身が次を担当する。
 
 ## 3. 対象範囲
 
-### 3.1 初期実装に含む
+### 3.1 当初の初期実装目標（未完了項目を含む）
 
 - 職員・保護者それぞれのログインフォームとArgon2id検証
 - 職員・保護者で分離したDB管理のopaque session
@@ -296,7 +296,7 @@ login成功・失敗、logout、session失効、資格情報作成・無効化�
 
 日時、結果、理由コード、principal種別、ローカル利用者ID、資格情報ID、request IDを含める。パスワード、hash全文、action token、session token、TOTP secret、回復コードを含めない。
 
-## 7. TOTP MFA
+## 7. TOTP MFA（未実装の設計）
 
 ### 7.1 対象
 
@@ -447,7 +447,7 @@ auth-user bootstrap-admin
 
 CLIは氏名、login ID、連絡先、実行理由を受け取り、`User`、`PasswordCredential`、30分有効な6文字のactivation codeを作る。passwordやcodeをcommand line引数・環境変数で受け取らない。activation codeは端末へ一度だけ表示し、DBにはhashだけを保存する。
 
-管理者は `/staff/activate` でcodeを確認後、表示されたlogin IDを確認・必要に応じて修正し、新しいpasswordと確認passwordを入力する。その後TOTPを登録し、TOTP登録まで通常管理画面へ進めない。
+管理者は `/staff/activate` でcodeを確認後、表示されたlogin IDを確認・必要に応じて修正し、新しいpasswordと確認passwordを入力する。現在はここまでが実装範囲である。その後TOTPを登録させ、登録完了まで管理画面を制限する仕組みは後続設計であり、現行の起動・利用条件ではない。
 
 ### 11.2 職員追加
 

@@ -7,8 +7,22 @@
 - 前提ドキュメント: [サイト概要](index.md) / [連携契約](integration-contract.md)
 - 関連実装: `plan_docs/contracts.py` / `plan_docs/models.py` / `plan_docs/services/generators.py` / `plan_docs/services/bunrei.py` / `plan_docs/routers/plans.py` / `plan_docs/routers/bunrei.py` / `plan_docs/serializers.py` / `plan_docs/store.py` / `templates/plan_docs/`
 
-- 現況再確認: 2026-08-11
-- 実装状況: フェーズ1実装済み、フェーズ2・3未実装
+- 現況再確認: 2026-09-13
+- 実装状況: フェーズ1と後続の日案文例・振り返り等を実装。下記の拡張方式は一部未実装
+
+## 現行実装と当初フェーズの対応
+
+| 項目 | 現在の状態 |
+| --- | --- |
+| 週案・日案作成、表の保存、文書の版管理 | 実装済み。保存先はSQLModelリポジトリとSQLite |
+| 日案の文例選択 | `/plans/daily-plans/new` で読み取り専用SQLiteコーパスから選択できる |
+| 当初案の `/plans/bunrei/weekly`・`/plans/bunrei/daily` | 未実装。日案コーパスの選択とは別の設計 |
+| 園文例への週案・日案種別追加 | 当初フェーズ2の後続設計 |
+| 日案カレンダー・振り返り下書き／提出 | 実装済み。詳細は[日案v1](spec-daily-plan-v1.md) |
+| 新規日案の行追加・挿入・削除 | 実装済み。既存文書の編集画面は保存済みの行・セルの編集 |
+| 週案と日案の自動集約・園全体の時間割設定 | 後続設計 |
+
+以下のフェーズ番号・固定ひな型の記述は当初の追加計画を示す。現行操作の有無はこの表と日案v1の実装状況を優先する。
 
 > 統合と後続実装により、保存先は現在SQLModelリポジトリとSQLiteである。本文中のin-memory保存や統合前パスは、フェーズ設計当時の記述を修正済みである。
 
@@ -107,7 +121,7 @@
 | `schedule`（日案時系列＋週案グリッド）の生成・表示・セル編集 | **1（MVP）** |
 | `parent_document_id` による接続と参照リスト | **1（MVP）** |
 | 文例選択作成 `/plans/bunrei/weekly` `/plans/bunrei/daily`、園文例の `週案`/`日案` 受け入れ | **2** |
-| 日案時系列の行追加/削除UI、週案↔日案の自動連携、園全体の時間割設定 | **3** |
+| 既存文書編集画面での行追加/削除、週案↔日案の自動連携、園全体の時間割設定 | **3**（新規日案の行操作は実装済み） |
 
 §4.6・§5.2・§6.4 は **フェーズ2の仕様**として記載する（見出しに「[フェーズ2]」を付す）。MVP では `home.html` の文例カードは表示しても遷移先を「準備中」表示にするか、フェーズ2まで非表示とする（§4.1）。
 
@@ -231,7 +245,8 @@ class PlanSchedule:
 
 | layout | 用途 | 固定 column.key（順序固定） |
 | --- | --- | --- |
-| `daily_timeline` | 日案の時系列 | `env`（環境構成） / `children`（予想される子どもの姿） / `support`（保育者の援助・配慮） |
+| `daily_timeline` | 現在の新規日案 | `children`（子どもの様子） / `support`（保育士の援助） / `considerations`（配慮事項） |
+| `daily_timeline` | 既存データの互換形 | `env` / `children` / `support`。保存済みキーを保持 |
 | `weekly_grid` | 週案の曜日別 | `activity`（主な活動・予想される活動） / `support`（環境・保育者の援助） |
 
 #### 3.4.3 `row_key` 方針（揺れの固定）
@@ -541,7 +556,7 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
    - 0〜2歳児: §3.4.3 簡略版（§7.3 個別配慮の具体化）。
    - `t_main` の `children`/`support` に `daily_main_activity_note` を反映。未入力なら `t_main.children` / `t_main.support` を `needs_confirmation=True`（§3.4.6）。
    - 各セル `source_refs=["form.schedule"]`。
-3. `schedule.layout="daily_timeline"`、`columns=[env, children, support]`。
+3. `schedule.layout="daily_timeline"`、現在の新規生成は `columns=[children, support, considerations]`。既存の `env` 列を持つ文書は保存済みの列を保持する。
 4. `target_date` / `age_class` を保存。`title=f"{target_date} 日案（{class_name}）"`。
 
 ### 6.3 `generate_weekly_plan(data, user) -> PlanDocument`
@@ -660,7 +675,7 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 
 1. **フェーズ1（MVP）**: 契約・モデル・生成・週案/日案フォーム・詳細表示・印刷・`schedule` の生成/表示/セル編集・`parent_document_id` 接続と参照リスト・必須バリデーション・API シリアライズ。
 2. **フェーズ2**: 文例選択（`/plans/bunrei/weekly` `/plans/bunrei/daily`）、園文例の週案/日案受け入れ（一貫更新）、`weekly_environment`/`weekly_support` の重複除外。
-3. **フェーズ3**: 週案↔日案の自動連携（週案曜日行→日案生成、日案評価→週案集約）、日案時系列の行追加/削除UI、園全体設定（土曜/保育時間/延長）。`schedule`のSQLite永続化とシリアライズは後続の日案v1実装で完了済み。
+3. **フェーズ3**: 週案↔日案の自動連携（週案曜日行→日案生成、日案評価→週案集約）、既存文書編集画面での行追加/削除、園全体設定（土曜/保育時間/延長）。`schedule`のSQLite永続化とシリアライズ、新規日案の行追加・挿入・削除は実装済み。
 
 ---
 
@@ -708,7 +723,7 @@ POST は `create_monthly_from_bunrei` と同型 + 生成後に schedule 付与�
 | --- | --- | --- |
 | 子どもの姿 | `weekly_children_snapshot` | `daily_children_snapshot`（任意だが未入力時は確認対象候補） |
 | ねらい及び内容 | `weekly_goal` / `weekly_activities` | `daily_goal` / `daily_main_activity` |
-| 環境構成・援助・配慮 | `weekly_environment` / `weekly_support` / `schedule.support` | `schedule.env` / `schedule.support` / `daily_health_safety` |
+| 環境構成・援助・配慮 | `weekly_environment` / `weekly_support` / `schedule.support` | `schedule.considerations` / `schedule.support` / `daily_health_safety`。既存文書は `schedule.env` も保持 |
 | 1日の流れ | 対象外（週案は `weekly_grid`） | `schedule.layout=="daily_timeline"` |
 | 振り返り・改善 | `weekly_reflection_viewpoint` | `daily_reflection_viewpoint` |
 
@@ -746,7 +761,7 @@ MVPでは既存の詳細なセクション構成（§3.2）を維持する。た
 - **思考の支援**: 生成本文・確認メモ・プレースホルダは、単に空欄を埋めるためではなく、子どもの姿からねらい、環境、援助、振り返りへ考えをつなぐための観点を示す。
 - **視認性**: 印刷時・画面閲覧時とも、最低限項目が見つけやすい順序にする。日案では `daily_timeline` を目立つ位置に置く。
 - **分担しやすさ**: 複数担任で修正できるよう、1つの巨大 textarea にせず、セクション/セル単位で編集する。
-- **導入しやすさ**: ICTに不慣れな職員でも扱えるよう、MVPではドラッグ&ドロップや複雑な行追加UIを避ける。行追加/削除はフェーズ3。
+- **導入しやすさ**: 新規日案はボタンによる行追加・挿入・削除を提供する。既存文書編集での行構造変更やドラッグ&ドロップは後続設計。
 - **保育の質の担保**: 入力省略によって最低限項目が空になる場合は、エラーで止めるのではなく `needs_confirmation` と `editor_note` で確認を促す。
 
 ### 12.8 テスト追加

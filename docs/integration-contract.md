@@ -1,14 +1,14 @@
 # 連携契約
 
 - ステータス: 現行契約
-- 現況再確認: 2026-08-11
+- 現況再確認: 2026-09-13（`plan_docs/contracts.py`、認証アダプター、ルーター、保存層を照合）
 
 この文書は `hoiku-plan-docs`、`open-hoikuict`、`hoiku-plan-writer` の間で共有する文書作成機能の初期契約です。
 キー名、状態名、識別形式は後方互換を維持します。
 
 ## 対象範囲
 
-対象は年案・月案・週案・日案・個別指導計画の作成、レビュー、承認、参照です。
+契約の文書種別は年案・月案・週案・日案・個別指導計画・児童票です。個別指導計画は型・モデル・根拠参照を保持していますが、専用の一覧・作成画面は未実装です。
 年案・月案・週案・日案は本体側の値を安定した識別情報として受け取ります。個別指導計画は園児、日次連絡、出欠、健康記録を参照できます。
 
 ## 職員認証
@@ -19,8 +19,8 @@
 | --- | --- | --- | --- | --- |
 | `role` | string | yes | `can_edit` | `view_only` / `can_edit` / `admin` |
 | `actor_ref` | string | create/update/status で yes | `staff:00000000-0000-0000-0000-000000000000` | 操作主体の安定ID |
-| `nursery_ref` | string | yes | `ひかり保育園` | 園の安定ID |
-| `classroom_refs` | string[] | yes | `["5歳児 ひまわり組"]` | 担当クラスの安定ID |
+| `nursery_ref` | string | yes | `ひかり保育園` | 現行は `HOIKU_NURSERY_REF` または既定値 |
+| `classroom_refs` | string[] | yes | `["5歳児 ひまわり組"]` | アダプターが渡すクラス名。現在は全クラスを取得 |
 | `name` | string | no | `担任` | 表示用 |
 
 ### 権限
@@ -31,7 +31,9 @@
 | `can_edit` | yes | yes | yes | no | no |
 | `admin` | yes | yes | yes | yes | yes |
 
-`classroom_ref` は文書単位で保存します。`admin` は園内全クラスにアクセス可能です。`view_only` / `can_edit` は `classroom_refs` に含まれる文書だけを扱えます。
+`classroom_ref` は文書単位で保存します。`admin` は全クラスを許可し、一般職員は `classroom_refs` が空でなければその値と照合します。空の場合はクラス制限を行いません。
+
+現在の本体アダプター `resolve_plan_docs_staff_user()` は `StaffClassroomAssignment` を参照せず、全 `Classroom.name` を渡します。このため、一般の計画文書について「担任のクラスだけに制限される」とは扱いません。クラス名の変更も識別文字列の変更になるため、既存文書との対応を確認します。担当クラスIDに基づく制限は後続の設計課題です。児童票には別途[児童記録の認可](child-records-spec.md)が適用されます。
 
 ## 文書
 
@@ -46,6 +48,7 @@
 | `weekly_plan` | 週案 | 週間指導計画 |
 | `daily_plan` | 日案 | 日間指導計画 |
 | `individual_plan` | 個別指導計画 | 0・1・2歳児向けの月単位個別計画 |
+| `child_progress_record` | 児童票・発達経過記録 | 設定版と対象期間を持つ児童票 |
 
 互換 alias:
 
@@ -56,13 +59,14 @@
 | `weekly` | `weekly_plan` |
 | `daily` | `daily_plan` |
 | `individual` | `individual_plan` |
+| `child_progress` | `child_progress_record` |
 
 ### 状態
 
 | status | label | editable | meaning |
 | --- | --- | --- | --- |
 | `draft` | 下書き | yes | 作成、編集、再生成できる |
-| `in_review` | レビュー待ち | limited | 承認者確認中 |
+| `in_review` | レビュー待ち | no | 承認者確認中。本文編集は409で拒否 |
 | `approved` | 承認済み | no | 正式版 |
 | `rejected` | 差戻し | yes | 修正が必要 |
 | `archived` | アーカイブ | no | 旧版参照専用 |
@@ -83,7 +87,7 @@
   "title": "2026年度 年案（5歳児 ひまわり組）",
   "nursery_ref": "ひかり保育園",
   "classroom_ref": "5歳児 ひまわり組",
-  "actor_ref": "職員:担任",
+  "actor_ref": "staff:00000000-0000-0000-0000-000000000000",
   "school_year": 2026,
   "target_month": null,
   "target_week": null,
@@ -132,6 +136,8 @@
 `target_week` / `week_start_date` / `target_date` / `age_class` / `child_ref` / `child_name` / `parent_document_id` / `related_document_ids` / `schedule` は追加フィールドです。年案・月案では省略されることがあります。週案・日案では `schedule` を持ち、`layout`、`columns[].key`、`rows[].row_key` は永続契約です。`individual_plan` では `child_ref` が必須です。
 
 `child_ref` は `child:{children.id}` 形式です。アルファ段階の単一園・単一 SQLite では `children.id` を安定識別子として扱います。園児マスタに外部 ID が導入された場合は互換 alias または migration を用意します。
+
+上の例は互換性を説明する最小形です。現在のシリアライザーは `period_start`、`period_end`、`record_cycle_key`、`setting_version_id` も出力します。文書参照APIはヘッドが存在するときに `public_id`、`lock_version`、`current_revision_id`、`review_revision_id`、`approved_revision_id` を追加します。省略可能な値の出力条件は `plan_docs/serializers.py` に従います。
 
 ## セクションキー
 
@@ -215,6 +221,16 @@
 | `individual_family_collaboration` | 家庭との連携 |
 | `individual_reflection_viewpoint` | 評価・反省 |
 
+### 児童票・発達経過記録
+
+| section_key | title |
+| --- | --- |
+| `progress_children_overview` | 対象期間の子どもの姿 |
+| `progress_growth_changes` | 育ちと変化 |
+| `progress_support_reflection` | 保育者の援助と振り返り |
+| `progress_family_collaboration` | 家庭との連携 |
+| `progress_next_focus` | 次の期間に大切にしたいこと |
+
 ## schedule 契約
 
 週案・日案は表形式の `schedule` を持ちます。本文セクションと同様に、`layout`、`column.key`、`row_key` は表示ラベルが変わっても変更しない永続識別子です。
@@ -222,7 +238,10 @@
 | layout | document_type | column.key |
 | --- | --- | --- |
 | `weekly_grid` | `weekly_plan` | `activity` / `support` |
-| `daily_timeline` | `daily_plan` | `env` / `children` / `support` |
+| `daily_timeline`（現在の新規作成） | `daily_plan` | `children` / `support` / `considerations` |
+| `daily_timeline`（既存データの互換形） | `daily_plan` | `env` / `children` / `support` |
+
+現在の日案画面は、行の時刻・活動と上記3列を合わせた横4列です。保存した `columns` を使って表示・編集するため、既存データの `env` を自動で `considerations` へ読み替えません。上の最小JSON例は既存データの互換形です。
 
 週案の `row_key` は `mon` / `tue` / `wed` / `thu` / `fri` / `sat`、日案の `row_key` は `t_arrival` / `t_free_am` / `t_meeting` / `t_main` / `t_lunch` / `t_nap` / `t_free_pm` / `t_departure` などを使います。0〜2歳児では `t_care_am` / `t_care_pm` など個別の生活リズムに関する行を含みます。
 
@@ -245,6 +264,7 @@
 | `record.daily_contact:*` | `記録` |
 | `record.attendance:*` | `記録` |
 | `record.health_check:*` | `記録` |
+| `record.child_observation_log:*` | `子どもの記録` |
 | `outline.*` | `AI構成` |
 | `linking.*` | `AI構成` |
 
@@ -259,6 +279,7 @@
 | `record.daily_contact` | `record.daily_contact:{id}` | `daily_contact_entries` |
 | `record.attendance` | `record.attendance:{child_id}:{YYYY-MM}` | 月次出欠集計 |
 | `record.health_check` | `record.health_check:{id}` | `health_check_records` |
+| `record.child_observation_log` | `record.child_observation_log:{id}` | 児童観察ログ。児童票の根拠に使用 |
 
 参照先が削除済みの場合、表示時に「参照先なし」として扱い、文書 JSON は壊しません。
 
@@ -270,27 +291,34 @@
 
 ## 承認ログ
 
-将来の永続化では最低限次を保存します。
+`PlanDocumentAction`（`plan_document_actions`）へ状態変更時に次を保存します。承認対象の不変版は `PlanRevisionRow` と文書ヘッドの `review_revision_id` / `approved_revision_id` で保持します。
 
 | field | type |
 | --- | --- |
-| `document_id` | int or uuid |
+| `document_id` | int |
 | `document_type` | string |
 | `action` | string |
 | `comment` | string |
 | `actor_ref` | string |
+| `actor_name` | string or null |
 | `created_at` | datetime |
 
-`action` は `submit`、`approve`、`reject`、`archive` のみ許可します。
+現行の `action` は操作動詞ではなく、遷移先の状態値（`in_review`、`approved`、`rejected`、`archived` など）を保存します。`submit` / `approve` / `reject` / `archive` を保存値として解釈しません。許可する遷移とロールは `plan_docs/store.py` で検証します。
 
 ## API 境界
 
-初期実装では画面操作を優先し、JSON API は参照のみです。
+文書の作成・本文編集・状態更新はHTMLフォームを使います。JSON APIは文書参照に加え、日案の実施変更の作成・事後確認・訂正にも対応しています。
 
 | method | path | auth | purpose |
 | --- | --- | --- | --- |
 | `GET` | `/healthz` | none | 稼働確認 |
 | `GET` | `/plans/api/documents/{document_id}` | staff | 文書 JSON 参照 |
+| `GET` | `/plans/api/daily/{document_ref}/execution-changes` | staff | 実施変更一覧 |
+| `POST` | `/plans/api/daily/{document_ref}/execution-changes` | 編集権限 | 実施変更の作成 |
+| `POST` | `/plans/api/daily/{document_ref}/execution-changes/{change_id}/confirm` | admin | 事後確認 |
+| `POST` | `/plans/api/daily/{document_ref}/execution-changes/{change_id}/corrections` | 編集権限 | 理由付きの追記訂正 |
+
+`document_ref` は内部IDまたは公開IDです。いずれも文書の可視性を検証し、更新には操作主体を要求します。本文編集・状態変更フォームの `lock_version` と実施変更の契約は[日案仕様](spec-daily-plan-v1.md)を参照してください。
 
 後続で `POST /api/annual-plans`、`POST /api/monthly-plans`、`PATCH /api/documents/{id}/status` を追加する場合も、この contract の値だけを受け付けます。
 

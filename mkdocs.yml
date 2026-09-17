@@ -67,6 +67,7 @@ exclude_docs: |
   /next-validation-milestone-2026-09-05.md
   /parent-auth-registration-guide-2026-09-06.md
   /spec-change-validity-review-2026-09-11.md
+  /spec-change-validity-review-2026-09-17.md
   /staff-auth-registration-guide-2026-09-06.md
 validation:
   nav:
@@ -93,6 +94,8 @@ nav:
           - デモデータ: demo-data.md
       - 使い方:
           - 日々の業務: daily-work.md
+          - カレンダーの表示と作成: calendar-display.md
+          - ホームの差し戻し表示: home-return-notifications.md
           - アカウントと利用開始: accounts.md
           - 共通QRで保護者登録: parent-public-registration.md
           - 招待・家族プロフィール同期: guardian-account-sync.md
@@ -107,11 +110,13 @@ nav:
           - Web Pushの本番設定: parent-push-production-setup.md
           - Web Pushの実機確認: parent-push-real-device-test.md
           - バックアップ・復元: backup-restore-spec.md
+          - バックアップの検証手順: backup-verification-guide.md
           - 運用試験の構成と受入条件: pilot-deployment-spec-v2.md
           - リリース・更新時の確認: release-checklist.md
           - 園内運用テンプレート: templates.md
       - 仕様:
           - specifications.md
+          - 仕様と実装の照合記録: spec-consistency-review-2026-09-13.md
           - 園児・家庭・記録:
               - 児童記録・児童票・保育要録: child-records-spec.md
               - 健康管理の設計と後続計画: health-record-spec-review.md
@@ -131,6 +136,7 @@ nav:
               - 日案: spec-daily-plan-v1.md
               - 週案・日案の追加仕様: spec-weekly-daily-plans.md
               - 日案文例コーパス契約: daily-plan-corpus-contract.md
+              - 日案サンプルDBの任意導入（計画）: daily-plan-sample-db-spec.md
               - 連携契約: integration-contract.md
           - 未実装の計画:
               - 施設設定: facility-settings-spec.md
@@ -142,6 +148,7 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-09-16 実機更新記録: deployment-2026-09-16.md
           - 2026-09-13 実機更新記録: deployment-2026-09-13.md
           - 2026-09-11 機能追加: spec-improvements-2026-09-11.md
           - 2026-09-10 画面改善: spec-improvements-2026-09-10.md

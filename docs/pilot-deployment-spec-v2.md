@@ -2,12 +2,15 @@
 
 > 文書版: 2.0  
 > 作成日・実装確認日: 2026年9月5日  
+> バックアップ関連改訂日: 2026年9月14日（バックアップ・復元仕様 文書版1.2に整合）<br>
 > 確認対象コミット: `c759415960d4eae04401cd28c2e3f967868279e4`  
 > 状態: 改訂案。構成例を含む。TrueNAS実機での受け入れ確認は未実施。  
 > 対象: TrueNAS上のDocker、Dockge、Cloudflare Tunnel / Accessを使う段階A〜Cの運用試験
 
 !!! note "構成比較は作成時点の記録"
     本文の旧Composeとの比較は9月5日時点のものです。現在の配布構成は `deploy/truenas/`、導入操作は[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)、以降の実機更新は[変更履歴](history.md)を参照してください。実データ試験の受入条件は引き続き本書で確認します。
+
+    9月14日の改訂はバックアップ・復元条件を更新したものです。最新の実装範囲と実機未確認事項は[バックアップ仕様の確認状況](backup-restore-spec.md#implementation-status)を参照し、本書の作成時点のテスト結果を現在の受入結果に読み替えないでください。
 
 ## 1. 文書の位置付け
 
@@ -198,7 +201,7 @@ kioskを使う場合だけ`token`へ変更し、用途の異なる固定ラン�
 
 ### 9.1 正式な取得方式
 
-段階A〜Cの正式な日次・更新前バックアップは、appとその他のruntime書込み処理を停止した状態を基準にする。管理画面のworkerはSQLiteに`BEGIN IMMEDIATE`の書込みlockを取得するが、ファイル操作全体を同じアプリ共通lockで調停する実装ではない。既存テストの成功だけで、稼働中のDB・添付の同時点性を保証したものと扱わない。
+段階A〜Cの正式な日次・更新前バックアップは、app・workerとその他のruntime書込み処理を停止した状態を基準にする。管理画面のworkerはSQLiteに`BEGIN IMMEDIATE`の書込みlockを取得するが、全種類の添付操作・定期実行設定を同じアプリ共通lockで調停する実装ではない。既存テストの成功だけで、稼働中のDB・添付・設定の同時点性を保証したものと扱わない。
 
 | 方式 | 用途・採用条件 |
 | --- | --- |
@@ -213,9 +216,9 @@ kioskを使う場合だけ`token`へ変更し、用途の異なる固定ラン�
 
 1. 停止を案内し、workerの実行中jobが完了したことを確認する。検証用workerが稼働している場合は停止し、他のCLI更新処理も止める。
 2. appを停止し、container終了を確認する。runtime全体のsnapshotを取得する。
-3. 可搬setの作成は、appを止めたまま元runtimeから行うか、snapshotの書込み可能cloneを専用backupサービスへmountして行う。cloneを使う場合はsnapshot取得後にappを再開できる。
-4. 次の既存CLIで作成し、表示されたbackup directoryを`verify`で再検査する。`--quiesced`は停止・cloneの事実を確認したうえで指定する。
-5. 成功setを別poolとoff-siteへ複製し、複製先でもhashと検査結果を確認する。
+3. 可搬setの作成は、appを止めたまま元runtimeから行うか、snapshotの書込み可能cloneを専用backupサービスへmountして行う。主DB・施設文例DB・全添付・設定を同じ復旧時点で保全する。cloneを使う場合はsnapshot取得後にappを再開できる。
+4. 次のCLIで形式2のsetを作成し、表示されたbackup directoryを`verify`で再検査する。`--quiesced`は停止・cloneの事実を確認したうえで指定する。旧形式1を利用する場合は、後述の互換性条件に従って追加検査・設定再準備を行う。
+5. 検査済みsetを別poolとoff-siteへ複製し、複製先でもhashと検査結果を確認する。
 6. 停止方式でまだ再開していなければappを起動し、ログインと代表画面を確認する。失敗した場合も、整合性と稼働元を確認して再開判断を記録する。
 
 以下は元runtimeを使うCLIの形である。`<...>`は実測・記録値へ置き換える。snapshot cloneを使う際は、元runtimeを参照しない専用Composeで実行する。
@@ -227,12 +230,17 @@ docker compose run --rm --no-deps backup create \
   --app-image sha256:<actual-app-image-id> \
   --compose-sha256 <actual-compose-sha256> \
   --cloudflared-image cloudflare/cloudflared@sha256:<approved-digest> \
+  --recovery-kit-ref <approved-kit-record-id> \
+  --actor-ref <operation-record-id> \
+  --baseline-ref <initial-count-review-id> \
   --quiesced
 
 docker compose run --rm --no-deps backup verify /backup/<backup-directory> --json
 ```
 
-`COMPLETE`、manifest、SHA-256、DB integrity/外部キー、添付の存在・size等の検査に合格したsetだけを正常とする。schema・業務上の主要件数・保護者分離は、アプリと隔離復元による追加確認も必要である。途中失敗の`.partial`やwarningを見落として成功扱いしない。`COMPLETE`は別系統への複製や復元試験の完了を示すmarkerではない。
+形式2の`COMPLETE`は全添付・写真・必須schema・設定・主要件数比較を含む[ローカル検査](backup-restore-spec.md#local-verification)の合格を示す。形式1には不足があるため、[追加検査・設定再準備](backup-restore-spec.md#legacy-format)を実施する。保護者分離や本人の再ログインは隔離復元で確認する。実装・検証コマンドの詳細は[バックアップ検証手順](backup-verification-guide.md)を参照する。
+
+[取得・検査・別系統保存・復元試験の4段階](backup-restore-spec.md#verification-stages)を同じbackup IDで別々に記録する。途中失敗の`.partial`やwarningを見落として成功扱いしない。複製失敗時は検査済みsetを保持して通知し、公開済みのmanifestや`COMPLETE`を書き換えない。
 
 ### 9.3 保存・復旧目標
 
@@ -253,11 +261,13 @@ docker compose run --rm --no-deps backup verify /backup/<backup-directory> --jso
 
 付録Aではworkerを`backup-ui-trial` profileに置き、通常起動の対象から外す。段階A・Bで検証するときに`docker compose --profile backup-ui-trial up -d backup-worker`で起動する。`/settings/backups`で稼働状態、依頼、成功/失敗、検証結果、実保存先の同じbackup IDを確認する。
 
-初期scheduleは無効・毎日02:00 JSTである。毎日/毎週の指定と同一日のcatch-upは実装済みだが、過去日・過去週は持ち越さない。検証終了時はscheduleを無効化してworkerを停止する。後日同じruntimeでworkerを起動すると保存済みscheduleが使われるため、再開前にも設定を確認する。
+初期scheduleは無効・毎日02:00 JSTであり、正式な停止方式の日次取得の標準02:10とは別の設定である。毎日/毎週の指定と同一日のcatch-upは実装済みだが、過去日・過去週は持ち越さない。同じ予定枠は失敗履歴があっても自動再登録されないため、原因を確認してから再実行を依頼する。画面の「成功」は現行のローカル検査の通過を示す。
+
+検証終了時はscheduleを無効化してworkerを停止する。後日同じruntimeでworkerを起動すると保存済みscheduleが使われるため、再開前にも設定を確認する。復元時は[設定の保存・復元条件](backup-restore-spec.md#schedule-recovery)に従い、元の有効状態にかかわらず無効にしてから担当者が再開する。
 
 ## 10. 隔離復元とメール誤送信の防止
 
-### 10.1 復元環境の具体条件
+### 10.1 復元環境の具体条件 { #restore-isolation }
 
 復元は稼働datasetの直接rollbackから始めず、別名のstackと隔離datasetで行う。公開用Composeの追加overrideだけで済ませず、cloudflaredとbackup-workerを含まない独立した復元用Composeを作る。runtime、backup-control、秘密値の参照先が稼働系と分離されていることを確認する。
 
@@ -275,7 +285,7 @@ docker compose run --rm --no-deps backup verify /backup/<backup-directory> --jso
 | `HOIKUICT_PARENT_REGISTRATION_BASE_URL` / `HOIKUICT_ALLOWED_ORIGINS` | 管理経路だけで解決する復元用HTTPS origin。例は`https://restore-hoiku.example.invalid` |
 | `FORWARDED_ALLOW_IPS` | 復元環境のHTTPS reverse proxy専用CIDR |
 | `HOIKUICT_PUSH_TRANSPORT` / kiosk | `disabled` |
-| DBと添付 | 同じbackup IDから復元した隔離datasetのみ |
+| DB・添付・設定 | 同じbackup IDから復元した隔離datasetのみ。scheduleは無効、旧job・heartbeatは実行制御へ戻さない。形式1の設定不足は第9.2節の条件で補う |
 | network | appと管理用HTTPS reverse proxyだけの`internal: true`の専用bridge。別の外向きnetworkを接続しない |
 | ブラウザーの接続 | reverse proxyのHTTPSを管理用IPにだけbindし、host firewallで許可管理端末/VPNのみに制限。appのportは公開しない |
 
@@ -288,14 +298,14 @@ docker compose run --rm --no-deps backup verify /backup/<backup-directory> --jso
 ### 10.2 復元・切替の順序
 
 1. 障害時刻、最後の正常時点、復旧候補のbackup ID、許容損失を記録する。現行runtimeを変更前snapshotで保全する。
-2. `COMPLETE`・hash・manifestを検査し、同じIDのDBと添付を隔離datasetへ復元する。snapshotからはruntime全体を復元し、稼働中DB本体だけを抜き出して上書きしない。
+2. 形式・`COMPLETE`・hash・manifest・追加検査の証跡を確認し、同じIDのDB・全添付・設定を隔離datasetへ復元する。scheduleを無効にし、旧job・heartbeatを実行制御から隔離する。形式1の設定不足は第9.2節の条件で補う。snapshotからはruntime全体を復元し、稼働中DB本体だけを抜き出して上書きしない。
 3. 対応するGit SHAと保管済みimageを用意し、第10.1節の通信遮断を確認する。
-4. DB integrity、外部キー、期待schema、主要件数、添付、管理者ログイン、保護者の家庭分離を確認する。RPO/RTOの実績を記録する。
-5. 切替用datasetは検査済みの同じbackupから改めて準備する。復元された古い職員・保護者session、初期有効化・再設定・招待等のtokenを専用CLIで全失効する。
-6. 全失効CLIは確認対象コミットで未実装である。段階Cの運用を開始する前に実装し、失効済みtokenの拒否と再ログインを検証する。secretの変更だけでDB上のすべての認証記録が失効すると仮定せず、DB手編集で代用しない。
-7. 復旧時点へ戻った送信待ちメール・招待が切替後に再配送されないよう、切替前の保留キュー点検・取消方法を確定して検証する。この整理を復元試験中の接続失敗だけに任せない。
-8. appを停止してruntimeを切り替え、対応するimageで起動する。health、件数、認証、権限を再確認してからTunnelを再接続する。
-9. 利用者へ復旧時点と再入力対象を案内する。検証dataset・証跡の保持と削除を記録する。
+4. [バックアップ仕様のローカル検査](backup-restore-spec.md#local-verification)を行い、文書確認依頼を含む全添付、現在・変更申請・履歴の写真、園児の性別、管理者ログイン、保護者の家庭分離を確認する。対象版にない機能は根拠付きの「該当なし」として記録する。RPO/RTOの実績を記録する。
+5. 切替用datasetは検査済みの同じbackupから`prepare-restore`で新たに準備する。旧session・初期有効化・再設定・招待等のtokenが失効した処理結果を確認する。
+6. `prepare-restore`は9月14日に実装した。段階C前に、実機の隔離環境で失効済みtokenの拒否と本人の再ログインを確認する。secretの変更だけで全認証記録が失効すると仮定せず、DB手編集で代用しない。
+7. 復旧時点へ戻った送信待ちメール・招待・Pushが切替後に再配送されないよう、切替前の保留キュー点検・取消方法を確定して検証する。この整理を復元試験中の接続失敗だけに任せない。
+8. app・workerとその他の書込み処理を停止してruntimeを切り替え、対応するimageで起動する。health、件数、認証、権限を再確認してからTunnelを再接続する。
+9. 利用者へ復旧時点と再入力対象を案内する。保存先・時刻・保持・通知先を確認してバックアップを明示的に再開し、検証dataset・証跡の保持と削除を記録する。
 
 月1回以上の標準復元、3か月ごとのoff-site災害復旧・復号鍵確認、およびschema変更前の切戻し試験を実施する。
 
@@ -324,7 +334,8 @@ docker compose run --rm --no-deps backup verify /backup/<backup-directory> --jso
 - [ ] 初期管理者の有効化・ログアウト・再ログイン、Secure Cookie・CSRFを確認した
 - [ ] 異なる外部端末のclient IPが誤って集約されず、ログインthrottleが機能する
 - [ ] DB・添付がrestartとcontainer再作成後に保持される
-- [ ] runtime snapshot、別系統への複製、停止バックアップ、メール遮断した隔離復元に成功した
+- [ ] runtime snapshot、別系統への複製、停止バックアップ、メール・Pushを遮断した隔離復元に成功し、4段階の結果を記録した
+- [ ] 写真・性別・全添付・設定を復元し、写真/添付欠損・必須schema不足を拒否する検査と、形式1の不足への対応を確認した
 - [ ] 架空データのみの利用、紙・電話への切替、試験責任者・緊急連絡先を参加者と確認した
 
 ### 12.2 段階C開始
@@ -337,8 +348,9 @@ docker compose run --rm --no-deps backup verify /backup/<backup-directory> --jso
 - [ ] 初期管理者・職員のローカル認証、業務権限、直接URLを含む他家庭・未紐付け園児の拒否を確認した
 - [ ] 実機でSMTP、保護者招待、password resetを確認した
 - [ ] 正式な日次取得、別pool/off-site複製、保持・世代削除、失敗通知を構成した
-- [ ] 全セッション・token失効CLIと復元後の保留メール処理を実装・検証した
-- [ ] 対応imageとDB・添付の切戻し、月次復元、off-siteとrecovery kitからの復旧に成功し、実RPO/RTOを記録した
+- [ ] runtime・複製先・recovery kitの保存時暗号化、鍵の別保管、複製先での照合と復号を確認した
+- [ ] 全セッション・token失効CLIと復元後の保留メール・Push処理を実装・検証した
+- [ ] 対応imageとDB・全添付・写真・設定の切戻し、schedule無効化と旧jobの再投入防止、月次復元、off-siteとrecovery kitからの復旧に成功し、実RPO/RTOを記録した
 - [ ] CPU・メモリ・利用者数・添付量の測定から、利用規模・空き容量・停止時間を確定した
 - [ ] 個人情報の利用目的・保存期間・削除・漏えい時連絡、保護者説明、公開方針を確認した
 - [ ] サポート時間、更新・停止・切戻し判断者、Cloudflare/TrueNAS障害時の責任範囲を決めた

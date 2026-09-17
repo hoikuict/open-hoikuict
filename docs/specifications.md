@@ -2,6 +2,8 @@
 
 現況確認: **2026年9月13日**。利用者向けの概要は[機能と実装状況](features.md)、操作入口は[使い方](daily-work.md)、URLは[画面一覧](screen-transition-list.md)を参照してください。
 
+[仕様と実装の照合記録](spec-consistency-review-2026-09-13.md)に、今回修正した相違点、確認した範囲、残る実装課題をまとめています。
+
 ## ステータスの読み方
 
 | 表記 | 意味 |
@@ -23,7 +25,7 @@
 | [インポート・エクスポート](import-export-spec.md) | 実装あり | 職員を含む6種のマスタ、事前検証・確定、CSV/Excel。家庭の保護者①②に対応 |
 | [家庭・園児CSVガイド](family-guardian-csv-guide.md) | 現行 | 変換ツール、家庭→園児の取り込み、既存情報の保持 |
 | [家族プロフィールとアカウント同期](guardian-account-sync.md) | 現行 | 初回入力の招待、明示的な保護者紐付け、連絡先同期 |
-| [認可施設帳票入力](ninka-input-screen-spec.md) | 実装あり | データ入出力画面内のExcel入力・集計・帳票出力 |
+| [認可施設帳票入力](ninka-input-screen-spec.md) | 一部実装 | 台帳からExcelへ直接出力。画面内プレビュー・補正・年度別保存は未実装 |
 
 ## 登降園・料金・職員
 
@@ -52,9 +54,10 @@
 
 | 文書 | 状況 | 用途 |
 | --- | --- | --- |
-| [日案仕様](spec-daily-plan-v1.md) | 一部実装 | SQLModel永続化、版管理、楽観ロック、実施変更、文例選択と後続計画 |
-| [週案・日案追加仕様](spec-weekly-daily-plans.md) | 一部実装 | 年案・月案と共通の文書基盤、週案・日案MVP。フェーズごとの範囲を本文で確認 |
+| [日案仕様](spec-daily-plan-v1.md) | 一部実装 | SQLModel永続化、版管理、楽観ロック、実施変更、文例、カレンダー、振り返り、確認通知 |
+| [週案・日案追加仕様](spec-weekly-daily-plans.md) | 一部実装 | 共通文書基盤と週案・日案。日案コーパス選択は実装済み、当初案の週案・日案文例専用URL等は未実装 |
 | [日案コーパス契約](daily-plan-corpus-contract.md) | 現行 | 別途用意する読み取り専用SQLite文例成果物の契約 |
+| [日案サンプルDB](daily-plan-sample-db-spec.md) | 計画 | 既存日案の確認・配布用DB作成、希望施設への任意導入・更新・停止 |
 | [連携契約](integration-contract.md) | 現行 | 文書種別、状態、セクション、参照キー、JSON互換性 |
 | [保育計画統合設計](spec-plan-docs-integration-v2-revised.md) | 履歴・一部実装 | 統合時の判断。児童記録は別仕様へ分割 |
 
