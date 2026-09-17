@@ -37,6 +37,8 @@
       <span class="inline-flex rounded-full {% if row.entry.contact_type.value == 'absent_sick' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %} px-2.5 py-1 text-xs font-medium">
         {{ parent_absence_label }}
       </span>
+      {% elif row.contact_confirmation %}
+      <span class="inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">{{ '電話' if row.contact_confirmation.method == 'phone' else '口頭' }}連絡受付 / {{ row.contact_confirmation.status.label }}</span>
       {% else %}
       <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">なし</span>
       {% endif %}
@@ -173,5 +175,32 @@
         {% endif %}
       </section>
     </div>
+    <section class="mt-4 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <h3 class="font-semibold text-slate-800">電話・口頭連絡の受付</h3>
+      <p class="text-sm text-slate-600">対象日 {{ target_date_value }}。目視確認と同じ欠席理由の受付がある場合、「保護者連絡なし」のアラームを解消します。打刻などの不一致は別途確認してください。</p>
+      {% if current_user.can_manage_attendance_checks %}
+      <form method="post" action="/attendance-checks/{{ row.child.id }}/contact-confirmation" class="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="date" value="{{ target_date_value }}">
+        <input type="hidden" name="layout" value="{{ selected_layout }}"><input type="hidden" name="filter" value="{{ selected_filter }}"><input type="hidden" name="classroom_id" value="{{ selected_classroom_id_value }}">
+        <label class="text-sm">連絡方法<select name="method" required class="block rounded border p-2"><option value="phone">電話</option><option value="in_person">口頭</option></select></label>
+        <label class="text-sm">欠席理由<select name="status" required class="block rounded border p-2"><option value="">選択してください</option><option value="private_absent">私用休み</option><option value="sick_absent">病欠</option></select></label>
+        <label class="min-w-48 flex-1 text-sm">連絡内容<input name="note" required maxlength="1000" placeholder="誰から、どのような連絡を受けたか" class="block w-full rounded border p-2"></label>
+        <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white">連絡受付を記録</button>
+      </form>
+      {% if row.contact_confirmation %}
+      <form method="post" action="/attendance-checks/{{ row.child.id }}/contact-confirmation" class="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="date" value="{{ target_date_value }}"><input type="hidden" name="action" value="revoked"><input type="hidden" name="confirmation_id" value="{{ row.contact_confirmation.id }}">
+        <input type="hidden" name="layout" value="{{ selected_layout }}"><input type="hidden" name="filter" value="{{ selected_filter }}"><input type="hidden" name="classroom_id" value="{{ selected_classroom_id_value }}">
+        <label class="text-sm">取消理由<input name="note" required maxlength="1000" class="ml-2 rounded border p-2"></label>
+        <button type="submit" class="rounded border border-rose-300 px-4 py-2 text-rose-700">受付を取り消す</button>
+      </form>
+      {% endif %}
+      {% endif %}
+      <ul class="space-y-2 text-sm">
+        {% for contact in row.contact_history %}
+        <li class="rounded bg-slate-50 p-3">{{ '受付' if contact.action == 'received' else '取消' }} / {{ '電話' if contact.method == 'phone' else '口頭' }} / {{ contact.status.label }} / {{ contact.recorded_by_name }} / {{ contact.created_at|jst_datetime('%Y-%m-%d %H:%M:%S') }} JST<br>{{ contact.note }}</li>
+        {% else %}<li class="text-slate-500">受付履歴はありません。</li>{% endfor %}
+      </ul>
+    </section>
   </div>
 </article>

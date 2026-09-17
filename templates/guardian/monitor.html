@@ -4,6 +4,7 @@
 <div class="mx-auto max-w-4xl space-y-5"><h1 class="text-2xl font-bold">保護者端末の接続状況</h1>
 <p>登録済みKIOSKから30秒ごとに接続を確認します。監視時間中に2分以上応答がない場合、管理者ホームに警告します。通信切断・スリープ・画面を閉じた状態などが考えられます。</p>
 {% for row in statuses %}{% set device = row.terminal %}<form method="post" action="/settings/guardian-terminals/{{ device.device_id }}" class="space-y-3 rounded-xl border bg-white p-5">
+<p class="break-all font-mono">登録番号 {{ device.registration_number }}</p>
 <p class="font-bold {{ 'text-rose-700' if row.stale else 'text-slate-700' }}">{{ '応答なし' if row.stale else '応答なしの警告はありません' }} / 最終応答 {{ device.last_seen_at|jst_datetime }}</p>
 <label class="block">端末名<input name="label" value="{{ device.label }}" required maxlength="100" class="ml-2 rounded border p-2"></label>
 <label><input name="enabled" type="checkbox" value="yes" {% if device.monitoring_enabled %}checked{% endif %}>この端末を監視する</label>

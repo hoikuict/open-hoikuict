@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "parent_portal/_contact_quick_inputs.html" import temperature_picker, choices %}
 {% block title %}日次連絡入力 | open-hoikuict{% endblock %}
 
 {% block content %}
@@ -25,11 +26,11 @@
   <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ notice }}</div>
   {% endif %}
   {% if form_error %}
-  <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form_error }}</div>
+  <div role="alert" class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ form_error }}</div>
   {% endif %}
 
   {% if published_reply %}
-  <section class="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-5">
+  <section id="daily-contact-reply" class="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-5">
     <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
       <h2 class="text-lg font-semibold text-sky-900">園からの返信</h2>
       <div class="flex flex-wrap items-center gap-2 text-xs text-sky-700">
@@ -105,24 +106,29 @@
     <section id="present-fields" class="space-y-6 {% if selected_mode != 'present' %}hidden{% endif %}">
       <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">体温</label>
-          <input type="text" name="temperature" value="{{ form_data.temperature }}" placeholder="36.7" class="w-full rounded border border-gray-300 px-3 py-2">
+          <label for="temperature" class="mb-1 block text-sm font-medium text-gray-600">体温</label>
+          <input id="temperature" type="text" inputmode="decimal" name="temperature" value="{{ form_data.temperature }}" placeholder="36.7" aria-describedby="temperature-help temperature-error" class="w-full rounded border border-gray-300 px-3 py-2">
+          <p id="temperature-help" class="mt-2 text-sm text-gray-500">{{ present_temperature_limit }}℃以上の場合は、出席として送信できません。</p>
+          <p id="temperature-error" role="alert" class="mt-2 hidden rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
+          {{ temperature_picker('temperature') }}
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-gray-600">睡眠メモ</label>
           <input type="text" name="sleep_notes" value="{{ form_data.sleep_notes }}" placeholder="21:00-6:30" class="w-full rounded border border-gray-300 px-3 py-2">
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">朝食</label>
-          <input type="text" name="breakfast_status" value="{{ form_data.breakfast_status }}" placeholder="完食 / 少なめ" class="w-full rounded border border-gray-300 px-3 py-2">
+          <label for="breakfast_status" class="mb-1 block text-sm font-medium text-gray-600">朝食・食欲</label>
+          <input id="breakfast_status" type="text" name="breakfast_status" value="{{ form_data.breakfast_status }}" placeholder="完食 / 少なめ" class="w-full rounded border border-gray-300 px-3 py-2">
+          {{ choices('breakfast_status', [('🍚', '完食'), ('🥣', '少なめ'), ('🙅', '食べていない')]) }}
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-gray-600">排便</label>
           <input type="text" name="bowel_movement_status" value="{{ form_data.bowel_movement_status }}" placeholder="あり / なし" class="w-full rounded border border-gray-300 px-3 py-2">
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">機嫌</label>
-          <input type="text" name="mood" value="{{ form_data.mood }}" placeholder="良好 / 少し眠そう" class="w-full rounded border border-gray-300 px-3 py-2">
+          <label for="mood" class="mb-1 block text-sm font-medium text-gray-600">機嫌</label>
+          <input id="mood" type="text" name="mood" value="{{ form_data.mood }}" placeholder="良好 / 少し眠そう" class="w-full rounded border border-gray-300 px-3 py-2">
+          {{ choices('mood', [('🙂', '良好'), ('😐', 'ふつう'), ('😟', '不機嫌'), ('😴', '眠そう')]) }}
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-gray-600">咳</label>
@@ -166,8 +172,10 @@
         <p class="mt-1 text-sm text-rose-800">現在の体温と症状は必須です。</p>
         <div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium text-rose-900">現在の体温<span class="text-rose-600">*</span></label>
-            <input type="text" name="absence_temperature" value="{{ form_data.absence_temperature }}" placeholder="37.8" class="w-full rounded border border-rose-300 px-3 py-2">
+            <label for="absence_temperature" class="mb-1 block text-sm font-medium text-rose-900">現在の体温<span class="text-rose-600">*</span></label>
+            <input id="absence_temperature" type="text" inputmode="decimal" name="absence_temperature" value="{{ form_data.absence_temperature }}" placeholder="37.8" aria-describedby="absence-temperature-error" class="w-full rounded border border-rose-300 px-3 py-2">
+            <p id="absence-temperature-error" role="alert" class="mt-2 hidden text-sm text-rose-700"></p>
+            {{ temperature_picker('absence_temperature') }}
           </div>
           <div>
             <label class="mb-1 block text-sm font-medium text-rose-900">症状<span class="text-rose-600">*</span></label>
@@ -211,6 +219,74 @@
     const absenceReasonError = document.getElementById("absence-reason-error");
     const absencePrivateFields = document.getElementById("absence-private-fields");
     const absenceSickFields = document.getElementById("absence-sick-fields");
+    const temperatureInput = document.getElementById("temperature");
+    const temperatureError = document.getElementById("temperature-error");
+    const absenceTemperatureInput = document.getElementById("absence_temperature");
+    const absenceTemperatureError = document.getElementById("absence-temperature-error");
+    const temperatureLimit = Number({{ present_temperature_limit|tojson }});
+    const highTemperatureMessage = {{ present_temperature_error|tojson }};
+    const invalidTemperatureMessage = {{ temperature_format_error|tojson }};
+
+    function validateTemperatureField(input, error, active, limit) {
+      const value = input.value.normalize("NFKC").trim();
+      let message = "";
+      if (active && value) {
+        const match = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:°[cC]|[cC]|度)?$/);
+        if (!match) {
+          message = invalidTemperatureMessage;
+        } else if (limit && Number(match[1]) >= temperatureLimit) {
+          message = highTemperatureMessage;
+        }
+      }
+      error.textContent = message;
+      error.classList.toggle("hidden", !message);
+      input.setAttribute("aria-invalid", message ? "true" : "false");
+      return !message;
+    }
+
+    function validateTemperature() {
+      const presentValid = validateTemperatureField(temperatureInput, temperatureError, selectedMode() === 'present', true);
+      const absentValid = validateTemperatureField(absenceTemperatureInput, absenceTemperatureError, selectedMode() === 'absent' && selectedReason() === 'absent_sick', false);
+      return presentValid && absentValid;
+    }
+
+    document.querySelectorAll('[data-temperature-picker]').forEach(picker => {
+      const input = document.getElementById(picker.dataset.temperaturePicker);
+      let whole = '', fraction = '';
+      const syncPicker = () => {
+        const value = input.value.normalize('NFKC').trim();
+        const match = value.match(/^([0-9]*)(?:\.([0-9]*))?\s*(?:°[cC]|[cC]|度)?$/);
+        whole = match ? match[1] : '';
+        fraction = match && match[2] ? match[2] : '';
+        picker.querySelectorAll('[data-temperature-whole]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.temperatureWhole === whole)));
+        picker.querySelectorAll('[data-temperature-fraction]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.temperatureFraction === fraction)));
+      };
+      picker.addEventListener('click', event => {
+        const button = event.target.closest('button');
+        if (!button || input.disabled) return;
+        if (button.hasAttribute('data-temperature-clear')) { whole = ''; fraction = ''; input.value = ''; }
+        else {
+          if (button.hasAttribute('data-temperature-whole')) whole = button.dataset.temperatureWhole;
+          if (button.hasAttribute('data-temperature-fraction')) fraction = button.dataset.temperatureFraction;
+          input.value = `${whole}.${fraction}`;
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      input.addEventListener('input', syncPicker);
+      syncPicker();
+    });
+    document.querySelectorAll('[data-quick-choices]').forEach(choices => {
+      const input = document.getElementById(choices.dataset.quickChoices);
+      const syncChoices = () => choices.querySelectorAll('[data-choice]').forEach(button => button.setAttribute('aria-pressed', String(Boolean(input.value) && input.value === button.dataset.choice)));
+      choices.addEventListener('click', event => {
+        const button = event.target.closest('[data-choice]');
+        if (!button || input.disabled) return;
+        input.value = button.dataset.choice;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      input.addEventListener('input', syncChoices);
+      syncChoices();
+    });
 
     function setDisabled(section, disabled) {
       if (!section) return;
@@ -246,13 +322,27 @@
       if (absenceReasonError && (mode !== "absent" || reason)) {
         absenceReasonError.classList.add("hidden");
       }
+      if (mode !== "present" || !temperatureError.classList.contains("hidden")) {
+        validateTemperature();
+      }
     }
 
+    temperatureInput.addEventListener("input", () => {
+      if (!temperatureError.classList.contains("hidden")) validateTemperature();
+    });
+    absenceTemperatureInput.addEventListener("input", () => {
+      if (!absenceTemperatureError.classList.contains("hidden")) validateTemperature();
+    });
     modeInputs.forEach((input) => input.addEventListener("change", syncState));
     reasonInputs.forEach((input) => input.addEventListener("change", syncState));
     form.addEventListener("submit", (event) => {
       const mode = selectedMode();
       const reason = selectedReason();
+      if (!validateTemperature()) {
+        event.preventDefault();
+        (mode === 'present' ? temperatureInput : absenceTemperatureInput).focus();
+        return;
+      }
       if (mode === "absent" && !reason) {
         event.preventDefault();
         if (absenceReasonError) {

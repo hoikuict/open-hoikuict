@@ -225,6 +225,10 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertIn("未回答", home_response.text)
         self.assertIn(f'/parent-portal/surveys/{self.parent_survey_id}', home_response.text)
 
+        attention_response = self.client.get("/parent-portal/attention")
+        self.assertEqual(attention_response.status_code, 200)
+        self.assertIn(f'href="/parent-portal/surveys/{self.parent_survey_id}"', attention_response.text)
+
         answer_response = self.client.post(
             f"/parent-portal/surveys/{self.parent_survey_id}",
             data={f"q{self.parent_question_id}": "夏祭り"},
@@ -234,6 +238,7 @@ class SurveyFeatureTests(unittest.TestCase):
 
         answered_home_response = self.client.get("/parent-portal/")
         self.assertNotIn("保護者アンケート", answered_home_response.text)
+        self.assertNotIn("保護者アンケート", self.client.get("/parent-portal/attention").text)
 
     def test_parent_unanswered_count_deduplicates_accounts_in_same_family(self):
         with Session(self.engine) as session:

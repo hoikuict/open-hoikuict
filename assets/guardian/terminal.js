@@ -63,6 +63,8 @@
       if (submitting) return;
       if (!navigator.onLine) throw new Error('Connection was lost during the check');
       if (status.kiosk !== true) throw new Error('Unexpected response');
+      const label = document.getElementById('terminal-label');
+      if (label) label.textContent = status.label || '';
       if (status.today !== root.dataset.today || !previouslyAvailable || !available || resetPending) {
         available = true;
         reset();

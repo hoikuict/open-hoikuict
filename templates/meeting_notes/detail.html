@@ -104,7 +104,7 @@
         id="note-title"
         type="text"
         value="{{ note.title }}"
-        {% if not current_user.can_edit %}readonly{% endif %}
+        readonly
         class="w-full rounded-lg border border-slate-200 px-4 py-2 text-lg font-semibold text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:min-w-[22rem]"
       >
     </div>
@@ -119,9 +119,11 @@
         {% if current_user.can_edit %}接続中...{% else %}閲覧専用{% endif %}
       </span>
       {% if current_user.can_edit %}
+      <span id="save-status" role="status" aria-live="polite" class="text-slate-600">読込中...</span>
       <button
         id="save-btn"
         type="button"
+        disabled
         class="inline-flex items-center rounded-lg border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
       >
         保存
@@ -288,6 +290,7 @@
   const statusEl = document.getElementById('sync-status');
   const titleInput = document.getElementById('note-title');
   const saveBtn = document.getElementById('save-btn');
+  const saveStatusEl = document.getElementById('save-status');
   const markSelectionBtn = document.getElementById('mark-selection-btn');
   const highlightExcerpt = document.getElementById('highlight-excerpt');
   const highlightSeriesId = document.getElementById('highlight-series-id');
@@ -297,20 +300,34 @@
 
   Quill.register('modules/cursors', QuillCursors);
 
+  let lastEditorRange = null;
+  let toolbarViewport = null;
   const editor = new Quill('#editor', {
     theme: 'snow',
-    readOnly: !canEdit,
+    readOnly: true,
+    scrollingContainer: document.scrollingElement || document.documentElement,
     modules: {
       cursors: canEdit,
       toolbar: canEdit
-        ? [
+        ? { container: [
             [{ header: [1, 2, 3, false] }],
             ['bold', 'italic', 'underline', 'strike'],
             [{ list: 'ordered' }, { list: 'bullet' }],
             [{ color: [] }, { background: [] }],
             ['link', 'image'],
             ['clean'],
-          ]
+          ], handlers: {
+            header(value) {
+              const range = editor.getSelection() || lastEditorRange;
+              if (!range) return;
+              const viewport = toolbarViewport || { x: window.scrollX, y: window.scrollY };
+              editor.formatLine(range.index, range.length, 'header', value ? Number(value) : false, Quill.sources.USER);
+              editor.setSelection(range.index, range.length, Quill.sources.SILENT);
+              window.scrollTo(viewport.x, viewport.y);
+              requestAnimationFrame(() => window.scrollTo(viewport.x, viewport.y));
+              toolbarViewport = null;
+            },
+          } }
         : false,
     },
     placeholder: canEdit ? '議事録を入力...（クリックすると書式オプションを表示）' : '閲覧専用',
@@ -318,6 +335,7 @@
 
   let selectedExcerpt = '';
   editor.on('selection-change', (range) => {
+    if (range) lastEditorRange = { index: range.index, length: range.length };
     if (!canEdit || !markSelectionBtn) {
       return;
     }
@@ -355,6 +373,9 @@
     let selectedImageIndex = null;
     floatingToolbar.setAttribute('role', 'toolbar');
     floatingToolbar.setAttribute('aria-label', '書式オプション');
+    floatingToolbar.addEventListener('pointerdown', () => {
+      toolbarViewport = { x: window.scrollX, y: window.scrollY };
+    }, true);
 
     function hideFloatingToolbar() {
       floatingToolbar.classList.remove('is-visible');
@@ -568,12 +589,34 @@
   }
 
   let contentLoadFailed = false;
+  let contentLoaded = false;
+  let revision = null;
+  let changeVersion = 0;
+  let savedVersion = 0;
+  let saveTimer = null;
+  let saving = null;
+  const showSaveStatus = (text, failed = false) => {
+    if (!saveStatusEl) return;
+    saveStatusEl.textContent = text;
+    saveStatusEl.className = failed ? 'font-medium text-rose-700' : 'font-medium text-slate-600';
+  };
+  const scheduleSave = (delay = 1000) => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveNote().catch(() => {}), delay);
+  };
+  ydoc.on('update', () => {
+    if (!canEdit || !contentLoaded) return;
+    changeVersion += 1;
+    showSaveStatus('未保存');
+    scheduleSave();
+  });
   const contentReady = fetch(`/meeting-notes/api/${noteId}/content`)
     .then((response) => {
       if (!response.ok) throw new Error(`Load failed: ${response.status}`);
       return response.json();
     })
     .then((data) => {
+      revision = data.revision;
       if (data.content_base64) {
         Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64));
       }
@@ -581,37 +624,75 @@
       if (typeof existingTitle === 'string' && existingTitle.length > 0) {
         titleInput.value = existingTitle;
       } else {
+        titleInput.value = data.title || titleInput.value;
         ymeta.set('title', titleInput.value);
       }
+      contentLoaded = true;
+      editor.enable(canEdit);
+      titleInput.readOnly = !canEdit;
+      if (saveBtn) saveBtn.disabled = false;
+      showSaveStatus('保存済み');
       return true;
     })
     .catch((error) => {
       contentLoadFailed = true;
       console.error('Failed to load meeting note content', error);
       updateStatus('読込失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+      showSaveStatus('読込失敗。画面を開き直してください。', true);
       return false;
     });
 
   async function saveNote() {
     if (!(await contentReady)) throw new Error('The original note could not be loaded');
-    const response = await fetch(`/meeting-notes/api/${noteId}/save`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
-      },
-      body: JSON.stringify({
-        title: titleInput.value,
-        content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)),
-        plain_text: editor.getText(),
-      }),
-    });
-    if (!response.ok || (await response.json()).status !== 'ok') {
-      throw new Error(`Save failed: ${response.status}`);
-    }
+    clearTimeout(saveTimer);
+    if (saving) return saving;
+    saving = (async () => {
+      let conflicts = 0;
+      while (savedVersion < changeVersion) {
+        showSaveStatus('保存中...');
+        const version = changeVersion;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        let response, data;
+        try {
+          response = await fetch(`/meeting-notes/api/${noteId}/save`, {
+            method: 'POST', signal: controller.signal,
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+            body: JSON.stringify({ title: titleInput.value, base_revision: revision,
+              content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)), plain_text: editor.getText() }),
+          });
+          data = await response.json();
+        } finally { clearTimeout(timeout); }
+        if (response.status === 409 && data.status === 'conflict' && conflicts++ < 3) {
+          if (data.content_base64) Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64), 'save-conflict');
+          revision = data.revision;
+          continue;
+        }
+        if (!response.ok || data.status !== 'ok') throw new Error(`Save failed: ${response.status}`);
+        revision = data.revision;
+        savedVersion = version;
+      }
+      showSaveStatus(`保存済み ${new Date().toLocaleTimeString('ja-JP')}`);
+    })();
+    try { await saving; }
+    catch (error) {
+      showSaveStatus('保存失敗・未保存。接続を確認してください。再試行します。', true);
+      if (navigator.onLine) scheduleSave(5000);
+      throw error;
+    } finally { saving = null; }
   }
 
   if (canEdit) {
+    window.addEventListener('beforeunload', event => {
+      if (savedVersion < changeVersion) { event.preventDefault(); event.returnValue = ''; }
+    });
+    window.addEventListener('online', () => { if (savedVersion < changeVersion) scheduleSave(0); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && savedVersion < changeVersion) saveNote().catch(() => {});
+    });
+    // Load the persisted state before accepting another editor's state.
+    contentReady.then(ready => {
+    if (!ready) return;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
     socket.binaryType = 'arraybuffer';
@@ -697,16 +778,15 @@
         socket.send(message);
       }
     };
+    });
 
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
         saveBtn.disabled = true;
         try {
           await saveNote();
-          updateStatus('保存しました', 'rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700');
         } catch (error) {
           console.error('Failed to save meeting note', error);
-          updateStatus('保存失敗', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
         } finally {
           saveBtn.disabled = false;
         }
