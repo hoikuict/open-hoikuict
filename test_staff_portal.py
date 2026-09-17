@@ -239,7 +239,8 @@ class StaffPortalTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("佐藤 空 児童票", response.text)
-        self.assertIn("却下（差戻し）しました", response.text)
+        self.assertIn('id="returned-documents"', response.text)
+        self.assertIn("園長さんから差し戻されました", response.text)
         self.assertIn("家庭連携欄を再確認してください。", response.text)
 
     def test_logged_in_home_shows_schedule_and_assigned_class_attendance(self):

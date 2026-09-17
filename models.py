@@ -1030,6 +1030,7 @@ class DocumentReviewRequest(SQLModel, table=True):
     decided_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     decided_by_name: Optional[str] = None
     decided_at: Optional[datetime] = None
+    return_acknowledged_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utc_now)
 
 
