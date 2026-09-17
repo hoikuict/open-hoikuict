@@ -43,7 +43,9 @@
         <tr class="group hover:bg-slate-50">
           {% for key in selected_fields %}
           <td class="whitespace-nowrap px-3 py-2">
-            {% if key == "status" %}
+            {% if key == "last_name" %}
+              <span class="inline-flex items-center gap-2">{% if child.photo_id %}<img src="/children/photos/{{ child.photo_id }}" alt="{{ child.full_name }}の写真" width="40" height="40" loading="lazy" class="h-10 w-10 rounded-lg object-cover">{% endif %}{{ child.last_name }}</span>
+            {% elif key == "status" %}
               {% if child.status.value == "enrolled" %}
               <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">在園</span>
               {% elif child.status.value == "graduated" %}

@@ -31,6 +31,8 @@ PROFILE_GROUPS = [
             ("last_name_kana", "姓（カナ）"),
             ("first_name_kana", "名（カナ）"),
             ("birth_date", "生年月日"),
+            ("sex", "性別（帳票用）"),
+            ("photo_id", "園児の写真"),
             ("enrollment_date", "入園日"),
             ("withdrawal_date", "退園日"),
             ("status", "在籍状況"),
@@ -55,6 +57,7 @@ PROFILE_GROUPS = [
             ("g1_last_name_kana", "姓（カナ）"),
             ("g1_first_name_kana", "名（カナ）"),
             ("g1_relationship", "続柄"),
+            ("g1_photo_id", "写真"),
             ("g1_parent_account_id", "紐づくアカウントID"),
             ("g1_email", "メールアドレス"),
             ("g1_phone", "電話番号"),
@@ -71,6 +74,7 @@ PROFILE_GROUPS = [
             ("g2_last_name_kana", "姓（カナ）"),
             ("g2_first_name_kana", "名（カナ）"),
             ("g2_relationship", "続柄"),
+            ("g2_photo_id", "写真"),
             ("g2_parent_account_id", "紐づくアカウントID"),
             ("g2_email", "メールアドレス"),
             ("g2_phone", "電話番号"),
@@ -275,6 +279,8 @@ def build_child_profile_snapshot(session: Session, child: Child) -> dict[str, st
         "last_name_kana": _text(child.last_name_kana),
         "first_name_kana": _text(child.first_name_kana),
         "birth_date": child.birth_date.isoformat() if child.birth_date else "",
+        "sex": child.sex.label,
+        "photo_id": child.photo_id or "",
         "enrollment_date": child.enrollment_date.isoformat() if child.enrollment_date else "",
         "withdrawal_date": child.withdrawal_date.isoformat() if child.withdrawal_date else "",
         "status": child.status.label,
@@ -287,6 +293,7 @@ def build_child_profile_snapshot(session: Session, child: Child) -> dict[str, st
     }
     for index in (1, 2):
         for key in (
+            "photo_id",
             "last_name",
             "first_name",
             "last_name_kana",

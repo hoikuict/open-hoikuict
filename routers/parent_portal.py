@@ -23,6 +23,9 @@ from child_profile_changes import (
     validate_child_profile_payload,
 )
 from daily_contact_reply_fields import reply_items_for_display
+from profile_photos import PhotoUploads, photo_uploads, save_photo, edit_guardian_photos, photo_response
+from models import ChildSex
+from child_profile_changes import normalize_child_profile_payload, with_current_photo_fields
 from database import get_session
 from models import (
     Child,
@@ -836,6 +839,8 @@ def save_parent_child_profile_request(
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
     first_name_kana: str = Form(...),
+    sex: Optional[ChildSex] = Form(None),
+    photos: PhotoUploads = Depends(photo_uploads),
     birth_date: Optional[str] = Form(None),
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
@@ -919,7 +924,19 @@ def save_parent_child_profile_request(
         order = int(guardian.get("order", index + 1))
         guardian["parent_account_id"] = existing_account_ids_by_order.get(order)
 
+    baseline = merge_child_profile_form_data(child, pending_request.request_data if pending_request else None)
+    payload["child_data"]["sex"] = sex.value if sex is not None else baseline["sex"]
+    payload["child_data"]["photo_id"] = baseline["photo_id"]
+    baseline_photos = {p["order"]: p.get("photo_id") for p in baseline["guardians_data"]}
+    for guardian in payload["guardians_data"]:
+        if guardian["order"] in baseline_photos:
+            guardian["photo_id"] = baseline_photos[guardian["order"]]
     validation_error = validate_child_profile_payload(payload)
+    try:
+        photo_edits = photos.validate()
+    except ValueError as exc:
+        validation_error = str(exc)
+        photo_edits = {}
     if validation_error:
         return templates.TemplateResponse(
             request,
@@ -929,7 +946,7 @@ def save_parent_child_profile_request(
                 "current_parent_user": current_parent_user,
                 "parent_portal_mode": True,
                 "child": child,
-                "form_data": payload,
+                "form_data": normalize_child_profile_payload(payload),
                 "pending_request": pending_request,
                 "relationship_options": RELATIONSHIP_OPTIONS,
                 "notice": "",
@@ -938,6 +955,13 @@ def save_parent_child_profile_request(
             status_code=400,
         )
 
+    if "child" in photo_edits:
+        payload["child_data"]["photo_id"] = save_photo(session, photo_edits["child"], child_id=child.id) or ""
+    if any(key in photo_edits for key in ("g1", "g2")):
+        if not child.family_id:
+            raise HTTPException(400, "保護者の写真を登録する前に、園で家族情報を登録してください。")
+        payload["guardians_data"] = edit_guardian_photos(session, payload["guardians_data"], photo_edits, family_id=child.family_id)
+    payload = with_current_photo_fields(child, payload)
     change_details = build_child_profile_change_details(child, payload)
     if not change_details:
         if pending_request:
@@ -956,7 +980,7 @@ def save_parent_child_profile_request(
                 "current_parent_user": current_parent_user,
                 "parent_portal_mode": True,
                 "child": child,
-                "form_data": payload,
+                "form_data": normalize_child_profile_payload(payload),
                 "pending_request": pending_request,
                 "relationship_options": RELATIONSHIP_OPTIONS,
                 "notice": "",
@@ -1700,3 +1724,28 @@ def parent_notice_attachment(
         filename=attachment.original_filename,
         content_disposition_type="attachment" if download else "inline",
     )
+
+
+@router.get("/photos/{photo_id}")
+def parent_profile_photo(request: Request, photo_id: str, session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if parent is None:
+        raise HTTPException(401, "ログインしてください")
+    children = _linked_children(parent)
+    child_ids = {child.id for child in children}
+    allowed_ids = {child.photo_id for child in children if child.photo_id}
+    for child in children:
+        if child.family:
+            allowed_ids.update(p.get("photo_id") for p in child.family.guardian_profiles())
+    drafts = session.exec(select(ChildProfileChangeRequest).where(
+        ChildProfileChangeRequest.parent_account_id == parent.id,
+        ChildProfileChangeRequest.child_id.in_(child_ids),
+        ChildProfileChangeRequest.status == ChildProfileChangeRequestStatus.pending,
+    )).all()
+    for draft in drafts:
+        data = draft.request_data or {}
+        allowed_ids.add(data.get("child_data", {}).get("photo_id"))
+        allowed_ids.update(p.get("photo_id") for p in data.get("guardians_data", []))
+    if photo_id not in allowed_ids:
+        raise HTTPException(404, "写真が見つかりません")
+    return photo_response(session, photo_id)

@@ -141,6 +141,7 @@ def flatten_guardians_data(guardians_data: list[dict[str, Any]]) -> dict[str, st
         for field_name in GUARDIAN_FIELD_NAMES:
             value = guardian.get(field_name, "")
             flattened[f"{prefix}_{field_name}"] = "" if value is None else str(value)
+        flattened[f"{prefix}_photo_id"] = guardian.get("photo_id") or ""
     return flattened
 
 
@@ -206,6 +207,7 @@ def guardian_profiles_from_child(child: Child) -> list[dict[str, Any]]:
         profiles.append(
             {
                 "order": guardian.order,
+                "photo_id": guardian.photo_id,
                 "last_name": guardian.last_name,
                 "first_name": guardian.first_name,
                 "last_name_kana": guardian.last_name_kana or "",
@@ -431,6 +433,7 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
             session.add(
                 Guardian(
                     child_id=child.id,
+                    photo_id=profile.get("photo_id"),
                     last_name=normalized_text(str(profile.get("last_name", ""))),
                     first_name=normalized_text(str(profile.get("first_name", ""))),
                     last_name_kana=normalized_optional_text(str(profile.get("last_name_kana", ""))),

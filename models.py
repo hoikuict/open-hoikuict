@@ -3,10 +3,30 @@ from enum import Enum
 import uuid
 from typing import Any, List, Optional
 
-from sqlalchemy import JSON, CheckConstraint, Index, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Index, LargeBinary, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from time_utils import local_naive_now, local_today, utc_now
+
+
+class ChildSex(str, Enum):
+    not_set = "not_set"
+    male = "male"
+    female = "female"
+
+    @property
+    def label(self) -> str:
+        return {self.not_set: "未設定", self.male: "男", self.female: "女"}[self]
+
+
+class ProfilePhoto(SQLModel, table=True):
+    __tablename__ = "profile_photos"
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    family_id: Optional[int] = Field(default=None, foreign_key="families.id", index=True)
+    content: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ChildStatus(str, Enum):
@@ -539,6 +559,8 @@ class Child(SQLModel, table=True):
     registration_verification_name: Optional[str] = Field(default=None, max_length=200)
     registration_verification_name_type: Optional[str] = Field(default=None, max_length=16)
     birth_date: date
+    sex: ChildSex = Field(default=ChildSex.not_set)
+    photo_id: Optional[str] = None
     enrollment_date: date
     withdrawal_date: Optional[date] = None
     status: ChildStatus = Field(default=ChildStatus.enrolled)
@@ -850,6 +872,7 @@ class Guardian(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="children.id")
+    photo_id: Optional[str] = None
     last_name: str
     first_name: str
     last_name_kana: Optional[str] = None
