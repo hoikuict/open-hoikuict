@@ -346,7 +346,8 @@ class StaffPortalTests(unittest.TestCase):
         self.assertNotIn("佐藤 花", response.text)
         self.assertNotIn("鈴木 空", response.text)
         self.assertIn("在園中", response.text)
-        self.assertIn("要確認 1", response.text)
+        self.assertIn("アラーム 0人", response.text)
+        self.assertIn("出欠確認を開く", response.text)
         self.assertIn('href="/staff/attention"', response.text)
         self.assertIn("no-store", response.headers.get("cache-control", ""))
 

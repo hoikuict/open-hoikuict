@@ -104,9 +104,11 @@
         登園する
       </button>
     </form>
-    {% elif not record.check_out_at %}
-    {% if not has_pickup_plan %}
+    {% endif %}
+    {% if not record or not record.check_out_at %}
     <form method="post" action="/guardian/child/{{ selected_child.id }}/pickup" class="mb-4" data-pickup-form>
+      <input type="hidden" name="revision" value="{{ pickup_revision }}">
+      <h3 class="my-3 font-semibold">お迎え予定の登録・変更</h3>
       <input type="hidden" name="date" value="{{ target_date_value }}">
       {% if selected_classroom %}
       <input type="hidden" name="class_id" value="{{ selected_classroom.id }}">
@@ -174,9 +176,8 @@
         確認へ
       </button>
     </form>
-    {% endif %}
 
-    {% if has_pickup_plan %}
+    {% if record and record.check_in_at and has_pickup_plan %}
     <form method="post" action="/guardian/child/{{ selected_child.id }}/check-out">
       <input type="hidden" name="date" value="{{ target_date_value }}">
       {% if selected_classroom %}

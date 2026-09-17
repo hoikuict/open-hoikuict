@@ -88,7 +88,7 @@ def source_snapshot(child: Child) -> dict:
 
 
 def enrollment_target(
-    session: Session, child_id: int | None, guardian_order: int | None
+    session: Session, child_id: int | None, guardian_order: int | None, *, allow_new_guardian: bool = False
 ) -> tuple[Child | None, int]:
     if child_id is None:
         return None, 1
@@ -100,6 +100,9 @@ def enrollment_target(
         if child.family
         else guardian_profiles_from_child(child)
     )
+    next_order = max((item["order"] for item in profiles), default=0) + 1
+    if allow_new_guardian and guardian_order == 0:
+        guardian_order = next_order
     if guardian_order is None:
         # Choosing a person in an existing family is a staff action, never a name match.
         if profiles:
@@ -110,7 +113,7 @@ def enrollment_target(
         raise ValueError(
             "この保護者にはアカウントがあります。既存の認証管理を利用してください"
         )
-    if not target and profiles:
+    if not target and profiles and not (allow_new_guardian and guardian_order == next_order):
         raise ValueError("保護者の紐付け先が変更されています")
     return child, guardian_order
 
@@ -141,12 +144,16 @@ def prepare_enrollment(
         raise ValueError(
             "園児の閲覧権限があるアカウントには既存の登録手続きを利用してください"
         )
-    child, order = enrollment_target(session, child_id, guardian_order)
+    adding_guardian = child_id is not None and guardian_order == 0
+    child, order = enrollment_target(session, child_id, guardian_order, allow_new_guardian=adding_guardian)
+    snapshot = source_snapshot(child) if child else None
+    if adding_guardian:
+        snapshot["adding_guardian"] = True
     return ParentEnrollment(
         child_name=child.full_name if child else child_name,
         child_id=child_id,
         guardian_order=order,
-        source_snapshot=source_snapshot(child) if child else None,
+        source_snapshot=snapshot,
     )
 
 
@@ -262,17 +269,19 @@ def apply_enrollment(
         raise ValueError("初回入力の提出内容を確認してください")
     if registration.email_normalized_snapshot != normalize_login_id(account.email):
         raise ValueError("メールアドレスが変更されています。再招待してください")
+    adding_guardian = bool((enrollment.source_snapshot or {}).get("adding_guardian"))
     prepare_enrollment(
         session,
         account,
         enrollment.child_name,
         enrollment.child_id,
-        enrollment.guardian_order,
+        0 if adding_guardian else enrollment.guardian_order,
     )
     child, order = enrollment_target(
-        session, enrollment.child_id, enrollment.guardian_order
+        session, enrollment.child_id, enrollment.guardian_order, allow_new_guardian=adding_guardian
     )
-    if child and source_snapshot(child) != enrollment.source_snapshot:
+    original_snapshot = {key: value for key, value in (enrollment.source_snapshot or {}).items() if key != "adding_guardian"}
+    if child and source_snapshot(child) != original_snapshot:
         raise ValueError("招待後に園児・家族情報が変更されています。再招待してください")
     values = validate_enrollment_data(
         enrollment.submitted_data, existing_child=child is not None
@@ -314,7 +323,7 @@ def apply_enrollment(
         session.flush()
     family = create_family_for_child(session, child)
     payload = child_profile_form_data_from_child(child)
-    for key in CHILD_FIELDS:
+    for key in (() if adding_guardian else CHILD_FIELDS):
         if not is_new and not values[key]:
             continue
         # The profile writer reads child fields from child_data; updating only
@@ -363,10 +372,11 @@ def apply_enrollment(
             "guardians_data": profiles,
         },
     )
-    child.registration_verification_name = (
-        f"{values['last_name_kana']} {values['first_name_kana']}"
-    )
-    child.registration_verification_name_type = "kana"
+    if not adding_guardian:
+        child.registration_verification_name = (
+            f"{values['last_name_kana']} {values['first_name_kana']}"
+        )
+        child.registration_verification_name_type = "kana"
     session.add(child)
     session.add(
         ParentChildLink(

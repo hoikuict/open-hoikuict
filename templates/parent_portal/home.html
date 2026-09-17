@@ -13,11 +13,7 @@
       <input type="date" name="date" value="{{ target_date_value }}" class="rounded border border-white/40 bg-white/10 px-3 py-2 text-sm text-white">
       <button type="submit" class="rounded bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">日付を変更</button>
     </form>
-    {% if children %}
-    <a href="/parent-portal/children/profile" class="rounded border border-white/50 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">園児プロフィール</a>
-    {% endif %}
-    <a href="/parent-portal/profile" class="rounded border border-white/50 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">登録情報</a>
-    <a href="/parent-portal/push-settings" class="rounded border border-white/50 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">通知設定</a>
+
   </div>
 </div>
 
@@ -67,7 +63,8 @@
         <div>
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="text-lg font-semibold text-gray-800">{{ child.full_name }}</h3>
-            {% if reply %}<a href="/parent-portal/children/{{ child.id }}/contact?date={{ target_date_value }}#daily-contact-reply" class="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-900">返信あり</a>{% endif %}
+            <a href="/parent-portal/children/{{ child.id }}/pickup?date={{ target_date_value }}" class="mt-4 inline-block rounded border border-indigo-300 px-4 py-3 text-sm text-indigo-700">お迎え予定を登録・変更</a>
+      {% if reply %}<a href="/parent-portal/children/{{ child.id }}/contact?date={{ target_date_value }}#daily-contact-reply" class="rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-900">返信あり</a>{% endif %}
             {% if pending_request %}
             <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">プロフィール変更申請中</span>
             {% endif %}

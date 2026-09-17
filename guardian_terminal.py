@@ -4,7 +4,7 @@ from fastapi.routing import APIRoute
 
 from security_config import secure_cookie_enabled
 from template_utils import create_templates
-from time_utils import local_today
+from time_utils import local_today, utc_now
 
 TERMINAL_COOKIE = "hoikuict_guardian_terminal"
 TERMINAL_START = "/guardian/terminal"
@@ -28,6 +28,7 @@ def render_guardian(request: Request, name: str, context: dict, *, status_code: 
         "terminal_mode": is_terminal(request),
         "terminal_registration_number": registration_number,
         "terminal_today": local_today().isoformat(),
+        "terminal_server_now": utc_now().isoformat(),
         "terminal_start": TERMINAL_START,
         "terminal_idle_seconds": TERMINAL_IDLE_SECONDS,
         "terminal_ready": name not in {"guardian/activate.html", "guardian/terminal_error.html"},

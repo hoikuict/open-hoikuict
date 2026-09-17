@@ -867,6 +867,19 @@ class HealthCheckRecord(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class HealthCheckCorrection(SQLModel, table=True):
+    __tablename__ = "health_check_corrections"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: int = Field(foreign_key="health_check_records.id", index=True)
+    before: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    after: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    reason: str = Field(max_length=500)
+    actor_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    actor_name: str
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class Guardian(SQLModel, table=True):
     __tablename__ = "guardians"
 
@@ -986,9 +999,13 @@ class AttendancePickupHistory(SQLModel, table=True):
     attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
     previous_time: Optional[str] = None
     previous_person: Optional[str] = None
+    previous_snack_required: Optional[bool] = None
     new_time: str
     new_person: str
+    new_snack_required: Optional[bool] = None
     changed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    changed_by_parent_account_id: Optional[int] = Field(default=None, foreign_key="parent_accounts.id")
+    source: str = Field(default="staff")
     changed_by_name: str
     changed_at: datetime = Field(default_factory=utc_now)
 
@@ -1224,6 +1241,25 @@ class ParentAccount(SQLModel, table=True):
     def family_display_name(self) -> str:
         return self.family.family_name if self.family else ""
 
+    @property
+    def email_removed(self) -> bool:
+        return self.email.startswith("removed:")
+
+    @property
+    def contact_email(self) -> str:
+        return "" if self.email_removed else self.email
+
+
+class ParentAddressRemoval(SQLModel, table=True):
+    __tablename__ = "parent_address_removals"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    actor_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    actor_name: str
+    reason: str = Field(max_length=500)
+    created_at: datetime = Field(default_factory=utc_now)
+
 
 class ParentChildLink(SQLModel, table=True):
     __tablename__ = "parent_child_links"
@@ -1404,6 +1440,11 @@ class DailyContactEntry(SQLModel, table=True):
     child: Optional[Child] = Relationship(back_populates="daily_contact_entries")
     parent_account: Optional[ParentAccount] = Relationship(back_populates="daily_contact_entries")
 
+
+    @property
+    def home_care_details(self) -> list[tuple[str, str]]:
+        from home_care_details import care_display_items
+        return care_display_items(self.extra_data)
 
     @property
     def is_present_contact(self) -> bool:
@@ -1904,6 +1945,15 @@ class Survey(SQLModel, table=True):
     targets: List["SurveyTarget"] = Relationship(back_populates="survey")
     questions: List["SurveyQuestion"] = Relationship(back_populates="survey")
     answers: List["SurveyAnswer"] = Relationship(back_populates="survey")
+
+
+class SurveyResultViewer(SQLModel, table=True):
+    __tablename__ = "survey_result_viewers"
+
+    survey_id: int = Field(foreign_key="surveys.id", primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
+    granted_by: str
+    granted_at: datetime = Field(default_factory=utc_now)
 
 
 class SurveyTarget(SQLModel, table=True):

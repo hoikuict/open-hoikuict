@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 from auth import (
@@ -12,6 +13,7 @@ from auth import (
     require_child_record_manager,
 )
 from database import get_session
+from parent_address_removal import remove_parent_address
 from family_support import (
     bind_parent_account_guardian,
     guardian_account_values,
@@ -411,3 +413,38 @@ def mark_profile_notification_read(
     session.add(notification)
     session.commit()
     return RedirectResponse(url="/parent-accounts/", status_code=303)
+
+
+@router.get("/{account_id}/remove-email", response_class=HTMLResponse)
+def remove_email_form(request: Request, account_id: int, session: Session = Depends(get_session),
+                       current_user=Depends(get_current_staff_user)):
+    if not current_user.is_admin:
+        raise HTTPException(403, "メールアドレスの削除は管理者のみ可能です")
+    account = _load_account(session, account_id)
+    return templates.TemplateResponse(request, "parent_accounts/remove_email.html", {
+        "account": account, "current_user": current_user,
+    }, headers={"Cache-Control": "private, no-store"})
+
+
+@router.post("/{account_id}/remove-email")
+def remove_email(account_id: int, reason: str = Form(""), confirmed: str = Form(""), revision: str = Form(""),
+                 session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    if not current_user.is_admin:
+        raise HTTPException(403, "メールアドレスの削除は管理者のみ可能です")
+    account = _load_account(session, account_id)
+    if confirmed != "yes":
+        raise HTTPException(400, "削除対象の確認が必要です")
+    if revision != account.updated_at.isoformat():
+        raise HTTPException(409, "アカウントが更新されています。画面を開き直してください")
+    claimed = session.execute(update(ParentAccount).where(
+        ParentAccount.id == account.id, ParentAccount.updated_at == account.updated_at
+    ).values(updated_at=utc_now()).execution_options(synchronize_session=False))
+    if claimed.rowcount != 1:
+        session.rollback()
+        raise HTTPException(409, "アカウントが更新されています。画面を開き直してください")
+    try:
+        remove_parent_address(session, account, actor=current_user, reason=reason)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    session.commit()
+    return RedirectResponse("/parent-accounts/", status_code=303)

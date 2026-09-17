@@ -24,6 +24,15 @@
   </div>
   {% endif %}
 
+  {% if current_user.is_admin and survey %}
+  <form method="post" action="/surveys/{{ survey.id }}/result-viewers" class="mb-6 rounded-xl border bg-white p-5">
+    <h2 class="font-semibold">結果を閲覧できる職員</h2>
+    <p class="mt-1 text-sm text-slate-600">管理者は常に全回答を閲覧できます。指定した職員にも全回答とCSVの閲覧を許可します。回答対象の設定とは別です。</p>
+    <div class="my-3 flex flex-wrap gap-4">{% for staff in staff_users %}
+      <label class="flex items-center gap-2"><input type="checkbox" name="user_ids" value="{{ staff.id }}" {% if staff.id|string in result_viewer_ids %}checked{% endif %}>{{ staff.display_name }}</label>
+    {% endfor %}</div><button class="rounded bg-slate-800 px-4 py-2 text-white">閲覧者を保存</button>
+  </form>
+  {% elif not survey %}<p class="mb-4 text-sm text-slate-600">結果は初期状態では管理者だけが閲覧できます。作成後、管理者が編集画面で閲覧する職員を指定できます。</p>{% endif %}
   <form method="post" action="{{ action_url }}" class="space-y-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
       <div class="md:col-span-2">

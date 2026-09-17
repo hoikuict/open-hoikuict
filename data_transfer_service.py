@@ -370,7 +370,7 @@ def _export_parent_accounts(session: Session, *, status: str = "") -> list[list[
         [
             _text(account.id),
             account.display_name,
-            account.email,
+            account.contact_email,
             _text(account.phone),
             _text(account.home_address),
             _text(account.workplace),

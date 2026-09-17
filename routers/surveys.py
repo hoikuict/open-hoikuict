@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
@@ -24,8 +25,10 @@ from models import (
     SurveyQuestion,
     SurveyStatus,
     SurveyTargetType,
+    SurveyResultViewer,
     User,
 )
+from survey_result_access import can_view_survey_results, require_survey_results, viewer_ids
 from staff_user_service import list_active_staff_users
 from survey_service import (
     answer_value_for_display,
@@ -241,6 +244,7 @@ def _form_context(
             "classrooms": classrooms,
             "children": children,
             "staff_users": users,
+            "result_viewer_ids": viewer_ids(session, survey.id) if survey else set(),
             "question_rows": question_rows[:QUESTION_ROW_COUNT],
             "selected_target_type": selected_target_type,
             "selected_target_value": selected_target_value,
@@ -301,6 +305,7 @@ def survey_list(
         {
             "request": request,
             "surveys": surveys,
+            "result_access": {survey.id: can_view_survey_results(session, survey.id, current_user) for survey in surveys},
             "target_labels": labels,
             "status_labels": status_labels,
             "unanswered_counts": unanswered_counts,
@@ -500,6 +505,7 @@ def survey_detail(
     current_user=Depends(get_current_staff_user),
 ):
     survey = _load_survey(session, survey_id)
+    require_survey_results(session, survey_id, current_user)
     labels = _target_labels(session, [survey])
     questions = sorted(survey.questions, key=lambda item: (item.order, item.id or 0))
     answers = sorted(survey.answers, key=lambda item: item.submitted_at, reverse=True)
@@ -568,7 +574,7 @@ def update_survey(
     survey.updated_at = utc_now()
     session.add(survey)
     session.commit()
-    return RedirectResponse(url=f"/surveys/{survey_id}", status_code=303)
+    return RedirectResponse(url="/surveys/", status_code=303)
 
 
 @router.get("/{survey_id}/answers.csv")
@@ -578,6 +584,7 @@ def survey_answers_csv(
     current_user=Depends(get_current_staff_user),
 ):
     survey = _load_survey(session, survey_id)
+    require_survey_results(session, survey_id, current_user)
     questions = sorted(survey.questions, key=lambda item: (item.order, item.id or 0))
     families = {item.id: item for item in session.exec(select(Family)).all()}
     children = {item.id: item for item in session.exec(select(Child)).all()}
@@ -635,3 +642,25 @@ def survey_answers_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="survey-{survey_id}-answers.csv"'},
     )
+
+
+@router.post("/{survey_id}/result-viewers")
+def update_result_viewers(survey_id: int, user_ids: list[str] = Form([]),
+                          session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    if not current_user.is_admin:
+        raise HTTPException(403, "結果閲覧者の設定は管理者だけが変更できます")
+    _load_survey(session, survey_id)
+    try:
+        selected = {UUID(value) for value in user_ids}
+    except ValueError as exc:
+        raise HTTPException(400, "職員の指定が不正です") from exc
+    active_ids = {user.id for user in list_active_staff_users(session)}
+    if not selected <= active_ids:
+        raise HTTPException(400, "利用可能な職員を選択してください")
+    for row in session.exec(select(SurveyResultViewer).where(SurveyResultViewer.survey_id == survey_id)).all():
+        session.delete(row)
+    session.flush()
+    for user_id in selected:
+        session.add(SurveyResultViewer(survey_id=survey_id, user_id=user_id, granted_by=current_user.name))
+    session.commit()
+    return RedirectResponse(f"/surveys/{survey_id}/edit", status_code=303)

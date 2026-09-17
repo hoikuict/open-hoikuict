@@ -29,6 +29,19 @@
   const warning = document.getElementById('terminal-warning');
   const idleWarning = document.getElementById('terminal-idle-warning');
   const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const clock = document.getElementById('terminal-clock');
+  const clockFormatter = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
+  let serverEpoch = Date.parse(root.dataset.serverNow);
+  let syncTick = performance.now();
+  function updateClock() {
+    if (clock && Number.isFinite(serverEpoch)) {
+      clock.textContent = clockFormatter.format(new Date(serverEpoch + performance.now() - syncTick));
+    }
+  }
+  updateClock();
+  setInterval(updateClock, 250);
 
   document.querySelectorAll('form[method="post" i]').forEach(form => {
     if (!form.querySelector('[name="csrf_token"]')) {
@@ -120,6 +133,8 @@
       if (submitting || disposed) return;
       if (!navigator.onLine) throw new Error('Connection was lost during the check');
       if (status.kiosk !== true) throw new Error('Unexpected response');
+      const epoch = Date.parse(status.server_time);
+      if (Number.isFinite(epoch)) { serverEpoch = epoch; syncTick = performance.now(); updateClock(); }
       const label = document.getElementById('terminal-label');
       if (label) label.textContent = status.label || '';
       if (status.today !== root.dataset.today || !previouslyAvailable || !available || resetPending) {

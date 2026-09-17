@@ -10,24 +10,26 @@
   <link rel="icon" href="/guardian/assets/icon-192.png" type="image/png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { margin: 0; background: #f8fafc; color: #1e293b; font-family: sans-serif; }
-    main { max-width: 80rem; margin: auto; padding: 1.5rem; }
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #f8fafc; color: #1e293b; font-family: sans-serif; }
+    main { width: 100%; box-sizing: border-box; flex: 1; max-width: 80rem; margin: auto; padding: 1.5rem; }
     button, input, select, a { touch-action: manipulation; }
     button, main a, input:not([type=hidden]):not([type=checkbox]) { min-height: 56px; }
     main button[type=submit] { min-height: 64px; min-width: 128px; font-size: 1.125rem; padding: 1rem 1.5rem; }
     button:disabled { opacity: .45; cursor: not-allowed; }
     [hidden] { display: none !important; }
     #terminal-warning { position: sticky; top: 0; z-index: 10; }
+    #terminal-clock { font-size: clamp(2.5rem, 6vw, 3rem); font-weight: bold; font-variant-numeric: tabular-nums; }
   </style>
   {% block head %}{% endblock %}
 </head>
-<body id="guardian-terminal" data-today="{{ terminal_today }}" data-idle-seconds="{{ terminal_idle_seconds }}"
+<body id="guardian-terminal" data-today="{{ terminal_today }}" data-server-now="{{ terminal_server_now }}" data-idle-seconds="{{ terminal_idle_seconds }}"
       data-active="{{ '1' if selected_child or selected_classroom else '0' }}" data-ready="{{ '1' if terminal_ready else '0' }}">
   <header class="bg-indigo-700 px-6 py-4 text-white">
     <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
       <div><p class="text-xl font-bold">登園・降園</p><p class="mt-1 text-sm">{{ terminal_today }}</p>
-        {% if terminal_registration_number %}<p class="mt-1 break-all text-sm">登録番号 <span id="terminal-registration-number">{{ terminal_registration_number }}</span></p><p id="terminal-label" class="text-sm"></p>{% endif %}
+        <p id="terminal-label" class="text-sm"></p>
       </div>
+      <time id="terminal-clock" aria-label="現在時刻（日本時間）" class="text-5xl font-bold tabular-nums">--:--:--</time>
       <div class="flex flex-wrap items-center gap-3">
         <span id="terminal-connection" class="text-sm" role="status">{{ '接続済み' if terminal_ready else '端末の準備' }}</span>
         <button id="terminal-fullscreen" type="button" class="rounded-lg border border-indigo-300 px-4 py-2">全画面</button>
@@ -45,6 +47,7 @@
   </div>
   <main>{% block content %}{% endblock %}</main>
   {% if terminal_ready %}<footer class="px-6 pb-6 text-center text-sm text-slate-500">操作がない状態が{{ terminal_idle_seconds }}秒続くと、最初の画面に戻ります。</footer>{% endif %}
+  {% if terminal_registration_number %}<p class="px-6 pb-4 text-center text-xs text-slate-500">登録番号 <span id="terminal-registration-number">{{ terminal_registration_number }}</span></p>{% endif %}
   {% block body_end %}<script src="/guardian/assets/terminal.js" defer></script>{% endblock %}
 </body>
 </html>

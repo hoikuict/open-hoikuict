@@ -21,6 +21,7 @@ from models import (
     SurveyQuestion,
     SurveyResponse,
     SurveyStatus,
+    SurveyResultViewer,
     SurveyTarget,
     SurveyTargetType,
     User,
@@ -303,6 +304,9 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertIn("未回答", unanswered_list_response.text)
 
     def test_staff_survey_answer_detail_displays_staff_name(self):
+        with Session(self.engine) as session:
+            session.add(SurveyResultViewer(survey_id=self.staff_survey_id, user_id=self.staff_user_id, granted_by="管理者"))
+            session.commit()
         self._login_staff(self.staff_user_id)
         response = self.client.post(
             f"/staff-surveys/{self.staff_survey_id}",
@@ -532,6 +536,8 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertEqual(survey_effective_status_label(survey, after_local_end), "公開終了")
 
     def test_expired_published_survey_is_displayed_and_filtered_as_closed(self):
+        from auth import Role
+        authenticate_mock_staff(self.client, role=Role.ADMIN)
         with Session(self.engine) as session:
             survey = session.get(Survey, self.parent_survey_id)
             survey.opens_at = datetime(2020, 1, 1, 9, 0)

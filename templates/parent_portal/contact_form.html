@@ -113,16 +113,28 @@
           {{ temperature_picker('temperature') }}
         </div>
         <div>
+          <input type="hidden" name="care_fields_version" value="1">
+          <div class="mb-3 flex flex-wrap gap-3">
+            <label class="text-sm">就寝<input type="time" name="bedtime" value="{{ form_data.bedtime }}" class="mt-1 block rounded border px-3 py-3"></label>
+            <label class="text-sm">起床<input type="time" name="wakeup_time" value="{{ form_data.wakeup_time }}" class="mt-1 block rounded border px-3 py-3"></label>
+          </div>
           <label class="mb-1 block text-sm font-medium text-gray-600">睡眠メモ</label>
-          <input type="text" name="sleep_notes" value="{{ form_data.sleep_notes }}" placeholder="21:00-6:30" class="w-full rounded border border-gray-300 px-3 py-2">
+          <input type="text" name="sleep_notes" value="{{ form_data.sleep_notes }}" placeholder="夜中の目覚めなど" class="w-full rounded border border-gray-300 px-3 py-2">
         </div>
         <div>
           <label for="breakfast_status" class="mb-1 block text-sm font-medium text-gray-600">朝食・食欲</label>
           <input id="breakfast_status" type="text" name="breakfast_status" value="{{ form_data.breakfast_status }}" placeholder="完食 / 少なめ" class="w-full rounded border border-gray-300 px-3 py-2">
+          <label class="mt-3 block text-sm">食べた内容<textarea name="breakfast_contents" maxlength="1000" rows="2" placeholder="ごはん、みそ汁、卵など" class="mt-1 w-full rounded border px-3 py-2">{{ form_data.breakfast_contents }}</textarea></label>
           {{ choices('breakfast_status', [('🍚', '完食'), ('🥣', '少なめ'), ('🙅', '食べていない')]) }}
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-600">排便</label>
+          <p class="mb-2 text-sm font-medium">排便（前日夕方から連絡時まで）</p>
+          <div class="mb-3 flex flex-wrap gap-3"><label class="text-sm">性状
+            <select name="stool_consistency" class="mt-1 block rounded border px-3 py-3">
+              {% for value, label in [('', '未入力'), ('none', 'なし'), ('normal', '普通'), ('hard', '硬い'), ('soft', '軟らかい'), ('watery', '水様'), ('mixed', '複数の性状'), ('unknown', '不明')] %}
+              <option value="{{ value }}" {% if form_data.stool_consistency == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></label><label class="text-sm">回数（不明なら空欄）<input type="number" name="stool_count" min="0" max="99" step="1" value="{{ form_data.stool_count }}" class="mt-1 block w-36 rounded border px-3 py-3"></label></div>
+          <label class="mb-1 block text-sm font-medium text-gray-600">排便メモ</label>
           <input type="text" name="bowel_movement_status" value="{{ form_data.bowel_movement_status }}" placeholder="あり / なし" class="w-full rounded border border-gray-300 px-3 py-2">
         </div>
         <div>

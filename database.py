@@ -65,6 +65,7 @@ def create_db_and_tables() -> None:
     _migrate_add_child_columns()
     _migrate_add_child_health_profile_columns()
     _migrate_add_attendance_columns()
+    _migrate_pickup_history_columns()
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
     _migrate_add_guardian_columns()
@@ -229,6 +230,22 @@ def _migrate_add_attendance_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("attendance column", exc)
+
+
+def _migrate_pickup_history_columns() -> None:
+    columns = _table_columns("attendance_pickup_history")
+    if not columns:
+        return
+    definitions = {
+        "previous_snack_required": "BOOLEAN",
+        "new_snack_required": "BOOLEAN",
+        "changed_by_parent_account_id": "INTEGER REFERENCES parent_accounts(id)",
+        "source": "VARCHAR NOT NULL DEFAULT 'staff'",
+    }
+    with engine.begin() as conn:
+        for name, definition in definitions.items():
+            if name not in columns:
+                conn.execute(text(f"ALTER TABLE attendance_pickup_history ADD COLUMN {name} {definition}"))
 
 
 def _migrate_add_daily_contact_columns() -> None:

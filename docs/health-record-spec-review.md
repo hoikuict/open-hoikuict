@@ -9,12 +9,13 @@
 
 ## 現在の実装状況
 
-現在は専用ルーター`routers/child_health.py`と`templates/child_health/`に分離され、次を実装している。
+現在は専用ルーター`routers/child_health.py`と`templates/health/`に分離され、次を実装している。
 
 - 健康管理一覧`/health`と園児別健康サマリー`/children/{child_id}/health`
 - 健康プロフィールと園で優先して管理する事項
 - アレルギーの登録・編集・無効化・再有効化
 - 健診記録と、同日・異なる健診種別を保持できる身長・体重の時系列表示
+- 健診・身体測定の訂正、訂正理由・前後の値・実施者の履歴、同時更新の拒否（[2026-09-17追加](spec-improvements-2026-09-17.md)）
 - `children.extra_data`の既存アレルギー・医療メモからの起動時移行と互換同期
 - 閲覧のみ職員による更新の拒否
 

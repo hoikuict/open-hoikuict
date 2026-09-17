@@ -28,6 +28,7 @@ nav:
   - 導入ロードマップ: roadmap.md
   - 仕様・設計:
       - 仕様書一覧: specifications.md
+      - 9月17日の仕様変更: spec-improvements-2026-09-17.md
       - 9月15日の仕様変更: spec-improvements-2026-09-15.md
       - 園児・保護者の写真と園児の性別: profile-photos.md
       - 画面遷移: screen-transition-list.md
