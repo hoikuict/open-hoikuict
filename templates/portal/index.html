@@ -149,7 +149,8 @@
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Attendance</p>
-          <h2 class="mt-1 text-xl font-bold text-slate-900">{{ '全クラスの出席' if show_all else '担当クラスの出席' }}</h2>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">{{ '全クラスの出欠確認' if show_all else '担当クラスの出欠確認' }}</h2>
+          <p class="mt-2 text-xs text-slate-500">登園人数には職員の出席確認も含みます。打刻時刻は別に記録します。</p>
         </div>
         {% if can_show_all %}
         <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
@@ -168,9 +169,9 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
               <h3 class="font-bold text-slate-900">{{ summary.classroom_name }}</h3>
-              {% if summary.attention_count %}<span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">要確認 {{ summary.attention_count }}</span>{% endif %}
+              <span class="rounded-full {{ 'bg-rose-100 text-rose-800' if summary.alarm_count else 'bg-slate-100 text-slate-600' }} px-2 py-1 text-xs font-bold">アラーム {{ summary.alarm_count }}人</span>
             </div>
-            <a href="{{ summary.attendance_url }}" class="text-sm font-semibold text-indigo-600 hover:underline">出席一覧を開く</a>
+            <a href="{{ summary.attendance_url }}" class="text-sm font-semibold text-indigo-600 hover:underline">出欠確認を開く</a>
           </div>
           <dl class="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
             {% for label, value, tone in [('在籍', summary.enrolled_count, 'slate'), ('登園', summary.checked_in_count, 'sky'), ('在園中', summary.present_count, 'emerald'), ('降園', summary.checked_out_count, 'indigo'), ('欠席', summary.absent_count, 'rose'), ('未登園', summary.not_checked_in_count, 'amber')] %}
@@ -180,6 +181,7 @@
             </div>
             {% endfor %}
           </dl>
+          {% if summary.missing_punch_count %}<p class="mt-3 text-xs text-amber-800">出席確認済み・登園打刻なし {{ summary.missing_punch_count }}人</p>{% endif %}
         </article>
         {% endfor %}
         {% if classroom_remaining_count %}<p class="text-sm text-slate-500">ほか{{ classroom_remaining_count }}クラス</p>{% endif %}

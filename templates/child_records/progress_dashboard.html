@@ -14,6 +14,19 @@
 
   <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
     <form method="get" action="/child-records/progress" class="flex flex-wrap items-end gap-3">
+      <label class="text-sm font-semibold">クラス
+        <select name="classroom_id" class="mt-1 block rounded border px-3 py-2">
+          <option value="">すべてのクラス</option>
+          {% for classroom in classrooms %}<option value="{{ classroom.id }}" {% if selected_classroom_id == classroom.id|string %}selected{% endif %}>{{ classroom.name }}</option>{% endfor %}
+          <option value="unassigned" {% if selected_classroom_id == 'unassigned' %}selected{% endif %}>クラス未設定</option>
+        </select>
+      </label>
+      <label class="text-sm font-semibold">表示順
+        <select name="group_by" class="mt-1 block rounded border px-3 py-2">
+          <option value="classroom" {% if selected_group_by == 'classroom' %}selected{% endif %}>クラス別</option>
+          <option value="age" {% if selected_group_by == 'age' %}selected{% endif %}>年齢別（年度4月1日時点）</option>
+        </select>
+      </label>
       <label class="min-w-44 text-sm font-semibold text-slate-700">
         年齢
         <select name="age_group" class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900">
@@ -29,7 +42,7 @@
         </select>
       </label>
       <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">絞り込む</button>
-      {% if selected_age_group or selected_status %}<a href="/child-records/progress" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">条件を解除</a>{% endif %}
+      {% if selected_age_group or selected_status or selected_classroom_id %}<a href="/child-records/progress" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">条件を解除</a>{% endif %}
     </form>
     <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
       <span class="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">在園児 {{ total_count }}名</span>
@@ -44,6 +57,7 @@
         <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">園児</th><th class="px-4 py-3">年齢</th><th class="px-4 py-3">クラス</th><th class="px-4 py-3">対象期間</th><th class="px-4 py-3">状態</th><th class="px-4 py-3 text-right">操作</th></tr></thead>
         <tbody class="divide-y divide-slate-100">
           {% for row in rows %}
+          {% if loop.changed(row.group_key) %}<tr class="bg-indigo-50"><th colspan="6" class="px-4 py-3 text-left font-semibold">{{ row.group_label }}</th></tr>{% endif %}
           {% set can_create = row.can_create if row.can_create is defined else current_user.can_edit %}
           <tr>
             <td class="px-4 py-4 font-semibold text-slate-900">{{ row.child.full_name }}</td>

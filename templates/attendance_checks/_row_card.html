@@ -32,14 +32,15 @@
     </div>
 
     <div class="rounded-lg bg-slate-50 px-3 py-2 2xl:bg-transparent 2xl:px-0 2xl:py-0">
-      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 2xl:hidden">欠席連絡</div>
-      {% if row.entry and row.entry.is_absent_contact %}
+      <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 2xl:hidden">保護者連絡</div>
+      {% if row.entry %}
       <span class="inline-flex rounded-full {% if row.entry.contact_type.value == 'absent_sick' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %} px-2.5 py-1 text-xs font-medium">
-        {{ parent_absence_label }}
+        {{ parent_absence_label if row.entry.is_absent_contact else row.entry.contact_type.label }} / アプリ
       </span>
-      {% elif row.contact_confirmation %}
+      {% endif %}
+      {% if row.contact_confirmation %}
       <span class="inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">{{ '電話' if row.contact_confirmation.method == 'phone' else '口頭' }}連絡受付 / {{ row.contact_confirmation.status.label }}</span>
-      {% else %}
+      {% elif not row.entry %}
       <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">なし</span>
       {% endif %}
     </div>

@@ -29,6 +29,9 @@ from daily_contact_reply_fields import reply_items_for_display
 from profile_photos import PhotoUploads, photo_uploads, save_photo, edit_guardian_photos, photo_response
 from models import ChildSex
 from child_profile_changes import normalize_child_profile_payload, with_current_photo_fields
+from pickup_plan_service import load_pickup_record, pickup_revision, save_pickup_plan
+from models import ChildStatus
+from home_care_details import CARE_KEYS, validate_home_care
 from database import get_session
 from models import (
     Child,
@@ -183,6 +186,7 @@ def _contact_form_data(entry: Optional[DailyContactEntry], form_data: Optional[d
         "absence_reason": contact_type_value if attendance_mode == "absent" else "",
         "contact_type": contact_type_value,
         "temperature": entry.temperature or "" if entry else "",
+        **{key: (entry.extra_data or {}).get(key, "") if entry else "" for key in CARE_KEYS},
         "sleep_notes": entry.sleep_notes or "" if entry else "",
         "breakfast_status": entry.breakfast_status or "" if entry else "",
         "bowel_movement_status": entry.bowel_movement_status or "" if entry else "",
@@ -1124,6 +1128,12 @@ def save_parent_contact(
     contact_type: str = Form(""),
     temperature: str = Form(""),
     sleep_notes: str = Form(""),
+    care_fields_version: str = Form(""),
+    bedtime: str = Form(""),
+    wakeup_time: str = Form(""),
+    breakfast_contents: str = Form(""),
+    stool_consistency: str = Form(""),
+    stool_count: str = Form(""),
     breakfast_status: str = Form(""),
     bowel_movement_status: str = Form(""),
     mood: str = Form(""),
@@ -1168,6 +1178,8 @@ def save_parent_contact(
         "absence_reason": submitted_reason,
         "contact_type": submitted_contact_type,
         "temperature": temperature,
+        "bedtime": bedtime, "wakeup_time": wakeup_time, "breakfast_contents": breakfast_contents,
+        "stool_consistency": stool_consistency, "stool_count": stool_count,
         "sleep_notes": sleep_notes,
         "breakfast_status": breakfast_status,
         "bowel_movement_status": bowel_movement_status,
@@ -1221,6 +1233,14 @@ def save_parent_contact(
             DailyContactEntry.target_date == day,
         )
     ).first()
+    care_values = None
+    if care_fields_version == "1" and selected_contact_type == ParentContactType.present:
+        try:
+            care_values = validate_home_care(form_data)
+        except ValueError as exc:
+            return _render_contact_form(request, current_parent_user=current_parent_user, child=child,
+                entry=entry, target_date_value=day.isoformat(), published_reply=published_reply,
+                form_error=str(exc), form_data=form_data)
     if selected_contact_type in {ParentContactType.present, ParentContactType.absent_sick}:
         temperature_error = _present_temperature_error(
             temperature if selected_contact_type == ParentContactType.present else absence_temperature,
@@ -1251,6 +1271,8 @@ def save_parent_contact(
         if not entry.submitted_at:
             entry.submitted_at = now
 
+    if care_values is not None:
+        entry.extra_data = {**(entry.extra_data or {}), **care_values}
     entry.contact_type = selected_contact_type
     normalized_absence_temperature = (absence_temperature or "").strip()
     normalized_absence_symptoms = (absence_symptoms or "").strip()
@@ -1356,16 +1378,24 @@ def parent_contact_history(
         _contact_reply_key(reply.child_id, reply.target_date): reply
         for reply in replies
     }
+    entry_by_key = {_contact_reply_key(entry.child_id, entry.target_date): entry for entry in entries}
+    children_by_id = {child.id: child for child in _linked_children(current_parent_user)}
     history_items = []
-    for entry in entries:
-        reply = reply_by_key.get(_contact_reply_key(entry.child_id, entry.target_date))
+    for key in entry_by_key.keys() | reply_by_key.keys():
+        entry = entry_by_key.get(key)
+        reply = reply_by_key.get(key)
+        contact = entry or reply
         history_items.append(
             {
                 "entry": entry,
                 "reply": reply,
+                "child": children_by_id.get(contact.child_id),
+                "child_id": contact.child_id,
+                "target_date": contact.target_date,
                 "reply_items": reply_items_for_display(reply),
             }
         )
+    history_items.sort(key=lambda item: (item["target_date"], item["child_id"]), reverse=True)
 
     return templates.TemplateResponse(
         request,
@@ -1822,3 +1852,47 @@ def parent_profile_photo(request: Request, photo_id: str, session: Session = Dep
     if photo_id not in allowed_ids:
         raise HTTPException(404, "写真が見つかりません")
     return photo_response(session, photo_id)
+
+
+def _parent_pickup_context(request, parent, child, day, session, *, error="", status_code=200):
+    record = load_pickup_record(session, child.id, day)
+    return templates.TemplateResponse(request, "parent_portal/pickup.html", {
+        "current_parent_user": parent, "parent_portal_mode": True, "child": child,
+        "day": day, "record": record, "revision": pickup_revision(record), "error": error,
+    }, status_code=status_code)
+
+
+@router.get("/children/{child_id}/pickup", response_class=HTMLResponse)
+def parent_pickup_form(request: Request, child_id: int, date: str = "", session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if not parent:
+        return RedirectResponse("/parent-portal/login", status_code=303)
+    child = _load_accessible_child(parent, child_id)
+    if child.status != ChildStatus.enrolled:
+        raise HTTPException(400, "在園児のお迎え予定のみ登録できます")
+    return _parent_pickup_context(request, parent, child, _parse_target_date(date), session)
+
+
+@router.post("/children/{child_id}/pickup", response_class=HTMLResponse)
+def parent_pickup_save(request: Request, child_id: int, date: str = Form(...), revision: str = Form(...),
+                       planned_pickup_time: str = Form(""), pickup_person: str = Form(""),
+                       snack_required: str = Form(""), session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if not parent:
+        return RedirectResponse("/parent-portal/login", status_code=303)
+    child = _load_accessible_child(parent, child_id)
+    if child.status != ChildStatus.enrolled:
+        raise HTTPException(400, "在園児のお迎え予定のみ登録できます")
+    day = _parse_target_date(date)
+    if day < local_today():
+        raise HTTPException(400, "過去のお迎え予定は変更できません")
+    try:
+        save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
+            planned_pickup_time=planned_pickup_time, pickup_person=pickup_person,
+            snack_required=snack_required == "1", actor_name=parent.display_name,
+            parent_account_id=parent.id, source="parent_portal")
+        session.commit()
+    except HTTPException as exc:
+        session.rollback()
+        return _parent_pickup_context(request, parent, child, day, session, error=str(exc.detail), status_code=exc.status_code)
+    return RedirectResponse(f"/parent-portal/?date={day.isoformat()}&notice=pickup_saved", status_code=303)

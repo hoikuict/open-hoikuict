@@ -1,4 +1,5 @@
 import unittest
+from pickup_plan_service import pickup_revision
 from datetime import date, datetime
 
 from fastapi import FastAPI
@@ -90,7 +91,7 @@ class GuardianKioskTests(unittest.TestCase):
         self.assertIn('data-pickup-person="ファミリーサポート"', html)
         self.assertIn('name="snack_required"', html)
 
-    def test_pickup_form_is_hidden_after_pickup_plan_is_saved(self):
+    def test_pickup_form_remains_editable_after_pickup_plan_is_saved(self):
         with Session(self.engine) as session:
             session.add(
                 AttendanceRecord(
@@ -110,8 +111,8 @@ class GuardianKioskTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         html = response.text
-        self.assertNotIn(f'action="/guardian/child/{self.child_id}/pickup"', html)
-        self.assertNotIn('data-pickup-hour="07"', html)
+        self.assertIn(f'action="/guardian/child/{self.child_id}/pickup"', html)
+        self.assertIn('data-pickup-hour="07"', html)
         self.assertIn("降園する", html)
         self.assertIn("18:15", html)
         self.assertIn("母", html)
@@ -145,9 +146,13 @@ class GuardianKioskTests(unittest.TestCase):
             )
             session.commit()
 
+        with Session(self.engine) as session:
+            revision = pickup_revision(session.exec(select(AttendanceRecord)).one())
+
         response = self.client.post(
             f"/guardian/child/{self.child_id}/pickup/commit",
             data={
+                "revision": revision,
                 "date": "2026-07-05",
                 "class_id": str(self.classroom_id),
                 "planned_pickup_time": "18:15",

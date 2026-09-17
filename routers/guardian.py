@@ -14,6 +14,7 @@ from security_config import kiosk_access_mode
 from extended_care_fee_service import recalculate_attendance_charge
 from models import AttendanceRecord, Child, ChildStatus, Classroom
 from time_utils import local_naive_now, local_today, utc_now
+from pickup_plan_service import pickup_revision, save_pickup_plan
 from guardian_terminal import GuardianRoute, TERMINAL_START, is_terminal, remember_terminal, render_guardian
 from kiosk_security import (
     KIOSK_DEVICE_COOKIE,
@@ -202,6 +203,7 @@ def guardian_kiosk(
             "children": children,
             "selected_child": selected_child,
             "selected_record": selected_record,
+            "pickup_revision": pickup_revision(selected_record),
             "notice_message": notice_map.get(notice, ""),
             "pickup_hour_options": PICKUP_HOUR_OPTIONS,
             "pickup_minute_options": PICKUP_MINUTE_OPTIONS,
@@ -254,6 +256,7 @@ def guardian_pickup_confirm(
     child_id: int,
     target_date: str = Form(..., alias="date"),
     class_id: Optional[int] = Form(default=None),
+    revision: str = Form(""),
     planned_pickup_time: str = Form(""),
     pickup_person: str = Form(""),
     snack_required: Optional[str] = Form(default=None),
@@ -261,7 +264,11 @@ def guardian_pickup_confirm(
 ):
     child = _load_valid_child(session, child_id, class_id)
     day = _parse_target_date(target_date, request)
-    _load_record_for_checkout(session, child_id, day)
+    record = _load_attendance_record(session, child_id, day)
+    if record and record.check_out_at:
+        raise HTTPException(400, "すでに降園済みです")
+    if revision != pickup_revision(record):
+        raise HTTPException(409, "予定が変更されています。画面を開き直してください")
 
     normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
     normalized_snack_required = _is_truthy(snack_required)
@@ -275,6 +282,7 @@ def guardian_pickup_confirm(
             "target_date_value": day.isoformat(),
             "selected_child": child,
             "selected_classroom": selected_classroom,
+            "pickup_revision": revision,
             "planned_pickup_time": normalized_time,
             "pickup_person": normalized_person,
             "snack_required": normalized_snack_required,
@@ -288,6 +296,7 @@ def guardian_pickup_commit(
     child_id: int,
     target_date: str = Form(..., alias="date"),
     class_id: Optional[int] = Form(default=None),
+    revision: str = Form(""),
     planned_pickup_time: str = Form(""),
     pickup_person: str = Form(""),
     snack_required: Optional[str] = Form(default=None),
@@ -295,16 +304,10 @@ def guardian_pickup_commit(
 ):
     child = _load_valid_child(session, child_id, class_id)
     day = _parse_target_date(target_date, request)
-    record = _load_record_for_checkout(session, child_id, day)
-
     normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
-    normalized_snack_required = _is_truthy(snack_required)
-
-    record.planned_pickup_time = normalized_time
-    record.pickup_person = normalized_person
-    record.snack_required = normalized_snack_required
-    record.updated_at = utc_now()
-    session.add(record)
+    save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
+        planned_pickup_time=normalized_time, pickup_person=normalized_person,
+        snack_required=_is_truthy(snack_required), actor_name="保護者（KIOSK）", source="kiosk")
     session.commit()
 
     return render_guardian(
@@ -312,7 +315,7 @@ def guardian_pickup_commit(
         "guardian/pickup_done.html",
         {
             "request": request,
-            "message": "お子様お預かりします",
+            "message": "お迎え予定を保存しました",
             "redirect_url": TERMINAL_START if is_terminal(request) else _redirect_url(day, None, None),
             "redirect_ms": 1000,
             "selected_child": child,
@@ -439,7 +442,7 @@ def guardian_terminal_status(request: Request, session: Session = Depends(get_se
             session.commit()
         except IntegrityError:
             session.rollback()
-    result = {"kiosk": True, "today": local_today().isoformat()}
+    result = {"kiosk": True, "today": local_today().isoformat(), "server_time": utc_now().isoformat()}
     if kiosk_device_cookie_is_valid(cookie):
         result.update(registration_number=terminal.registration_number, label=terminal.label)
     return result

@@ -36,6 +36,7 @@
       </form>
 
       <form method="post" action="/guardian/child/{{ selected_child.id }}/pickup/commit">
+        <input type="hidden" name="revision" value="{{ pickup_revision }}">
         <input type="hidden" name="date" value="{{ target_date_value }}">
         {% if selected_classroom %}
         <input type="hidden" name="class_id" value="{{ selected_classroom.id }}">

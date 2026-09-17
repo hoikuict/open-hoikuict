@@ -148,6 +148,7 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-09-17 機能改善: spec-improvements-2026-09-17.md
           - 2026-09-16 実機更新記録: deployment-2026-09-16.md
           - 2026-09-13 実機更新記録: deployment-2026-09-13.md
           - 2026-09-11 機能追加: spec-improvements-2026-09-11.md

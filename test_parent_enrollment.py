@@ -33,6 +33,7 @@ def invite(pilot, **extra):
     response = client.post(
         "/parent-accounts/enrollment/invite",
         data={
+            "mode": "existing" if extra.get("child_id") else "new",
             "child_name": "入園 はな",
             "email": "intake@example.test",
             **extra,
@@ -107,7 +108,7 @@ def review(client, account_id, registration_id, **extra):
 
 def test_two_fields_to_parent_input_review_and_login(pilot):
     client, engine, ids, _ = pilot
-    page = client.get("/parent-accounts/enrollment/new")
+    page = client.get("/parent-accounts/enrollment/new?mode=new")
     assert page.status_code == 200
     assert 'name="child_name"' in page.text and 'name="email"' in page.text
     assert 'name="birth_date"' not in page.text
@@ -244,6 +245,46 @@ def test_existing_child_preserves_other_guardian_and_links_only_selected_child(p
             link.child_id for link in session.exec(select(ParentChildLink)).all()
         ] == [ids["child"]]
         assert len(session.exec(select(Guardian)).all()) == 4
+
+
+def test_existing_child_selector_and_new_guardian_preserve_ledger(pilot):
+    client, engine, ids, _ = pilot
+    page = client.get("/parent-accounts/enrollment/new")
+    assert 'name="child_id"' in page.text and 'name="child_name"' not in page.text
+    page = client.get(f"/parent-accounts/enrollment/new?child_id={ids['child']}")
+    assert "新しい保護者を追加" in page.text and "この保護者を招待" in page.text
+    with Session(engine) as session:
+        child = session.get(Child, ids["child"])
+        original_birth_date, original_address = child.birth_date, child.family.home_address
+        original_profiles = session.get(Family, ids["family"]).guardian_profiles()
+    registration_id, account_id, token = invite(pilot, child_id=ids["child"], guardian_order=0)
+    open_form(client, token)
+    response = client.post("/parent-portal/register/enrollment", data=profile(
+        last_name="検証", first_name="葵", g1_first_name="追加", g1_relationship="祖母",
+    ))
+    assert response.status_code == 200
+    response = review(client, account_id, registration_id)
+    assert response.status_code == 303, response.text
+    with Session(engine) as session:
+        child = session.get(Child, ids["child"])
+        assert child.birth_date == original_birth_date and child.home_address == original_address
+        assert len(session.exec(select(Child)).all()) == 2
+        profiles = session.get(Family, ids["family"]).guardian_profiles()
+        assert len(profiles) == 3
+        for before, after in zip(original_profiles, profiles[:2]):
+            assert before["first_name"] == after["first_name"]
+        assert profiles[2]["parent_account_id"] == account_id and profiles[2]["first_name"] == "追加"
+        assert [link.child_id for link in session.exec(select(ParentChildLink)).all()] == [ids["child"]]
+
+
+def test_invite_without_existing_child_does_not_implicitly_create_new_child(pilot):
+    client, engine, _, _ = pilot
+    response = client.post("/parent-accounts/enrollment/invite", data={
+        "child_name": "意図しない 新規", "email": "no-child@example.test",
+    }, follow_redirects=False)
+    assert response.status_code == 400
+    with Session(engine) as session:
+        assert not session.exec(select(ParentAccount)).all()
 
 
 def test_expired_session_resend_revokes_old_draft_and_keeps_previous_history(pilot):
@@ -447,7 +488,7 @@ def test_enrollment_routes_use_app_csrf_protection(pilot, monkeypatch):
     app.dependency_overrides.update(existing_app.dependency_overrides)
     with TestClient(app, base_url="https://testserver") as client:
         assert client.get("/parent-accounts/enrollment/new").status_code == 200
-        data = {"child_name": "入園 はな", "email": "csrf-test@example.test"}
+        data = {"mode": "new", "child_name": "入園 はな", "email": "csrf-test@example.test"}
         assert (
             client.post("/parent-accounts/enrollment/invite", data=data).status_code
             == 403
