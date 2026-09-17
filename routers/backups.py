@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from auth import get_current_staff_user, require_admin
+from backup_evidence import operational_stages
 from backup_jobs import (
     BackupJobConflict,
     enqueue_backup,
@@ -29,7 +30,7 @@ templates = create_templates()
 STATUS_LABELS = {
     "queued": "待機中",
     "running": "実行中",
-    "succeeded": "成功",
+    "succeeded": "作成完了",
     "failed": "失敗",
 }
 
@@ -43,6 +44,12 @@ def backup_settings_page(
 ):
     require_admin(current_user)
     jobs = list_backup_jobs()
+    for job in jobs:
+        result = job.get("result")
+        if isinstance(result, dict):
+            result["stages"] = {**result.get("stages", {}), **operational_stages(
+                result.get("backup_id", ""), result.get("manifest_sha256", "")
+            )}
     active_job = next(
         (job for job in jobs if job.get("status") in {"queued", "running"}),
         None,
@@ -77,6 +84,7 @@ def backup_settings_page(
 
 @router.post("/create")
 def request_backup(
+    retry_job_id: str | None = Form(default=None),
     current_user=Depends(get_current_staff_user),
 ):
     require_admin(current_user)
@@ -91,6 +99,7 @@ def request_backup(
                 str(current_user.user_id) if current_user.user_id is not None else None
             ),
             requested_by_name=current_user.name,
+            retry_of=retry_job_id,
         )
     except BackupJobConflict as exc:
         query = urlencode({"error": str(exc)})

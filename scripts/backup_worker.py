@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import logging
 import os
 import time
@@ -42,25 +41,14 @@ class BackupWorkerSettings:
     cloudflared_image: str = "unknown"
     environment: str = "production"
     facility_ref: str = ""
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file_object:
-        for chunk in iter(lambda: file_object.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    recovery_kit_ref: str = ""
+    baseline_ref: str = ""
 
 
 def _compose_sha_from_environment() -> str:
     configured = os.getenv("HOIKUICT_BACKUP_COMPOSE_SHA256", "").strip()
     if configured:
         return configured
-    compose_path = Path(
-        os.getenv("HOIKUICT_BACKUP_COMPOSE_FILE", "deploy/dockge/compose.yaml")
-    )
-    if compose_path.is_file():
-        return _sha256(compose_path)
     return UNCONFIGURED_COMPOSE_SHA256
 
 
@@ -79,6 +67,8 @@ def settings_from_environment() -> BackupWorkerSettings:
         cloudflared_image=os.getenv("HOIKUICT_BACKUP_CLOUDFLARED_IMAGE", "unknown"),
         environment=os.getenv("HOIKUICT_ENV", "production"),
         facility_ref=os.getenv("HOIKU_NURSERY_REF", ""),
+        recovery_kit_ref=os.getenv("HOIKUICT_BACKUP_RECOVERY_KIT_REF", ""),
+        baseline_ref=os.getenv("HOIKUICT_BACKUP_BASELINE_REF", ""),
     )
 
 
@@ -101,6 +91,10 @@ def process_next_backup(settings: BackupWorkerSettings) -> bool:
                 environment=settings.environment,
                 facility_ref=settings.facility_ref,
                 lock_source_writes=True,
+                control_dir=settings.control_dir,
+                recovery_kit_ref=settings.recovery_kit_ref,
+                baseline_ref=settings.baseline_ref,
+                actor_ref=job["job_id"],
             )
         )
         verification = verify_backup_set(backup_path)
@@ -113,6 +107,10 @@ def process_next_backup(settings: BackupWorkerSettings) -> bool:
             "backup_id": backup_path.name,
             "files_verified": verification["files_verified"],
             "verification_status": verification["status"],
+            "format_version": verification["format_version"],
+            "manifest_sha256": verification["manifest_sha256"],
+            "stages": verification["stages"],
+            "consistency": verification["consistency"],
             "warnings": list(verification["verification"].get("warnings", []))
             + provenance_warnings,
         }
@@ -149,7 +147,7 @@ def enqueue_due_scheduled_backup(
         return False
     if any(
         job.get("trigger") == "scheduled" and job.get("scheduled_slot") == slot
-        for job in list_backup_jobs(control_dir=settings.control_dir, limit=100)
+        for job in list_backup_jobs(control_dir=settings.control_dir, limit=None)
     ):
         return False
     try:

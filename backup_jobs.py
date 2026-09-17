@@ -99,6 +99,7 @@ def enqueue_backup(
     requested_by_name: str,
     trigger: str = "manual",
     scheduled_slot: str | None = None,
+    retry_of: str | None = None,
     control_dir: Path | None = None,
 ) -> dict[str, Any]:
     root = (control_dir or backup_control_dir()).resolve()
@@ -109,6 +110,12 @@ def enqueue_backup(
         raise BackupJobError("未対応のバックアップ起動方法です")
     if trigger == "scheduled" and not scheduled_slot:
         raise BackupJobError("定期実行の予定枠が必要です")
+    retry_source = None
+    if retry_of:
+        retry_source = next((job for job in list_backup_jobs(control_dir=root, limit=None)
+                             if job.get("job_id") == retry_of and job.get("status") == "failed"), None)
+        if retry_source is None or trigger != "manual":
+            raise BackupJobConflict("再実行元の失敗jobを確認できません")
 
     now = _utc_now()
     job_id = str(uuid4())
@@ -118,6 +125,8 @@ def enqueue_backup(
         "status": "queued",
         "trigger": trigger,
         "scheduled_slot": scheduled_slot if trigger == "scheduled" else None,
+        "retry_of": retry_source["job_id"] if retry_source else None,
+        "retry_scheduled_slot": (retry_source.get("scheduled_slot") or retry_source.get("retry_scheduled_slot")) if retry_source else None,
         "requested_at_utc": _iso_utc(now),
         "requested_at_jst": _iso_jst(now),
         "requested_by": {
@@ -206,7 +215,7 @@ def recover_interrupted_jobs(control_dir: Path | None = None) -> int:
 def list_backup_jobs(
     *,
     control_dir: Path | None = None,
-    limit: int = 30,
+    limit: int | None = 30,
 ) -> list[dict[str, Any]]:
     root = (control_dir or backup_control_dir()).resolve()
     _ensure_control_directories(root)
@@ -232,7 +241,7 @@ def list_backup_jobs(
         key=lambda item: str(item.get("requested_at_utc", "")),
         reverse=True,
     )
-    return jobs[: max(1, min(limit, 100))]
+    return jobs if limit is None else jobs[: max(1, min(limit, 100))]
 
 
 def write_worker_heartbeat(control_dir: Path | None = None) -> dict[str, Any]:

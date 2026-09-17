@@ -6,7 +6,7 @@
   <div>
     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Operations</p>
     <h1 class="mt-1 text-2xl font-bold text-slate-900">バックアップ管理</h1>
-    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">DBと添付ファイルを同時に保存し、hash・DB・外部キー・添付の整合性まで自動検査します。</p>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">写真を含むDB・全種類の添付・定期実行設定を保存して検査します。取得、検査、別系統保存、復元試験の結果をそれぞれ確認してください。</p>
   </div>
   <form method="post" action="/settings/backups/create">
     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
@@ -39,7 +39,7 @@
   <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
     <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">復元について</p>
     <p class="mt-3 text-sm leading-6 text-amber-900">この画面から稼働中データの上書きやバックアップの削除はできません。復元は停止手順に従って行います。</p>
-    <p class="mt-2 text-xs leading-5 text-amber-800">利用者の少ない時間帯に実行し、実行中は登録・更新操作を避けてください。</p>
+    <p class="mt-2 text-xs leading-5 text-amber-800">画面からの稼働中取得は試験用です。正式な取得は書込み停止手順に従います。復元後の定期実行は、設定確認後に再開してください。</p>
   </section>
 </div>
 
@@ -76,6 +76,7 @@
       <div class="text-sm text-slate-600">
         {% if next_run_jst %}<span class="font-semibold text-slate-800">次回予定:</span> {{ next_run_jst }}{% else %}定期実行は無効です。{% endif %}
         <p class="mt-1 text-xs text-slate-500">予定時刻後に実行サービスを起動した場合は、同じ日の予定枠を1回実行します。過去の日・週の分は持ち越しません。</p>
+        <p class="mt-1 text-xs text-slate-500">失敗した予定枠は自動再試行されません。原因を確認してから再実行してください。</p>
       </div>
       <button type="submit" class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">設定を保存</button>
     </div>
@@ -99,6 +100,7 @@
           </div>
           <p class="mt-3 text-sm text-slate-700">依頼: {{ job.requested_at_jst }} / {{ job.requested_by.name }}</p>
           <p class="mt-1 text-xs text-slate-500">起動: {% if job.trigger == 'scheduled' %}定期実行{% else %}手動{% endif %}</p>
+          {% if job.retry_of %}<p class="mt-1 text-xs text-slate-500">再実行元: {{ job.retry_of }}{% if job.retry_scheduled_slot %} / 予定枠 {{ job.retry_scheduled_slot }}{% endif %}</p>{% endif %}
           {% if job.finished_at_jst %}<p class="mt-1 text-xs text-slate-500">完了: {{ job.finished_at_jst }}</p>{% endif %}
         </div>
         {% if job.result %}
@@ -109,6 +111,22 @@
         {% endif %}
       </div>
       {% if job.error %}<div class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ job.error }}</div>{% endif %}
+      {% if job.status == 'failed' and worker.status == 'online' and not active_job %}
+      <form method="post" action="/settings/backups/create" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
+        <input type="hidden" name="retry_job_id" value="{{ job.job_id }}">
+        <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700" type="submit">原因を確認して再実行</button>
+      </form>
+      {% endif %}
+      {% if job.result %}
+      <dl class="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        {% for key, label in [('acquired', '取得'), ('verified', '検査'), ('replicated', '別系統保存'), ('restored', '復元試験')] %}
+        {% set stage = job.result.get('stages', {}).get(key, 'unconfirmed') %}
+        <div class="rounded-lg bg-slate-50 px-3 py-2"><dt class="text-xs text-slate-500">{{ label }}</dt><dd class="mt-1 font-medium {% if stage == 'passed' %}text-emerald-800{% elif stage == 'failed' %}text-red-800{% else %}text-slate-600{% endif %}">{% if stage == 'passed' %}確認済み{% elif stage == 'failed' %}失敗{% else %}未確認{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+      {% if job.result.get('consistency') == 'sqlite_online_backup_with_source_write_lock' %}<p class="mt-2 text-xs text-amber-800">稼働中の試験取得です。正式な停止方式の取得・隔離復元を別途確認してください。</p>{% endif %}
+      {% endif %}
       {% if job.result and job.result.warnings %}
       <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
         {% for warning in job.result.warnings %}<p>{{ warning }}</p>{% endfor %}

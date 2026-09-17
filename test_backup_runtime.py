@@ -4,7 +4,6 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from contextlib import closing
 from pathlib import Path
 
 from scripts.backup_runtime import (
@@ -36,53 +35,10 @@ class BackupRuntimeTests(unittest.TestCase):
         (self.storage / "message_attachments" / "message.png").write_bytes(
             self.message_content
         )
+        from test_backup_support import full_databases
+        full_databases(self.main_db, self.facility_db, attachments=True)
         self.main_connection = sqlite3.connect(self.main_db)
         self.main_connection.execute("PRAGMA journal_mode=WAL")
-        self.main_connection.executescript(
-            """
-            CREATE TABLE parents (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL
-            );
-            CREATE TABLE children (
-                id INTEGER PRIMARY KEY,
-                parent_id INTEGER NOT NULL REFERENCES parents(id),
-                name TEXT NOT NULL
-            );
-            CREATE TABLE notice_attachments (
-                id INTEGER PRIMARY KEY,
-                storage_path TEXT NOT NULL,
-                file_size INTEGER NOT NULL
-            );
-            CREATE TABLE message_attachments (
-                id INTEGER PRIMARY KEY,
-                storage_path TEXT NOT NULL,
-                file_size INTEGER NOT NULL
-            );
-            """
-        )
-        self.main_connection.execute("INSERT INTO parents(name) VALUES ('架空保護者')")
-        self.main_connection.execute(
-            "INSERT INTO children(parent_id, name) VALUES (1, '架空園児')"
-        )
-        self.main_connection.execute(
-            "INSERT INTO notice_attachments(storage_path, file_size) VALUES (?, ?)",
-            ("notice.pdf", len(self.notice_content)),
-        )
-        self.main_connection.execute(
-            "INSERT INTO message_attachments(storage_path, file_size) VALUES (?, ?)",
-            ("message.png", len(self.message_content)),
-        )
-        self.main_connection.commit()
-
-        with closing(sqlite3.connect(self.facility_db)) as connection:
-            connection.execute(
-                "CREATE TABLE bunrei_facility (id TEXT PRIMARY KEY, text TEXT NOT NULL)"
-            )
-            connection.execute(
-                "INSERT INTO bunrei_facility(id, text) VALUES ('sample', '架空文例')"
-            )
-            connection.commit()
 
     def tearDown(self) -> None:
         self.main_connection.close()
@@ -101,6 +57,9 @@ class BackupRuntimeTests(unittest.TestCase):
             "environment": "test",
             "facility_ref": "架空保育園",
             "quiesced": True,
+            "recovery_kit_ref": "test-kit",
+            "actor_ref": "test-operator",
+            "baseline_ref": "test-baseline",
         }
         values.update(overrides)
         return BackupConfig(**values)

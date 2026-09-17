@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import json
+from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 
-from backup_jobs import list_backup_jobs
+from backup_jobs import claim_next_backup, finish_backup_job, list_backup_jobs
 from backup_schedule import (
     JST,
     BackupScheduleError,
@@ -103,6 +105,22 @@ class BackupScheduleTests(unittest.TestCase):
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0]["trigger"], "scheduled")
         self.assertEqual(jobs[0]["scheduled_slot"], "daily:2026-08-31:02:00")
+
+    def test_failed_slot_is_not_requeued_after_more_than_100_manual_jobs(self) -> None:
+        self._save()
+        settings = BackupWorkerSettings(control_dir=self.control_dir, output_root=self.control_dir.parent / "sets",
+                    database_url="sqlite:///unused.db", facility_db=Path("unused-facility.db"),
+                    storage_root=Path("unused-storage"), git_sha="a"*40, app_image="test", compose_sha256="b"*64)
+        now = datetime(2026, 8, 31, 2, 5, tzinfo=JST)
+        self.assertTrue(enqueue_due_scheduled_backup(settings, now=now))
+        job = claim_next_backup(self.control_dir)
+        finish_backup_job(job, status="failed", error="synthetic failure", control_dir=self.control_dir)
+        for index in range(101):
+            manual = {**job, "job_id": str(uuid4()), "status": "succeeded", "trigger": "manual", "scheduled_slot": None,
+                      "requested_at_utc": "2099-01-01T00:00:00Z"}
+            (self.control_dir / "history" / f"manual-{index}.json").write_text(json.dumps(manual), encoding="utf-8")
+        self.assertEqual(len(list_backup_jobs(control_dir=self.control_dir, limit=None)), 102)
+        self.assertFalse(enqueue_due_scheduled_backup(settings, now=now))
 
 
 if __name__ == "__main__":

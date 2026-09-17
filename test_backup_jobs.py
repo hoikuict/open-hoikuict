@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 import tempfile
 import unittest
-from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -73,6 +71,18 @@ class BackupJobStoreTests(unittest.TestCase):
             "online",
         )
 
+    def test_retry_retains_failed_job_and_schedule_slot(self) -> None:
+        original = enqueue_backup(requested_by_id=None, requested_by_name="定期実行", trigger="scheduled",
+                                  scheduled_slot="daily:2026-09-15:02:00", control_dir=self.control_dir)
+        running = claim_next_backup(self.control_dir)
+        finish_backup_job(running, status="failed", error="synthetic failure", control_dir=self.control_dir)
+        retry = enqueue_backup(requested_by_id=None, requested_by_name="管理者", retry_of=original["job_id"],
+                               control_dir=self.control_dir)
+        self.assertNotEqual(retry["job_id"], original["job_id"])
+        self.assertEqual(retry["retry_of"], original["job_id"])
+        self.assertEqual(retry["retry_scheduled_slot"], original["scheduled_slot"])
+        self.assertEqual(len(list_backup_jobs(control_dir=self.control_dir)), 2)
+
     def test_invalid_request_is_quarantined_without_blocking_valid_job(self) -> None:
         valid = enqueue_backup(
             requested_by_id=None,
@@ -101,14 +111,8 @@ class BackupWorkerTests(unittest.TestCase):
         self.storage.mkdir(parents=True)
         self.main_db = self.data / "hoikuict.db"
         self.facility_db = self.data / "facility.sqlite"
-        with closing(sqlite3.connect(self.main_db)) as connection:
-            connection.execute("CREATE TABLE children (id INTEGER PRIMARY KEY, name TEXT)")
-            connection.execute("INSERT INTO children(name) VALUES ('架空 花子')")
-            connection.commit()
-        with closing(sqlite3.connect(self.facility_db)) as connection:
-            connection.execute("CREATE TABLE facility (id INTEGER PRIMARY KEY, name TEXT)")
-            connection.execute("INSERT INTO facility(name) VALUES ('架空保育園')")
-            connection.commit()
+        from test_backup_support import full_databases
+        full_databases(self.main_db, self.facility_db)
 
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
@@ -129,6 +133,8 @@ class BackupWorkerTests(unittest.TestCase):
             app_image="open-hoikuict@sha256:" + "b" * 64,
             compose_sha256="c" * 64,
             environment="test",
+            cloudflared_image="cloudflared@sha256:" + "d" * 64,
+            recovery_kit_ref="test-kit", baseline_ref="test-baseline",
         )
 
         self.assertTrue(process_next_backup(settings))
