@@ -214,7 +214,19 @@ def _render_contact_form(
     notice: str = "",
     form_error: str = "",
     form_data: Optional[dict[str, str]] = None,
+    pickup_record=None,
+    pickup_editable: bool = True,
+    status_code: int = 200,
 ):
+    pickup_values = {
+        "planned_pickup_time": pickup_record.planned_pickup_time or "" if pickup_record else "",
+        "pickup_person": pickup_record.pickup_person or "" if pickup_record else "",
+        "snack_required": ("1" if pickup_record.snack_required else "0") if pickup_record and pickup_record.pickup_snack_confirmed else "",
+        "pickup_revision": pickup_revision(pickup_record),
+    }
+    if form_data is not None:
+        pickup_values.update({key: form_data[key] for key in (*pickup_values, "pickup_hour", "pickup_minute") if key in form_data})
+        pickup_editable = form_data.get("_pickup_editable", pickup_editable)
     return templates.TemplateResponse(
         request,
         "parent_portal/contact_form.html",
@@ -228,13 +240,15 @@ def _render_contact_form(
             "notice": notice,
             "form_error": form_error,
             "form_data": _contact_form_data(entry, form_data),
+            "pickup_values": pickup_values,
+            "pickup_editable": pickup_editable,
             "present_temperature_limit": str(PRESENT_TEMPERATURE_LIMIT),
             "present_temperature_error": PRESENT_TEMPERATURE_ERROR,
             "temperature_format_error": TEMPERATURE_FORMAT_ERROR,
             "parent_contact_types": list(ParentContactType),
             "published_reply": published_reply,
             "reply_display_items": reply_items_for_display(published_reply),
-        },
+        }, status_code=status_code,
     )
 
 
@@ -1106,6 +1120,7 @@ def parent_contact_form(
         )
     ).first()
     published_reply = _load_published_daily_contact_reply(session, child_id, day)
+    pickup_record = load_pickup_record(session, child_id, day)
 
     return _render_contact_form(
         request,
@@ -1115,6 +1130,8 @@ def parent_contact_form(
         target_date_value=day.isoformat(),
         published_reply=published_reply,
         notice="日次連絡を保存しました。" if notice == "saved" else "",
+        pickup_record=pickup_record,
+        pickup_editable=day >= local_today() and child.status == ChildStatus.enrolled and not (pickup_record and pickup_record.check_out_at),
     )
 
 
@@ -1146,6 +1163,13 @@ def save_parent_contact(
     absence_symptoms: str = Form(""),
     absence_diagnosis: str = Form(""),
     absence_note: str = Form(""),
+    pickup_fields_version: str = Form(""),
+    pickup_revision_value: str = Form("", alias="pickup_revision"),
+    planned_pickup_time: str = Form(""),
+    pickup_hour: str = Form(""),
+    pickup_minute: str = Form(""),
+    pickup_person: str = Form(""),
+    snack_required: str = Form(""),
     session: Session = Depends(get_session),
 ):
     current_parent_user = _get_parent_account(request, session)
@@ -1155,6 +1179,7 @@ def save_parent_contact(
     child = _load_accessible_child(current_parent_user, child_id)
     day = _parse_target_date(target_date)
     published_reply = _load_published_daily_contact_reply(session, child_id, day)
+    pickup_record = load_pickup_record(session, child_id, day)
 
     absence_contact_types = {
         ParentContactType.absent_private.value,
@@ -1193,7 +1218,20 @@ def save_parent_contact(
         "absence_symptoms": absence_symptoms,
         "absence_diagnosis": absence_diagnosis,
         "absence_note": absence_note,
+        "planned_pickup_time": planned_pickup_time, "pickup_person": pickup_person,
+        "snack_required": snack_required, "pickup_revision": pickup_revision_value,
+        "pickup_hour": pickup_hour, "pickup_minute": pickup_minute,
+        "_pickup_editable": day >= local_today() and child.status == ChildStatus.enrolled and not (pickup_record and pickup_record.check_out_at),
     }
+    if pickup_fields_version != "1":
+        # Read-only and older forms do not submit pickup fields. Preserve the
+        # saved plan if an unrelated daily-contact validation error is shown.
+        form_data.update(
+            planned_pickup_time=pickup_record.planned_pickup_time or "" if pickup_record else "",
+            pickup_person=pickup_record.pickup_person or "" if pickup_record else "",
+            snack_required=("1" if pickup_record.snack_required else "0") if pickup_record and pickup_record.pickup_snack_confirmed else "",
+            pickup_revision=pickup_revision(pickup_record), pickup_hour="", pickup_minute="",
+        )
 
     if submitted_mode == "present":
         selected_contact_type = ParentContactType.present
@@ -1257,6 +1295,27 @@ def save_parent_contact(
                 form_error=temperature_error,
                 form_data=form_data,
             )
+
+    if selected_contact_type == ParentContactType.present and pickup_fields_version == "1":
+        try:
+            if day < local_today():
+                raise HTTPException(409, "日付が変わったか過去の日付です。画面を開き直してください。")
+            if child.status != ChildStatus.enrolled:
+                raise HTTPException(400, "在園児のお迎え予定のみ登録できます。")
+            if not planned_pickup_time and (pickup_hour or pickup_minute):
+                raise HTTPException(400, "降園予定時刻の時と分を両方選んでください。")
+            if snack_required not in {"", "0", "1"}:
+                raise HTTPException(400, "補食の選択が不正です。")
+            save_pickup_plan(session, child_id=child_id, day=day, revision=pickup_revision_value,
+                planned_pickup_time=planned_pickup_time, pickup_person=pickup_person,
+                snack_required=snack_required == "1", snack_confirmed=snack_required != "",
+                allow_partial=True, actor_name=current_parent_user.display_name,
+                parent_account_id=current_parent_user.id, source="parent_portal")
+        except HTTPException as exc:
+            session.rollback()
+            return _render_contact_form(request, current_parent_user=current_parent_user, child=child,
+                entry=entry, target_date_value=day.isoformat(), published_reply=published_reply,
+                form_error=str(exc.detail), form_data=form_data, status_code=exc.status_code)
 
     now = utc_now()
     if not entry:
@@ -1854,11 +1913,16 @@ def parent_profile_photo(request: Request, photo_id: str, session: Session = Dep
     return photo_response(session, photo_id)
 
 
-def _parent_pickup_context(request, parent, child, day, session, *, error="", status_code=200):
+def _parent_pickup_context(request, parent, child, day, session, *, error="", status_code=200, values=None):
     record = load_pickup_record(session, child.id, day)
     return templates.TemplateResponse(request, "parent_portal/pickup.html", {
         "current_parent_user": parent, "parent_portal_mode": True, "child": child,
-        "day": day, "record": record, "revision": pickup_revision(record), "error": error,
+        "day": day, "record": record, "revision": values.get("revision", pickup_revision(record)) if values else pickup_revision(record), "error": error,
+        "pickup_values": values if values is not None else {
+            "planned_pickup_time": record.planned_pickup_time or "" if record else "",
+            "pickup_person": record.pickup_person or "" if record else "",
+            "snack_required": ("1" if record.snack_required else "0") if record and record.pickup_snack_confirmed else "",
+        },
     }, status_code=status_code)
 
 
@@ -1887,6 +1951,8 @@ def parent_pickup_save(request: Request, child_id: int, date: str = Form(...), r
     if day < local_today():
         raise HTTPException(400, "過去のお迎え予定は変更できません")
     try:
+        if snack_required not in {"0", "1"}:
+            raise HTTPException(400, "補食の必要・不要を選んでください。")
         save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
             planned_pickup_time=planned_pickup_time, pickup_person=pickup_person,
             snack_required=snack_required == "1", actor_name=parent.display_name,
@@ -1894,5 +1960,6 @@ def parent_pickup_save(request: Request, child_id: int, date: str = Form(...), r
         session.commit()
     except HTTPException as exc:
         session.rollback()
-        return _parent_pickup_context(request, parent, child, day, session, error=str(exc.detail), status_code=exc.status_code)
+        return _parent_pickup_context(request, parent, child, day, session, error=str(exc.detail), status_code=exc.status_code,
+            values={"planned_pickup_time": planned_pickup_time, "pickup_person": pickup_person, "snack_required": snack_required, "revision": revision})
     return RedirectResponse(f"/parent-portal/?date={day.isoformat()}&notice=pickup_saved", status_code=303)

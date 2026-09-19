@@ -1,0 +1,19 @@
+{% extends "guardian/terminal_base.html" if terminal_mode else "base.html" %}
+{% from "shared/_pickup_fields.html" import pickup_fields %}
+{% block title %}お迎え予定入力 | open-hoikuict{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-4xl rounded-xl border bg-white p-6">
+  <p class="text-slate-500">{{ selected_classroom.name if selected_classroom else '' }}</p>
+  <h1 class="my-4 break-words text-4xl font-bold">{{ selected_child.full_name }}</h1>
+  <h2 class="mb-6 text-xl font-semibold">お迎え予定を入力してください</h2>
+  <form method="post" action="/guardian/child/{{ selected_child.id }}/pickup" class="space-y-6">
+    <input type="hidden" name="date" value="{{ target_date_value }}">
+    <input type="hidden" name="class_id" value="{{ selected_classroom.id if selected_classroom else '' }}">
+    <input type="hidden" name="revision" value="{{ pickup_revision }}">
+    <input type="hidden" name="arrival_token" value="{{ arrival_token }}">
+    {{ pickup_fields(pickup_values, required=true, kiosk=true) }}
+    <div class="flex flex-wrap gap-3"><a href="/guardian?date={{ target_date_value }}" class="flex min-h-16 flex-1 items-center justify-center rounded-lg border px-5 py-4 text-xl">取り消し</a><button type="submit" class="min-h-16 flex-1 rounded-lg bg-indigo-600 px-5 py-4 text-xl text-white">確認へ</button></div>
+  </form>
+</section>
+{% endblock %}
+{% block body_end %}{{ super() }}{% include 'shared/_pickup_script.html' %}{% endblock %}

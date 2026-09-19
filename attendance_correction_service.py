@@ -33,7 +33,7 @@ def cancel_punch(
         raise ValueError("取消理由を500文字以内で入力してください。")
     if revision != correction_revision(record):
         raise ValueError("記録が更新されました。画面を開き直して確認してください。")
-    if not record.check_in_at or (operation == "check_out" and not record.check_out_at):
+    if not (record.check_in_at or record.check_out_at) or (operation == "check_out" and not record.check_out_at):
         raise ValueError("取り消せる打刻がありません。")
     charge = session.exec(
         select(ExtendedCareCharge).where(
@@ -56,13 +56,14 @@ def cancel_punch(
         changed_by_user_id=actor.user_id,
         changed_by_name=actor.name,
     )
-    values = {"check_out_at": None, "updated_at": utc_now()}
+    values = {"check_out_at": None, "actual_pickup_person": None, "updated_at": utc_now()}
     if operation == "all":
         values.update(
             check_in_at=None,
             planned_pickup_time=None,
             pickup_person=None,
             snack_required=False,
+            pickup_snack_confirmed=False,
         )
     changed = session.execute(
         update(AttendanceRecord)

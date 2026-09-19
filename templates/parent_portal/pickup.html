@@ -1,18 +1,17 @@
 {% extends 'base.html' %}
+{% from 'shared/_pickup_fields.html' import pickup_fields %}
 {% block title %}お迎え予定 | open-hoikuict{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-xl rounded-xl border bg-white p-5">
+<div class="mx-auto max-w-4xl rounded-xl border bg-white p-5">
   <h1 class="text-xl font-bold">{{ child.full_name }}のお迎え予定</h1>
   <p class="mt-2 text-sm text-slate-600">{{ day }} / 登園前から入力できます。予定の登録で登園打刻はされません。</p>
   {% if error %}<p role="alert" class="mt-4 rounded bg-rose-50 p-3 text-rose-800">{{ error }}</p>{% endif %}
   <form method="post" class="mt-5 space-y-4">
     <input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="revision" value="{{ revision }}">
-    <label class="block text-sm">お迎え予定時刻<input type="time" name="planned_pickup_time" required value="{{ record.planned_pickup_time or '' if record else '' }}" class="mt-1 block w-full rounded border px-3 py-3"></label>
-    <label class="block text-sm">お迎えに来る人<input name="pickup_person" required maxlength="100" list="pickup-people" value="{{ record.pickup_person or '' if record else '' }}" placeholder="母、父、祖母など" class="mt-1 block w-full rounded border px-3 py-3"></label>
-    <datalist id="pickup-people">{% for person in ['母', '父', '祖父', '祖母', 'ファミリーサポート'] %}<option value="{{ person }}">{% endfor %}</datalist>
-    <label class="flex items-center gap-2"><input type="checkbox" name="snack_required" value="1" {% if record and record.snack_required %}checked{% endif %}>補食が必要</label>
+    {{ pickup_fields(pickup_values, required=true) }}
     {% if record and record.check_out_at %}<p>降園済みのため変更できません。</p>{% else %}<button class="rounded bg-indigo-600 px-5 py-3 text-white">予定を保存</button>{% endif %}
     <a href="/parent-portal/?date={{ day }}" class="ml-3 text-sm text-indigo-700 underline">ホームへ戻る</a>
   </form>
 </div>
 {% endblock %}
+{% block body_end %}{{ super() }}{% include 'shared/_pickup_script.html' %}{% endblock %}

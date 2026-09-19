@@ -65,6 +65,7 @@ def create_db_and_tables() -> None:
     _migrate_add_child_columns()
     _migrate_add_child_health_profile_columns()
     _migrate_add_attendance_columns()
+    _migrate_guardian_confirmation_columns()
     _migrate_pickup_history_columns()
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
@@ -230,6 +231,19 @@ def _migrate_add_attendance_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("attendance column", exc)
+
+
+def _migrate_guardian_confirmation_columns() -> None:
+    columns = _table_columns("attendance_records")
+    if not columns:
+        return
+    with engine.begin() as conn:
+        if "pickup_snack_confirmed" not in columns:
+            conn.execute(text("ALTER TABLE attendance_records ADD COLUMN pickup_snack_confirmed BOOLEAN NOT NULL DEFAULT 0"))
+            # Existing false values meant 'not needed'; retain that interpretation.
+            conn.execute(text("UPDATE attendance_records SET pickup_snack_confirmed = 1"))
+        if "actual_pickup_person" not in columns:
+            conn.execute(text("ALTER TABLE attendance_records ADD COLUMN actual_pickup_person VARCHAR"))
 
 
 def _migrate_pickup_history_columns() -> None:

@@ -8,7 +8,7 @@
 | --- | --- |
 | 対象版 | 新しい実装を含む確定Git SHA、app/worker image ID、実際のCompose hash |
 | バックアップ形式 | 新しい作成CLIは2。旧CLIは形式2を読めないため、作成・検査用imageも保管する |
-| schema契約 | 写真追加後は`profile-photos-20260914`。追加直前は`before-profile-photos-20260914`。他の旧版は対応する契約の追加・確認が必要 |
+| schema契約 | 現行開発版は`spec-changes-20260919`。9月17日版は`spec-changes-20260917`。写真追加後は`profile-photos-20260914`、追加直前は`before-profile-photos-20260914`。復元元の版に合う契約を使う |
 | 実行方式 | 画面のworkerは稼働中の試験用。正式な取得はapp・worker・その他の書込みを止めたsnapshot/cloneを使用 |
 | 復元先 | 稼働runtimeと別の、未作成directory。公開経路・実メール・Pushから隔離 |
 | 秘密値 | 通常のbackup setへ入れず、別保管の暗号化recovery kitを使用 |

@@ -981,6 +981,8 @@ class AttendanceRecord(SQLModel, table=True):
     planned_pickup_time: Optional[str] = None
     pickup_person: Optional[str] = None
     snack_required: bool = Field(default=False)
+    pickup_snack_confirmed: bool = Field(default=False)
+    actual_pickup_person: Optional[str] = None
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)

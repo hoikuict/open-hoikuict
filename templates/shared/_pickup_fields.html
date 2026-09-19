@@ -1,0 +1,50 @@
+{% macro pickup_fields(values, required=false, kiosk=false) %}
+{% set time = values.get('planned_pickup_time', '') %}
+{% set hour = values.get('pickup_hour') or (time[:2] if time else '') %}
+{% set minute = values.get('pickup_minute') or (time[3:] if time else '') %}
+{% set person = values.get('pickup_person', '') %}
+{% set snack = values.get('snack_required', '') %}
+{% set people = ['母', '父', '祖父', '祖母', 'ファミリーサポート', 'その他'] %}
+<div data-pickup-fields data-pickup-required="{{ '1' if required else '0' }}" class="space-y-5">
+  <style>
+    [data-pickup-fields] { min-width: 0; }
+    [data-pickup-fields] .pickup-hours { display: grid; gap: 8px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    [data-pickup-fields] .pickup-hours.main-hours, [data-pickup-fields] .pickup-hours.late-hours { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    [data-pickup-fields] .pickup-choice { min-height: 48px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 20px; font-weight: 600; background: white; color: #334155; touch-action: manipulation; }
+    [data-pickup-fields] .main-hours .pickup-choice { min-height: 80px; font-size: 30px; }
+    [data-pickup-fields] .pickup-choice[aria-pressed=true] { background: #4f46e5; border-color: #4f46e5; color: white; }
+    [data-pickup-fields] .pickup-choice:disabled { opacity: .45; cursor: not-allowed; }
+    [data-pickup-fields] .pickup-minutes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    [data-pickup-fields] .pickup-minutes .pickup-choice { min-height: 60px; }
+    [data-pickup-fields] summary { padding: 12px 0; cursor: pointer; min-height: 44px; }
+    [data-pickup-fields] input:not([type=hidden]), [data-pickup-fields] select { font-size: 16px; }
+    @media(max-width: 560px) { [data-pickup-fields] .pickup-hours { grid-template-columns: repeat(3, minmax(0, 1fr)); } [data-pickup-fields] .pickup-hours.main-hours, [data-pickup-fields] .pickup-hours.late-hours { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+  <fieldset class="min-w-0 space-y-3">
+    <legend class="mb-3 font-semibold">降園予定時刻</legend>
+    <input type="hidden" name="planned_pickup_time" value="{{ time }}" data-pickup-time-input>
+    <input type="hidden" name="pickup_hour" value="{{ hour }}" data-pickup-hour-input>
+    <input type="hidden" name="pickup_minute" value="{{ minute }}" data-pickup-minute-input>
+    <div class="flex flex-wrap items-baseline gap-3 rounded-lg bg-indigo-50 px-4 py-3" aria-live="polite"><span>選択中</span><strong class="text-4xl tabular-nums" data-selected-pickup-time>{{ (hour or '--') ~ ':' ~ (minute or '--') }}</strong></div>
+    <p class="font-semibold">1. 時を選ぶ <span class="text-sm font-normal text-slate-500">（24時間表記）</span></p>
+    {% for label, hours, style in [('10〜14時', range(10, 15), ''), ('15〜18時', range(15, 19), 'main-hours'), ('19時以降', range(19, 23), 'late-hours')] %}
+    <p class="text-sm text-slate-500">{{ label }}</p>
+    <div class="pickup-hours {{ style }}">{% for h in hours %}{% set value = '%02d'|format(h) %}<button type="button" class="pickup-choice" data-pickup-hour="{{ value }}" aria-pressed="{{ 'true' if hour == value else 'false' }}">{{ h }}時</button>{% endfor %}</div>
+    {% endfor %}
+    <details {% if hour and (hour|int < 10 or hour == '23') %}open{% endif %}><summary>その他の時刻（0〜9時・23時）</summary><div class="pickup-hours">{% for h in (range(0, 10)|list) + [23] %}{% set value = '%02d'|format(h) %}<button type="button" class="pickup-choice" data-pickup-hour="{{ value }}" aria-pressed="{{ 'true' if hour == value else 'false' }}">{{ h }}時</button>{% endfor %}</div></details>
+    <p class="font-semibold">2. 分を選ぶ</p>
+    <div class="pickup-minutes">{% for m in ['00', '15', '30', '45'] %}<button type="button" class="pickup-choice" data-pickup-minute="{{ m }}" aria-pressed="{{ 'true' if minute == m else 'false' }}" {% if not hour %}disabled{% endif %}>{{ m }}分</button>{% endfor %}</div>
+    <details {% if minute and minute not in ['00', '15', '30', '45'] %}open{% endif %}><summary>その他の分を選ぶ</summary><label class="block text-sm">分（1分単位）<select class="mt-2 min-h-12 rounded border px-3 py-2" data-pickup-minute-exact {% if not hour %}disabled{% endif %}><option value="">選択してください</option>{% for m in range(60) %}{% set value = '%02d'|format(m) %}<option value="{{ value }}" {% if minute == value %}selected{% endif %}>{{ value }}分</option>{% endfor %}</select></label></details>
+    {% if not required %}<button type="button" class="min-h-12 rounded border px-4 py-2 text-sm" data-pickup-time-clear>時刻をクリア</button>{% endif %}
+    <p data-pickup-time-error role="alert" class="hidden rounded bg-rose-50 p-3 text-rose-800">降園予定時刻の時と分を両方選んでください。</p>
+  </fieldset>
+  {% if kiosk %}
+  <fieldset><legend class="mb-3 font-semibold">お迎え予定の人</legend><input type="hidden" name="pickup_person" value="{{ person }}" data-pickup-person-input><div class="grid grid-cols-2 gap-3 sm:grid-cols-3">{% for p in people + ([person] if person and person not in people else []) %}<button type="button" class="pickup-choice" data-pickup-person="{{ p }}" aria-pressed="{{ 'true' if person == p else 'false' }}">{{ p }}</button>{% endfor %}</div></fieldset>
+  {% else %}
+  <label class="block font-semibold">お迎え予定の人<select name="pickup_person" data-pickup-person-input class="mt-2 block min-h-12 w-full rounded border px-3 py-3"><option value="">未入力</option>{% for p in people + ([person] if person and person not in people else []) %}<option value="{{ p }}" {% if person == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+  {% endif %}
+  <p data-pickup-person-error role="alert" class="hidden rounded bg-rose-50 p-3 text-rose-800">お迎え予定の人を選んでください。</p>
+  <fieldset><legend class="mb-3 font-semibold">補食</legend><div class="grid grid-cols-2 gap-3">{% for value, label in [('0', '不要'), ('1', '必要')] %}<label class="flex min-h-14 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-3 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50"><input type="radio" name="snack_required" value="{{ value }}" {% if snack == value %}checked{% endif %}>{{ label }}</label>{% endfor %}{% if not required %}<label class="col-span-2 flex min-h-14 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-3"><input type="radio" name="snack_required" value="" {% if not snack %}checked{% endif %}>未選択</label>{% endif %}</div></fieldset>
+  <p data-pickup-snack-error role="alert" class="hidden rounded bg-rose-50 p-3 text-rose-800">補食の必要・不要を選んでください。</p>
+</div>
+{% endmacro %}

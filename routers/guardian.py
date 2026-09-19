@@ -6,16 +6,19 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session, select
+from sqlalchemy import exists, or_, update
+from sqlalchemy.exc import IntegrityError
 
 from attendance_checks_service import sync_attendance_alarm
 from database import get_session
 from auth import get_current_staff_user
 from security_config import kiosk_access_mode
 from extended_care_fee_service import recalculate_attendance_charge
-from models import AttendanceRecord, Child, ChildStatus, Classroom
+from models import AttendanceRecord, AttendanceVerification, AttendanceVerificationStatus, Child, ChildStatus, Classroom
 from time_utils import local_naive_now, local_today, utc_now
 from pickup_plan_service import pickup_revision, save_pickup_plan
 from guardian_terminal import GuardianRoute, TERMINAL_START, is_terminal, remember_terminal, render_guardian
+from guardian_arrival import issue_arrival_draft, read_arrival_draft
 from kiosk_security import (
     KIOSK_DEVICE_COOKIE,
     issue_kiosk_device_cookie,
@@ -30,7 +33,7 @@ from template_utils import create_templates
 
 templates = create_templates()
 
-PICKUP_HOUR_OPTIONS = [f"{hour:02d}" for hour in range(7, 22)]
+PICKUP_HOUR_OPTIONS = [f"{hour:02d}" for hour in range(7, 23)]
 PICKUP_MINUTE_OPTIONS = ["00", "15", "30", "45"]
 PICKUP_PERSON_OPTIONS = ["母", "父", "祖父", "祖母", "ファミリーサポート", "その他"]
 
@@ -120,13 +123,42 @@ def _load_valid_child(session: Session, child_id: int, class_id: Optional[int]) 
     return child
 
 
-def _load_record_for_checkout(session: Session, child_id: int, day: date) -> AttendanceRecord:
+def _load_record_for_checkout(session: Session, child_id: int, day: date) -> AttendanceRecord | None:
     record = _load_attendance_record(session, child_id, day)
-    if not record or record.check_in_at is None:
-        raise HTTPException(status_code=400, detail="先に登園打刻を行ってください")
-    if record.check_out_at is not None:
+    if not (record and record.check_in_at) and not _visually_present(session, child_id, day):
+        raise HTTPException(status_code=400, detail="登園打刻または職員の出席確認が必要です")
+    if record and record.check_out_at is not None:
         raise HTTPException(status_code=400, detail="すでに降園済みです")
     return record
+
+
+def _visually_present(session: Session, child_id: int, day: date) -> bool:
+    return session.exec(select(AttendanceVerification.id).where(
+        AttendanceVerification.child_id == child_id, AttendanceVerification.target_date == day,
+        AttendanceVerification.status == AttendanceVerificationStatus.present,
+    )).first() is not None
+
+
+def _pickup_step(request, child, day, record, *, arrival_token="", values=None, confirm=False):
+    arrival_at = None
+    revision = pickup_revision(record)
+    if arrival_token:
+        arrival_at, expected_revision = read_arrival_draft(arrival_token, request, child, day)
+        if revision != expected_revision or (record and (record.check_in_at or record.check_out_at)):
+            raise HTTPException(409, "記録が変更されています。最初の画面からやり直してください。")
+    values = values if values is not None else {
+        "planned_pickup_time": record.planned_pickup_time or "" if record else "",
+        "pickup_person": record.pickup_person or "" if record else "",
+        "snack_required": ("1" if record.snack_required else "0") if record and record.pickup_snack_confirmed else "",
+    }
+    return render_guardian(request, "guardian/pickup_confirm.html" if confirm else "guardian/pickup_form.html", {
+        "request": request, "selected_child": child,
+        "selected_classroom": child.classroom, "target_date_value": day.isoformat(),
+        "pickup_revision": revision, "arrival_token": arrival_token, "arrival_at": arrival_at,
+        "pickup_values": values, "pickup_person_options": PICKUP_PERSON_OPTIONS,
+        "planned_pickup_time": values["planned_pickup_time"], "pickup_person": values["pickup_person"],
+        "snack_required": values["snack_required"] == "1",
+    })
 
 
 @router.get(
@@ -203,6 +235,7 @@ def guardian_kiosk(
             "children": children,
             "selected_child": selected_child,
             "selected_record": selected_record,
+            "can_depart": bool(selected_record and selected_record.check_in_at) or bool(selected_child and _visually_present(session, selected_child.id, day)),
             "pickup_revision": pickup_revision(selected_record),
             "notice_message": notice_map.get(notice, ""),
             "pickup_hour_options": PICKUP_HOUR_OPTIONS,
@@ -230,24 +263,26 @@ def guardian_check_in(
     day = _parse_target_date(target_date, request)
     record = _load_attendance_record(session, child_id, day)
 
-    now = local_naive_now()
-    audit_now = utc_now()
-    if not record:
-        record = AttendanceRecord(child_id=child_id, attendance_date=day)
-    if record.check_in_at is None:
-        record.check_in_at = now
-    record.updated_at = audit_now
+    if record and (record.check_in_at or record.check_out_at):
+        raise HTTPException(409, "すでに打刻されています。最初の画面から確認してください。")
+    if _visually_present(session, child_id, day):
+        return RedirectResponse(_redirect_url(day, child.classroom_id, child_id), status_code=303)
+    token = issue_arrival_draft(request, child, day, local_naive_now(), pickup_revision(record))
+    complete = bool(record and record.planned_pickup_time and record.pickup_person and record.pickup_snack_confirmed)
+    return _pickup_step(request, child, day, record, arrival_token=token, confirm=complete)
 
-    session.add(record)
-    session.flush()
-    recalculate_attendance_charge(session, record)
-    sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=audit_now)
-    session.commit()
 
-    return RedirectResponse(
-        url=_redirect_url(day, class_id or child.classroom_id, child_id, notice="checked_in"),
-        status_code=303,
-    )
+@router.post("/child/{child_id}/arrival/edit", dependencies=[Depends(require_kiosk_access)])
+def guardian_arrival_edit(request: Request, child_id: int, target_date: str = Form(..., alias="date"),
+                          class_id: Optional[int] = Form(None), arrival_token: str = Form(...),
+                          planned_pickup_time: str = Form(""), pickup_person: str = Form(""),
+                          snack_required: str = Form(""), session: Session = Depends(get_session)):
+    child = _load_valid_child(session, child_id, class_id)
+    day = _parse_target_date(target_date, request)
+    record = _load_attendance_record(session, child_id, day)
+    return _pickup_step(request, child, day, record, arrival_token=arrival_token, values={
+        "planned_pickup_time": planned_pickup_time, "pickup_person": pickup_person, "snack_required": snack_required,
+    })
 
 
 @router.post("/child/{child_id}/pickup", dependencies=[Depends(require_kiosk_access)])
@@ -260,6 +295,7 @@ def guardian_pickup_confirm(
     planned_pickup_time: str = Form(""),
     pickup_person: str = Form(""),
     snack_required: Optional[str] = Form(default=None),
+    arrival_token: str = Form(""),
     session: Session = Depends(get_session),
 ):
     child = _load_valid_child(session, child_id, class_id)
@@ -271,23 +307,12 @@ def guardian_pickup_confirm(
         raise HTTPException(409, "予定が変更されています。画面を開き直してください")
 
     normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
-    normalized_snack_required = _is_truthy(snack_required)
-    selected_classroom = session.get(Classroom, class_id) if class_id else None
-
-    return render_guardian(
-        request,
-        "guardian/pickup_confirm.html",
-        {
-            "request": request,
-            "target_date_value": day.isoformat(),
-            "selected_child": child,
-            "selected_classroom": selected_classroom,
-            "pickup_revision": revision,
-            "planned_pickup_time": normalized_time,
-            "pickup_person": normalized_person,
-            "snack_required": normalized_snack_required,
-        },
-    )
+    if arrival_token and snack_required not in {"0", "1"}:
+        raise HTTPException(400, "補食の必要・不要を選んでください。")
+    return _pickup_step(request, child, day, record, arrival_token=arrival_token, confirm=True, values={
+        "planned_pickup_time": normalized_time, "pickup_person": normalized_person,
+        "snack_required": "1" if _is_truthy(snack_required) else "0",
+    })
 
 
 @router.post("/child/{child_id}/pickup/commit", dependencies=[Depends(require_kiosk_access)])
@@ -300,14 +325,35 @@ def guardian_pickup_commit(
     planned_pickup_time: str = Form(""),
     pickup_person: str = Form(""),
     snack_required: Optional[str] = Form(default=None),
+    arrival_token: str = Form(""),
     session: Session = Depends(get_session),
 ):
     child = _load_valid_child(session, child_id, class_id)
     day = _parse_target_date(target_date, request)
     normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
-    save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
+    arrival_at = None
+    if arrival_token:
+        arrival_at, expected_revision = read_arrival_draft(arrival_token, request, child, day)
+        if revision != expected_revision:
+            raise HTTPException(409, "登園の確認内容が変更されています。最初からやり直してください。")
+        current = _load_attendance_record(session, child_id, day)
+        if current and (current.check_in_at or current.check_out_at):
+            raise HTTPException(409, "すでに打刻されています。最初の画面から確認してください。")
+        if snack_required not in {"0", "1"}:
+            raise HTTPException(400, "補食の必要・不要を選んでください。")
+    record = save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
         planned_pickup_time=normalized_time, pickup_person=normalized_person,
         snack_required=_is_truthy(snack_required), actor_name="保護者（KIOSK）", source="kiosk")
+    if arrival_at is not None:
+        changed = session.execute(update(AttendanceRecord).where(
+            AttendanceRecord.id == record.id, AttendanceRecord.updated_at == record.updated_at,
+            AttendanceRecord.check_in_at.is_(None), AttendanceRecord.check_out_at.is_(None),
+        ).values(check_in_at=arrival_at, updated_at=utc_now()).execution_options(synchronize_session=False))
+        if changed.rowcount != 1:
+            session.rollback()
+            raise HTTPException(409, "別の操作で更新されています。最初の画面から確認してください。")
+        session.refresh(record)
+        sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record)
     session.commit()
 
     return render_guardian(
@@ -315,7 +361,7 @@ def guardian_pickup_commit(
         "guardian/pickup_done.html",
         {
             "request": request,
-            "message": "お迎え予定を保存しました",
+            "message": "登園を受け付けました。" if arrival_at is not None else "お迎え予定を保存しました",
             "redirect_url": TERMINAL_START if is_terminal(request) else _redirect_url(day, None, None),
             "redirect_ms": 1000,
             "selected_child": child,
@@ -329,24 +375,10 @@ def guardian_check_out_confirm(
     child_id: int,
     target_date: str = Form(..., alias="date"),
     class_id: Optional[int] = Form(default=None),
+    actual_pickup_person: str = Form(""),
     session: Session = Depends(get_session),
 ):
-    child = _load_valid_child(session, child_id, class_id)
-    day = _parse_target_date(target_date, request)
-    _load_record_for_checkout(session, child_id, day)
-
-    selected_classroom = session.get(Classroom, class_id) if class_id else None
-
-    return render_guardian(
-        request,
-        "guardian/checkout_confirm.html",
-        {
-            "request": request,
-            "target_date_value": day.isoformat(),
-            "selected_child": child,
-            "selected_classroom": selected_classroom,
-        },
-    )
+    return guardian_check_out_commit(child_id, request, target_date, class_id, actual_pickup_person, session)
 
 
 @router.post("/child/{child_id}/check-out/commit", dependencies=[Depends(require_kiosk_access)])
@@ -355,20 +387,39 @@ def guardian_check_out_commit(
     request: Request,
     target_date: str = Form(..., alias="date"),
     class_id: Optional[int] = Form(default=None),
+    actual_pickup_person: str = Form(""),
     session: Session = Depends(get_session),
 ):
     child = _load_valid_child(session, child_id, class_id)
 
     day = _parse_target_date(target_date, request)
     record = _load_record_for_checkout(session, child_id, day)
+    if actual_pickup_person not in PICKUP_PERSON_OPTIONS:
+        raise HTTPException(400, "お迎えに来た人を選んでください。")
 
     now = local_naive_now()
     audit_now = utc_now()
-    record.check_out_at = now
-    record.updated_at = audit_now
-
-    session.add(record)
-    session.flush()
+    if record is None:
+        record = AttendanceRecord(child_id=child_id, attendance_date=day)
+        session.add(record)
+        try:
+            session.flush()
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(409, "別の操作で更新されています。最初の画面から確認してください。") from exc
+    visual_present = exists().where(
+        AttendanceVerification.child_id == child_id, AttendanceVerification.target_date == day,
+        AttendanceVerification.status == AttendanceVerificationStatus.present,
+    )
+    changed = session.execute(update(AttendanceRecord).where(
+        AttendanceRecord.id == record.id, AttendanceRecord.updated_at == record.updated_at,
+        AttendanceRecord.check_out_at.is_(None), or_(AttendanceRecord.check_in_at.is_not(None), visual_present),
+    ).values(check_out_at=now, actual_pickup_person=actual_pickup_person, updated_at=audit_now)
+      .execution_options(synchronize_session=False))
+    if changed.rowcount != 1:
+        session.rollback()
+        raise HTTPException(409, "出席状況が変更されています。最初の画面から確認してください。")
+    session.refresh(record)
     recalculate_attendance_charge(session, record)
     sync_attendance_alarm(session, child_id=child_id, target_date=day, record=record, now=audit_now)
     session.commit()

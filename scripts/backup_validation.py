@@ -14,7 +14,7 @@ from typing import Any
 from PIL import Image
 
 
-CURRENT_CONTRACT = "spec-changes-20260917"
+CURRENT_CONTRACT = "spec-changes-20260919"
 POLICY_VERSION = 2
 SCHEDULE_KEYS = {"schema_version", "enabled", "frequency", "run_time", "weekday", "timezone"}
 

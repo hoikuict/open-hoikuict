@@ -1,52 +1,29 @@
 {% extends "guardian/terminal_base.html" if terminal_mode else "base.html" %}
-{% block title %}お迎え予定確認 | open-hoikuict{% endblock %}
-
+{% block title %}登園・お迎え予定の確認 | open-hoikuict{% endblock %}
+{% macro fields() %}
+<input type="hidden" name="date" value="{{ target_date_value }}">
+<input type="hidden" name="class_id" value="{{ selected_classroom.id if selected_classroom else '' }}">
+<input type="hidden" name="revision" value="{{ pickup_revision }}">
+<input type="hidden" name="arrival_token" value="{{ arrival_token }}">
+<input type="hidden" name="planned_pickup_time" value="{{ planned_pickup_time }}">
+<input type="hidden" name="pickup_person" value="{{ pickup_person }}">
+<input type="hidden" name="snack_required" value="{{ '1' if snack_required else '0' }}">
+{% endmacro %}
 {% block content %}
-<div class="max-w-2xl mx-auto">
-  <section class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-    <h1 class="text-xl font-bold text-gray-700 mb-4">お迎え予定の確認</h1>
-
-    <div class="space-y-4 text-2xl leading-relaxed mb-6">
-      <p><span class="text-gray-500">園児:</span> <span class="font-semibold text-gray-800">{{ selected_child.full_name }}</span></p>
-      {% if selected_classroom %}
-      <p><span class="text-gray-500">クラス:</span> <span class="font-semibold text-gray-800">{{ selected_classroom.name }}</span></p>
-      {% endif %}
-      <p><span class="text-gray-500">対象日:</span> <span class="font-semibold text-gray-800">{{ target_date_value }}</span></p>
-      <p><span class="text-gray-500">お迎え予定時刻:</span> <span class="font-semibold text-gray-800">{{ planned_pickup_time }}</span></p>
-      <p><span class="text-gray-500">お迎え予定者:</span> <span class="font-semibold text-gray-800">{{ pickup_person }}</span></p>
-      <p><span class="text-gray-500">補食:</span> <span class="font-semibold text-gray-800">{{ "必要" if snack_required else "不要" }}</span></p>
-    </div>
-
-    <div class="flex flex-wrap gap-3">
-      <form method="get" action="/guardian">
-        <input type="hidden" name="date" value="{{ target_date_value }}">
-        {% if selected_classroom %}
-        <input type="hidden" name="class_id" value="{{ selected_classroom.id }}">
-        {% endif %}
-        <input type="hidden" name="child_id" value="{{ selected_child.id }}">
-        <input type="hidden" name="draft_pickup_time" value="{{ planned_pickup_time }}">
-        <input type="hidden" name="draft_pickup_person" value="{{ pickup_person }}">
-        <input type="hidden" name="draft_snack_required" value="{{ '1' if snack_required else '0' }}">
-        <button type="submit" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">戻る</button>
-      </form>
-
-      <form method="get" action="/guardian">
-        <input type="hidden" name="date" value="{{ target_date_value }}">
-        <button type="submit" class="px-4 py-2 border border-red-300 text-red-700 rounded text-sm hover:bg-red-50">取り消し</button>
-      </form>
-
-      <form method="post" action="/guardian/child/{{ selected_child.id }}/pickup/commit">
-        <input type="hidden" name="revision" value="{{ pickup_revision }}">
-        <input type="hidden" name="date" value="{{ target_date_value }}">
-        {% if selected_classroom %}
-        <input type="hidden" name="class_id" value="{{ selected_classroom.id }}">
-        {% endif %}
-        <input type="hidden" name="planned_pickup_time" value="{{ planned_pickup_time }}">
-        <input type="hidden" name="pickup_person" value="{{ pickup_person }}">
-        <input type="hidden" name="snack_required" value="{{ '1' if snack_required else '0' }}">
-        <button type="submit" class="px-5 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700">決定</button>
-      </form>
-    </div>
-  </section>
-</div>
+<section class="mx-auto max-w-4xl rounded-xl border bg-white p-6">
+  <h1 class="mb-4 text-2xl font-bold">{{ 'この内容で登園を受け付けます' if arrival_at else 'お迎え予定の確認' }}</h1>
+  <p class="text-slate-500">{{ selected_classroom.name if selected_classroom else '' }} ／ {{ target_date_value }}</p>
+  <p class="my-6 break-words text-4xl font-bold">{{ selected_child.full_name }}</p>
+  <dl class="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+    {% if arrival_at %}<div><dt class="text-lg text-slate-500">登園時刻</dt><dd class="mt-1 text-4xl font-bold">{{ arrival_at.strftime('%H:%M') }}</dd></div>{% endif %}
+    <div><dt class="text-lg text-slate-500">降園予定時刻</dt><dd class="mt-1 text-4xl font-bold">{{ planned_pickup_time }}</dd></div>
+    <div><dt class="text-lg text-slate-500">お迎え予定の人</dt><dd class="mt-1 break-words text-4xl font-bold">{{ pickup_person }}</dd></div>
+    <div><dt class="text-lg text-slate-500">補食</dt><dd class="mt-1 text-4xl font-bold">{{ '必要' if snack_required else '不要' }}</dd></div>
+  </dl>
+  <div class="flex flex-wrap gap-3">
+    {% if arrival_token %}<form method="post" action="/guardian/child/{{ selected_child.id }}/arrival/edit" class="flex-1">{{ fields() }}<button type="submit" class="min-h-16 w-full rounded-lg border px-5 py-4 text-xl">修正</button></form>{% else %}<a href="/guardian?date={{ target_date_value }}&child_id={{ selected_child.id }}" class="flex min-h-16 flex-1 items-center justify-center rounded-lg border px-5 py-4 text-xl">戻る</a>{% endif %}
+    <a href="/guardian?date={{ target_date_value }}" class="flex min-h-16 flex-1 items-center justify-center rounded-lg border px-5 py-4 text-xl">取り消し</a>
+    <form method="post" action="/guardian/child/{{ selected_child.id }}/pickup/commit" class="flex-1">{{ fields() }}<button type="submit" class="min-h-16 w-full rounded-lg bg-green-600 px-5 py-4 text-xl text-white">決定</button></form>
+  </div>
+</section>
 {% endblock %}

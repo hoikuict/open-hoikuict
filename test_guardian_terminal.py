@@ -96,14 +96,16 @@ class GuardianTerminalTests(unittest.TestCase):
         path = f"/guardian/child/{self.child_id}"
         denied = self.client.post(path + "/check-in", data={"date": self.today}, follow_redirects=False)
         self.assertEqual(denied.status_code, 403)
-        self.assertEqual(self.post(path + "/check-in", date=self.today).status_code, 303)
-        from pickup_plan_service import pickup_revision
+        started = self.post(path + "/check-in", date=self.today)
+        self.assertEqual(started.status_code, 200)
         with Session(self.engine) as session:
-            revision = pickup_revision(session.exec(select(AttendanceRecord)).one())
-        pickup = self.post(path + "/pickup/commit", date=self.today, revision=revision, planned_pickup_time="17:00", pickup_person="母")
+            self.assertEqual(session.exec(select(AttendanceRecord)).all(), [])
+        pickup = self.post(path + "/pickup/commit", date=self.today, revision=started.context["pickup_revision"],
+            arrival_token=started.context["arrival_token"], planned_pickup_time="17:00", pickup_person="母", snack_required="0")
         self.assertEqual(pickup.status_code, 200)
         self.assertIn('href="/guardian/terminal"', pickup.text)
-        checkout = self.post(path + "/check-out/commit", date=self.today)
+        self.assertEqual(self.post(path + "/check-out/commit", date=self.today).status_code, 400)
+        checkout = self.post(path + "/check-out/commit", date=self.today, actual_pickup_person="父")
         self.assertEqual(checkout.status_code, 200)
         self.assertIn("降園を受け付けました", checkout.text)
         self.assertIn('href="/guardian/terminal"', checkout.text)

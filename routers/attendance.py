@@ -132,6 +132,7 @@ class AttendanceReportRow:
     extended_care_status_label: str
     extended_care_requires_attention: bool
     extended_care_reason: str = ""
+    actual_pickup_person: str = ""
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return local_today()
@@ -229,6 +230,8 @@ def _build_filters(
 
 
 def _attendance_status(record: Optional[AttendanceRecord]) -> str:
+    if record and record.check_out_at:
+        return "降園済み"
     if not record or not record.check_in_at:
         return "未登園"
     if not record.check_out_at:
@@ -277,6 +280,7 @@ def _build_row(
         check_out_at=record.check_out_at if record else None,
         planned_pickup_time=record.planned_pickup_time if record and record.planned_pickup_time else "",
         pickup_person=record.pickup_person if record and record.pickup_person else "",
+        actual_pickup_person=record.actual_pickup_person or "" if record else "",
         note=record.note if record and record.note else "",
         status=_attendance_status(record),
         extended_care_charge_id=extended_care_charge_id,
@@ -934,6 +938,8 @@ def check_in(
 
     now = local_naive_now()
     audit_now = utc_now()
+    if record and record.check_out_at:
+        raise HTTPException(409, "降園済みです。打刻の取消・履歴から記録を確認してください。")
     if not record:
         record = AttendanceRecord(child_id=child_id, attendance_date=day, check_in_at=now)
     elif record.check_in_at is None:

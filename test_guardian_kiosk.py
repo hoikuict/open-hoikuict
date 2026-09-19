@@ -67,31 +67,30 @@ class GuardianKioskTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('value="2026-07-05"', response.text)
 
-    def test_pickup_form_shows_button_choices_and_snack_checkbox(self):
+    def test_arrival_draft_shows_button_choices_and_explicit_snack_selection(self):
         with Session(self.engine) as session:
             session.add(
                 AttendanceRecord(
                     child_id=self.child_id,
                     attendance_date=date(2026, 7, 5),
-                    check_in_at=datetime(2026, 7, 5, 8, 30),
                 )
             )
             session.commit()
 
-        response = self.client.get(
-            f"/guardian/?date=2026-07-05&class_id={self.classroom_id}&child_id={self.child_id}"
-        )
+        response = self.client.post(f"/guardian/child/{self.child_id}/check-in",
+            data={"date": "2026-07-05", "class_id": self.classroom_id})
 
         self.assertEqual(response.status_code, 200)
         html = response.text
         self.assertIn('data-pickup-hour="07"', html)
         self.assertIn('data-pickup-hour="21"', html)
+        self.assertIn('data-pickup-hour="22"', html)
         self.assertIn('data-pickup-minute="15"', html)
         self.assertIn('data-pickup-person="母"', html)
         self.assertIn('data-pickup-person="ファミリーサポート"', html)
         self.assertIn('name="snack_required"', html)
 
-    def test_pickup_form_remains_editable_after_pickup_plan_is_saved(self):
+    def test_arrived_child_shows_actual_pickup_choices_without_preselection(self):
         with Session(self.engine) as session:
             session.add(
                 AttendanceRecord(
@@ -111,10 +110,9 @@ class GuardianKioskTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         html = response.text
-        self.assertIn(f'action="/guardian/child/{self.child_id}/pickup"', html)
-        self.assertIn('data-pickup-hour="07"', html)
+        self.assertNotIn(f'action="/guardian/child/{self.child_id}/pickup"', html)
+        self.assertIn('name="actual_pickup_person" value=""', html)
         self.assertIn("降園する", html)
-        self.assertIn("18:15", html)
         self.assertIn("母", html)
 
     def test_check_in_uses_local_naive_now(self):
@@ -130,7 +128,15 @@ class GuardianKioskTests(unittest.TestCase):
         finally:
             guardian_module.local_naive_now = original_local_naive_now
 
-        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.status_code, 200)
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AttendanceRecord)).all(), [])
+        committed = self.client.post(f"/guardian/child/{self.child_id}/pickup/commit", data={
+            "date": "2026-07-05", "class_id": self.classroom_id,
+            "arrival_token": response.context["arrival_token"], "revision": response.context["pickup_revision"],
+            "planned_pickup_time": "17:00", "pickup_person": "母", "snack_required": "0",
+        })
+        self.assertEqual(committed.status_code, 200)
         with Session(self.engine) as session:
             record = session.exec(select(AttendanceRecord)).one()
             self.assertEqual(record.check_in_at, fixed_now)
