@@ -166,7 +166,7 @@ def test_health_correction_history_and_stale_update(workbench):
 def test_pickup_before_arrival_shared_kiosk_revision_and_history(workbench):
     w = workbench
     url = f"/parent-portal/children/{w.child}/pickup"
-    data = {"date": str(w.day), "revision": "new", "planned_pickup_time": "17:30", "pickup_person": "母"}
+    data = {"date": str(w.day), "revision": "new", "planned_pickup_time": "17:30", "pickup_person": "母", "snack_required": "0"}
     assert w.client.post(url, data=data, follow_redirects=False).status_code == 303
     with Session(w.engine) as session:
         record = session.exec(select(AttendanceRecord)).one()

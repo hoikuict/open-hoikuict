@@ -1,0 +1,52 @@
+<script>
+(() => {
+  document.querySelectorAll('[data-pickup-fields]').forEach(root => {
+    if (root.dataset.bound) return;
+    root.dataset.bound = '1';
+    const form = root.closest('form'), required = root.dataset.pickupRequired === '1';
+    const time = root.querySelector('[data-pickup-time-input]');
+    const hour = root.querySelector('[data-pickup-hour-input]'), minute = root.querySelector('[data-pickup-minute-input]');
+    const person = root.querySelector('[data-pickup-person-input]'), exact = root.querySelector('[data-pickup-minute-exact]');
+    const timeError = root.querySelector('[data-pickup-time-error]');
+    const sync = () => {
+      const attendance = form.querySelector('[name=attendance_mode]:checked');
+      const active = !attendance || attendance.value === 'present';
+      time.value = hour.value && minute.value ? `${hour.value}:${minute.value}` : '';
+      root.querySelector('[data-selected-pickup-time]').textContent = `${hour.value || '--'}:${minute.value || '--'}`;
+      root.querySelectorAll('[data-pickup-hour]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pickupHour === hour.value)));
+      root.querySelectorAll('[data-pickup-minute]').forEach(b => { b.disabled = !active || !hour.value; b.setAttribute('aria-pressed', String(b.dataset.pickupMinute === minute.value)); });
+      exact.disabled = !active || !hour.value; exact.value = minute.value;
+      if (time.value || (!hour.value && !minute.value && !required)) timeError.classList.add('hidden');
+    };
+    root.addEventListener('click', e => {
+      const button = e.target.closest('button'); if (!button || !root.contains(button)) return;
+      if (button.hasAttribute('data-pickup-hour')) { hour.value = button.dataset.pickupHour; sync(); }
+      if (button.hasAttribute('data-pickup-minute')) { minute.value = button.dataset.pickupMinute; sync(); }
+      if (button.hasAttribute('data-pickup-time-clear')) { hour.value = ''; minute.value = ''; sync(); }
+      if (button.hasAttribute('data-pickup-person')) {
+        person.value = button.dataset.pickupPerson;
+        root.querySelectorAll('[data-pickup-person]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pickupPerson === person.value)));
+        root.querySelector('[data-pickup-person-error]').classList.add('hidden');
+      }
+    });
+    exact.addEventListener('change', () => { minute.value = exact.value; sync(); });
+    form.addEventListener('change', e => { if (e.target.name === 'attendance_mode') sync(); });
+    root.addEventListener('change', () => {
+      if (person.value) root.querySelector('[data-pickup-person-error]').classList.add('hidden');
+      if (root.querySelector('[name=snack_required]:checked')) root.querySelector('[data-pickup-snack-error]').classList.add('hidden');
+    });
+    form.addEventListener('submit', e => {
+      const attendance = form.querySelector('[name=attendance_mode]:checked');
+      if (attendance && attendance.value !== 'present') return;
+      const badTime = !time.value && (required || !!hour.value || !!minute.value);
+      const badPerson = required && !person.value;
+      const badSnack = required && !root.querySelector('[name=snack_required]:checked');
+      timeError.classList.toggle('hidden', !badTime);
+      root.querySelector('[data-pickup-person-error]').classList.toggle('hidden', !badPerson);
+      root.querySelector('[data-pickup-snack-error]').classList.toggle('hidden', !badSnack);
+      if (badTime || badPerson || badSnack) { e.preventDefault(); root.querySelector('[role=alert]:not(.hidden)').scrollIntoView({block:'center'}); }
+    });
+    sync();
+  });
+})();
+</script>

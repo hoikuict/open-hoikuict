@@ -252,7 +252,7 @@
             —
             {% endif %}
           </td>
-          <td class="px-4 py-2 whitespace-nowrap">{{ row.check_in_at.strftime("%H:%M") if row.check_in_at else "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ row.check_in_at.strftime("%H:%M") if row.check_in_at else "—" }}{% if row.check_out_at and not row.check_in_at %}<span class="mt-1 block text-xs text-amber-700">登園打刻なし</span>{% endif %}</td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.check_out_at.strftime("%H:%M") if row.check_out_at else "—" }}</td>
           <td class="px-4 py-2 whitespace-nowrap">
             {% if row.status == "未登園" %}
@@ -298,6 +298,7 @@
           </td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.planned_pickup_time if row.planned_pickup_time else "—" }}</td>
           <td class="px-4 py-2 whitespace-nowrap">{{ row.pickup_person if row.pickup_person else "—" }}
+            {% if row.actual_pickup_person %}<span class="mt-1 block text-xs text-slate-600">実際：{{ row.actual_pickup_person }}</span>{% endif %}
             {% if current_user and current_user.can_edit %}
             {% if row.attendance_record_id %}<a href="/attendance/{{ row.child_id }}/correction?date={{ row.attendance_date }}&return_query={{ current_query_string|urlencode }}" class="mt-1 block text-xs text-rose-700 underline">打刻の取消・履歴</a>{% endif %}
             {% endif %}
@@ -308,7 +309,9 @@
           {% if filters.is_single_day %}
           <td class="px-4 py-2 whitespace-nowrap no-print">
             {% if current_user and current_user.can_edit and row.is_enrolled %}
-              {% if not row.check_in_at %}
+              {% if row.check_out_at %}
+              <span class="text-xs text-gray-400">完了</span>
+              {% elif not row.check_in_at %}
               <form method="post" action="/attendance/{{ row.child_id }}/check-in" class="inline" data-preserve-attendance-scroll>
                 <input type="hidden" name="date" value="{{ filters.display_date_value }}">
                 <input type="hidden" name="return_query" value="{{ current_query_string }}">
