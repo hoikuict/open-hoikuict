@@ -150,6 +150,7 @@ nav:
       - 変更履歴:
           - history.md
           - 2026-09-20 所属園児数の修正: classroom-count-review-2026-09-20.md
+          - 2026-09-20 本番更新記録: deployment-2026-09-20.md
           - 2026-09-19 UI実装: spec-review-2026-09-19.md
           - 2026-09-19 本番更新記録: deployment-2026-09-19.md
           - 2026-09-17 本番更新記録: deployment-2026-09-17.md
