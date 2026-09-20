@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit
 from database import get_session
-from models import Classroom
+from models import ChildStatus, Classroom
 from time_utils import utc_now
 
 router = APIRouter(prefix="/classrooms", tags=["classrooms"])
@@ -91,13 +91,19 @@ def classroom_list(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
+    classrooms = _all_classrooms(session)
+    enrolled_child_counts = {
+        classroom.id: sum(child.status == ChildStatus.enrolled for child in classroom.children)
+        for classroom in classrooms
+    }
     return templates.TemplateResponse(
         request,
         "classrooms/list.html",
         {
             "request": request,
             "current_user": current_user,
-            "classrooms": _all_classrooms(session),
+            "classrooms": classrooms,
+            "enrolled_child_counts": enrolled_child_counts,
         },
     )
 
