@@ -12,6 +12,10 @@
   {% endif %}
 </div>
 
+{% if delete_notice %}
+<div role="status" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{{ delete_notice }}</div>
+{% endif %}
+
 <form method="get" action="/families/" class="mb-5 flex flex-wrap gap-3">
   <label class="flex-1">家族・園児・保護者を検索
     <input name="q" value="{{ q }}" placeholder="家族名・園児名・保護者名" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">
@@ -25,8 +29,8 @@
   <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div class="space-y-2">
-        <div class="flex items-center gap-3">
-          <h2 class="text-xl font-semibold text-slate-800">{{ family.family_name }}</h2>
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="break-words text-xl font-semibold text-slate-800">{{ family.family_name }} <span class="text-xs font-normal text-slate-500">{{ family.display_code }}</span></h2>
           <span class="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">{{ family.children|length }}人の園児</span>
           <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ family.parent_accounts|length }}人の保護者</span>
         </div>
@@ -66,6 +70,7 @@
         {% if current_user and current_user.can_manage_child_records %}
         <a href="/families/{{ family.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">編集</a>
         <a href="/children/new?family_id={{ family.id }}" class="rounded border border-indigo-300 px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-50">この家族に園児追加</a>
+        <a href="/families/{{ family.id }}/delete{% if q %}?q={{ q|urlencode }}{% endif %}" aria-label="{{ family.display_code }}を削除" class="rounded border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50">削除</a>
         {% endif %}
       </div>
     </div>

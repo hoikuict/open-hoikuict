@@ -1,13 +1,22 @@
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_child_record_manager
 from profile_photos import PhotoUploads, photo_uploads, apply_family_photo_edits
 from database import get_session
+from csrf import verify_csrf
+from family_deletion import (
+    NOTICE_COOKIE, FamilyDeletionError, delete_unused_family, dependency_counts,
+    issue_notice, issue_review, read_notice, require_family_deletion_manager,
+)
+from security_config import secure_cookie_enabled
 from family_support import (
     apply_family_shared_data,
     build_family_payload,
@@ -234,13 +243,14 @@ def family_list(
     if query:
         families = [family for family in families if query in " ".join([
             family.family_name,
+            family.display_code,
             *(child.full_name for child in family.children),
             *(f"{child.last_name_kana} {child.first_name_kana}" for child in family.children),
             *(account.display_name for account in family.parent_accounts),
             *(f"{profile.get('last_name', '')} {profile.get('first_name', '')}"
               for profile in family.guardian_profiles()),
         ]).casefold()]
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "families/list.html",
         {
@@ -248,6 +258,7 @@ def family_list(
             "current_user": current_user,
             "families": families,
             "q": q,
+            "delete_notice": read_notice(request, current_user),
             "family_parent_accounts_by_id": {
                 family.id: {
                     account.id: account for account in family.parent_accounts
@@ -256,6 +267,10 @@ def family_list(
             },
         },
     )
+    if NOTICE_COOKIE in request.cookies:
+        response.delete_cookie(NOTICE_COOKIE, path="/families/")
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.get("/new", response_class=HTMLResponse)
@@ -383,6 +398,53 @@ def create_family(
 
     session.commit()
     return RedirectResponse(url="/families/", status_code=303)
+
+
+def _render_delete(request, session, current_user, family_id, *, q="", error="", status=200):
+    family, dependencies, review_token = None, [], ""
+    try:
+        family = session.exec(select(Family).options(
+            selectinload(Family.children), selectinload(Family.parent_accounts)
+        ).where(Family.id == family_id)).first()
+        if family:
+            dependencies = dependency_counts(session, family)
+            if not any(row.count for row in dependencies):
+                review_token = issue_review(request, current_user, family)
+        elif not error:
+            error, status = "この家族は既に削除されたか、見つかりません。", 404
+    except SQLAlchemyError:
+        session.rollback()
+        family = None
+        error, status = "家族情報を確認できませんでした。時間をおいて再度お試しください。", 503
+    return templates.TemplateResponse(request, "families/delete.html", {
+        "current_user": current_user, "family": family, "dependencies": dependencies,
+        "review_token": review_token, "q": q, "error": error,
+        "list_url": "/families/" + ("?" + urlencode({"q": q}) if q else ""),
+        "blocked": any(row.count for row in dependencies),
+    }, status_code=status, headers={"Cache-Control": "private, no-store", "Referrer-Policy": "same-origin"})
+
+
+@router.get("/{family_id}/delete", response_class=HTMLResponse)
+def review_family_deletion(request: Request, family_id: int, q: str = "",
+                           session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_family_deletion_manager(session, current_user)
+    return _render_delete(request, session, current_user, family_id, q=q)
+
+
+@router.post("/{family_id}/delete", dependencies=[Depends(verify_csrf)])
+def delete_family(request: Request, family_id: int, q: str = Form(""),
+                  review_token: str = Form(""), confirmed: str = Form(""),
+                  session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_family_deletion_manager(session, current_user)
+    try:
+        name, code = delete_unused_family(session, request=request, current_user=current_user,
+                                         family_id=family_id, review_token=review_token, confirmed=confirmed)
+    except FamilyDeletionError as exc:
+        return _render_delete(request, session, current_user, family_id, q=q, error=str(exc), status=exc.status)
+    response = RedirectResponse("/families/" + ("?" + urlencode({"q": q}) if q else ""), status_code=303)
+    response.set_cookie(NOTICE_COOKIE, issue_notice(request, current_user, name, code),
+                        max_age=120, httponly=True, secure=secure_cookie_enabled(), samesite="lax", path="/families/")
+    return response
 
 
 @router.get("/{family_id}/edit", response_class=HTMLResponse)
