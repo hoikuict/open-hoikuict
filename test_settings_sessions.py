@@ -252,3 +252,17 @@ def test_staff_form_token_lasts_whole_workday_parent_default_unchanged(setup):
     client.cookies.set(LOCAL_STAFF_SESSION_COOKIE, "test-cookie")
     response = client.get("/settings")
     assert any("Max-Age=86400" in h for h in response.headers.get_list("set-cookie"))
+
+
+def test_main_application_serves_settings_script(setup):
+    from main import app
+
+    # No lifespan: this checks real routing without starting workers or migrations.
+    client = TestClient(app)
+    try:
+        response = client.get("/static/js/staff-session-settings.js")
+    finally:
+        client.close()
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+    assert "workday-preset" in response.text

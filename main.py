@@ -2,6 +2,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from contextlib import suppress
+from pathlib import Path
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ if (os.getenv("HOIKUICT_ENV") or "").strip().lower() != "production":
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from database import (
     bootstrap_health_records,
@@ -132,6 +134,7 @@ app = FastAPI(
 )
 app.add_exception_handler(StarletteHTTPException, staff_auth_http_exception_handler)
 app.add_middleware(CsrfTokenMiddleware)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
