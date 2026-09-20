@@ -28,6 +28,7 @@ nav:
   - 導入ロードマップ: roadmap.md
   - 仕様・設計:
       - 仕様書一覧: specifications.md
+      - 9月20日の所属園児数修正: classroom-count-review-2026-09-20.md
       - 9月19日のUI実装: spec-review-2026-09-19.md
       - 9月17日の仕様変更: spec-improvements-2026-09-17.md
       - 9月15日の仕様変更: spec-improvements-2026-09-15.md
