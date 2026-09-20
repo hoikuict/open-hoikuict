@@ -57,6 +57,8 @@ nav:
           - 日案文例コーパス契約: daily-plan-corpus-contract.md
           - 統合仕様 v2.1: spec-plan-docs-integration-v2-revised.md
   - 開発・運用:
+      - 職員ログイン時間設定: staff-session-settings-review-2026-09-20.md
+      - 設定メニューの全体点検: settings-navigation-audit-2026-09-20.md
       - 初心者向け TrueNAS導入手順書: truenas-beginner-installation-guide.md
       - 開発者向け: development.md
       - UI変更とモック試用: ui-prototype-workflow.md

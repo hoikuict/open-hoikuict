@@ -1,6 +1,7 @@
 {% extends "parent_auth/base.html" %}
 {% block title %}共通QR・申請受付{% endblock %}
 {% block content %}
+{% include "settings/_back.html" %}
 <style>
 .wrap{max-width:48rem}.qr-poster{text-align:center;padding:1.5rem 0}.qr-poster img{width:280px;max-width:100%;height:auto}.qr-url{overflow-wrap:anywhere;font-size:.875rem}.qr-steps{text-align:left;max-width:28rem;margin:1rem auto;line-height:1.9}.qr-controls{border-top:1px solid #e2e8f0;margin-top:1rem;padding-top:1rem}.qr-state{font-weight:700;color:{{ '#047857' if accepting else '#b45309' }}}
 @media print{.no-print{display:none!important}.wrap{max-width:none;padding:0}.card{border:0;box-shadow:none}.qr-poster{padding:2rem 0}.qr-poster img{width:70mm}.qr-url{font-size:11pt}}

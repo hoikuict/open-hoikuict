@@ -310,7 +310,7 @@ def local_staff_login(
 
     target = _login_redirect_for_user(result.user, target)
     response = RedirectResponse(url=target, status_code=303)
-    set_local_staff_session_cookie(response, result.session_token)
+    set_local_staff_session_cookie(response, result.session_token, max_age=result.cookie_max_age)
     return _no_store(response)
 
 
