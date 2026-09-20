@@ -2,6 +2,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from contextlib import suppress
+from pathlib import Path
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ if (os.getenv("HOIKUICT_ENV") or "").strip().lower() != "production":
 
 from fastapi import Depends, FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from database import (
     bootstrap_health_records,
@@ -58,6 +60,7 @@ from routers.staff_portal import router as staff_portal_router
 from routers.staff_rooms import router as staff_rooms_router
 from routers.document_reviews import router as document_reviews_router
 from routers.terminal_monitor import router as terminal_monitor_router
+from routers.settings import router as settings_router
 from routers.staff_surveys import router as staff_surveys_router
 from routers.surveys import router as surveys_router
 from routers.zengin import router as zengin_router
@@ -130,6 +133,7 @@ app = FastAPI(
 )
 app.add_exception_handler(StarletteHTTPException, staff_auth_http_exception_handler)
 app.add_middleware(CsrfTokenMiddleware)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
@@ -162,6 +166,7 @@ app.include_router(daily_contacts_router)
 app.include_router(staff_rooms_router)
 app.include_router(document_reviews_router)
 app.include_router(terminal_monitor_router)
+app.include_router(settings_router)
 app.include_router(surveys_router)
 app.include_router(staff_surveys_router)
 app.include_router(zengin_router)

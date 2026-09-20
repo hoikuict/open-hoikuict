@@ -235,13 +235,11 @@ class LocalPasswordStaffAuthBackend:
     def establish_session(self, response: Response, subject: StaffSessionSubject) -> None:
         raise RuntimeError("local password sessionには認証済みopaque tokenが必要です")
 
-    def set_session_token(self, response: Response, raw_token: str) -> None:
-        from local_auth import staff_session_cookie_max_age
-
+    def set_session_token(self, response: Response, raw_token: str, *, max_age: int) -> None:
         response.set_cookie(
             self.cookie_name,
             raw_token,
-            max_age=staff_session_cookie_max_age(),
+            max_age=max_age,
             **_auth_cookie_kwargs(),
         )
         rotate_csrf_token(response)
@@ -593,10 +591,10 @@ def set_staff_cookies(
     )
 
 
-def set_local_staff_session_cookie(response: Response, raw_token: str) -> None:
+def set_local_staff_session_cookie(response: Response, raw_token: str, *, max_age: int) -> None:
     if not isinstance(_staff_auth_backend, LocalPasswordStaffAuthBackend):
         raise RuntimeError("local password職員認証が有効ではありません")
-    _staff_auth_backend.set_session_token(response, raw_token)
+    _staff_auth_backend.set_session_token(response, raw_token, max_age=max_age)
 
 
 def clear_staff_cookies(

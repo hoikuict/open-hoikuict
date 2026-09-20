@@ -2851,6 +2851,44 @@ class AuthSession(SQLModel, table=True):
     revoke_reason: Optional[str] = Field(default=None, max_length=64)
 
 
+class StaffSessionTimeout(SQLModel, table=True):
+    """Only new staff sessions get a timeout snapshot; legacy sessions use the environment."""
+    __tablename__ = "staff_session_timeouts"
+    __table_args__ = (CheckConstraint("idle_minutes BETWEEN 5 AND 1440"),)
+
+    token_hash: str = Field(primary_key=True, foreign_key="auth_sessions.token_hash", ondelete="CASCADE")
+    idle_minutes: int
+
+
+class StaffSessionPolicy(SQLModel, table=True):
+    __tablename__ = "staff_session_policies"
+    __table_args__ = (
+        CheckConstraint("id = 1"),
+        CheckConstraint("idle_minutes BETWEEN 5 AND 1440"),
+        CheckConstraint("absolute_hours BETWEEN 1 AND 24"),
+        CheckConstraint("idle_minutes <= absolute_hours * 60"),
+    )
+
+    id: int = Field(default=1, primary_key=True)
+    idle_minutes: int = 30
+    absolute_hours: int = 12
+    updated_at: datetime = Field(default_factory=utc_now)
+    updated_by_user_id: uuid.UUID = Field(foreign_key="users.id")
+
+
+class StaffSessionPolicyAudit(SQLModel, table=True):
+    __tablename__ = "staff_session_policy_audits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    changed_at: datetime = Field(default_factory=utc_now, index=True)
+    changed_by_user_id: uuid.UUID = Field(foreign_key="users.id")
+    changed_by_name_snapshot: str
+    old_idle_minutes: int
+    old_absolute_hours: int
+    new_idle_minutes: int
+    new_absolute_hours: int
+
+
 class LoginThrottle(SQLModel, table=True):
     __tablename__ = "login_throttles"
 
