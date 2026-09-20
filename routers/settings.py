@@ -16,8 +16,9 @@ templates = create_templates()
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def settings_index(request: Request, current_user=Depends(get_current_staff_user)):
+    from restore_control import enabled
     return templates.TemplateResponse(
-        request, "settings/index.html", {"current_user": current_user},
+        request, "settings/index.html", {"current_user": current_user, "restore_enabled": enabled()},
         headers={"Cache-Control": "private, no-store"},
     )
 

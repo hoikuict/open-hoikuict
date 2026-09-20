@@ -1,0 +1,56 @@
+# Merge into the existing production Compose configuration; preserve all local
+# auth, SMTP, push, tunnel and network settings. Paths below live outside runtime.
+services:
+  app:
+    command: ["python", "-m", "scripts.restore_gateway"]
+    environment:
+      HOIKUICT_RESTORE_ENABLED: "1"
+      HOIKUICT_RESTORE_CONTROL_DIR: /restore-control
+      HOIKUICT_RESTORE_BACKUP_ROOT: /backup
+      HOIKUICT_RESTORE_STAGING_ROOT: /restore-staging
+      HOIKUICT_RESTORE_SIGNING_KEY_FILE: /run/secrets/restore-signing-key
+      HOIKUICT_RESTORE_COMPATIBLE_GIT_SHAS: ${RESTORE_COMPATIBLE_GIT_SHAS:?required}
+    volumes:
+      - ${BACKUP_SET_PATH:?required}:/backup:ro
+      - ${RESTORE_CONTROL_PATH:?required}:/restore-control
+      - ${APP_SECRETS_PATH:?required}/restore-signing-key:/run/secrets/restore-signing-key:ro
+
+  backup-worker:
+    environment:
+      HOIKUICT_RESTORE_ENABLED: "1"
+      HOIKUICT_RESTORE_CONTROL_DIR: /restore-control
+    volumes:
+      - ${RESTORE_CONTROL_PATH:?required}:/restore-control
+
+  restore-worker:
+    image: ${APP_IMAGE:?required}
+    pull_policy: never
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      TZ: Asia/Tokyo
+      HOIKUICT_ENV: production
+      HOIKUICT_DATABASE_URL: sqlite:////data/hoikuict.db
+      HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
+      HOIKU_NURSERY_REF: ${HOIKU_NURSERY_REF:?required}
+      HOIKUICT_STORAGE_ROOT: /app/storage
+      HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+      HOIKUICT_BACKUP_GIT_SHA: ${BACKUP_GIT_SHA:?required}
+      HOIKUICT_BACKUP_APP_IMAGE: ${BACKUP_APP_IMAGE:?required}
+      HOIKUICT_BACKUP_COMPOSE_SHA256: ${BACKUP_COMPOSE_SHA256:?required}
+      HOIKUICT_RESTORE_ENABLED: "1"
+      HOIKUICT_RESTORE_CONTROL_DIR: /restore-control
+      HOIKUICT_RESTORE_BACKUP_ROOT: /backup
+      HOIKUICT_RESTORE_STAGING_ROOT: /restore-staging
+      HOIKUICT_RESTORE_SIGNING_KEY_FILE: /run/secrets/restore-signing-key
+      HOIKUICT_RESTORE_COMPATIBLE_GIT_SHAS: ${RESTORE_COMPATIBLE_GIT_SHAS:?required}
+    volumes:
+      - ${APP_RUNTIME_PATH:?required}/data:/data
+      - ${APP_RUNTIME_PATH:?required}/storage:/app/storage
+      - ${BACKUP_SET_PATH:?required}:/backup
+      - ${RESTORE_CONTROL_PATH:?required}:/restore-control
+      - ${RESTORE_STAGING_PATH:?required}:/restore-staging
+      - ${APP_SECRETS_PATH:?required}/restore-signing-key:/run/secrets/restore-signing-key:ro
+    entrypoint: ["python", "-m", "scripts.restore_worker"]

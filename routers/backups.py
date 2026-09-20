@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from urllib.parse import urlencode
+from contextlib import nullcontext
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -21,6 +22,7 @@ from backup_schedule import (
     save_backup_schedule,
 )
 from template_utils import create_templates
+from restore_control import active_job as active_restore_job, enabled as restore_enabled, exclusive_lock, RestoreError
 
 
 router = APIRouter(prefix="/settings/backups", tags=["backup-settings"])
@@ -71,6 +73,7 @@ def backup_settings_page(
             "weekday_options": list(enumerate(WEEKDAY_LABELS)),
             "message": message,
             "error": error,
+            "restore_enabled": restore_enabled(),
         },
     )
 
@@ -86,13 +89,16 @@ def request_backup(
         )
         return RedirectResponse(url=f"/settings/backups?{query}", status_code=303)
     try:
-        enqueue_backup(
-            requested_by_id=(
-                str(current_user.user_id) if current_user.user_id is not None else None
-            ),
-            requested_by_name=current_user.name,
-        )
-    except BackupJobConflict as exc:
+        with exclusive_lock() if restore_enabled() else nullcontext():
+            if restore_enabled() and active_restore_job():
+                raise RestoreError("復元が進行中です。復元画面で進行状況を確認してください。")
+            enqueue_backup(
+                requested_by_id=(
+                    str(current_user.user_id) if current_user.user_id is not None else None
+                ),
+                requested_by_name=current_user.name,
+            )
+    except (BackupJobConflict, RestoreError) as exc:
         query = urlencode({"error": str(exc)})
         return RedirectResponse(url=f"/settings/backups?{query}", status_code=303)
     query = urlencode({"message": "バックアップの実行を受け付けました。"})
@@ -109,17 +115,20 @@ def update_backup_schedule(
 ):
     require_admin(current_user)
     try:
-        save_backup_schedule(
-            enabled=enabled in {"1", "true", "on", "yes"},
-            frequency=frequency,
-            run_time=run_time,
-            weekday=weekday,
-            updated_by_id=(
-                str(current_user.user_id) if current_user.user_id is not None else None
-            ),
-            updated_by_name=current_user.name,
-        )
-    except BackupScheduleError as exc:
+        with exclusive_lock() if restore_enabled() else nullcontext():
+            if restore_enabled() and active_restore_job():
+                raise RestoreError("復元が進行中です。完了後に定期実行を設定してください。")
+            save_backup_schedule(
+                enabled=enabled in {"1", "true", "on", "yes"},
+                frequency=frequency,
+                run_time=run_time,
+                weekday=weekday,
+                updated_by_id=(
+                    str(current_user.user_id) if current_user.user_id is not None else None
+                ),
+                updated_by_name=current_user.name,
+            )
+    except (BackupScheduleError, RestoreError) as exc:
         query = urlencode({"error": str(exc)})
         return RedirectResponse(url=f"/settings/backups?{query}", status_code=303)
     query = urlencode({"message": "定期実行設定を保存しました。"})
