@@ -1,10 +1,10 @@
-# 園全体の復元UI：配備準備記録（2026-09-21）
+# 園全体の復元UI：配備記録（2026-09-21）
 
-状態：初回配備は実機の隔離検証を通過後、設定比較の誤判定で本番切替前に停止。比較処理を修正し、実機のComposeで成功を確認済み。修正版の配備開始には再度sudoの対話認証が必要。本番反映済みの記録ではない。
+状態：2026-09-21 07:09:44 JST、本番反映完了。配備サービスのcompleteに加え、本番のcommit・image・Composeハッシュを別途照合済み。
 
 - ユーザーはモック試用後、「OK、実機に反映してください」と承認。
 - 本番基準：`f6f24938c3ad963c1b53203914a5cdd5aead2ad3`。
-- 配備候補：`66471bffb6eb3bba0b1783a498b84dad7fbaade6`。
+- 配備済み：`66471bffb6eb3bba0b1783a498b84dad7fbaade6`。
 - push先：`codex/restore-ui-20260921-production`。
 - 開発ブランチはbackup format 2を含むため、その全体を本番へ上書きしない。今回の機能は形式1の現行本番専用ブランチに実装。
 
@@ -28,8 +28,17 @@
 
 架空の設定値を使い実機のComposeで問題を再現し、修正後に`CONFIG_COMPARISON_OK`を確認した。既存環境値の改変やDockerソケット追加を拒否する検査、正常系と失敗時の旧版復帰の検査も通過。初回の本番アプリ・設定・deployment.jsonのハッシュは変更されていない。
 
-## 続行
+## 本番反映の結果
 
-修正版の非公開作業ディレクトリ：`/home/truenas_admin/restore-ui-20260921-66471bf-r2`。`SHA256SUMS`の全ファイル照合とPython構文検査は実機で成功済み。対話認証後に `sudo python3 /home/truenas_admin/restore-ui-20260921-66471bf-r2/start-systemd.py` を実行する。旧ディレクトリと初回の状態記録は保持している。
+修正版 `/home/truenas_admin/restore-ui-20260921-66471bf-r2` で、07:03 JSTに開始。隔離検証と設定比較を通過し、07:09:44 JSTに完了した。アプリ・gateway・backup-worker・restore-workerの正常性と公開用tunnelの再開を確認済み。旧起動コマンドを再実行しない。
 
-起動後は同ディレクトリの `status.json` を確認する。同じ起動コマンドを繰り返さない。最終の `complete` と実機のcommit・image・アプリ・両worker・tunnelの正常性を確認後、この記録を反映済みへ更新する。ログやComposeの展開値、DBの個人情報を出力しない。
+- 本番イメージ：`sha256:cf5ad500b3e014a275cfaa6f1b035ff2ce28e46d95a9d9ae7e92f9e7b7b83950`。
+- 本番Compose：`a15583b8d1edf8b23827986068b6e95af2eba17992ef91c6ab212cf128a2db3b`。
+- deployment.json：`8afa383f5d70023a4679539957855b0db289b7d74e3fb7d1bd555699d7828d12`。
+- 既存DBの72テーブルと添付8ファイルの保持を検査。既存ログインと設定も保持。
+- 定期バックアップは有効・毎日02:00 JSTを維持。画面から実際に復元した場合は、合意仕様どおり無効となる。
+- 直前退避：`before-restore-ui-20260920T220324Z`。同時点のruntime ZFS snapshotと主DB・施設文例DBの退避を保存。
+
+管理者は「設定 → バックアップ・復元 → 復元元を選ぶ」から利用する。実行前に対象・影響を確認し、管理者パスワードで再認証する。
+
+完了記録は修正版ディレクトリの `status.json`、ローカルの `.local-dev/truenas-restore-ui-20260921-retry1/verified-completion.json` と `live-after.json` に保持。初回停止の記録も残している。ログ・展開済み設定・DBの個人情報は更新記録に出力しない。
