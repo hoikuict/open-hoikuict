@@ -13,7 +13,6 @@ from starlette.requests import HTTPConnection
 
 from csrf import rotate_csrf_token
 from security_config import parent_auth_mode, secure_cookie_enabled, staff_auth_mode
-from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 
 
 class Role(str, Enum):
@@ -554,7 +553,7 @@ def get_current_staff_user_record(request: Request, session):
     if staff_user_id is None:
         return None
     user = session.get(User, staff_user_id)
-    if user is None or not user.is_active or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT:
+    if user is None or not user.is_active:
         return None
     return user
 

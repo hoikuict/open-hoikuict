@@ -99,6 +99,8 @@ nav:
           - アカウントと利用開始: accounts.md
           - 共通QRで保護者登録: parent-public-registration.md
           - 招待・家族プロフィール同期: guardian-account-sync.md
+          - 家庭の削除と記録の保護: family-deletion.md
+          - 園児・保護者の写真: profile-photos.md
           - 家庭・園児CSVの取り込み: family-guardian-csv-guide.md
           - 保護者通知: notifications.md
           - キオスク端末の設定: chromebook-guardian-kiosk.md
@@ -110,6 +112,7 @@ nav:
           - Web Pushの本番設定: parent-push-production-setup.md
           - Web Pushの実機確認: parent-push-real-device-test.md
           - バックアップ・復元: backup-restore-spec.md
+          - 管理画面から園全体を復元: restore-from-app.md
           - バックアップの検証手順: backup-verification-guide.md
           - 運用試験の構成と受入条件: pilot-deployment-spec-v2.md
           - リリース・更新時の確認: release-checklist.md
@@ -149,7 +152,10 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-09-22 mainへの変更統合: main-integration-2026-09-22.md
           - 2026-09-22 家庭一覧アーカイブの本番更新: deployment-family-archive-list-only-2026-09-22.md
+          - 2026-09-22 家庭一覧アーカイブの実装: family-archive-list-only-implementation-2026-09-22.md
+          - 2026-09-21 家庭アーカイブの実装: family-archive-implementation-2026-09-21.md
           - 2026-09-22 家庭一覧アーカイブの仕様: family-archive-list-only-proposal-2026-09-22.md
           - 2026-09-21 家庭アーカイブの本番更新: deployment-family-archive-2026-09-21.md
           - 2026-09-21 家庭アーカイブの画面確認: family-archive-ui-proposal-2026-09-21.md
@@ -167,6 +173,7 @@ nav:
           - 2026-09-19 本番更新記録: deployment-2026-09-19.md
           - 2026-09-17 本番更新記録: deployment-2026-09-17.md
           - 2026-09-17 機能改善: spec-improvements-2026-09-17.md
+          - 2026-09-15 機能改善: spec-improvements-2026-09-15.md
           - 2026-09-16 実機更新記録: deployment-2026-09-16.md
           - 2026-09-13 実機更新記録: deployment-2026-09-13.md
           - 2026-09-11 機能追加: spec-improvements-2026-09-11.md

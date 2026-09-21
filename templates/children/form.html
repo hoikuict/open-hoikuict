@@ -21,7 +21,8 @@
   {% if not child and not inherit_from %}
   <div class="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
     <p class="mb-2 text-sm font-medium text-indigo-800">兄弟の情報を引き継いで追加できます。</p>
-    <form action="/children/new" method="get" class="flex items-end gap-2">
+    <p class="mb-4 text-sm text-slate-600"><a href="/data-transfers/?dataset=families" class="font-semibold text-indigo-700 underline">保護者情報をCSV・Excelで取り込む／書き出す</a>（家庭データに保護者2名分の氏名・連絡先・勤務先を含みます）</p>
+  <form action="/children/new" method="get" class="flex items-end gap-2">
       <div class="flex-1">
         <label for="sibling_id" class="mb-1 block text-xs text-indigo-700">兄弟姉妹を選択</label>
         <select id="sibling_id" name="sibling_id" class="w-full rounded border border-indigo-300 px-3 py-2 text-sm">
@@ -168,6 +169,7 @@
     <section class="border-t border-slate-200 pt-6 space-y-4">
       <div>
         <h2 class="text-lg font-semibold text-slate-800">保護者・家族情報</h2>
+        {% if child and child.family and child.family.is_archived %}<p class="text-sm text-indigo-900">家庭一覧でアーカイブ済みです。園児・保護者の利用や編集は続けられます。</p>{% endif %}
         <p class="text-sm text-slate-500">住所や保護者情報は同じ家族の兄弟姉妹にも反映されます。</p>
         <p class="text-xs text-slate-500">この画面に表示していない保護者の情報も保持されます。氏名欄を空欄にしても、登録済みの保護者は削除されません。</p>
         <p class="text-xs text-slate-500">アカウントと紐付けた保護者の氏名・連絡先・勤務先は、保護者アカウントにも反映されます。利用開始後のログインID変更は「認証管理」で行います。</p>

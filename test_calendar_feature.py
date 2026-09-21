@@ -348,11 +348,11 @@ class CalendarFeatureTests(unittest.TestCase):
         }, follow_redirects=False)
         self.assertEqual(response.status_code, 403)
 
-    def test_shared_sync_excludes_inactive_and_nonstaff_users(self):
+    def test_shared_sync_excludes_inactive_users(self):
         with Session(self.engine) as session:
             users = [
                 User(email="inactive@example.test", display_name="無効職員", is_active=False),
-                User(email="nonstaff@example.test", display_name="職員以外", staff_sort_order=200),
+                User(email="inactive-later@example.test", display_name="無効職員2", staff_sort_order=200, is_active=False),
             ]
             session.add_all(users)
             session.commit()

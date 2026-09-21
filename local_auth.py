@@ -28,7 +28,6 @@ from models import (
     USER_SOURCE_MANUAL,
 )
 from security_config import deployment_environment
-from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 from time_utils import ensure_utc, utc_now
 
 
@@ -270,7 +269,7 @@ def issue_existing_staff_activation(
     actor: str,
     approver: str,
 ) -> tuple[PasswordCredential, str]:
-    if not user.is_active or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT:
+    if not user.is_active:
         raise ValueError("有効な職員だけを認証対象にできます")
     if not all(value.strip() for value in (login_id, reason, actor, approver)):
         raise ValueError("ログインID、理由、実行者、承認者は必須です")
@@ -384,7 +383,7 @@ def issue_staff_password_reset(
 ) -> str:
     if not reason.strip():
         raise ValueError("発行理由を入力してください")
-    if not user.is_active or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT:
+    if not user.is_active:
         raise ValueError("有効な職員だけがパスワードを再設定できます")
     credential = session.exec(
         select(PasswordCredential).where(
@@ -533,7 +532,6 @@ def get_staff_activation_details(
         or credential.disabled_at is not None
         or user is None
         or not user.is_active
-        or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT
     ):
         raise AuthenticationFailed(ACTIVATION_FAILURE_MESSAGE)
     return StaffActivationDetails(credential=credential, user=user)
@@ -572,7 +570,6 @@ def reset_staff_password(
         or credential.disabled_at is not None
         or user is None
         or not user.is_active
-        or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT
     ):
         raise AuthenticationFailed(RESET_FAILURE_MESSAGE)
 
@@ -657,7 +654,6 @@ def authenticate_staff(
         and credential.disabled_at is None
         and user is not None
         and user.is_active
-        and user.staff_sort_order < STAFF_USER_SORT_ORDER_LIMIT
     )
     if not valid:
         _record_failure(session, account_bucket, "account", now)
@@ -750,7 +746,6 @@ def resolve_staff_session(session: Session, raw_token: str) -> User | None:
     elif (
         user is None
         or not user.is_active
-        or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT
     ):
         revoke_reason = "staff_disabled"
     if revoke_reason:

@@ -1,7 +1,19 @@
-(() => {
+(function initGuardianTerminal() {
   'use strict';
   const root = document.getElementById('guardian-terminal');
   if (!root) return;
+  window.guardianTerminalCleanup?.();
+  const lifecycle = new AbortController();
+  const timers = [];
+  let disposed = false;
+  const listen = (target, type, fn, options = {}) => target.addEventListener(type, fn, { ...options, signal: lifecycle.signal });
+  const repeat = (fn, ms) => timers.push(setInterval(fn, ms));
+  window.guardianTerminalCleanup = () => {
+    disposed = true;
+    lifecycle.abort();
+    timers.forEach(clearInterval);
+    wakeLock?.release().catch(() => {});
+  };
   const startUrl = '/guardian/terminal';
   const ready = root.dataset.ready === '1';
   const active = root.dataset.active === '1';
@@ -46,10 +58,55 @@
       idleWarning.hidden = true;
       return;
     }
-    window.location.replace(startUrl);
+    navigate(startUrl);
   };
+  async function navigate(url, options = {}) {
+    if (submitting || disposed) return;
+    submitting = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(url, { ...options, cache: 'no-store', signal: controller.signal });
+      const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const next = page.getElementById('guardian-terminal');
+      if (!next || new URL(response.url).origin !== location.origin) throw new Error('Unexpected terminal response');
+      const scripts = [...next.querySelectorAll('script:not([src])')].map(script => script.textContent);
+      next.querySelectorAll('script').forEach(script => script.remove());
+      window.guardianTerminalCleanup();
+      // The fullscreen documentElement stays mounted across GETs, POSTs and redirects.
+      root.innerHTML = next.innerHTML;
+      for (const key of Object.keys(root.dataset)) delete root.dataset[key];
+      Object.assign(root.dataset, next.dataset);
+      document.title = page.title;
+      document.querySelector('meta[name="csrf-token"]').content = page.querySelector('meta[name="csrf-token"]')?.content || '';
+      history.replaceState(null, '', options.method === 'POST' && !response.redirected ? startUrl : response.url);
+      for (const text of scripts) {
+        const script = document.createElement('script');
+        script.textContent = text;
+        root.appendChild(script);
+        script.remove();
+      }
+      initGuardianTerminal();
+      window.scrollTo(0, 0);
+    } catch (_) {
+      if (disposed) return;
+      submitting = false;
+      showAvailability(false, options.method === 'POST'
+        ? '送信結果を確認できません。自動で再送しません。接続を確認してから記録を確認してください。'
+        : '画面を読み込めませんでした。接続を確認してください。');
+    } finally { clearTimeout(timeout); }
+  }
+  listen(document, 'click', event => {
+    const link = event.target.closest('a[href]');
+    if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || link.target || link.download) return;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== location.origin || !/^\/guardian(?:\/|$)/.test(url.pathname)) return;
+    event.preventDefault();
+    if (!navigator.onLine || !available) { showAvailability(false, '接続を確認してください。'); return; }
+    navigate(url.href);
+  });
   const activity = () => { lastActivity = Date.now(); idleWarning.hidden = true; };
-  ['pointerdown', 'keydown', 'input', 'scroll'].forEach(name => document.addEventListener(name, activity, { passive: true }));
+  ['pointerdown', 'keydown', 'input', 'scroll'].forEach(name => listen(document, name, activity, { passive: true }));
   document.getElementById('terminal-continue').addEventListener('click', activity);
 
   function showAvailability(ok, message = '') {
@@ -73,7 +130,7 @@
       const response = await fetch('/guardian/terminal/status', { cache: 'no-store', redirect: 'error', signal: controller.signal });
       if (!response.ok) throw new Error('Device or connection unavailable');
       const status = await response.json();
-      if (submitting) return;
+      if (submitting || disposed) return;
       if (!navigator.onLine) throw new Error('Connection was lost during the check');
       if (status.kiosk !== true) throw new Error('Unexpected response');
       const epoch = Date.parse(status.server_time);
@@ -87,12 +144,12 @@
       }
       showAvailability(true);
     } catch (_) {
-      if (submitting) return;
+      if (submitting || disposed) return;
       showAvailability(false, '通信または端末登録を確認できません。打刻は送信されません。職員にお知らせください。');
     } finally {
       clearTimeout(timeout);
       checking = false;
-      if (recheckPending && navigator.onLine) {
+      if (!disposed && recheckPending && navigator.onLine) {
         recheckPending = false;
         checkConnection();
       }
@@ -107,19 +164,26 @@
     else { available = navigator.onLine; reset(); }
   };
   document.getElementById('terminal-retry').addEventListener('click', reconnect);
-  window.addEventListener('offline', () => showAvailability(false, '通信が切れています。打刻は送信されません。職員にお知らせください。'));
-  window.addEventListener('online', reconnect);
+  listen(window, 'offline', () => showAvailability(false, '通信が切れています。打刻は送信されません。職員にお知らせください。'));
+  listen(window, 'online', reconnect);
   // A failed submission is never queued or automatically sent again.
-  document.addEventListener('submit', event => {
-    if (event.defaultPrevented || event.target.method.toLowerCase() !== 'post') return;
-    if (!navigator.onLine || !available || submitting) { event.preventDefault(); return; }
-    submitting = true;
+  listen(document, 'submit', event => {
+    if (event.defaultPrevented) return;
+    const form = event.target;
+    const url = new URL(form.action, location.href);
+    if (url.origin !== location.origin || !/^\/guardian(?:\/|$)/.test(url.pathname)) return;
+    event.preventDefault();
+    if (!navigator.onLine || !available || submitting) return;
+    const data = new FormData(form, event.submitter);
+    if (form.method.toLowerCase() === 'post') navigate(url.href, { method: 'POST', body: data });
+    else { url.search = new URLSearchParams(data).toString(); navigate(url.href); }
   });
 
   async function keepScreenAwake() {
     if (!('wakeLock' in navigator) || wakeLock || document.visibilityState !== 'visible') return;
     try {
       wakeLock = await navigator.wakeLock.request('screen');
+      if (disposed) { await wakeLock.release(); return; }
       wakeLock.addEventListener('release', () => { wakeLock = null; });
     } catch (_) { /* Device power settings remain available when wake lock is unsupported. */ }
   }
@@ -130,11 +194,14 @@
     } catch (_) { /* The Chromebook fullscreen key can also be used. */ }
     keepScreenAwake();
   });
-  document.addEventListener('fullscreenchange', () => {
-    document.getElementById('terminal-fullscreen').textContent = document.fullscreenElement ? '全画面を終了' : '全画面';
-  });
-  window.addEventListener('pageshow', event => { if (event.persisted && active) reset(); });
-  document.addEventListener('visibilitychange', () => {
+  const fullscreenLabel = () => { document.getElementById('terminal-fullscreen').textContent = document.fullscreenElement ? '全画面を終了' : '全画面'; };
+  listen(document, 'fullscreenchange', fullscreenLabel);
+  fullscreenLabel();
+  const done = document.querySelector('[data-terminal-return-url]');
+  if (done) timers.push(setTimeout(() => navigate(done.dataset.terminalReturnUrl), Number(done.dataset.terminalReturnMs) || 1000));
+  listen(window, 'popstate', reset);
+  listen(window, 'pageshow', event => { if (event.persisted && active) reset(); });
+  listen(document, 'visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (active && Date.now() - lastActivity >= idleMs) { reset(); return; }
     checkConnection();
@@ -144,8 +211,8 @@
     if (!available) showAvailability(false, '通信が切れています。職員にお知らせください。');
     checkConnection();
     keepScreenAwake();
-    setInterval(checkConnection, 30000);
-    setInterval(() => {
+    repeat(checkConnection, 30000);
+    repeat(() => {
       if (!active || submitting || resetPending) return;
       const remaining = Math.ceil((idleMs - (Date.now() - lastActivity)) / 1000);
       if (remaining <= 0) { reset(); return; }

@@ -506,11 +506,16 @@ class Family(SQLModel, table=True):
     home_address: Optional[str] = None
     home_phone: Optional[str] = None
     shared_profile: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
     children: List["Child"] = Relationship(back_populates="family")
     parent_accounts: List["ParentAccount"] = Relationship(back_populates="family")
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
 
     def guardian_profiles(self) -> list[dict[str, Any]]:
         profile = self.shared_profile if isinstance(self.shared_profile, dict) else {}
@@ -532,7 +537,20 @@ class Family(SQLModel, table=True):
 
     @property
     def selection_label(self) -> str:
-        return self.identity_label
+        return self.identity_label + ("（家庭一覧でアーカイブ済み）" if self.is_archived else "")
+
+
+class FamilyArchiveLog(SQLModel, table=True):
+    __tablename__ = "family_archive_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    family_id: int = Field(foreign_key="families.id", index=True)
+    action: str = Field(max_length=16)
+    reason: str = Field(default="", max_length=80)
+    note: str = Field(default="", max_length=500)
+    actor_id: Optional[str] = Field(default=None, max_length=64)
+    actor_name: str = Field(max_length=100)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
 
 
 class Classroom(SQLModel, table=True):
@@ -3120,6 +3138,28 @@ class Event(SQLModel, table=True):
     is_deleted: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarImportSource(SQLModel, table=True):
+    __tablename__ = "calendar_import_sources"
+    __table_args__ = (UniqueConstraint("calendar_id", "source_key", name="uq_calendar_import_source"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    source_key: str = Field(max_length=64)
+    event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarImportBatch(SQLModel, table=True):
+    __tablename__ = "calendar_import_batches"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    items: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    expires_at: datetime = Field(index=True)
+    used_at: Optional[datetime] = None
 
 
 class EventOverride(SQLModel, table=True):

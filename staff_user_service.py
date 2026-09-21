@@ -7,9 +7,6 @@ from sqlmodel import Session, select
 from models import User
 
 
-STAFF_USER_SORT_ORDER_LIMIT = 200
-
-
 def staff_user_identity_key(user: User) -> tuple[int, str, str, bool]:
     return (
         user.staff_sort_order,
@@ -36,7 +33,7 @@ def deduplicate_staff_users(users: list[User]) -> list[User]:
 def list_active_staff_users(session: Session, *, deduplicate: bool = True) -> list[User]:
     users = session.exec(
         select(User)
-        .where(User.is_active.is_(True), User.staff_sort_order < STAFF_USER_SORT_ORDER_LIMIT)
+        .where(User.is_active.is_(True))
         .order_by(User.staff_sort_order, User.display_name, User.email)
     ).all()
     return deduplicate_staff_users(users) if deduplicate else users

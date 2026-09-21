@@ -7,8 +7,8 @@ from collections import defaultdict
 from typing import DefaultDict
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import or_, update
 from sqlmodel import Session, select
 
@@ -43,6 +43,35 @@ def _note_content(note: MeetingNote) -> dict:
         [note.title, content, note.search_text, note.updated_at.isoformat()], ensure_ascii=False,
     ).encode("utf-8")).hexdigest()
     return {"content_base64": content, "title": note.title, "revision": revision}
+
+
+class ExportMeetingNotePayload(BaseModel):
+    title: str = Field(max_length=300)
+    ops: list[dict] = Field(max_length=10000)
+
+
+@router.post("/{note_id}/export/{format_name}")
+async def export_meeting_note(
+    request: Request, note_id: int, format_name: str,
+    session: Session = Depends(get_session), current_user=Depends(get_current_staff_user),
+):
+    from meeting_note_export import export_note
+
+    _load_meeting_note(session, note_id)
+    content = bytearray()
+    async for chunk in request.stream():
+        content.extend(chunk)
+        if len(content) > 24 * 1024 * 1024:
+            raise HTTPException(413, "出力する内容は24MB以内にしてください。")
+    try:
+        payload = ExportMeetingNotePayload.model_validate_json(content)
+        data, media_type, extension = export_note(payload.title.strip() or "無題の議事録", payload.ops, format_name)
+    except (ValueError, ValidationError, TypeError) as exc:
+        raise HTTPException(400, str(exc) if not isinstance(exc, ValidationError) else "出力内容を確認してください。") from exc
+    return Response(data, media_type=media_type, headers={
+        "Content-Disposition": f'attachment; filename="meeting-{note_id}.{extension}"',
+        "Cache-Control": "no-store",
+    })
 
 
 class MeetingNoteConnectionManager:

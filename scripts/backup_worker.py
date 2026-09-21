@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -168,6 +169,10 @@ def _heartbeat_loop(control_dir: Path, stop_event: Event, interval_seconds: floa
     while not stop_event.is_set():
         try:
             write_worker_heartbeat(control_dir)
+            if os.getenv("HOIKUICT_RESTORE_ENABLED") == "1":
+                from restore_control import heartbeat, service_state
+                state = service_state("backup")
+                heartbeat("backup", paused=state.get("paused", False), job_id=state.get("job_id"))
         except Exception:
             logger.exception("backup worker heartbeat failed")
         stop_event.wait(interval_seconds)
@@ -193,8 +198,23 @@ def run_worker(
             process_next_backup(settings)
             return 0
         while True:
-            enqueue_due_scheduled_backup(settings)
-            processed = process_next_backup(settings)
+            restoring_enabled = os.getenv("HOIKUICT_RESTORE_ENABLED") == "1"
+            if restoring_enabled:
+                from restore_control import active_job, exclusive_lock, heartbeat, maintenance, RestoreError
+            try:
+                with exclusive_lock() if restoring_enabled else nullcontext():
+                    marker = (maintenance() or active_job()) if restoring_enabled else None
+                    if restoring_enabled:
+                        heartbeat("backup", paused=bool(marker), job_id=marker.get("job_id") if marker else None)
+                    if marker:
+                        processed = False
+                    else:
+                        enqueue_due_scheduled_backup(settings)
+                        processed = process_next_backup(settings)
+            except Exception as exc:
+                if not restoring_enabled or not isinstance(exc, RestoreError):
+                    raise
+                processed = False
             if not processed:
                 time.sleep(max(0.25, poll_seconds))
     except KeyboardInterrupt:

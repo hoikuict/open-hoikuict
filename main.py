@@ -28,8 +28,10 @@ from routers.attendance import router as attendance_router
 from routers.attendance_checks import router as attendance_checks_router
 from routers.billing import router as billing_router
 from routers.backups import router as backups_router
+from routers.restores import router as restores_router
 from routers.calendar import mock_login_router as calendar_mock_login_router
 from routers.calendar import router as calendar_router
+from calendar_import import router as calendar_import_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.care_certifications import router as care_certifications_router
 from routers.children import router as children_router
@@ -102,13 +104,14 @@ def initialize_application() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     initialize_application()
-    background_tasks = [asyncio.create_task(_preview_cleanup_loop())]
-    if parent_push_worker_enabled():
-        background_tasks.append(asyncio.create_task(parent_push_worker_loop()))
-    if parent_auth_mode() == "local_password" and os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT", "capture") != "disabled":
-        background_tasks.append(asyncio.create_task(parent_mail_worker_loop()))
-    if staff_auth_mode() == "local_password":
-        background_tasks.append(asyncio.create_task(staff_mail_worker_loop()))
+    restore_probe = os.getenv("HOIKUICT_RESTORE_PROBE") == "1"
+    background_tasks = [] if restore_probe else [asyncio.create_task(_after_restore_release(_preview_cleanup_loop))]
+    if not restore_probe and parent_push_worker_enabled():
+        background_tasks.append(asyncio.create_task(_after_restore_release(parent_push_worker_loop)))
+    if not restore_probe and parent_auth_mode() == "local_password" and os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT", "capture") != "disabled":
+        background_tasks.append(asyncio.create_task(_after_restore_release(parent_mail_worker_loop)))
+    if not restore_probe and staff_auth_mode() == "local_password":
+        background_tasks.append(asyncio.create_task(_after_restore_release(staff_mail_worker_loop)))
     try:
         yield
     finally:
@@ -117,6 +120,14 @@ async def lifespan(app: FastAPI):
         for task in background_tasks:
             with suppress(asyncio.CancelledError):
                 await task
+
+
+async def _after_restore_release(factory) -> None:
+    if os.getenv("HOIKUICT_RESTORE_ENABLED") == "1":
+        from restore_control import maintenance
+        while maintenance() is not None:
+            await asyncio.sleep(0.5)
+    await factory()
 
 
 async def _preview_cleanup_loop() -> None:
@@ -148,12 +159,14 @@ app.include_router(attendance_checks_router)
 app.include_router(extended_care_fees_router)
 app.include_router(billing_router)
 app.include_router(backups_router)
+app.include_router(restores_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
 app.include_router(parent_push_router)
 app.include_router(parent_push_settings_router)
 app.include_router(calendar_router)
+app.include_router(calendar_import_router)
 app.include_router(staff_auth_router)
 app.include_router(institutional_records_router)
 if deployment_environment() == "development":

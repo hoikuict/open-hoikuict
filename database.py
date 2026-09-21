@@ -10,6 +10,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import local_today, utc_now
+import family_archive_guard  # noqa: F401 -- requires audited archive-state transitions
 
 DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 _database_url = make_url(DATABASE_URL)
@@ -62,6 +63,7 @@ def create_db_and_tables() -> None:
 
     _enable_sqlite_wal()
     SQLModel.metadata.create_all(engine)
+    _migrate_family_archive()
     _migrate_add_child_columns()
     _migrate_add_child_health_profile_columns()
     _migrate_add_attendance_columns()
@@ -88,6 +90,15 @@ def create_db_and_tables() -> None:
     _migrate_care_certification_and_extended_care_columns()
     _migrate_extended_care_billing_transfer()
     _validate_sqlite_foreign_keys()
+
+
+def _migrate_family_archive() -> None:
+    # Additive and idempotent; never infer archived state from existing records.
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(families)")}
+        if "archived_at" not in columns:
+            conn.exec_driver_sql("ALTER TABLE families ADD COLUMN archived_at DATETIME")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_families_archived_at ON families (archived_at)")
 
 
 def _enable_sqlite_wal() -> None:

@@ -6,9 +6,10 @@
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
   <div>
     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Operations</p>
-    <h1 class="mt-1 text-2xl font-bold text-slate-900">バックアップ管理</h1>
+    <h1 class="mt-1 text-2xl font-bold text-slate-900">{{ 'バックアップ・復元' if restore_enabled else 'バックアップ管理' }}</h1>
     <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">写真を含むDB・全種類の添付・定期実行設定を保存して検査します。取得、検査、別系統保存、復元試験の結果をそれぞれ確認してください。</p>
   </div>
+  {% if restore_enabled %}<a href="/settings/backups/restore" class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-indigo-700">復元元を選ぶ</a>{% endif %}
   <form method="post" action="/settings/backups/create">
     <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
     <button
@@ -39,7 +40,7 @@
   </section>
   <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
     <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">復元について</p>
-    <p class="mt-3 text-sm leading-6 text-amber-900">この画面から稼働中データの上書きやバックアップの削除はできません。復元は停止手順に従って行います。</p>
+    <p class="mt-3 text-sm leading-6 text-amber-900">{% if restore_enabled %}管理者が園全体を選んだ日時へ戻せます。「復元元を選ぶ」から対象と影響を確認します。{% else %}この画面から稼働中データの上書きやバックアップの削除はできません。復元は停止手順に従って行います。{% endif %}</p>
     <p class="mt-2 text-xs leading-5 text-amber-800">画面からの稼働中取得は試験用です。正式な取得は書込み停止手順に従います。復元後の定期実行は、設定確認後に再開してください。</p>
   </section>
 </div>
@@ -108,6 +109,7 @@
         <dl class="grid grid-cols-2 gap-x-5 gap-y-1 text-sm">
           <dt class="text-slate-500">バックアップID</dt><dd class="font-mono text-xs text-slate-800">{{ job.result.backup_id }}</dd>
           <dt class="text-slate-500">検証ファイル</dt><dd class="text-slate-800">{{ job.result.files_verified }}件</dd>
+          {% if restore_enabled and job.status == 'succeeded' %}<dt class="sr-only">復元</dt><dd class="col-span-2 mt-2"><a href="/settings/backups/restore?backup_id={{ job.result.backup_id }}" class="text-indigo-600">この時点に復元</a></dd>{% endif %}
         </dl>
         {% endif %}
       </div>

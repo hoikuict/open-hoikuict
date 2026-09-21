@@ -35,7 +35,6 @@ from models import (
     User,
 )
 from security_config import staff_auth_mode, staff_recovery_base_url
-from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 from time_utils import ensure_utc, utc_now
 
 RECOVERY_TTL = timedelta(minutes=30)
@@ -80,7 +79,6 @@ def _take_rate_slot(session, value, kind, *, limit, cooldown=timedelta(0)):
 def _admin_conditions():
     return (
         User.is_active.is_(True), User.staff_role == "admin",
-        User.staff_sort_order < STAFF_USER_SORT_ORDER_LIMIT,
         PasswordCredential.principal_type == "staff",
         PasswordCredential.password_hash.is_not(None),
         PasswordCredential.disabled_at.is_(None),
@@ -182,7 +180,7 @@ def complete_admin_password_recovery(
     ).values(consumed_at=now).execution_options(synchronize_session=False))
     eligible_user = select(User.id).where(
         User.id == user.id, User.email == recovery.recipient, User.is_active.is_(True),
-        User.staff_role == "admin", User.staff_sort_order < STAFF_USER_SORT_ORDER_LIMIT,
+        User.staff_role == "admin",
     )
     changed = session.execute(update(PasswordCredential).where(
         PasswordCredential.id == recovery.credential_id,

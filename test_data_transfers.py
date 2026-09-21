@@ -201,6 +201,21 @@ class DataTransferTests(unittest.TestCase):
         self.assertIn('data-dataset-row="families"', response.text)
         self.assertIn("認可施設帳票入力連携", response.text)
 
+    def test_family_export_can_be_previewed_with_legacy_guardian_order(self):
+        with Session(self.engine) as session:
+            family = session.get(Family, self.family_id)
+            family.shared_profile = {"guardians": [{"order": "1", "last_name": "架空", "first_name": "保護者"}]}
+            session.add(family)
+            session.commit()
+        exported = self.client.get("/data-transfers/export/families.csv")
+        self.assertEqual(exported.status_code, 200)
+        preview = self.client.post(
+            "/data-transfers/import/families/preview",
+            files={"file": ("families.csv", exported.content, "text/csv")},
+        )
+        self.assertEqual(preview.status_code, 200)
+        self.assertRegex(preview.text, r'name="preview_token" value="[a-f0-9]+"')
+
     def test_exports_ninka_workbook_with_child_counts(self):
         with Session(self.engine) as session:
             session.add(

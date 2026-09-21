@@ -37,10 +37,15 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const manifest = await (await context.request.get(`${base}/guardian/manifest.webmanifest`)).json();
     assert.equal(manifest.start_url, '/guardian/terminal');
     assert.equal(manifest.display, 'standalone');
+    await page.evaluate(() => { window.fullscreenDocumentMarker = 'kept'; });
+    await page.locator('#terminal-fullscreen').click();
+    await page.waitForFunction(() => !!document.fullscreenElement);
+    const assertFullscreen = async () => assert(await page.evaluate(() => !!document.fullscreenElement && window.fullscreenDocumentMarker === 'kept'), 'fullscreen document must survive navigation');
     const chooseChild = async index => {
       await page.getByRole('link', { name: '検証クラス', exact: true }).click();
       await page.getByRole('link', { name: `表示確認 園児${String(index).padStart(2, '0')}`, exact: true }).click();
       await page.locator('form input[name="csrf_token"]').first().waitFor({ state: 'attached' });
+      await assertFullscreen();
     };
     await chooseChild(0);
     assert.equal(await page.locator('input[type="date"]').count(), 0);
@@ -97,6 +102,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await page.waitForURL('**/guardian/terminal');
     assert(changedDate);
     console.log('PASS: server date change discards the old selection');
+    await assertFullscreen();
+    console.log('PASS: fullscreen document survives selection, arrival, pickup, departure, idle reset and reconnection');
     assert.deepEqual(errors, [], 'unexpected browser errors');
   } finally {
     if (browser) await browser.close();

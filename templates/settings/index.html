@@ -31,7 +31,7 @@
   </section>
   <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="maintenance-settings">
     <h2 id="maintenance-settings" class="px-5 py-3 font-semibold text-slate-600">保守</h2>
-    {{ item('/settings/backups', 'バックアップ管理', 'バックアップの状況確認と実行・予約を行います。') }}
+    {{ item('/settings/backups', 'バックアップ・復元' if restore_enabled else 'バックアップ管理', 'バックアップの状況確認・実行・予約と、園全体の復元を行います。' if restore_enabled else 'バックアップの状況確認と実行・予約を行います。') }}
   </section>
   {% endif %}
 </div>
