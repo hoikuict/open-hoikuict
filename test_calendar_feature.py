@@ -175,6 +175,36 @@ class CalendarFeatureTests(unittest.TestCase):
         response = self.client.get("/calendar")
         self.assertEqual(response.status_code, 200)
 
+    def test_calendar_fragments_have_unique_swap_targets(self):
+        self._login(self.user_a_id)
+        for route in ("/calendar", "/calendar/shell", "/calendar/view"):
+            for mode in ("month", "week", "day"):
+                with self.subTest(route=route, mode=mode):
+                    response = self.client.get(route, params={"mode": mode, "date": "2026-09-14"})
+                    self.assertEqual(response.status_code, 200)
+                    ids = re.findall(r'\bid="([^"]+)"', response.text)
+                    self.assertEqual(len(ids), len(set(ids)), "HTMX targets must not be nested duplicates")
+                    self.assertEqual(ids.count("calendar-main"), 1)
+
+    def test_event_modal_save_returns_one_main_and_sidebar_swap(self):
+        self._login(self.user_a_id)
+        response = self.client.post(
+            "/events",
+            headers={"HX-Request": "true", "HX-Target": "event-modal"},
+            data={
+                "calendar_id": str(self.a_personal_id), "title": "画面更新の確認",
+                "timezone": "Asia/Tokyo", "start_value": "2026-09-14T09:00",
+                "end_value": "2026-09-14T10:00", "mode": "month", "anchor_date": "2026-09-14",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = re.findall(r'\bid="([^"]+)"', response.text)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(ids.count("calendar-main"), 1)
+        self.assertEqual(ids.count("calendar-sidebar"), 1)
+        self.assertRegex(response.text, r'id="calendar-main"\s+hx-swap-oob="outerHTML"')
+        self.assertIn("画面更新の確認", response.text)
+
     def test_admin_user_can_see_create_form_with_color_palette(self):
         self._login(self.user_a_id)
 
@@ -318,11 +348,11 @@ class CalendarFeatureTests(unittest.TestCase):
         }, follow_redirects=False)
         self.assertEqual(response.status_code, 403)
 
-    def test_shared_sync_excludes_inactive_and_nonstaff_users(self):
+    def test_shared_sync_excludes_inactive_users(self):
         with Session(self.engine) as session:
             users = [
                 User(email="inactive@example.test", display_name="無効職員", is_active=False),
-                User(email="nonstaff@example.test", display_name="職員以外", staff_sort_order=200),
+                User(email="inactive-later@example.test", display_name="無効職員2", staff_sort_order=200, is_active=False),
             ]
             session.add_all(users)
             session.commit()

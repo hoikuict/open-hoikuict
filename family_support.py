@@ -141,6 +141,7 @@ def flatten_guardians_data(guardians_data: list[dict[str, Any]]) -> dict[str, st
         for field_name in GUARDIAN_FIELD_NAMES:
             value = guardian.get(field_name, "")
             flattened[f"{prefix}_{field_name}"] = "" if value is None else str(value)
+        flattened[f"{prefix}_photo_id"] = guardian.get("photo_id") or ""
     return flattened
 
 
@@ -206,6 +207,7 @@ def guardian_profiles_from_child(child: Child) -> list[dict[str, Any]]:
         profiles.append(
             {
                 "order": guardian.order,
+                "photo_id": guardian.photo_id,
                 "last_name": guardian.last_name,
                 "first_name": guardian.first_name,
                 "last_name_kana": guardian.last_name_kana or "",
@@ -388,7 +390,7 @@ def backfill_family_guardian_account_links(session: Session, family: Family) -> 
         account = candidates[0]
         profile["parent_account_id"] = account.id
         if not normalized_text(str(profile.get("email", ""))):
-            profile["email"] = account.email
+            profile["email"] = account.contact_email
         used_account_ids.add(account.id)
         changed += 1
 
@@ -431,6 +433,7 @@ def sync_family_to_children(session: Session, family: Family, *, updated_at: Opt
             session.add(
                 Guardian(
                     child_id=child.id,
+                    photo_id=profile.get("photo_id"),
                     last_name=normalized_text(str(profile.get("last_name", ""))),
                     first_name=normalized_text(str(profile.get("first_name", ""))),
                     last_name_kana=normalized_optional_text(str(profile.get("last_name_kana", ""))),
@@ -529,9 +532,14 @@ def sync_family_to_parent_accounts(session: Session, family: Family, *, previous
                 if not normalized_text(profile.get(key)):
                     profile[key] = getattr(account, key) or ""
         # An empty ledger email must not erase the account's required address.
-        profile["email"] = validate_parent_contact_email(session, profile.get("email") or account.email, account.id)
+        if account.email_removed and not profile.get("email"):
+            profile["email"] = ""
+        else:
+            profile["email"] = validate_parent_contact_email(session, profile.get("email") or account.email, account.id)
         account.display_name = f"{profile['last_name']} {profile['first_name']}"
         for key in SHARED_ACCOUNT_FIELDS:
+            if key == "email" and account.email_removed and not profile.get(key):
+                continue
             setattr(account, key, normalized_optional_text(profile.get(key)))
         # Preserve an explicitly different address (for example a separate household).
         if not account.home_address or normalized_text(account.home_address) == normalized_text(previous_address):
@@ -560,7 +568,7 @@ def sync_parent_account_to_family(session: Session, account: ParentAccount, *, p
         profile["last_name"], profile["first_name"] = parts
     elif _identity_key(account.display_name) != _identity_key(f"{profile['last_name']} {profile['first_name']}"):
         raise HTTPException(400, "家族と紐付ける保護者の氏名は、姓と名をスペースで区切ってください")
-    profile.update({key: getattr(account, key) or "" for key in SHARED_ACCOUNT_FIELDS})
+    profile.update({key: (account.contact_email if key == "email" else getattr(account, key)) or "" for key in SHARED_ACCOUNT_FIELDS})
     set_family_guardian_profiles(family, profiles)
     if normalized_text(previous_address) == normalized_text(family.home_address):
         old_address = family.home_address

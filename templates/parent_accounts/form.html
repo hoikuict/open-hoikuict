@@ -29,7 +29,7 @@
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">メールアドレス</label>
-        <input type="email" name="email" required value="{{ account.email if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
+        <input type="email" name="email" required value="{{ account.contact_email if account else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
         <p class="mt-1 text-xs text-slate-500">招待・連絡先に使います。利用開始後のログインID変更は「認証管理」で行います。</p>
       </div>
       <div>
@@ -76,7 +76,7 @@
           <option value="">未設定</option>
           {% for family in families %}
           <option value="{{ family.id }}" {% if selected_family_id == family.id %}selected{% endif %}>
-            {{ family.family_name }}{% if family.children %} / {{ family.children|map(attribute='full_name')|join('、') }}{% endif %}
+            {{ family.selection_label }}{% if family.children %} / {{ family.children|map(attribute='full_name')|join('、') }}{% endif %}
           </option>
           {% endfor %}
         </select>

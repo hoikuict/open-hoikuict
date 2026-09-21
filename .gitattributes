@@ -8,7 +8,7 @@
 .env.beta.local export-ignore
 data export-ignore
 storage export-ignore
-backups export-ignore
+/backups export-ignore
 runtime export-ignore
 *.sqlite3-wal export-ignore
 *.sqlite3-shm export-ignore

@@ -13,6 +13,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import local_today, utc_now
+import family_archive_guard  # noqa: F401 -- requires audited archive-state transitions
 
 DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 _database_url = make_url(DATABASE_URL)
@@ -124,6 +125,23 @@ def _upgrade_parent_push_snapshot(db_path: Path) -> None:
 def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
     """Bring the packaged demo database up to the schema expected by this release."""
     workflow_columns = {
+        "families": {"archived_at": "DATETIME"},
+        "children": {
+            "sex": "VARCHAR(16) NOT NULL DEFAULT 'not_set'",
+            "photo_id": "VARCHAR(32)",
+        },
+        "guardians": {"photo_id": "VARCHAR(32)"},
+        "attendance_records": {
+            "pickup_snack_confirmed": "BOOLEAN NOT NULL DEFAULT 0",
+            "actual_pickup_person": "VARCHAR",
+        },
+        "attendance_pickup_history": {
+            "previous_snack_required": "BOOLEAN",
+            "new_snack_required": "BOOLEAN",
+            "changed_by_parent_account_id": "INTEGER REFERENCES parent_accounts(id)",
+            "source": "VARCHAR NOT NULL DEFAULT 'staff'",
+        },
+        "document_review_requests": {"return_acknowledged_at": "DATETIME"},
         "notices": {"body_html": "VARCHAR"},
         "messages": {"author_user_id": "CHAR(32) REFERENCES users(id)"},
         "data_transfer_logs": {
@@ -141,6 +159,11 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
                 connection.execute(
                     f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
                 )
+                if table_name == "attendance_records" and column_name == "pickup_snack_confirmed":
+                    connection.execute("UPDATE attendance_records SET pickup_snack_confirmed = 1")
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS ix_families_archived_at ON families(archived_at)"
+    )
     identity_columns = {
         "children": {
             "registration_verification_name": "VARCHAR(200)",
@@ -423,9 +446,12 @@ def create_db_and_tables() -> None:
 
     _enable_sqlite_wal()
     SQLModel.metadata.create_all(engine)
+    _migrate_family_archive()
     _migrate_add_child_columns()
     _migrate_add_child_health_profile_columns()
     _migrate_add_attendance_columns()
+    _migrate_guardian_confirmation_columns()
+    _migrate_pickup_history_columns()
     _migrate_add_daily_contact_columns()
     _migrate_add_parent_account_columns()
     _migrate_add_guardian_columns()
@@ -435,6 +461,7 @@ def create_db_and_tables() -> None:
     _migrate_data_transfer_audit()
     _migrate_add_meeting_note_columns()
     _migrate_notice_columns()
+    _migrate_document_review_columns()
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
@@ -446,6 +473,15 @@ def create_db_and_tables() -> None:
     _migrate_care_certification_and_extended_care_columns()
     _migrate_extended_care_billing_transfer()
     _validate_sqlite_foreign_keys()
+
+
+def _migrate_family_archive() -> None:
+    # Additive and idempotent; never infer archived state from existing records.
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(families)")}
+        if "archived_at" not in columns:
+            conn.exec_driver_sql("ALTER TABLE families ADD COLUMN archived_at DATETIME")
+        conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_families_archived_at ON families (archived_at)")
 
 
 def _enable_sqlite_wal() -> None:
@@ -501,6 +537,10 @@ def _migrate_add_child_columns() -> None:
             cols = _table_columns("children")
             if not cols:
                 return
+            if "sex" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN sex VARCHAR(16) NOT NULL DEFAULT 'not_set'"))
+            if "photo_id" not in cols:
+                conn.execute(text("ALTER TABLE children ADD COLUMN photo_id VARCHAR(32)"))
             if "home_address" not in cols:
                 conn.execute(text("ALTER TABLE children ADD COLUMN home_address VARCHAR"))
             if "home_phone" not in cols:
@@ -587,6 +627,35 @@ def _migrate_add_attendance_columns() -> None:
         _log_migration_skip("attendance column", exc)
 
 
+def _migrate_guardian_confirmation_columns() -> None:
+    columns = _table_columns("attendance_records")
+    if not columns:
+        return
+    with engine.begin() as conn:
+        if "pickup_snack_confirmed" not in columns:
+            conn.execute(text("ALTER TABLE attendance_records ADD COLUMN pickup_snack_confirmed BOOLEAN NOT NULL DEFAULT 0"))
+            # Existing false values meant 'not needed'; retain that interpretation.
+            conn.execute(text("UPDATE attendance_records SET pickup_snack_confirmed = 1"))
+        if "actual_pickup_person" not in columns:
+            conn.execute(text("ALTER TABLE attendance_records ADD COLUMN actual_pickup_person VARCHAR"))
+
+
+def _migrate_pickup_history_columns() -> None:
+    columns = _table_columns("attendance_pickup_history")
+    if not columns:
+        return
+    definitions = {
+        "previous_snack_required": "BOOLEAN",
+        "new_snack_required": "BOOLEAN",
+        "changed_by_parent_account_id": "INTEGER REFERENCES parent_accounts(id)",
+        "source": "VARCHAR NOT NULL DEFAULT 'staff'",
+    }
+    with engine.begin() as conn:
+        for name, definition in definitions.items():
+            if name not in columns:
+                conn.execute(text(f"ALTER TABLE attendance_pickup_history ADD COLUMN {name} {definition}"))
+
+
 def _migrate_add_daily_contact_columns() -> None:
     try:
         with engine.connect() as conn:
@@ -636,6 +705,8 @@ def _migrate_add_guardian_columns() -> None:
         columns = _table_columns("guardians")
         if columns:
             with engine.begin() as conn:
+                if "photo_id" not in columns:
+                    conn.execute(text("ALTER TABLE guardians ADD COLUMN photo_id VARCHAR(32)"))
                 if "parent_account_id" not in columns:
                     conn.execute(
                         text(
@@ -732,6 +803,16 @@ def _migrate_notice_columns() -> None:
             conn.commit()
     except Exception as exc:
         _log_migration_skip("notice column", exc)
+
+
+def _migrate_document_review_columns() -> None:
+    with engine.begin() as conn:
+        columns = _table_columns("document_review_requests")
+        if columns and "return_acknowledged_at" not in columns:
+            conn.execute(text(
+                "ALTER TABLE document_review_requests "
+                "ADD COLUMN return_acknowledged_at DATETIME"
+            ))
 
 
 def _migrate_add_calendar_columns() -> None:

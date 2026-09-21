@@ -23,11 +23,11 @@ from models import (
     LoginThrottle,
     PasswordCredential,
     StaffCredentialProvisioningAudit,
+    StaffSessionTimeout,
     User,
     USER_SOURCE_MANUAL,
 )
 from security_config import deployment_environment
-from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 from time_utils import ensure_utc, utc_now
 
 
@@ -82,6 +82,7 @@ class StaffLoginResult:
     user: User
     credential: PasswordCredential
     session_token: str
+    cookie_max_age: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,7 +269,7 @@ def issue_existing_staff_activation(
     actor: str,
     approver: str,
 ) -> tuple[PasswordCredential, str]:
-    if not user.is_active or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT:
+    if not user.is_active:
         raise ValueError("有効な職員だけを認証対象にできます")
     if not all(value.strip() for value in (login_id, reason, actor, approver)):
         raise ValueError("ログインID、理由、実行者、承認者は必須です")
@@ -382,7 +383,7 @@ def issue_staff_password_reset(
 ) -> str:
     if not reason.strip():
         raise ValueError("発行理由を入力してください")
-    if not user.is_active or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT:
+    if not user.is_active:
         raise ValueError("有効な職員だけがパスワードを再設定できます")
     credential = session.exec(
         select(PasswordCredential).where(
@@ -531,7 +532,6 @@ def get_staff_activation_details(
         or credential.disabled_at is not None
         or user is None
         or not user.is_active
-        or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT
     ):
         raise AuthenticationFailed(ACTIVATION_FAILURE_MESSAGE)
     return StaffActivationDetails(credential=credential, user=user)
@@ -570,7 +570,6 @@ def reset_staff_password(
         or credential.disabled_at is not None
         or user is None
         or not user.is_active
-        or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT
     ):
         raise AuthenticationFailed(RESET_FAILURE_MESSAGE)
 
@@ -655,7 +654,6 @@ def authenticate_staff(
         and credential.disabled_at is None
         and user is not None
         and user.is_active
-        and user.staff_sort_order < STAFF_USER_SORT_ORDER_LIMIT
     )
     if not valid:
         _record_failure(session, account_bucket, "account", now)
@@ -683,7 +681,10 @@ def authenticate_staff(
         session.delete(throttle)
 
     raw_session_token = secrets.token_urlsafe(32)
-    absolute_expires_at = now + timedelta(hours=_staff_absolute_hours())
+    from staff_session_settings import get_staff_session_policy
+
+    policy = get_staff_session_policy(session)
+    absolute_expires_at = now + timedelta(hours=policy.absolute_hours)
     auth_session = AuthSession(
         token_hash=_token_hash(raw_session_token),
         principal_type=PRINCIPAL_STAFF,
@@ -693,12 +694,16 @@ def authenticate_staff(
         created_at=now,
         last_seen_at=now,
         idle_expires_at=min(
-            now + timedelta(minutes=_staff_idle_minutes()),
+            now + timedelta(minutes=policy.idle_minutes),
             absolute_expires_at,
         ),
         absolute_expires_at=absolute_expires_at,
     )
     session.add(auth_session)
+    session.flush()
+    session.add(StaffSessionTimeout(
+        token_hash=auth_session.token_hash, idle_minutes=policy.idle_minutes,
+    ))
     _add_event(
         session,
         event_type="login",
@@ -711,7 +716,10 @@ def authenticate_staff(
     )
     session.commit()
     session.refresh(user)
-    return StaffLoginResult(user=user, credential=credential, session_token=raw_session_token)
+    return StaffLoginResult(
+        user=user, credential=credential, session_token=raw_session_token,
+        cookie_max_age=policy.absolute_hours * 3600,
+    )
 
 
 def resolve_staff_session(session: Session, raw_token: str) -> User | None:
@@ -738,7 +746,6 @@ def resolve_staff_session(session: Session, raw_token: str) -> User | None:
     elif (
         user is None
         or not user.is_active
-        or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT
     ):
         revoke_reason = "staff_disabled"
     if revoke_reason:
@@ -748,10 +755,13 @@ def resolve_staff_session(session: Session, raw_token: str) -> User | None:
         session.commit()
         return None
 
-    if _as_utc(auth_session.last_seen_at) <= now - timedelta(minutes=5):
+    timeout = session.get(StaffSessionTimeout, auth_session.token_hash)
+    idle_minutes = timeout.idle_minutes if timeout else _staff_idle_minutes()
+    refresh_minutes = min(5, idle_minutes / 2) if timeout else 5
+    if _as_utc(auth_session.last_seen_at) <= now - timedelta(minutes=refresh_minutes):
         auth_session.last_seen_at = now
         auth_session.idle_expires_at = min(
-            now + timedelta(minutes=_staff_idle_minutes()),
+            now + timedelta(minutes=idle_minutes),
             _as_utc(auth_session.absolute_expires_at),
         )
         session.add(auth_session)
@@ -989,10 +999,6 @@ def _staff_absolute_hours() -> int:
         1,
         24,
     )
-
-
-def staff_session_cookie_max_age() -> int:
-    return _staff_absolute_hours() * 60 * 60
 
 
 def _bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:

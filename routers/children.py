@@ -27,6 +27,7 @@ from child_profile_history import (
     profile_groups_for_history,
     record_child_profile_history,
 )
+from profile_photos import PhotoUploads, photo_uploads, save_photo, apply_family_photo_edits, photo_response
 from database import get_session
 from family_support import (
     apply_family_shared_data,
@@ -44,6 +45,7 @@ from models import (
     CareNeedReason,
     CareTimeCategory,
     Child,
+    ChildSex,
     ChildCareCertification,
     ChildProfileHistory,
     ChildStatus,
@@ -428,12 +430,14 @@ def _build_form_input(
     classroom_id: Optional[str],
     allergy: str,
     medical_notes: str,
+    sex: Optional[ChildSex] = None,
 ) -> dict[str, str]:
     return {
         "last_name": last_name,
         "first_name": first_name,
         "last_name_kana": last_name_kana,
         "first_name_kana": first_name_kana,
+        "sex": (sex or ChildSex.not_set).value,
         "birth_date": birth_date or "",
         "enrollment_date": enrollment_date or "",
         "withdrawal_date": withdrawal_date or "",
@@ -640,6 +644,8 @@ def create_child(
     first_name_kana: str = Form(...),
     registration_verification_name: str = Form(""),
     registration_verification_name_type: str = Form(""),
+    sex: Optional[ChildSex] = Form(None),
+    photos: PhotoUploads = Depends(photo_uploads),
     birth_date: Optional[str] = Form(None),
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
@@ -677,13 +683,19 @@ def create_child(
     session: Session = Depends(get_session),
 ):
     require_child_record_manager(current_user)
+    photo_error = ""
+    try:
+        photo_edits = photos.validate()
+    except ValueError as exc:
+        photo_error = str(exc)
+        photo_edits = {}
     parsed_birth_date = _parse_date(birth_date)
     parsed_enrollment_date = _parse_date(enrollment_date)
     parsed_withdrawal_date = _parse_date(withdrawal_date)
     selected_family = _load_family(session, family_selection)
     selected_classroom, classroom_error = _resolve_classroom(session, classroom_id)
 
-    if not parsed_birth_date or not parsed_enrollment_date or classroom_error:
+    if photo_error or not parsed_birth_date or not parsed_enrollment_date or classroom_error:
         return _base_form_context(
             request,
             child=None,
@@ -722,12 +734,13 @@ def create_child(
             action_url="/children/",
             submit_label="登録する",
             page_title="園児を追加",
-            form_error=classroom_error or "生年月日と入園日は必須です。",
+            form_error=photo_error or classroom_error or "生年月日と入園日は必須です。",
             form_data=_build_form_input(
                 last_name=last_name,
                 first_name=first_name,
                 last_name_kana=last_name_kana,
                 first_name_kana=first_name_kana,
+                sex=sex,
                 birth_date=birth_date,
                 enrollment_date=enrollment_date,
                 withdrawal_date=withdrawal_date,
@@ -752,6 +765,7 @@ def create_child(
         first_name_kana=first_name_kana.strip(),
         registration_verification_name=registration_verification_name.strip() or None,
         registration_verification_name_type=registration_verification_name_type if registration_verification_name_type in {"kana", "latin"} else None,
+        sex=sex or ChildSex.not_set,
         birth_date=parsed_birth_date,
         enrollment_date=parsed_enrollment_date,
         withdrawal_date=parsed_withdrawal_date,
@@ -801,6 +815,10 @@ def create_child(
         ),
     )
 
+    if "child" in photo_edits:
+        child.photo_id = save_photo(session, photo_edits["child"], child_id=child.id)
+        session.add(child)
+    apply_family_photo_edits(session, family, photo_edits)
     sync_health_records_from_legacy_extra_data(session, child, actor_name=current_user.name)
     record_child_profile_history(
         session,
@@ -1038,6 +1056,8 @@ def update_child(
     first_name_kana: str = Form(...),
     registration_verification_name: str = Form(""),
     registration_verification_name_type: str = Form(""),
+    sex: Optional[ChildSex] = Form(None),
+    photos: PhotoUploads = Depends(photo_uploads),
     birth_date: Optional[str] = Form(None),
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
@@ -1083,13 +1103,19 @@ def update_child(
         child.registration_verification_name_type,
         child.birth_date,
     )
+    photo_error = ""
+    try:
+        photo_edits = photos.validate()
+    except ValueError as exc:
+        photo_error = str(exc)
+        photo_edits = {}
     parsed_birth_date = _parse_date(birth_date)
     parsed_enrollment_date = _parse_date(enrollment_date)
     parsed_withdrawal_date = _parse_date(withdrawal_date)
     selected_family = _load_family(session, family_selection)
     selected_classroom, classroom_error = _resolve_classroom(session, classroom_id)
 
-    if not parsed_birth_date or not parsed_enrollment_date or classroom_error:
+    if photo_error or not parsed_birth_date or not parsed_enrollment_date or classroom_error:
         return _base_form_context(
             request,
             child=child,
@@ -1128,12 +1154,13 @@ def update_child(
             action_url=f"/children/{child_id}/edit",
             submit_label="更新する",
             page_title=f"{child.full_name} を編集",
-            form_error=classroom_error or "生年月日と入園日は必須です。",
+            form_error=photo_error or classroom_error or "生年月日と入園日は必須です。",
             form_data=_build_form_input(
                 last_name=last_name,
                 first_name=first_name,
                 last_name_kana=last_name_kana,
                 first_name_kana=first_name_kana,
+                sex=sex,
                 birth_date=birth_date,
                 enrollment_date=enrollment_date,
                 withdrawal_date=withdrawal_date,
@@ -1156,6 +1183,8 @@ def update_child(
     child.first_name_kana = first_name_kana.strip()
     child.registration_verification_name = registration_verification_name.strip() or None
     child.registration_verification_name_type = registration_verification_name_type if registration_verification_name_type in {"kana", "latin"} else None
+    if sex is not None:
+        child.sex = sex
     child.birth_date = parsed_birth_date
     child.enrollment_date = parsed_enrollment_date
     child.withdrawal_date = parsed_withdrawal_date
@@ -1237,6 +1266,10 @@ def update_child(
         if previous_family:
             sync_parent_child_links(session, previous_family)
 
+    if "child" in photo_edits:
+        child.photo_id = save_photo(session, photo_edits["child"], child_id=child.id)
+        session.add(child)
+    apply_family_photo_edits(session, family, photo_edits)
     sync_health_records_from_legacy_extra_data(session, child, actor_name=current_user.name)
     record_child_profile_history(
         session,
@@ -1246,3 +1279,8 @@ def update_child(
     )
     session.commit()
     return RedirectResponse(url="/children/", status_code=303)
+
+
+@router.get("/photos/{photo_id}")
+def get_profile_photo(photo_id: str, current_user=Depends(get_current_staff_user), session: Session = Depends(get_session)):
+    return photo_response(session, photo_id)

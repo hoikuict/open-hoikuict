@@ -6,6 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import update
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
@@ -44,6 +45,7 @@ from models import (
     ChildHealthProfile,
     Classroom,
     HealthCheckRecord,
+    HealthCheckCorrection,
     HealthCheckType,
 )
 from time_utils import local_today, utc_now
@@ -178,7 +180,10 @@ def health_overview(
     statement = (
         select(Child)
         .options(selectinload(Child.classroom), selectinload(Child.family))
-        .order_by(Child.last_name_kana, Child.first_name_kana)
+        .outerjoin(Classroom, Child.classroom_id == Classroom.id)
+        .order_by(Classroom.id.is_(None), Classroom.display_order, Classroom.id,
+                  Child.last_name_kana == "", Child.last_name_kana,
+                  Child.first_name_kana, Child.id)
     )
     if current_status != "all":
         statement = statement.where(Child.status == current_status)
@@ -728,6 +733,7 @@ def reactivate_allergy(
 def health_check_list(
     request: Request,
     child_id: int,
+    edit: Optional[int] = Query(default=None),
     range_key: str = Query(default="1y", alias="range"),
     notice: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
@@ -739,6 +745,18 @@ def health_check_list(
     selected_range = _normalize_range_key(range_key)
     chart_records = build_health_check_chart_records(records, range_key=selected_range)
     chart_payload = build_measurement_chart_payload(chart_records)
+    editing_record = None
+    form_data = _check_form_data()
+    if edit is not None:
+        require_can_edit(current_user)
+        editing_record = session.get(HealthCheckRecord, edit)
+        if editing_record is None or editing_record.child_id != child_id:
+            raise HTTPException(404, "健診記録が見つかりません")
+        values = editing_record.model_dump(mode="json")
+        form_data = {key: values[key] if values[key] is not None else "" for key in form_data}
+    corrections = session.exec(select(HealthCheckCorrection).join(
+        HealthCheckRecord, HealthCheckCorrection.record_id == HealthCheckRecord.id
+    ).where(HealthCheckRecord.child_id == child_id).order_by(HealthCheckCorrection.id.desc())).all()
 
     return templates.TemplateResponse(
         request,
@@ -754,8 +772,10 @@ def health_check_list(
             "weight_summary": latest_measurement_summary(chart_records, "weight_kg"),
             "chart_payload_json": json.dumps(chart_payload, ensure_ascii=False),
             "check_types": list(HealthCheckType),
-            "form_data": _check_form_data(),
-            "notice": "健康診断記録を追加しました。" if notice == "created" else "",
+            "form_data": form_data,
+            "editing_record": editing_record,
+            "corrections": corrections,
+            "notice": {"created": "健康診断記録を追加しました。", "corrected": "健診記録を訂正し、変更履歴を保存しました。"}.get(notice, ""),
             "form_error": "",
         },
     )
@@ -779,11 +799,22 @@ def create_health_check_record(
     requires_followup: Optional[str] = Form(None),
     followup_notes: str = Form(""),
     range_key: str = Form("1y"),
+    record_id: Optional[int] = Form(None),
+    revision: str = Form(""),
+    correction_reason: str = Form(""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
     child = _load_child(session, child_id)
+    record = session.get(HealthCheckRecord, record_id) if record_id is not None else None
+    if record_id is not None:
+        if record is None or record.child_id != child_id:
+            raise HTTPException(404, "健診記録が見つかりません")
+        if revision != record.updated_at.isoformat():
+            raise HTTPException(409, "他の職員が更新しています。画面を開き直してください")
+        if not correction_reason.strip() or len(correction_reason.strip()) > 500:
+            raise HTTPException(400, "訂正理由を500文字以内で入力してください")
 
     try:
         check_type_value = HealthCheckType(check_type)
@@ -798,6 +829,15 @@ def create_health_check_record(
     respiratory_rate_value = _parse_optional_int(respiratory_rate)
     selected_range = _normalize_range_key(range_key)
 
+    for raw, parsed, label in ((height_cm, height_value, "身長"), (weight_kg, weight_value, "体重"),
+                               (temperature, temperature_value, "体温"), (heart_rate, heart_rate_value, "心拍数"),
+                               (respiratory_rate, respiratory_rate_value, "呼吸数")):
+        if raw.strip() and parsed is None:
+            raise HTTPException(400, f"{label}は数値で入力してください")
+    if heart_rate_value is not None and not 1 <= heart_rate_value <= 300:
+        raise HTTPException(400, "心拍数は1から300の範囲で入力してください")
+    if respiratory_rate_value is not None and not 1 <= respiratory_rate_value <= 150:
+        raise HTTPException(400, "呼吸数は1から150の範囲で入力してください")
     if checked_at_value is None:
         records = load_health_check_records(session, child_id)
         chart_records = build_health_check_chart_records(records, range_key=selected_range)
@@ -835,6 +875,8 @@ def create_health_check_record(
                         "followup_notes": followup_notes,
                     }
                 ),
+                "editing_record": record,
+                "correction_reason": correction_reason,
                 "notice": "",
                 "form_error": "測定日は YYYY-MM-DD 形式で入力してください。",
             },
@@ -849,9 +891,7 @@ def create_health_check_record(
         raise HTTPException(status_code=400, detail="体温は 30.0℃ 以上 45.0℃ 以下で入力してください")
 
     now = utc_now()
-    session.add(
-        HealthCheckRecord(
-            child_id=child_id,
+    values = dict(
             check_type=check_type_value,
             checked_at=checked_at_value,
             height_cm=height_value,
@@ -865,15 +905,26 @@ def create_health_check_record(
             observer_name=observer_name.strip() or None,
             requires_followup=_checked(requires_followup),
             followup_notes=followup_notes.strip() or None,
-            created_by=current_user.name,
             updated_by=current_user.name,
-            created_at=now,
             updated_at=now,
-        )
     )
+    if record is None:
+        session.add(HealthCheckRecord(child_id=child_id, created_by=current_user.name, created_at=now, **values))
+    else:
+        before = record.model_dump(mode="json")
+        result = session.execute(update(HealthCheckRecord).where(
+            HealthCheckRecord.id == record.id, HealthCheckRecord.updated_at == record.updated_at
+        ).values(**values).execution_options(synchronize_session=False))
+        if result.rowcount != 1:
+            session.rollback()
+            raise HTTPException(409, "他の職員が更新しています。画面を開き直してください")
+        session.refresh(record)
+        session.add(HealthCheckCorrection(record_id=record.id, before=before, after=record.model_dump(mode="json"),
+                    reason=correction_reason.strip(), actor_user_id=current_user.user_id,
+                    actor_name=current_user.name, created_at=now))
     session.commit()
     return RedirectResponse(
-        url=f"/children/{child_id}/health/check-records?range={selected_range}&notice=created",
+        url=f"/children/{child_id}/health/check-records?range={selected_range}&notice={'corrected' if record_id is not None else 'created'}",
         status_code=303,
     )
 

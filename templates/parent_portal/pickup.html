@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% from 'shared/_pickup_fields.html' import pickup_fields %}
+{% block title %}お迎え予定 | open-hoikuict{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl rounded-xl border bg-white p-5">
+  <h1 class="text-xl font-bold">{{ child.full_name }}のお迎え予定</h1>
+  <p class="mt-2 text-sm text-slate-600">{{ day }} / 登園前から入力できます。予定の登録で登園打刻はされません。</p>
+  {% if error %}<p role="alert" class="mt-4 rounded bg-rose-50 p-3 text-rose-800">{{ error }}</p>{% endif %}
+  <form method="post" class="mt-5 space-y-4">
+    <input type="hidden" name="date" value="{{ day }}"><input type="hidden" name="revision" value="{{ revision }}">
+    {{ pickup_fields(pickup_values, required=true) }}
+    {% if record and record.check_out_at %}<p>降園済みのため変更できません。</p>{% else %}<button class="rounded bg-indigo-600 px-5 py-3 text-white">予定を保存</button>{% endif %}
+    <a href="/parent-portal/?date={{ day }}" class="ml-3 text-sm text-indigo-700 underline">ホームへ戻る</a>
+  </form>
+</div>
+{% endblock %}
+{% block body_end %}{{ super() }}{% include 'shared/_pickup_script.html' %}{% endblock %}

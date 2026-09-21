@@ -1,13 +1,15 @@
 import base64
 import binascii
+import hashlib
+import json
 import logging
 from collections import defaultdict
 from typing import DefaultDict
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel
-from sqlalchemy import or_
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import or_, update
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit, resolve_staff_principal
@@ -32,6 +34,44 @@ class SaveMeetingNotePayload(BaseModel):
     title: str
     content_base64: str
     plain_text: str = ""
+    base_revision: str | None = None
+
+
+def _note_content(note: MeetingNote) -> dict:
+    content = base64.b64encode(note.content).decode("ascii") if note.content else None
+    revision = hashlib.sha256(json.dumps(
+        [note.title, content, note.search_text, note.updated_at.isoformat()], ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()
+    return {"content_base64": content, "title": note.title, "revision": revision}
+
+
+class ExportMeetingNotePayload(BaseModel):
+    title: str = Field(max_length=300)
+    ops: list[dict] = Field(max_length=10000)
+
+
+@router.post("/{note_id}/export/{format_name}")
+async def export_meeting_note(
+    request: Request, note_id: int, format_name: str,
+    session: Session = Depends(get_session), current_user=Depends(get_current_staff_user),
+):
+    from meeting_note_export import export_note
+
+    _load_meeting_note(session, note_id)
+    content = bytearray()
+    async for chunk in request.stream():
+        content.extend(chunk)
+        if len(content) > 24 * 1024 * 1024:
+            raise HTTPException(413, "出力する内容は24MB以内にしてください。")
+    try:
+        payload = ExportMeetingNotePayload.model_validate_json(content)
+        data, media_type, extension = export_note(payload.title.strip() or "無題の議事録", payload.ops, format_name)
+    except (ValueError, ValidationError, TypeError) as exc:
+        raise HTTPException(400, str(exc) if not isinstance(exc, ValidationError) else "出力内容を確認してください。") from exc
+    return Response(data, media_type=media_type, headers={
+        "Content-Disposition": f'attachment; filename="meeting-{note_id}.{extension}"',
+        "Cache-Control": "no-store",
+    })
 
 
 class MeetingNoteConnectionManager:
@@ -173,9 +213,7 @@ def meeting_note_content(
 ):
     _ = current_user
     note = _load_meeting_note(session, note_id)
-    if not note.content:
-        return {"content_base64": None}
-    return {"content_base64": base64.b64encode(note.content).decode("utf-8")}
+    return _note_content(note)
 
 
 @router.post("/api/{note_id}/save")
@@ -187,19 +225,28 @@ def save_meeting_note(
 ):
     require_can_edit(current_user)
     note = _load_meeting_note(session, note_id)
+    if payload.base_revision is not None and payload.base_revision != _note_content(note)["revision"]:
+        return JSONResponse({"status": "conflict", **_note_content(note)}, status_code=409)
     try:
         decoded_content = base64.b64decode(payload.content_base64 or "", validate=True)
     except binascii.Error as exc:
         raise HTTPException(status_code=400, detail="content_base64 が不正です") from exc
 
-    note.title = (payload.title or "").strip() or "無題の議事録"
-    note.content = decoded_content
-    note.search_text = payload.plain_text.strip() or None
-    note.updated_at = utc_now()
-    note.updated_by = _display_name(current_user)
-    session.add(note)
+    result = session.execute(update(MeetingNote).where(
+        MeetingNote.id == note_id, MeetingNote.updated_at == note.updated_at,
+        MeetingNote.content == note.content, MeetingNote.title == note.title,
+    ).values(
+        title=(payload.title or "").strip() or "無題の議事録", content=decoded_content,
+        search_text=payload.plain_text.strip() or None,
+        updated_at=utc_now(), updated_by=_display_name(current_user),
+    ).execution_options(synchronize_session=False))
+    if result.rowcount != 1:
+        session.rollback()
+        session.refresh(note)
+        return JSONResponse({"status": "conflict", **_note_content(note)}, status_code=409)
     session.commit()
-    return {"status": "ok"}
+    session.refresh(note)
+    return {"status": "ok", "revision": _note_content(note)["revision"]}
 
 
 @router.websocket("/ws/{note_id}")

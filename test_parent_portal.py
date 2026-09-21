@@ -11,6 +11,8 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import Role, StaffUser
 from models import (
+    AttendanceAlarmHistory,
+    AttendanceAlarmState,
     AuthSession,
     Child,
     ChildStatus,
@@ -38,6 +40,11 @@ from models import (
     ParentRegistrationRequest,
     PasswordCredential,
     ProfileChangeNotification,
+    Survey,
+    SurveyAnswer,
+    SurveyStatus,
+    SurveyTarget,
+    SurveyTargetType,
     User,
 )
 import notice_content
@@ -244,6 +251,100 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIn("田中 はると", response.text)
         self.assertIn("遠足のお知らせ", response.text)
         self.assertNotIn("限定連絡", response.text)
+        self.assertNotIn('href="/"', response.text)
+        self.assertIn('href="/parent-portal/attention"', response.text)
+
+    def test_parent_attention_requires_login_and_handles_no_remaining_items(self):
+        response = self.client.get("/parent-portal/attention", follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"],
+            "/parent-portal/login?redirect=/parent-portal/attention",
+        )
+
+        self._login_parent(self.parent_account_id)
+        self.client.get(f"/parent-portal/notices/{self.public_notice_id}")
+        response = self.client.get("/parent-portal/attention")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["updates"], [])
+        self.assertIn("未読・未回答はありません。", response.text)
+        self.assertNotIn('href="/"', response.text)
+        self.assertEqual(self.client.get("/parent-portal/").context["unread_notice_count"], 0)
+
+    def test_parent_attention_matches_count_and_only_lists_accessible_pending_items(self):
+        with Session(self.engine) as session:
+            session.add(NoticeRead(
+                notice_id=self.public_notice_id, parent_account_id=self.parent_account_id,
+            ))
+            for index in range(6):
+                session.add(Notice(
+                    title=f"未読のテスト連絡{index}", body="確認用の連絡です。",
+                    status=NoticeStatus.published,
+                    publish_start_at=utc_now() - timedelta(hours=1),
+                ))
+            notification = ParentNotification(
+                parent_account_id=self.parent_account_id, child_id=self.child_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="未読の出欠確認", body="確認用の通知です。",
+                source_type="test-attention", source_id="unread",
+            )
+            session.add(notification)
+            session.add(ParentNotification(
+                parent_account_id=self.parent_account_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="既読の出欠確認", body="既に確認済みです。", is_read=True,
+                source_type="test-attention", source_id="read",
+            ))
+            session.add(ParentNotification(
+                parent_account_id=self.single_parent_account_id,
+                kind=ParentNotificationKind.attendance_confirmation_request,
+                title="別家庭の出欠確認", body="別の家庭向けです。",
+                source_type="test-attention", source_id="other-family",
+            ))
+            surveys = [
+                Survey(title="未回答のテストアンケート", status=SurveyStatus.published),
+                Survey(title="回答済みのテストアンケート", status=SurveyStatus.published),
+                Survey(title="別家庭のテストアンケート", status=SurveyStatus.published),
+                Survey(title="未公開のテストアンケート", status=SurveyStatus.draft),
+            ]
+            session.add_all(surveys)
+            session.flush()
+            for index, survey in enumerate(surveys):
+                session.add(SurveyTarget(
+                    survey_id=survey.id,
+                    target_type=SurveyTargetType.child if index == 2 else SurveyTargetType.all,
+                    target_value=str(self.other_child_id) if index == 2 else None,
+                ))
+            session.add(SurveyAnswer(survey_id=surveys[1].id, family_id=self.main_family_id))
+            session.commit()
+            notification_id = notification.id
+            unanswered_survey_id = surveys[0].id
+
+        self._login_parent(self.parent_account_id)
+        home = self.client.get("/parent-portal/")
+        response = self.client.get("/parent-portal/attention")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(home.context["unread_notice_count"], 8)
+        self.assertEqual(len(home.context["latest_updates"]), 5)
+        self.assertEqual(len(response.context["updates"]), 8)
+        for index in range(6):
+            self.assertIn(f"未読のテスト連絡{index}", response.text)
+        self.assertIn(f'href="/parent-portal/notifications/{notification_id}"', response.text)
+        self.assertIn(f'href="/parent-portal/surveys/{unanswered_survey_id}"', response.text)
+        for excluded_title in (
+            "遠足のお知らせ", "限定連絡", "既読の出欠確認", "別家庭の出欠確認",
+            "回答済みのテストアンケート", "別家庭のテストアンケート", "未公開のテストアンケート",
+        ):
+            self.assertNotIn(excluded_title, response.text)
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(NoticeRead)).all()), 1)
+            self.assertFalse(session.get(ParentNotification, notification_id).is_read)
+
+        detail = self.client.get(f"/parent-portal/notifications/{notification_id}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertNotIn('href="/"', detail.text)
+        self.assertNotIn("未読の出欠確認", self.client.get("/parent-portal/attention").text)
+        self.assertEqual(self.client.get("/parent-portal/").context["unread_notice_count"], 7)
 
     def test_parent_can_read_attendance_confirmation_notification(self):
         with Session(self.engine) as session:
@@ -352,6 +453,118 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(detail_response.status_code, 200)
         self.assertIn("本日は16:30に迎えます。", detail_response.text)
 
+    def test_present_contact_rejects_high_temperature_and_preserves_form(self):
+        self._login_parent(self.parent_account_id)
+        today = date.today().isoformat()
+        for temperature in ("37.5", "37.50", "38", "３７．５", "３７．５℃", "38.2度", "37.5 °C"):
+            for mode_data in (
+                {"contact_type": "present"},
+                {"attendance_mode": "present", "contact_type": "absent_sick"},
+            ):
+                with self.subTest(temperature=temperature, mode_data=mode_data):
+                    response = self.client.post(
+                        f"/parent-portal/children/{self.child_id}/contact",
+                        data={
+                            "date": today, **mode_data, "temperature": temperature,
+                            "sleep_notes": "21:00-6:30", "contact_note": "入力を保持してください。",
+                        },
+                        follow_redirects=False,
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIn("体温が37.5℃以上のため、出席として送信できません。", response.text)
+                    self.assertEqual(response.context["form_data"]["temperature"], temperature)
+                    self.assertEqual(response.context["form_data"]["attendance_mode"], "present")
+                    self.assertIn('value="21:00-6:30"', response.text)
+                    self.assertIn("入力を保持してください。", response.text)
+                    with Session(self.engine) as session:
+                        self.assertEqual(session.exec(select(DailyContactEntry)).all(), [])
+                        self.assertEqual(session.exec(select(AttendanceAlarmState)).all(), [])
+                        self.assertEqual(session.exec(select(AttendanceAlarmHistory)).all(), [])
+
+    def test_present_contact_accepts_below_limit_and_optional_temperature(self):
+        self._login_parent(self.parent_account_id)
+        for temperature in ("37.4", "３７．４℃", "36.8度", ""):
+            with self.subTest(temperature=temperature):
+                response = self.client.post(
+                    f"/parent-portal/children/{self.child_id}/contact",
+                    data={
+                        "date": date.today().isoformat(), "attendance_mode": "present",
+                        "temperature": temperature,
+                    },
+                    follow_redirects=False,
+                )
+                self.assertEqual(response.status_code, 303)
+                with Session(self.engine) as session:
+                    entry = session.exec(select(DailyContactEntry)).one()
+                    self.assertEqual(entry.contact_type, ParentContactType.present)
+                    self.assertEqual(entry.temperature, temperature or None)
+
+    def test_present_contact_cannot_bypass_limit_with_non_numeric_temperature(self):
+        self._login_parent(self.parent_account_id)
+        for temperature in ("37,5", "37.5abc", "NaN", "Infinity", "高熱", "3.8e1"):
+            with self.subTest(temperature=temperature):
+                response = self.client.post(
+                    f"/parent-portal/children/{self.child_id}/contact",
+                    data={
+                        "date": date.today().isoformat(), "attendance_mode": "present",
+                        "temperature": temperature,
+                    },
+                    follow_redirects=False,
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("体温は「36.7」のような数値で入力してください。", response.text)
+                self.assertEqual(response.context["form_data"]["temperature"], temperature)
+                with Session(self.engine) as session:
+                    self.assertEqual(session.exec(select(DailyContactEntry)).all(), [])
+
+    def test_rejected_temperature_does_not_change_existing_contact_or_alarm(self):
+        self._login_parent(self.parent_account_id)
+        path = f"/parent-portal/children/{self.child_id}/contact"
+        day = date.today().isoformat()
+        original = self.client.post(path, data={
+            "date": day, "contact_type": "absent_sick",
+            "absence_temperature": "38.1", "absence_symptoms": "発熱",
+            "absence_note": "保存済みの連絡",
+        }, follow_redirects=False)
+        self.assertEqual(original.status_code, 303)
+        with Session(self.engine) as session:
+            before_entry = session.exec(select(DailyContactEntry)).one().model_dump()
+            before_alarm = session.exec(select(AttendanceAlarmState)).one().model_dump()
+            before_history = [item.model_dump() for item in session.exec(select(AttendanceAlarmHistory)).all()]
+
+        response = self.client.post(path, data={
+            "date": day, "attendance_mode": "present", "temperature": "37.5",
+            "contact_note": "拒否される変更",
+        }, follow_redirects=False)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("出席として送信できません", response.text)
+        self.assertEqual(response.context["form_data"]["contact_note"], "拒否される変更")
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(DailyContactEntry)).one().model_dump(), before_entry)
+            self.assertEqual(session.exec(select(AttendanceAlarmState)).one().model_dump(), before_alarm)
+            self.assertEqual(
+                [item.model_dump() for item in session.exec(select(AttendanceAlarmHistory)).all()],
+                before_history,
+            )
+
+    def test_sick_absence_accepts_high_temperature_even_with_hidden_present_value(self):
+        self._login_parent(self.parent_account_id)
+        response = self.client.post(
+            f"/parent-portal/children/{self.child_id}/contact",
+            data={
+                "date": date.today().isoformat(), "attendance_mode": "absent",
+                "absence_reason": "absent_sick", "temperature": "38.2",
+                "absence_temperature": "37.5", "absence_symptoms": "発熱",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 303)
+        with Session(self.engine) as session:
+            entry = session.exec(select(DailyContactEntry)).one()
+            self.assertEqual(entry.contact_type, ParentContactType.absent_sick)
+            self.assertEqual(entry.absence_temperature, "37.5")
+            self.assertIsNone(entry.temperature)
+
     def test_staff_can_publish_daily_contact_reply_to_parent(self):
         self._login_parent(self.parent_account_id)
         target = date(2026, 7, 5)
@@ -454,6 +667,37 @@ class ParentPortalTests(unittest.TestCase):
         self.assertIsNotNone(reply)
         self.assertEqual(reply.status, DailyContactReplyStatus.published)
         self.assertEqual(reply.staff_name, "台帳担当")
+
+    def test_recent_replies_include_other_dates_but_not_drafts_or_other_children(self):
+        self._login_parent(self.parent_account_id)
+        with Session(self.engine) as session:
+            for child_id, day, status, message in (
+                (self.child_id, date(2026, 8, 1), DailyContactReplyStatus.published, '過去日の公開返信'),
+                (self.child_id, date(2026, 8, 2), DailyContactReplyStatus.draft, '未公開の返信'),
+                (self.other_child_id, date(2026, 8, 1), DailyContactReplyStatus.published, '別家庭の返信'),
+            ):
+                session.add(DailyContactReply(child_id=child_id, target_date=day, status=status, message=message, published_at=utc_now()))
+            session.commit()
+        response = self.client.get('/parent-portal/?date=2026-09-16')
+        self.assertEqual(len(response.context['recent_replies']), 1)
+        self.assertIn('園からの返信があります', response.text)
+        self.assertIn(f'/children/{self.child_id}/contact?date=2026-08-01#daily-contact-reply', response.text)
+        self.assertNotIn('未公開の返信', response.text)
+        self.assertNotIn('別家庭の返信', response.text)
+        selected_day = self.client.get('/parent-portal/?date=2026-08-01')
+        self.assertIn('返信あり</a>', selected_day.text)
+
+    def test_sick_absence_rejects_unfinished_temperature_picker(self):
+        self._login_parent(self.parent_account_id)
+        response = self.client.post(f'/parent-portal/children/{self.child_id}/contact', data={
+            'date': '2026-09-16', 'attendance_mode': 'absent', 'absence_reason': 'absent_sick',
+            'absence_temperature': '38.', 'absence_symptoms': '発熱',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('数値で入力してください', response.text)
+        self.assertEqual(response.context['form_data']['absence_temperature'], '38.')
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(DailyContactEntry)).all(), [])
 
     def test_daily_contact_list_can_sort_by_submission_status(self):
         target = date(2026, 7, 5)

@@ -55,7 +55,9 @@
       <div class="rounded-lg border border-gray-200 p-4">
         <div class="mb-1 text-sm font-semibold text-gray-700">{{ detail.label }}</div>
         <div class="text-sm text-gray-500">変更前: {{ detail.old }}</div>
+        {% if detail.old_photo_id %}<img src="/children/photos/{{ detail.old_photo_id }}" alt="変更前の写真" width="96" height="96" class="my-2 h-24 w-24 rounded-lg object-cover">{% endif %}
         <div class="text-sm text-gray-800">変更後: {{ detail.new }}</div>
+        {% if detail.new_photo_id %}<img src="/children/photos/{{ detail.new_photo_id }}" alt="変更後の写真" width="96" height="96" class="my-2 h-24 w-24 rounded-lg object-cover">{% endif %}
       </div>
       {% else %}
       <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 md:col-span-2">

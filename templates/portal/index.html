@@ -20,7 +20,14 @@
           {% endif %}
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-3 {% if staff_record.staff_role == 'admin' %}sm:grid-cols-4{% else %}sm:grid-cols-3{% endif %}">
+      {% set header_tile_count = (4 if staff_record.staff_role == 'admin' else 3) + (1 if returned_document_count else 0) %}
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-{{ header_tile_count }}">
+        {% if returned_document_count %}
+        <a href="#returned-documents" class="rounded-2xl border border-rose-300/50 bg-rose-400/20 px-4 py-3 hover:bg-rose-400/30">
+          <span class="block text-xs text-rose-100">差し戻し</span>
+          <strong class="mt-1 block text-2xl">{{ returned_document_count }}件</strong>
+        </a>
+        {% endif %}
         {% if staff_record.staff_role == 'admin' %}
         <a href="#pending-approvals" class="rounded-2xl border border-amber-300/30 bg-amber-300/15 px-4 py-3 backdrop-blur hover:bg-amber-300/20">
           <span class="block text-xs text-amber-100">承認待ち</span>
@@ -35,7 +42,7 @@
           <span class="block text-xs text-slate-300">在園中</span>
           <strong class="mt-1 block text-2xl">{{ present_count }}名</strong>
         </a>
-        <a href="#schedule" class="col-span-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15 sm:col-span-1">
+        <a href="#schedule" class="{% if header_tile_count % 2 %}col-span-2 {% endif %}rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15 sm:col-span-1">
           <span class="block text-xs text-slate-300">次の予定</span>
           {% if next_schedule %}
           <strong class="mt-1 block truncate text-sm">{{ next_schedule.time_label }} {{ next_schedule.title }}</strong>
@@ -50,6 +57,8 @@
       <a href="/" class="rounded-lg border border-white/15 px-3 py-2 text-slate-200 hover:bg-white/10">更新</a>
     </div>
   </section>
+
+  {% include "portal/_returned_documents.html" %}
 
   {% if staff_record.staff_role == 'admin' %}
   <section id="pending-approvals" class="rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm sm:p-6">
@@ -92,7 +101,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Document notifications</p>
-        <h2 class="mt-1 text-xl font-bold text-slate-900">月案・児童票の通知</h2>
+        <h2 class="mt-1 text-xl font-bold text-slate-900">計画文書・児童票の通知</h2>
       </div>
       {% if unread_plan_notification_count %}<span class="rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">未読 {{ unread_plan_notification_count }}件</span>{% endif %}
     </div>
@@ -140,7 +149,8 @@
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Attendance</p>
-          <h2 class="mt-1 text-xl font-bold text-slate-900">{{ '全クラスの出席' if show_all else '担当クラスの出席' }}</h2>
+          <h2 class="mt-1 text-xl font-bold text-slate-900">{{ '全クラスの出欠確認' if show_all else '担当クラスの出欠確認' }}</h2>
+          <p class="mt-2 text-xs text-slate-500">登園人数には職員の出席確認も含みます。打刻時刻は別に記録します。</p>
         </div>
         {% if can_show_all %}
         <div class="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
@@ -159,9 +169,9 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
               <h3 class="font-bold text-slate-900">{{ summary.classroom_name }}</h3>
-              {% if summary.attention_count %}<span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">要確認 {{ summary.attention_count }}</span>{% endif %}
+              <span class="rounded-full {{ 'bg-rose-100 text-rose-800' if summary.alarm_count else 'bg-slate-100 text-slate-600' }} px-2 py-1 text-xs font-bold">アラーム {{ summary.alarm_count }}人</span>
             </div>
-            <a href="{{ summary.attendance_url }}" class="text-sm font-semibold text-indigo-600 hover:underline">出席一覧を開く</a>
+            <a href="{{ summary.attendance_url }}" class="text-sm font-semibold text-indigo-600 hover:underline">出欠確認を開く</a>
           </div>
           <dl class="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
             {% for label, value, tone in [('在籍', summary.enrolled_count, 'slate'), ('登園', summary.checked_in_count, 'sky'), ('在園中', summary.present_count, 'emerald'), ('降園', summary.checked_out_count, 'indigo'), ('欠席', summary.absent_count, 'rose'), ('未登園', summary.not_checked_in_count, 'amber')] %}
@@ -171,6 +181,7 @@
             </div>
             {% endfor %}
           </dl>
+          {% if summary.missing_punch_count %}<p class="mt-3 text-xs text-amber-800">出席確認済み・登園打刻なし {{ summary.missing_punch_count }}人</p>{% endif %}
         </article>
         {% endfor %}
         {% if classroom_remaining_count %}<p class="text-sm text-slate-500">ほか{{ classroom_remaining_count }}クラス</p>{% endif %}

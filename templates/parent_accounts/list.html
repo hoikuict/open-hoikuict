@@ -9,7 +9,7 @@
   </div>
   {% if current_user and current_user.can_manage_child_records %}
   <div class="flex flex-wrap gap-2">
-  {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">保護者に初回入力を依頼</a>{% endif %}
+  {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/enrollment/new" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">在園児の保護者を追加・招待</a>{% endif %}
   {% if current_user.is_admin and parent_enrollment_enabled() %}<a href="/parent-accounts/registration-qr" class="rounded border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700">共通QR・申請受付</a>{% endif %}
   <a href="/parent-accounts/new" class="self-start whitespace-nowrap rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:self-auto">新規登録</a>
   </div>
@@ -102,7 +102,7 @@
           <div class="text-xs text-slate-500">勤務先: {{ account.workplace }}</div>
           {% endif %}
         </td>
-        <td class="px-4 py-3 text-slate-700">{{ account.email }}</td>
+        <td class="px-4 py-3 text-slate-700">{{ account.contact_email or '削除済み' }}</td>
         <td class="px-4 py-3">
           <span class="rounded-full px-2 py-1 text-xs {% if account.status.value == 'active' %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
             {{ account.status.label }}
@@ -131,6 +131,7 @@
             <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50">編集</a>
             {% endif %}
             {% if current_user and current_user.is_admin %}{% if not is_public_demo() %}<a href="/parent-accounts/{{ account.id }}/authentication" class="rounded border border-emerald-300 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-50">認証管理</a>{% endif %}{% endif %}
+            {% if current_user.is_admin and not account.email_removed %}<a href="/parent-accounts/{{ account.id }}/remove-email" class="rounded border border-rose-300 px-3 py-1 text-xs text-rose-700">アドレス削除</a>{% endif %}
             {% if parent_mock_login_available %}<a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-1 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>{% endif %}
           </div>
         </td>
@@ -160,7 +161,7 @@
     <dl class="mt-4 divide-y divide-slate-100 text-sm">
       <div class="py-3 first:pt-0">
         <dt class="text-xs font-medium text-slate-500">メール</dt>
-        <dd class="mt-1 break-all text-slate-700">{{ account.email }}</dd>
+        <dd class="mt-1 break-all text-slate-700">{{ account.contact_email or '削除済み' }}</dd>
       </div>
       <div class="py-3">
         <dt class="text-xs font-medium text-slate-500">住所・勤務先</dt>
@@ -200,6 +201,7 @@
       <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">編集</a>
       {% endif %}
       {% if current_user and current_user.is_admin %}{% if not is_public_demo() %}<a href="/parent-accounts/{{ account.id }}/authentication" class="rounded border border-emerald-300 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-50">認証管理</a>{% endif %}{% endif %}
+      {% if current_user.is_admin and not account.email_removed %}<a href="/parent-accounts/{{ account.id }}/remove-email" class="rounded border border-rose-300 px-3 py-1 text-xs text-rose-700">アドレス削除</a>{% endif %}
       {% if parent_mock_login_available %}<a href="/parent-portal/mock-login/{{ account.id }}" class="rounded border border-indigo-300 px-3 py-2 text-xs text-indigo-700 hover:bg-indigo-50">この保護者で確認</a>{% endif %}
     </div>
   </article>

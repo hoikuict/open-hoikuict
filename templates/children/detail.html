@@ -27,6 +27,10 @@
     </div>
   </div>
 
+  <section class="flex items-center gap-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    {% if child.photo_id %}<img src="/children/photos/{{ child.photo_id }}" alt="{{ child.full_name }}の写真" width="96" height="96" class="h-24 w-24 rounded-lg object-cover">{% endif %}
+    <div><div class="text-xs font-medium text-slate-500">性別（帳票用）</div><div class="mt-1 text-sm text-slate-800">{{ child.sex.label }}</div></div>
+  </section>
   <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
     <div class="mb-4">
       <h2 class="text-lg font-semibold text-slate-800">子どもの個人情報</h2>
@@ -141,6 +145,7 @@
       {% for guardian in guardian_profiles %}
       <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div class="mb-2 text-sm font-semibold text-slate-700">保護者{{ loop.index }}</div>
+        {% if guardian.photo_id %}<img src="/children/photos/{{ guardian.photo_id }}" alt="{{ guardian.last_name }} {{ guardian.first_name }}の写真" width="96" height="96" class="mb-3 h-24 w-24 rounded-lg object-cover">{% endif %}
         {% set linked_account = family_parent_accounts_by_id.get(guardian.parent_account_id) if guardian.parent_account_id else none %}
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div><div class="text-xs font-medium text-slate-500">氏名</div><div class="mt-1 text-sm text-slate-800">{{ guardian.last_name }} {{ guardian.first_name }}</div></div>

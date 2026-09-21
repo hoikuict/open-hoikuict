@@ -68,7 +68,8 @@ class MeetingNoteRouterTests(unittest.TestCase):
             },
         )
         self.assertEqual(save_response.status_code, 200)
-        self.assertEqual(save_response.json(), {"status": "ok"})
+        self.assertEqual(save_response.json()["status"], "ok")
+        self.assertTrue(save_response.json()["revision"])
 
         with Session(self.engine) as session:
             saved_note = session.get(MeetingNote, note.id)
@@ -81,6 +82,30 @@ class MeetingNoteRouterTests(unittest.TestCase):
         content_response = self.client.get(f"/meeting-notes/api/{note.id}/content")
         self.assertEqual(content_response.status_code, 200)
         self.assertEqual(content_response.json()["content_base64"], base64.b64encode(sample_state).decode("utf-8"))
+
+    def test_stale_autosave_cannot_overwrite_newer_saved_content(self):
+        created = self.client.post('/meeting-notes/', follow_redirects=False)
+        note_id = int(created.headers['location'].rsplit('/', 1)[1])
+        revision = self.client.get(f'/meeting-notes/api/{note_id}/content').json()['revision']
+        first = self.client.post(f'/meeting-notes/api/{note_id}/save', json={
+            'title': '先に保存', 'content_base64': 'AQID', 'plain_text': '新しい本文', 'base_revision': revision,
+        })
+        self.assertEqual(first.status_code, 200)
+        stale = self.client.post(f'/meeting-notes/api/{note_id}/save', json={
+            'title': '古い画面', 'content_base64': 'BAUG', 'plain_text': '古い本文', 'base_revision': revision,
+        })
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.json()['content_base64'], 'AQID')
+        self.assertEqual(stale.json()['revision'], first.json()['revision'])
+        with Session(self.engine) as session:
+            note = session.get(MeetingNote, note_id)
+            self.assertEqual(note.title, '先に保存')
+            self.assertEqual(note.search_text, '新しい本文')
+        retried = self.client.post(f'/meeting-notes/api/{note_id}/save', json={
+            'title': '統合して保存', 'content_base64': 'BwgJ', 'base_revision': stale.json()['revision'],
+        })
+        self.assertEqual(retried.status_code, 200)
+        self.assertEqual(self.client.get(f'/meeting-notes/api/{note_id}/content').json()['content_base64'], 'BwgJ')
 
     def test_view_only_user_cannot_create_or_save_meeting_note(self):
         self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
@@ -107,6 +132,24 @@ class MeetingNoteRouterTests(unittest.TestCase):
         self.assertIn("positionFloatingToolbar", detail_response.text)
         self.assertIn("書式オプション", detail_response.text)
         self.assertIn("pointerup", detail_response.text)
+
+    def test_viewer_can_export_current_content_without_changing_saved_note(self):
+        self.current_user = StaffUser(role=Role.VIEW_ONLY, name="閲覧担当")
+        with Session(self.engine) as session:
+            note = MeetingNote(title="保存済みの議事録", search_text="保存済み本文")
+            session.add(note)
+            session.commit()
+            note_id = note.id
+        response = self.client.post(f"/meeting-notes/{note_id}/export/docx", json={"title": "表示中のタイトル", "ops": [{"insert": "出力本文\n"}]})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("wordprocessingml", response.headers["content-type"])
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        with Session(self.engine) as session:
+            note = session.get(MeetingNote, note_id)
+            self.assertEqual(note.title, "保存済みの議事録")
+            self.assertEqual(note.search_text, "保存済み本文")
+        missing = self.client.post("/meeting-notes/999999/export/md", json={"title": "存在しない", "ops": []})
+        self.assertEqual(missing.status_code, 404)
 
     def test_editable_note_has_persistent_image_size_controls(self):
         with Session(self.engine) as session:

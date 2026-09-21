@@ -2,6 +2,7 @@
 {% block title %}クラス管理 | open-hoikuict{% endblock %}
 
 {% block content %}
+{% include "settings/_back.html" %}
 <div class="max-w-5xl">
   <div class="mb-4 flex items-start justify-between gap-4">
     <div>
@@ -32,7 +33,7 @@
         <tr>
           <td class="px-4 py-3 text-sm text-slate-700">{{ classroom.display_order }}</td>
           <td class="px-4 py-3 text-sm font-medium text-slate-800">{{ classroom.name }}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">{{ classroom.children|length }}人</td>
+          <td class="px-4 py-3 text-sm text-slate-700">{{ enrolled_child_counts[classroom.id] }}人</td>
           <td class="px-4 py-3 text-sm">
             {% if current_user and current_user.can_edit %}
             <a href="/classrooms/{{ classroom.id }}/edit" class="text-indigo-600 hover:underline">編集</a>

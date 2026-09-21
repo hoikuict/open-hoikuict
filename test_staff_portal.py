@@ -239,7 +239,8 @@ class StaffPortalTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("佐藤 空 児童票", response.text)
-        self.assertIn("却下（差戻し）しました", response.text)
+        self.assertIn('id="returned-documents"', response.text)
+        self.assertIn("園長さんから差し戻されました", response.text)
         self.assertIn("家庭連携欄を再確認してください。", response.text)
 
     def test_logged_in_home_shows_schedule_and_assigned_class_attendance(self):
@@ -345,7 +346,8 @@ class StaffPortalTests(unittest.TestCase):
         self.assertNotIn("佐藤 花", response.text)
         self.assertNotIn("鈴木 空", response.text)
         self.assertIn("在園中", response.text)
-        self.assertIn("要確認 1", response.text)
+        self.assertIn("アラーム 0人", response.text)
+        self.assertIn("出欠確認を開く", response.text)
         self.assertIn('href="/staff/attention"', response.text)
         self.assertIn("no-store", response.headers.get("cache-control", ""))
 

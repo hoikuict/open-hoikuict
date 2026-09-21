@@ -211,7 +211,8 @@ def parent_invitation_requirements(session: Session, account: ParentAccount) -> 
     enrollment = latest_enrollment(session, account.id)
     if enrollment and not enrollment.applied_at:
         try:
-            prepare_enrollment(session, account, enrollment.child_name, enrollment.child_id, enrollment.guardian_order)
+            prepare_enrollment(session, account, enrollment.child_name, enrollment.child_id,
+                               0 if (enrollment.source_snapshot or {}).get("adding_guardian") else enrollment.guardian_order)
         except ValueError as exc:
             return [str(exc)]
         return []
@@ -286,7 +287,8 @@ def issue_parent_invitation(
     previous_enrollment = enrollment or latest_enrollment(session, account.id)
     if previous_enrollment and not previous_enrollment.applied_at:
         enrollment = prepare_enrollment(session, account, previous_enrollment.child_name,
-                                        previous_enrollment.child_id, previous_enrollment.guardian_order)
+                                        previous_enrollment.child_id,
+                                        0 if (previous_enrollment.source_snapshot or {}).get("adding_guardian") else previous_enrollment.guardian_order)
     else:
         _validate_invitation_ledger(session, account)
     credential = ensure_parent_credential(session, account)

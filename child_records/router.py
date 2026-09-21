@@ -982,6 +982,8 @@ def child_progress_dashboard(
     request: Request,
     age_group: str = Query(default=""),
     status: str = Query(default=""),
+    classroom_id: str = Query(default=""),
+    group_by: str = Query(default="classroom"),
     session: Session = Depends(get_session),
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
@@ -1026,8 +1028,25 @@ def child_progress_dashboard(
                 ),
             }
         )
+    classrooms_by_id = {child.classroom.id: child.classroom for child in accessible_children if child.classroom}
+    classrooms = sorted(classrooms_by_id.values(), key=lambda item: (item.display_order, item.id))
+    selected_classroom_id = classroom_id if classroom_id == "unassigned" or (classroom_id.isascii() and classroom_id.isdigit() and len(classroom_id) <= 18) else ""
+    selected_group_by = group_by if group_by in {"classroom", "age"} else "classroom"
+    for row in rows:
+        child = row["child"]
+        row["group_label"] = row["age_label"] if selected_group_by == "age" else (child.classroom.name if child.classroom else "クラス未設定")
+        row["group_key"] = row["cycle"]["age_key"] if selected_group_by == "age" else child.classroom_id
+    rows.sort(key=lambda row: (
+        row["cycle"]["age_key"] if selected_group_by == "age" else "",
+        row["child"].classroom is None,
+        row["child"].classroom.display_order if row["child"].classroom else 0,
+        row["child"].classroom_id or 0,
+        row["child"].last_name_kana or "", row["child"].first_name_kana or "", row["child"].id,
+    ))
     total_count = len(rows)
     uncreated_count = sum(1 for row in rows if row["document"] is None)
+    if selected_classroom_id:
+        rows = [row for row in rows if (row["child"].classroom_id is None if selected_classroom_id == "unassigned" else row["child"].classroom_id == int(selected_classroom_id))]
     if selected_age_group:
         rows = [row for row in rows if row["cycle"]["age_key"] == selected_age_group]
     if selected_status == "uncreated":
@@ -1051,6 +1070,9 @@ def child_progress_dashboard(
             "status_labels": PROGRESS_STATUS_LABELS,
             "age_filter_options": tuple((key, label) for key, label, _ in AGE_RULES),
             "status_filter_options": PROGRESS_FILTER_STATUS_OPTIONS,
+            "classrooms": classrooms,
+            "selected_classroom_id": selected_classroom_id,
+            "selected_group_by": selected_group_by,
             "selected_age_group": selected_age_group,
             "selected_status": selected_status,
             "total_count": total_count,

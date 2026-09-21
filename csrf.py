@@ -64,10 +64,17 @@ class CsrfTokenMiddleware(BaseHTTPMiddleware):
         request.state.csrf_token = token
         response = await call_next(request)
         if token != existing:
+            # Staff logins can last up to 24 hours. Do not expire the form token
+            # after eight hours while the staff session is still valid.
+            from auth import LOCAL_STAFF_SESSION_COOKIE, PRODUCTION_STAFF_SESSION_COOKIE
+
+            staff_cookie = any(request.cookies.get(name) for name in (
+                LOCAL_STAFF_SESSION_COOKIE, PRODUCTION_STAFF_SESSION_COOKIE,
+            ))
             response.set_cookie(
                 CSRF_COOKIE_NAME,
                 token,
-                max_age=60 * 60 * 8,
+                max_age=60 * 60 * (24 if staff_cookie else 8),
                 **_cookie_kwargs(),
             )
         return response

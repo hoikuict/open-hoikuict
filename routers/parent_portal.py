@@ -1,5 +1,8 @@
 from datetime import date, datetime
+from decimal import Decimal
+import re
 from typing import Optional
+import unicodedata
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -23,6 +26,12 @@ from child_profile_changes import (
     validate_child_profile_payload,
 )
 from daily_contact_reply_fields import reply_items_for_display
+from profile_photos import PhotoUploads, photo_uploads, save_photo, edit_guardian_photos, photo_response
+from models import ChildSex
+from child_profile_changes import normalize_child_profile_payload, with_current_photo_fields
+from pickup_plan_service import load_pickup_record, pickup_revision, save_pickup_plan
+from models import ChildStatus
+from home_care_details import CARE_KEYS, validate_home_care
 from database import get_session
 from models import (
     Child,
@@ -80,6 +89,23 @@ from time_utils import (
 router = APIRouter(prefix="/parent-portal", tags=["parent_portal"])
 mock_login_router = APIRouter(prefix="/parent-portal", tags=["parent-portal-mock"])
 templates = create_templates()
+
+PRESENT_TEMPERATURE_LIMIT = Decimal("37.5")
+PRESENT_TEMPERATURE_ERROR = "体温が37.5℃以上のため、出席として送信できません。入力内容を確認し、欠席する場合は「欠席」を選択してください。"
+TEMPERATURE_FORMAT_ERROR = "体温は「36.7」のような数値で入力してください。"
+
+
+def _present_temperature_error(raw: str, *, check_limit: bool = True) -> str:
+    normalized = unicodedata.normalize("NFKC", raw).strip()
+    if not normalized:
+        return ""
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*(?:°[cC]|[cC]|度)?", normalized)
+    if match is None:
+        return TEMPERATURE_FORMAT_ERROR
+    if check_limit and Decimal(match.group(1)) >= PRESENT_TEMPERATURE_LIMIT:
+        return PRESENT_TEMPERATURE_ERROR
+    return ""
+
 
 PROFILE_FIELD_LABELS = {
     "email": "メールアドレス",
@@ -160,6 +186,7 @@ def _contact_form_data(entry: Optional[DailyContactEntry], form_data: Optional[d
         "absence_reason": contact_type_value if attendance_mode == "absent" else "",
         "contact_type": contact_type_value,
         "temperature": entry.temperature or "" if entry else "",
+        **{key: (entry.extra_data or {}).get(key, "") if entry else "" for key in CARE_KEYS},
         "sleep_notes": entry.sleep_notes or "" if entry else "",
         "breakfast_status": entry.breakfast_status or "" if entry else "",
         "bowel_movement_status": entry.bowel_movement_status or "" if entry else "",
@@ -187,7 +214,19 @@ def _render_contact_form(
     notice: str = "",
     form_error: str = "",
     form_data: Optional[dict[str, str]] = None,
+    pickup_record=None,
+    pickup_editable: bool = True,
+    status_code: int = 200,
 ):
+    pickup_values = {
+        "planned_pickup_time": pickup_record.planned_pickup_time or "" if pickup_record else "",
+        "pickup_person": pickup_record.pickup_person or "" if pickup_record else "",
+        "snack_required": ("1" if pickup_record.snack_required else "0") if pickup_record and pickup_record.pickup_snack_confirmed else "",
+        "pickup_revision": pickup_revision(pickup_record),
+    }
+    if form_data is not None:
+        pickup_values.update({key: form_data[key] for key in (*pickup_values, "pickup_hour", "pickup_minute") if key in form_data})
+        pickup_editable = form_data.get("_pickup_editable", pickup_editable)
     return templates.TemplateResponse(
         request,
         "parent_portal/contact_form.html",
@@ -201,10 +240,15 @@ def _render_contact_form(
             "notice": notice,
             "form_error": form_error,
             "form_data": _contact_form_data(entry, form_data),
+            "pickup_values": pickup_values,
+            "pickup_editable": pickup_editable,
+            "present_temperature_limit": str(PRESENT_TEMPERATURE_LIMIT),
+            "present_temperature_error": PRESENT_TEMPERATURE_ERROR,
+            "temperature_format_error": TEMPERATURE_FORMAT_ERROR,
             "parent_contact_types": list(ParentContactType),
             "published_reply": published_reply,
             "reply_display_items": reply_items_for_display(published_reply),
-        },
+        }, status_code=status_code,
     )
 
 
@@ -481,53 +525,15 @@ def parent_logout(
     return response
 
 
-@router.get("/", response_class=HTMLResponse)
-def parent_home(
-    request: Request,
-    target_date: Optional[str] = Query(default=None, alias="date"),
-    notice: Optional[str] = Query(default=None),
-    session: Session = Depends(get_session),
-):
-    current_parent_user = _get_parent_account(request, session)
-    if not current_parent_user:
-        return RedirectResponse(url="/parent-portal/login", status_code=303)
-
-    day = _parse_target_date(target_date)
-    children = _linked_children(current_parent_user)
-    child_ids = [child.id for child in children if child.id is not None]
-
-    entries = (
-        session.exec(
-            select(DailyContactEntry).where(
-                DailyContactEntry.child_id.in_(child_ids) if child_ids else False,
-                DailyContactEntry.target_date == day,
-            )
-        ).all()
-        if child_ids
-        else []
-    )
-    entry_by_child_id = {entry.child_id: entry for entry in entries}
-    replies = _load_published_daily_contact_replies(session, child_ids, day)
-    reply_by_child_id = {reply.child_id: reply for reply in replies}
-    reply_display_by_child_id = {
-        reply.child_id: reply_items_for_display(reply)
-        for reply in replies
-    }
-    pending_request_by_child_id = _load_pending_child_profile_requests_by_child_id(
-        session,
-        parent_account_id=current_parent_user.id,
-        child_ids=child_ids,
-    )
-
-    notices = _load_visible_notices(session, current_parent_user)
-    read_notice_ids = _read_notice_ids(current_parent_user, notices)
+def _load_parent_updates(session: Session, parent_account: ParentAccount) -> list[dict]:
+    notices = _load_visible_notices(session, parent_account)
+    read_notice_ids = _read_notice_ids(parent_account, notices)
     parent_notifications = session.exec(
         select(ParentNotification)
-        .where(ParentNotification.parent_account_id == current_parent_user.id)
+        .where(ParentNotification.parent_account_id == parent_account.id)
         .order_by(ParentNotification.created_at.desc(), ParentNotification.id.desc())
     ).all()
-    unread_parent_notifications = [item for item in parent_notifications if not item.is_read]
-    unanswered_surveys = _load_unanswered_parent_surveys(session, current_parent_user)
+    unanswered_surveys = _load_unanswered_parent_surveys(session, parent_account)
     latest_updates = [
         {
             "kind": "notice",
@@ -586,6 +592,55 @@ def parent_home(
     )
     latest_updates.sort(key=lambda item: item["sort_at"], reverse=True)
 
+    return latest_updates
+
+
+@router.get("/", response_class=HTMLResponse)
+def parent_home(
+    request: Request,
+    target_date: Optional[str] = Query(default=None, alias="date"),
+    notice: Optional[str] = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(url="/parent-portal/login", status_code=303)
+
+    day = _parse_target_date(target_date)
+    children = _linked_children(current_parent_user)
+    child_ids = [child.id for child in children if child.id is not None]
+
+    entries = (
+        session.exec(
+            select(DailyContactEntry).where(
+                DailyContactEntry.child_id.in_(child_ids) if child_ids else False,
+                DailyContactEntry.target_date == day,
+            )
+        ).all()
+        if child_ids
+        else []
+    )
+    entry_by_child_id = {entry.child_id: entry for entry in entries}
+    replies = _load_published_daily_contact_replies(session, child_ids, day)
+    reply_by_child_id = {reply.child_id: reply for reply in replies}
+    reply_display_by_child_id = {
+        reply.child_id: reply_items_for_display(reply)
+        for reply in replies
+    }
+    pending_request_by_child_id = _load_pending_child_profile_requests_by_child_id(
+        session,
+        parent_account_id=current_parent_user.id,
+        child_ids=child_ids,
+    )
+
+    latest_updates = _load_parent_updates(session, current_parent_user)
+    recent_replies = session.exec(
+        select(DailyContactReply).options(selectinload(DailyContactReply.child)).where(
+            DailyContactReply.child_id.in_(child_ids) if child_ids else False,
+            DailyContactReply.status == DailyContactReplyStatus.published,
+        ).order_by(DailyContactReply.published_at.desc(), DailyContactReply.id.desc()).limit(5)
+    ).all()
+
     return templates.TemplateResponse(
         request,
         "parent_portal/home.html",
@@ -601,12 +656,34 @@ def parent_home(
             "reply_display_by_child_id": reply_display_by_child_id,
             "pending_request_by_child_id": pending_request_by_child_id,
             "latest_updates": latest_updates[:5],
-            "unread_notice_count": (
-                sum(1 for item in notices if item.id not in read_notice_ids)
-                + len(unanswered_surveys)
-                + len(unread_parent_notifications)
-            ),
+            "recent_replies": recent_replies,
+            "unread_notice_count": sum(1 for item in latest_updates if item["is_unread"]),
             "flash_notice": "日次連絡を保存しました。" if notice == "saved" else "",
+        },
+    )
+
+
+@router.get("/attention", response_class=HTMLResponse)
+def parent_attention(request: Request, session: Session = Depends(get_session)):
+    current_parent_user = _get_parent_account(request, session)
+    if not current_parent_user:
+        return RedirectResponse(
+            url="/parent-portal/login?redirect=/parent-portal/attention",
+            status_code=303,
+        )
+
+    updates = [
+        item for item in _load_parent_updates(session, current_parent_user)
+        if item["is_unread"]
+    ]
+    return templates.TemplateResponse(
+        request,
+        "parent_portal/attention.html",
+        {
+            "request": request,
+            "current_parent_user": current_parent_user,
+            "parent_portal_mode": True,
+            "updates": updates,
         },
     )
 
@@ -836,6 +913,8 @@ def save_parent_child_profile_request(
     first_name: str = Form(...),
     last_name_kana: str = Form(...),
     first_name_kana: str = Form(...),
+    sex: Optional[ChildSex] = Form(None),
+    photos: PhotoUploads = Depends(photo_uploads),
     birth_date: Optional[str] = Form(None),
     enrollment_date: Optional[str] = Form(None),
     withdrawal_date: Optional[str] = Form(None),
@@ -919,7 +998,19 @@ def save_parent_child_profile_request(
         order = int(guardian.get("order", index + 1))
         guardian["parent_account_id"] = existing_account_ids_by_order.get(order)
 
+    baseline = merge_child_profile_form_data(child, pending_request.request_data if pending_request else None)
+    payload["child_data"]["sex"] = sex.value if sex is not None else baseline["sex"]
+    payload["child_data"]["photo_id"] = baseline["photo_id"]
+    baseline_photos = {p["order"]: p.get("photo_id") for p in baseline["guardians_data"]}
+    for guardian in payload["guardians_data"]:
+        if guardian["order"] in baseline_photos:
+            guardian["photo_id"] = baseline_photos[guardian["order"]]
     validation_error = validate_child_profile_payload(payload)
+    try:
+        photo_edits = photos.validate()
+    except ValueError as exc:
+        validation_error = str(exc)
+        photo_edits = {}
     if validation_error:
         return templates.TemplateResponse(
             request,
@@ -929,7 +1020,7 @@ def save_parent_child_profile_request(
                 "current_parent_user": current_parent_user,
                 "parent_portal_mode": True,
                 "child": child,
-                "form_data": payload,
+                "form_data": normalize_child_profile_payload(payload),
                 "pending_request": pending_request,
                 "relationship_options": RELATIONSHIP_OPTIONS,
                 "notice": "",
@@ -938,6 +1029,13 @@ def save_parent_child_profile_request(
             status_code=400,
         )
 
+    if "child" in photo_edits:
+        payload["child_data"]["photo_id"] = save_photo(session, photo_edits["child"], child_id=child.id) or ""
+    if any(key in photo_edits for key in ("g1", "g2")):
+        if not child.family_id:
+            raise HTTPException(400, "保護者の写真を登録する前に、園で家族情報を登録してください。")
+        payload["guardians_data"] = edit_guardian_photos(session, payload["guardians_data"], photo_edits, family_id=child.family_id)
+    payload = with_current_photo_fields(child, payload)
     change_details = build_child_profile_change_details(child, payload)
     if not change_details:
         if pending_request:
@@ -956,7 +1054,7 @@ def save_parent_child_profile_request(
                 "current_parent_user": current_parent_user,
                 "parent_portal_mode": True,
                 "child": child,
-                "form_data": payload,
+                "form_data": normalize_child_profile_payload(payload),
                 "pending_request": pending_request,
                 "relationship_options": RELATIONSHIP_OPTIONS,
                 "notice": "",
@@ -1022,6 +1120,7 @@ def parent_contact_form(
         )
     ).first()
     published_reply = _load_published_daily_contact_reply(session, child_id, day)
+    pickup_record = load_pickup_record(session, child_id, day)
 
     return _render_contact_form(
         request,
@@ -1031,6 +1130,8 @@ def parent_contact_form(
         target_date_value=day.isoformat(),
         published_reply=published_reply,
         notice="日次連絡を保存しました。" if notice == "saved" else "",
+        pickup_record=pickup_record,
+        pickup_editable=day >= local_today() and child.status == ChildStatus.enrolled and not (pickup_record and pickup_record.check_out_at),
     )
 
 
@@ -1044,6 +1145,12 @@ def save_parent_contact(
     contact_type: str = Form(""),
     temperature: str = Form(""),
     sleep_notes: str = Form(""),
+    care_fields_version: str = Form(""),
+    bedtime: str = Form(""),
+    wakeup_time: str = Form(""),
+    breakfast_contents: str = Form(""),
+    stool_consistency: str = Form(""),
+    stool_count: str = Form(""),
     breakfast_status: str = Form(""),
     bowel_movement_status: str = Form(""),
     mood: str = Form(""),
@@ -1056,6 +1163,13 @@ def save_parent_contact(
     absence_symptoms: str = Form(""),
     absence_diagnosis: str = Form(""),
     absence_note: str = Form(""),
+    pickup_fields_version: str = Form(""),
+    pickup_revision_value: str = Form("", alias="pickup_revision"),
+    planned_pickup_time: str = Form(""),
+    pickup_hour: str = Form(""),
+    pickup_minute: str = Form(""),
+    pickup_person: str = Form(""),
+    snack_required: str = Form(""),
     session: Session = Depends(get_session),
 ):
     current_parent_user = _get_parent_account(request, session)
@@ -1065,6 +1179,7 @@ def save_parent_contact(
     child = _load_accessible_child(current_parent_user, child_id)
     day = _parse_target_date(target_date)
     published_reply = _load_published_daily_contact_reply(session, child_id, day)
+    pickup_record = load_pickup_record(session, child_id, day)
 
     absence_contact_types = {
         ParentContactType.absent_private.value,
@@ -1088,6 +1203,8 @@ def save_parent_contact(
         "absence_reason": submitted_reason,
         "contact_type": submitted_contact_type,
         "temperature": temperature,
+        "bedtime": bedtime, "wakeup_time": wakeup_time, "breakfast_contents": breakfast_contents,
+        "stool_consistency": stool_consistency, "stool_count": stool_count,
         "sleep_notes": sleep_notes,
         "breakfast_status": breakfast_status,
         "bowel_movement_status": bowel_movement_status,
@@ -1101,7 +1218,20 @@ def save_parent_contact(
         "absence_symptoms": absence_symptoms,
         "absence_diagnosis": absence_diagnosis,
         "absence_note": absence_note,
+        "planned_pickup_time": planned_pickup_time, "pickup_person": pickup_person,
+        "snack_required": snack_required, "pickup_revision": pickup_revision_value,
+        "pickup_hour": pickup_hour, "pickup_minute": pickup_minute,
+        "_pickup_editable": day >= local_today() and child.status == ChildStatus.enrolled and not (pickup_record and pickup_record.check_out_at),
     }
+    if pickup_fields_version != "1":
+        # Read-only and older forms do not submit pickup fields. Preserve the
+        # saved plan if an unrelated daily-contact validation error is shown.
+        form_data.update(
+            planned_pickup_time=pickup_record.planned_pickup_time or "" if pickup_record else "",
+            pickup_person=pickup_record.pickup_person or "" if pickup_record else "",
+            snack_required=("1" if pickup_record.snack_required else "0") if pickup_record and pickup_record.pickup_snack_confirmed else "",
+            pickup_revision=pickup_revision(pickup_record), pickup_hour="", pickup_minute="",
+        )
 
     if submitted_mode == "present":
         selected_contact_type = ParentContactType.present
@@ -1141,6 +1271,52 @@ def save_parent_contact(
             DailyContactEntry.target_date == day,
         )
     ).first()
+    care_values = None
+    if care_fields_version == "1" and selected_contact_type == ParentContactType.present:
+        try:
+            care_values = validate_home_care(form_data)
+        except ValueError as exc:
+            return _render_contact_form(request, current_parent_user=current_parent_user, child=child,
+                entry=entry, target_date_value=day.isoformat(), published_reply=published_reply,
+                form_error=str(exc), form_data=form_data)
+    if selected_contact_type in {ParentContactType.present, ParentContactType.absent_sick}:
+        temperature_error = _present_temperature_error(
+            temperature if selected_contact_type == ParentContactType.present else absence_temperature,
+            check_limit=selected_contact_type == ParentContactType.present,
+        )
+        if temperature_error:
+            return _render_contact_form(
+                request,
+                current_parent_user=current_parent_user,
+                child=child,
+                entry=entry,
+                target_date_value=day.isoformat(),
+                published_reply=published_reply,
+                form_error=temperature_error,
+                form_data=form_data,
+            )
+
+    if selected_contact_type == ParentContactType.present and pickup_fields_version == "1":
+        try:
+            if day < local_today():
+                raise HTTPException(409, "日付が変わったか過去の日付です。画面を開き直してください。")
+            if child.status != ChildStatus.enrolled:
+                raise HTTPException(400, "在園児のお迎え予定のみ登録できます。")
+            if not planned_pickup_time and (pickup_hour or pickup_minute):
+                raise HTTPException(400, "降園予定時刻の時と分を両方選んでください。")
+            if snack_required not in {"", "0", "1"}:
+                raise HTTPException(400, "補食の選択が不正です。")
+            save_pickup_plan(session, child_id=child_id, day=day, revision=pickup_revision_value,
+                planned_pickup_time=planned_pickup_time, pickup_person=pickup_person,
+                snack_required=snack_required == "1", snack_confirmed=snack_required != "",
+                allow_partial=True, actor_name=current_parent_user.display_name,
+                parent_account_id=current_parent_user.id, source="parent_portal")
+        except HTTPException as exc:
+            session.rollback()
+            return _render_contact_form(request, current_parent_user=current_parent_user, child=child,
+                entry=entry, target_date_value=day.isoformat(), published_reply=published_reply,
+                form_error=str(exc.detail), form_data=form_data, status_code=exc.status_code)
+
     now = utc_now()
     if not entry:
         entry = DailyContactEntry(
@@ -1154,6 +1330,8 @@ def save_parent_contact(
         if not entry.submitted_at:
             entry.submitted_at = now
 
+    if care_values is not None:
+        entry.extra_data = {**(entry.extra_data or {}), **care_values}
     entry.contact_type = selected_contact_type
     normalized_absence_temperature = (absence_temperature or "").strip()
     normalized_absence_symptoms = (absence_symptoms or "").strip()
@@ -1259,16 +1437,24 @@ def parent_contact_history(
         _contact_reply_key(reply.child_id, reply.target_date): reply
         for reply in replies
     }
+    entry_by_key = {_contact_reply_key(entry.child_id, entry.target_date): entry for entry in entries}
+    children_by_id = {child.id: child for child in _linked_children(current_parent_user)}
     history_items = []
-    for entry in entries:
-        reply = reply_by_key.get(_contact_reply_key(entry.child_id, entry.target_date))
+    for key in entry_by_key.keys() | reply_by_key.keys():
+        entry = entry_by_key.get(key)
+        reply = reply_by_key.get(key)
+        contact = entry or reply
         history_items.append(
             {
                 "entry": entry,
                 "reply": reply,
+                "child": children_by_id.get(contact.child_id),
+                "child_id": contact.child_id,
+                "target_date": contact.target_date,
                 "reply_items": reply_items_for_display(reply),
             }
         )
+    history_items.sort(key=lambda item: (item["target_date"], item["child_id"]), reverse=True)
 
     return templates.TemplateResponse(
         request,
@@ -1700,3 +1886,80 @@ def parent_notice_attachment(
         filename=attachment.original_filename,
         content_disposition_type="attachment" if download else "inline",
     )
+
+
+@router.get("/photos/{photo_id}")
+def parent_profile_photo(request: Request, photo_id: str, session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if parent is None:
+        raise HTTPException(401, "ログインしてください")
+    children = _linked_children(parent)
+    child_ids = {child.id for child in children}
+    allowed_ids = {child.photo_id for child in children if child.photo_id}
+    for child in children:
+        if child.family:
+            allowed_ids.update(p.get("photo_id") for p in child.family.guardian_profiles())
+    drafts = session.exec(select(ChildProfileChangeRequest).where(
+        ChildProfileChangeRequest.parent_account_id == parent.id,
+        ChildProfileChangeRequest.child_id.in_(child_ids),
+        ChildProfileChangeRequest.status == ChildProfileChangeRequestStatus.pending,
+    )).all()
+    for draft in drafts:
+        data = draft.request_data or {}
+        allowed_ids.add(data.get("child_data", {}).get("photo_id"))
+        allowed_ids.update(p.get("photo_id") for p in data.get("guardians_data", []))
+    if photo_id not in allowed_ids:
+        raise HTTPException(404, "写真が見つかりません")
+    return photo_response(session, photo_id)
+
+
+def _parent_pickup_context(request, parent, child, day, session, *, error="", status_code=200, values=None):
+    record = load_pickup_record(session, child.id, day)
+    return templates.TemplateResponse(request, "parent_portal/pickup.html", {
+        "current_parent_user": parent, "parent_portal_mode": True, "child": child,
+        "day": day, "record": record, "revision": values.get("revision", pickup_revision(record)) if values else pickup_revision(record), "error": error,
+        "pickup_values": values if values is not None else {
+            "planned_pickup_time": record.planned_pickup_time or "" if record else "",
+            "pickup_person": record.pickup_person or "" if record else "",
+            "snack_required": ("1" if record.snack_required else "0") if record and record.pickup_snack_confirmed else "",
+        },
+    }, status_code=status_code)
+
+
+@router.get("/children/{child_id}/pickup", response_class=HTMLResponse)
+def parent_pickup_form(request: Request, child_id: int, date: str = "", session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if not parent:
+        return RedirectResponse("/parent-portal/login", status_code=303)
+    child = _load_accessible_child(parent, child_id)
+    if child.status != ChildStatus.enrolled:
+        raise HTTPException(400, "在園児のお迎え予定のみ登録できます")
+    return _parent_pickup_context(request, parent, child, _parse_target_date(date), session)
+
+
+@router.post("/children/{child_id}/pickup", response_class=HTMLResponse)
+def parent_pickup_save(request: Request, child_id: int, date: str = Form(...), revision: str = Form(...),
+                       planned_pickup_time: str = Form(""), pickup_person: str = Form(""),
+                       snack_required: str = Form(""), session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if not parent:
+        return RedirectResponse("/parent-portal/login", status_code=303)
+    child = _load_accessible_child(parent, child_id)
+    if child.status != ChildStatus.enrolled:
+        raise HTTPException(400, "在園児のお迎え予定のみ登録できます")
+    day = _parse_target_date(date)
+    if day < local_today():
+        raise HTTPException(400, "過去のお迎え予定は変更できません")
+    try:
+        if snack_required not in {"0", "1"}:
+            raise HTTPException(400, "補食の必要・不要を選んでください。")
+        save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
+            planned_pickup_time=planned_pickup_time, pickup_person=pickup_person,
+            snack_required=snack_required == "1", actor_name=parent.display_name,
+            parent_account_id=parent.id, source="parent_portal")
+        session.commit()
+    except HTTPException as exc:
+        session.rollback()
+        return _parent_pickup_context(request, parent, child, day, session, error=str(exc.detail), status_code=exc.status_code,
+            values={"planned_pickup_time": planned_pickup_time, "pickup_person": pickup_person, "snack_required": snack_required, "revision": revision})
+    return RedirectResponse(f"/parent-portal/?date={day.isoformat()}&notice=pickup_saved", status_code=303)

@@ -4,9 +4,9 @@ from family_support import guardian_profiles_from_child
 from models import ChildStatus, Family
 
 
-def child_import_changes(session, result, number, child, family, classroom, row, *, birth_date, enrollment_date, withdrawal_date, status, verification_name, verification_name_type):
+def child_import_changes(session, result, number, child, family, classroom, row, *, birth_date, enrollment_date, withdrawal_date, status, verification_name, verification_name_type, sex=None):
     columns = {"姓": "last_name", "名": "first_name", "姓カナ": "last_name_kana", "名カナ": "first_name_kana", "住所": "home_address", "電話番号": "home_phone"}
-    fields = (*columns.values(), "birth_date", "enrollment_date", "withdrawal_date", "status", "family_id", "classroom_id", "registration_verification_name", "registration_verification_name_type")
+    fields = (*columns.values(), "birth_date", "enrollment_date", "withdrawal_date", "status", "sex", "family_id", "classroom_id", "registration_verification_name", "registration_verification_name_type")
     before = {key: getattr(child, key) if child else None for key in fields}
     after = dict(before)
     for column, key in columns.items():
@@ -17,6 +17,8 @@ def child_import_changes(session, result, number, child, family, classroom, row,
             after[key] = value
     if not child and status is None:
         after["status"] = ChildStatus.enrolled
+    if sex is not None:
+        after["sex"] = sex
     if row["家庭ID"] or row["家庭名"]:
         after["family_id"] = family.id if family else None
     if row["クラス名"]:

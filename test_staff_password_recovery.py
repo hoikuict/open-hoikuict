@@ -191,7 +191,7 @@ def test_password_error_preserves_link_for_retry(recovery, password, confirmatio
     assert complete(recovery, token).status_code == 303
 
 
-@pytest.mark.parametrize("change", ["email", "role", "inactive", "disabled", "version", "expired", "sort_order"])
+@pytest.mark.parametrize("change", ["email", "role", "inactive", "disabled", "version", "expired"])
 def test_stale_link_cannot_change_password_or_reenable_account(recovery, change):
     token = request_link(recovery)
     with Session(recovery.engine) as session:
@@ -202,7 +202,6 @@ def test_stale_link_cannot_change_password_or_reenable_account(recovery, change)
         if change == "inactive": user.is_active = False
         if change == "disabled": credential.disabled_at = utc_now()
         if change == "version": credential.credential_version += 1
-        if change == "sort_order": user.staff_sort_order = 200
         if change == "expired":
             record = session.exec(select(StaffPasswordRecovery)).one()
             record.expires_at = utc_now() - timedelta(seconds=1)
@@ -215,6 +214,16 @@ def test_stale_link_cannot_change_password_or_reenable_account(recovery, change)
         assert verify_password(session.get(PasswordCredential, recovery.credential_id).password_hash, OLD_PASSWORD)
         staff_recovery.dispatch_pending_staff_mail(session)
         assert session.exec(select(StaffMailDelivery)).one().body == ""
+
+
+def test_display_order_change_does_not_invalidate_recovery_link(recovery):
+    token = request_link(recovery)
+    with Session(recovery.engine) as session:
+        user = session.get(User, recovery.user_id)
+        user.staff_sort_order = 500
+        session.add(user)
+        session.commit()
+    assert complete(recovery, token).status_code == 303
 
 
 def test_request_limits_do_not_lock_password_login(recovery):

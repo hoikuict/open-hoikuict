@@ -20,6 +20,8 @@ from database import get_session
 from local_auth import AuthenticationFailed, LoginThrottled, PasswordPolicyError
 from models import (
     AuthSession,
+    Child,
+    ChildStatus,
     ParentAccount,
     ParentEnrollment,
     ParentMailDelivery,
@@ -670,24 +672,45 @@ def common_registration_qr_image(session: Session = Depends(get_session),
 
 @router.get("/parent-accounts/enrollment/new", response_class=HTMLResponse)
 def enrollment_invite_page(request: Request, child_id: int | None = None, guardian_order: int | None = None,
-                           session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+                           mode: str = "existing", session: Session = Depends(get_session),
+                           current_user=Depends(get_current_staff_user)):
     _admin_actor(session, current_user)
+    child = session.get(Child, child_id) if child_id is not None else None
+    if child_id is not None and (child is None or child.status != ChildStatus.enrolled):
+        raise HTTPException(400, "在園児を選択してください")
+    if mode != "new" and (child is None or guardian_order is None):
+        from family_support import guardian_profiles_from_child
+        profiles = child.family.guardian_profiles() if child and child.family else (guardian_profiles_from_child(child) if child else [])
+        children = session.exec(select(Child).where(Child.status == ChildStatus.enrolled)
+            .order_by(Child.classroom_id, Child.last_name_kana, Child.first_name_kana, Child.id)).all()
+        return _render_staff(request, "parent_auth/enrollment_select.html", {
+            "current_user": current_user, "children": children, "child": child, "profiles": profiles,
+        })
     try:
-        child, order = enrollment_target(session, child_id, guardian_order)
+        child, order = enrollment_target(session, child_id, guardian_order, allow_new_guardian=guardian_order == 0)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return _render_staff(request, "parent_auth/enrollment_invite.html", {
-        "current_user": current_user, "child_id": child_id, "guardian_order": order,
+        "current_user": current_user, "child_id": child_id,
+        "guardian_order": 0 if guardian_order == 0 else order, "mode": mode,
         "child_name": child.full_name if child else "", "email": "", "form_error": "",
     })
 
 
 @router.post("/parent-accounts/enrollment/invite")
-def enrollment_invite(request: Request, child_name: str = Form(...), email: str = Form(...),
+def enrollment_invite(request: Request, child_name: str = Form(""), email: str = Form(...),
+                      mode: str = Form("existing"),
                       child_id: int | None = Form(None), guardian_order: int | None = Form(None),
                       session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
     actor = _admin_actor(session, current_user)
     try:
+        if mode not in {"existing", "new"} or (mode == "existing" and child_id is None):
+            raise ValueError("在園児を選択してください。新規入園の場合は専用の入口を利用してください")
+        if child_id is not None:
+            child = session.get(Child, child_id)
+            if child is None or child.status != ChildStatus.enrolled:
+                raise ValueError("在園児を選択してください")
+            child_name = child.full_name
         email = validate_parent_contact_email(session, email)
         account = ParentAccount(display_name="初回入力待ちの保護者", email=email)
         session.add(account)
@@ -701,7 +724,7 @@ def enrollment_invite(request: Request, child_name: str = Form(...), email: str 
         session.rollback()
         return _render_staff(request, "parent_auth/enrollment_invite.html", {
             "current_user": current_user, "child_id": child_id, "guardian_order": guardian_order,
-            "child_name": child_name, "email": email,
+            "child_name": child_name, "email": email, "mode": mode,
             "form_error": str(exc.detail) if isinstance(exc, HTTPException) else str(exc),
         }, 400)
     return RedirectResponse(f"/parent-accounts/{account.id}/authentication", status_code=303)
@@ -802,7 +825,7 @@ def _admin_auth_response(request, account_id, session, current_user, *, review_e
             "form_error": review_error,
             "review_values": review_values or {},
             "proposed_email": request.query_params.get("proposed_email")
-            or account.email,
+            or account.contact_email,
             "notice": request.query_params.get("notice", ""),
         },
         status_code=status_code,

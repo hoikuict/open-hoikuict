@@ -88,7 +88,7 @@ secretsのblocklistはappの実行userから読める必要がある。ホスト
 
 ## 2. 設定を完成させる
 
-[Compose](../deploy/truenas/compose.yaml)と[環境変数雛形](../deploy/truenas/.env.example)を使う。
+[Compose](https://github.com/hoikuict/open-hoikuict/blob/8b35978270b704498f204365f899c5492cd88fe9/deploy/truenas/compose.yaml)と[環境変数雛形](https://github.com/hoikuict/open-hoikuict/blob/8b35978270b704498f204365f899c5492cd88fe9/deploy/truenas/.env.example)を使う。
 `.env`のすべての`<...>`を置き換える。リポジトリ直下のローカル用設定は使わない。
 
 - `APP_IMAGE`: 直前にbuildした`open-hoikuict:<deploy-full-sha>`。

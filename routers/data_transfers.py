@@ -25,6 +25,8 @@ from data_transfer_service import (
     template_rows,
 )
 from database import get_session
+from csrf import verify_csrf
+from security_config import is_public_demo
 from models import ChildStatus, Classroom, DataTransferLog, ParentAccountStatus
 from ninka_transfer_service import build_ninka_xlsx_content, default_fiscal_year
 from time_utils import utc_now
@@ -141,7 +143,7 @@ def _render_index(
     )
 
 
-def _save_preview_file(dataset: str, filename: str, content: bytes, *, owner: str = "", revision: str = "") -> str:
+def _save_preview_file(dataset: str, filename: str, content: bytes, *, owner: str = "", revision: str = "", excluded_rows: list[int] | None = None) -> str:
     _cleanup_stale_previews()
     directory = _preview_dir()
     directory.mkdir(parents=True, exist_ok=True)
@@ -152,6 +154,7 @@ def _save_preview_file(dataset: str, filename: str, content: bytes, *, owner: st
         "content": base64.b64encode(content).decode("ascii"),
         "owner": owner,
         "revision": revision,
+        "excluded_rows": excluded_rows or [],
         "sha256": hashlib.sha256(content).hexdigest(),
     }
     final_path = directory / f"{token}.json"
@@ -173,7 +176,7 @@ def _save_preview_file(dataset: str, filename: str, content: bytes, *, owner: st
     return token
 
 
-def _load_preview_file(token: str, expected_dataset: str, *, owner: str | None = None, claim: bool = False):
+def _load_preview_file(token: str, expected_dataset: str, *, owner: str | None = None, claim: bool = False, with_options: bool = False):
     _cleanup_stale_previews()
     try:
         if UUID(str(token)).hex != token:
@@ -198,6 +201,9 @@ def _load_preview_file(token: str, expected_dataset: str, *, owner: str | None =
         raise HTTPException(status_code=403, detail="この確認データは利用できません。ご自身で事前検証してください。")
     if payload.get("sha256") != hashlib.sha256(content).hexdigest():
         raise HTTPException(status_code=400, detail="確認データが変更されています。もう一度事前検証してください。")
+    exclusions = payload.get("excluded_rows", [])
+    if not isinstance(exclusions, list) or any(type(n) is not int or n < 2 for n in exclusions):
+        raise HTTPException(400, "確認データの除外行が不正です。")
     if claim:
         # Atomic rename gives a token to exactly one worker. A failed import needs a new preview.
         claimed = path.with_suffix(f".{uuid4().hex}.claimed")
@@ -206,12 +212,20 @@ def _load_preview_file(token: str, expected_dataset: str, *, owner: str | None =
         except FileNotFoundError as exc:
             raise HTTPException(status_code=400, detail="この確認データはすでに使用されています。") from exc
         claimed.unlink()
-        return str(payload["filename"]), content, payload["revision"]
-    return str(payload.get("filename") or f"{expected_dataset}.csv"), content
+        values = (str(payload["filename"]), content, payload["revision"])
+        return (*values, exclusions) if with_options else values
+    values = (str(payload.get("filename") or f"{expected_dataset}.csv"), content)
+    return (*values, exclusions) if with_options else values
 
 
-def _preview_owner(user) -> str:
-    return str(user.user_id) if user.user_id else f"mock:{user.role.value}:{user.name}"
+def _preview_owner(user, request: Request | None = None) -> str:
+    owner = str(user.user_id) if user.user_id else f"mock:{user.role.value}:{user.name}"
+    if is_public_demo():
+        session_id = getattr(getattr(request, "state", None), "demo_session_id", None)
+        if not session_id:
+            raise HTTPException(403, "デモセッションを確認してください。")
+        return f"demo:{session_id}:{owner}"
+    return owner
 
 
 def _require_dataset_access(user, dataset):
@@ -232,9 +246,17 @@ def _delete_preview_file(token: str) -> None:
 def data_transfer_page(
     request: Request,
     notice: str = Query(default=""),
+    preview: str = Query(default=""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
+    if preview:
+        _require_dataset_access(current_user, "families")
+        filename, content, exclusions = _load_preview_file(preview, "families", owner=_preview_owner(current_user, request), with_options=True)
+        result = preview_import(session, "families", filename, content, excluded_rows=exclusions)
+        result.preview_token = preview
+        result.recheck_required = True
+        return _render_index(request, session, current_user, preview_result=result)
     return _render_index(request, session, current_user, notice=notice)
 
 
@@ -259,13 +281,14 @@ def download_export(
     file_name: str,
     classroom_id: str = Query(default=""),
     status: str = Query(default=""),
+    archive_scope: str = Query(default="active", pattern="^(active|archived|all)$"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
     dataset, extension = _split_file_name(file_name)
     _require_dataset_access(current_user, dataset)
-    rows = export_rows(session, dataset, classroom_id=classroom_id, status=status)
+    rows = export_rows(session, dataset, classroom_id=classroom_id, status=status, archive_scope=archive_scope)
     return _download_response(
         rows=rows,
         dataset=dataset,
@@ -291,8 +314,21 @@ async def preview_import_file(
     content = await file.read()
     filename = file.filename or f"{dataset}.csv"
     result = preview_import(session, dataset, filename, content)
-    if not result.errors and result.total_rows > 0:
-        result.preview_token = _save_preview_file(dataset, filename, content, owner=_preview_owner(current_user), revision=result.revision)
+    if result.source_rows or (not result.errors and result.total_rows > 0):
+        result.preview_token = _save_preview_file(dataset, filename, content, owner=_preview_owner(current_user, request), revision=result.revision)
+    return _render_index(request, session, current_user, preview_result=result)
+
+
+@router.post("/import/families/repreview", response_class=HTMLResponse, dependencies=[Depends(verify_csrf)])
+def repreview_families(request: Request, preview_token: str = Form(""), excluded_rows: list[int] = Form(default=[]),
+                      session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    _require_dataset_access(current_user, "families")
+    filename, content = _load_preview_file(preview_token, "families", owner=_preview_owner(current_user, request))
+    result = preview_import(session, "families", filename, content, excluded_rows=excluded_rows)
+    if result.source_rows:
+        result.preview_token = _save_preview_file("families", filename, content, owner=_preview_owner(current_user, request),
+            revision=result.revision, excluded_rows=result.excluded_rows)
+        _delete_preview_file(preview_token)
     return _render_index(request, session, current_user, preview_result=result)
 
 
@@ -313,9 +349,9 @@ async def commit_import_file(
 
     if not preview_token:
         raise HTTPException(status_code=400, detail="先に事前検証を行い、変更内容を確認してください。")
-    filename, content, revision = _load_preview_file(preview_token, dataset, owner=_preview_owner(current_user), claim=True)
+    filename, content, revision, exclusions = _load_preview_file(preview_token, dataset, owner=_preview_owner(current_user, request), claim=True, with_options=True)
     result = commit_import(session, dataset, filename, content, actor_name=current_user.name,
-                           expected_revision=revision, actor_id=str(current_user.user_id) if current_user.user_id else None)
+                           expected_revision=revision, actor_id=str(current_user.user_id) if current_user.user_id else None, excluded_rows=exclusions)
     if result.errors:
         return _render_index(request, session, current_user, preview_result=result, status_code=400)
     return RedirectResponse(

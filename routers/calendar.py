@@ -260,7 +260,7 @@ def _ensure_calendar_member(
 def _ensure_facility_shared_memberships(session: Session, calendar: Calendar) -> set[UUID]:
     active_users = session.exec(
         select(User)
-        .where(User.is_active.is_(True), User.staff_sort_order < 200)
+        .where(User.is_active.is_(True))
         .order_by(User.staff_sort_order, User.display_name, User.email)
     ).all()
     broadcast_ids = {calendar.id}
@@ -281,7 +281,7 @@ def _ensure_facility_shared_memberships(session: Session, calendar: Calendar) ->
 
 def _sync_staff_shared_calendars(session: Session, user: User) -> None:
     """Include staff added after a shared calendar was created; keep their preferences."""
-    if not user.is_active or user.staff_sort_order >= 200:
+    if not user.is_active:
         return
     member_calendar_ids = set(session.exec(
         select(CalendarMember.calendar_id).where(CalendarMember.user_id == user.id)
@@ -367,6 +367,12 @@ def _shared_logs_by_calendar(session: Session, contexts: list[CalendarContext], 
 
 
 def _delete_calendar_records(session: Session, calendar: Calendar) -> None:
+    from models import CalendarImportBatch, CalendarImportSource
+
+    for model in (CalendarImportSource, CalendarImportBatch):
+        for item in session.exec(select(model).where(model.calendar_id == calendar.id)).all():
+            session.delete(item)
+    session.flush()
     event_rows = session.exec(select(Event).where(Event.calendar_id == calendar.id)).all()
     event_ids = [item.id for item in event_rows]
     recurrence_rule_ids = {item.recurrence_rule_id for item in event_rows if item.recurrence_rule_id}
@@ -378,8 +384,10 @@ def _delete_calendar_records(session: Session, calendar: Calendar) -> None:
             session.delete(reminder)
         for override in session.exec(select(EventOverride).where(EventOverride.series_event_id.in_(event_ids))).all():
             session.delete(override)
+        session.flush()
         for event in event_rows:
             session.delete(event)
+        session.flush()
 
     for rule_id in recurrence_rule_ids:
         remaining = session.exec(
@@ -400,6 +408,7 @@ def _delete_calendar_records(session: Session, calendar: Calendar) -> None:
         session.delete(member)
     for log in session.exec(select(CalendarActivityLog).where(CalendarActivityLog.calendar_id == calendar.id)).all():
         session.delete(log)
+    session.flush()
     session.delete(calendar)
 
 
@@ -906,7 +915,7 @@ def mock_login(
     session: Session = Depends(get_session),
 ):
     user = session.get(User, _coerce_uuid(user_id) or UUID(int=0))
-    if user is None or not user.is_active or user.staff_sort_order >= 200:
+    if user is None or not user.is_active:
         return RedirectResponse(url="/staff/login", status_code=303)
     response = RedirectResponse(url=safe_internal_redirect(redirect_to, "/calendar"), status_code=303)
     role = Role.ADMIN if user.staff_role == "admin" else Role.CAN_EDIT if user.staff_role == "can_edit" else Role.VIEW_ONLY

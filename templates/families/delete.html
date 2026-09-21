@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}家族の削除 | open-hoikuict{% endblock %}
+{% block content %}
+<a href="{{ list_url }}" class="text-sm text-indigo-600 hover:underline">← 家族一覧へ戻る</a>
+<h1 class="mb-2 mt-5 text-2xl font-bold text-slate-800">家族の削除{% if blocked %}条件{% endif %}</h1>
+<p class="text-sm text-slate-500">家族名と家族番号を確認してください。</p>
+
+{% if error %}
+<div role="alert" class="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">{{ error }}</div>
+{% endif %}
+
+{% if family %}
+<section class="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="mb-3 flex flex-wrap items-center gap-3">
+    <h2 class="break-words text-xl font-semibold text-slate-800">{{ family.family_name }} <span class="text-xs font-normal text-slate-500">{{ family.display_code }}</span></h2>
+    <span class="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">{{ family.children|length }}人の園児</span>
+    <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ family.parent_accounts|length }}人の保護者</span>
+  </div>
+  <div class="space-y-2 break-words text-sm text-slate-600">
+    <p>住所: {{ family.home_address or "未登録" }}</p>
+    <p>電話: {{ family.home_phone or "未登録" }}</p>
+    <p>園児: {{ family.children|map(attribute='full_name')|join('、') if family.children else "未登録" }}</p>
+    <p>保護者: {{ family.parent_accounts|map(attribute='display_name')|join('、') if family.parent_accounts else "未登録" }}</p>
+    {% set guardians = family.guardian_profiles() %}
+    <p>保護者連絡先: {% if not guardians %}未登録{% endif %}</p>
+    {% for guardian in guardians %}
+    <div class="break-all pl-4">
+      <p>{{ guardian.last_name }} {{ guardian.first_name }}{% if guardian.relationship %}（{{ guardian.relationship }}）{% endif %} — メール: {{ guardian.email or "未登録" }}</p>
+      <p>電話: {{ guardian.phone or "未登録" }}</p>
+      <p>勤務先: {{ guardian.workplace or "未登録" }}</p>
+      <p>勤務先住所: {{ guardian.workplace_address or "未登録" }}</p>
+      <p>勤務先電話: {{ guardian.workplace_phone or "未登録" }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mt-6">
+  <h2 class="font-semibold text-slate-800">この家族に紐づくデータ</h2>
+  <dl class="mt-3 divide-y divide-slate-200 border-y border-slate-200 text-sm">
+    {% for item in dependencies %}
+    <div class="flex items-start justify-between gap-4 py-3"><dt class="text-slate-600">{{ item.label }}</dt><dd class="shrink-0 text-slate-800">{{ item.count }}{{ item.unit }}</dd></div>
+    {% endfor %}
+  </dl>
+</section>
+
+{% if blocked %}
+<div role="alert" class="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">
+  <p class="font-semibold">この家族は削除できません。</p>
+  <p class="mt-1 text-sm">関連データが残っています。登録内容を確認し、必要な記録を保持してください。</p>
+  <a class="mt-3 inline-block rounded border border-indigo-300 bg-white px-4 py-2 text-indigo-700" href="/families/{{ family.id }}/{{ 'restore' if family.is_archived else 'archive' }}?q={{ q|urlencode }}">{{ '元に戻す' if family.is_archived else '記録を残してアーカイブを確認' }}</a>
+</div>
+{% elif review_token %}
+<div class="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">
+  <p class="font-semibold">家族名・住所・電話・保護者連絡先を削除します。</p>
+  <p class="mt-1 text-sm">この操作は取り消せません。</p>
+</div>
+<form method="post" action="/families/{{ family.id }}/delete" class="mt-5" data-family-delete>
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}">
+  <input type="hidden" name="review_token" value="{{ review_token }}">
+  <input type="hidden" name="q" value="{{ q }}">
+  <label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700">
+    <input type="checkbox" name="confirmed" value="yes" required class="mt-1 h-4 w-4 shrink-0 accent-indigo-600">
+    <span class="break-words"><strong>{{ family.family_name }}（{{ family.display_code }}）</strong>の内容を確認し、この家族情報を削除します。</span>
+  </label>
+  <div class="mt-5 flex flex-wrap items-center gap-3">
+    <a href="{{ list_url }}" class="rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">取消</a>
+    <button type="submit" class="rounded bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50">この家族を削除</button>
+  </div>
+</form>
+{% endif %}
+{% endif %}
+
+{% if not family or blocked %}
+<a href="{{ list_url }}" class="mt-5 inline-block rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">一覧へ戻る</a>
+{% endif %}
+{% endblock %}
+{% block body_end %}
+<script src="/static/js/family-delete.js" defer></script>
+{% endblock %}

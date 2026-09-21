@@ -16,6 +16,7 @@ from auth import get_current_staff_user, require_attendance_check_editor
 from database import get_session
 from models import (
     AttendanceAlarmState,
+    AttendanceContactConfirmation,
     AttendanceRecord,
     AttendanceVerification,
     AttendanceVerificationHistory,
@@ -74,6 +75,8 @@ class AttendanceCheckRow:
     alarm_is_active: bool
     alarm_reasons: list[str]
     history_items: list[AttendanceVerificationHistory]
+    contact_history: list[AttendanceContactConfirmation]
+    contact_confirmation: Optional[AttendanceContactConfirmation]
 
 
 def _parse_target_date(raw: Optional[str]) -> date:
@@ -213,6 +216,13 @@ def _load_rows(
         if len(bucket) < 5:
             bucket.append(history)
 
+    contacts_by_child_id: dict[int, list[AttendanceContactConfirmation]] = {}
+    for contact in session.exec(select(AttendanceContactConfirmation).where(
+        AttendanceContactConfirmation.target_date == target_day,
+        AttendanceContactConfirmation.child_id.in_(child_ids),
+    ).order_by(AttendanceContactConfirmation.id.desc())).all():
+        contacts_by_child_id.setdefault(contact.child_id, []).append(contact)
+
     rows: list[AttendanceCheckRow] = []
     for child in enrolled_children:
         child_id = child.id or 0
@@ -220,6 +230,8 @@ def _load_rows(
         alarm_state = alarm_by_child_id.get(child_id)
         record = record_by_child_id.get(child_id)
         status_key = verification.status.value if verification else AttendanceVerificationStatus.unknown.value
+        contact_history = contacts_by_child_id.get(child_id, [])
+        latest_contact = contact_history[0] if contact_history else None
         rows.append(
             AttendanceCheckRow(
                 child=child,
@@ -235,6 +247,8 @@ def _load_rows(
                 alarm_is_active=bool(alarm_state and alarm_state.is_active),
                 alarm_reasons=alarm_reason_labels(alarm_state.reasons if alarm_state else None),
                 history_items=histories_by_child_id.get(child_id, []),
+                contact_history=contact_history,
+                contact_confirmation=latest_contact if latest_contact and latest_contact.action == "received" else None,
             )
         )
     return rows
@@ -332,6 +346,8 @@ def _build_page_context(
         "rows": display_rows,
         "grouped_rows": _group_rows(display_rows) if selected_layout == "classroom" else [],
         "action_message": {
+            "contact_received": "電話・口頭連絡を記録し、アラームを再確認しました。",
+            "contact_revoked": "連絡受付を取り消し、アラームを再確認しました。",
             "parent_notified": "園児に紐づく保護者へ出欠確認の通知を送りました。",
             "parent_not_found": "通知先となる有効な保護者アカウントが見つかりませんでした。",
         }.get(notice or "", ""),
@@ -365,6 +381,60 @@ def attendance_checks_list(
     )
     template_name = "attendance_checks/_board.html" if _is_hx_request(request) else "attendance_checks/list.html"
     return templates.TemplateResponse(request, template_name, context)
+
+
+@router.post("/{child_id}/contact-confirmation", response_class=HTMLResponse)
+def record_contact_confirmation(
+    request: Request, child_id: int, target_date: str = Form(..., alias="date"),
+    action: str = Form("received"), status: str = Form(""), method: str = Form(""),
+    note: str = Form(""), confirmation_id: Optional[int] = Form(None),
+    layout: str = Form("flat"), status_filter: str = Form("all", alias="filter"),
+    classroom_id: str = Form(""), session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_attendance_check_editor(current_user)
+    child = session.get(Child, child_id)
+    if not child or child.status != ChildStatus.enrolled:
+        raise HTTPException(404, "在籍中の園児が見つかりません")
+    day = _parse_target_date(target_date)
+    latest = session.exec(select(AttendanceContactConfirmation).where(
+        AttendanceContactConfirmation.child_id == child_id,
+        AttendanceContactConfirmation.target_date == day,
+    ).order_by(AttendanceContactConfirmation.id.desc())).first()
+    error = ""
+    if not note.strip() or len(note.strip()) > 1000:
+        error = "連絡内容または取消理由を1〜1000文字で入力してください。"
+    elif action == "received":
+        if status not in {"private_absent", "sick_absent"} or method not in {"phone", "in_person"}:
+            error = "欠席理由と連絡方法を選択してください。"
+    elif action == "revoked":
+        if not latest or latest.action != "received" or latest.id != confirmation_id:
+            error = "連絡受付が更新されています。最新の履歴を確認してください。"
+        else:
+            status, method = latest.status.value, latest.method
+    else:
+        error = "操作を確認してください。"
+    if error:
+        context = _build_page_context(
+            request=request, session=session, current_user=current_user, target_day=day,
+            selected_layout=_parse_layout(layout), selected_filter=_parse_filter(status_filter),
+            selected_classroom_id=_parse_optional_int(classroom_id),
+        )
+        context["action_error"] = error
+        return templates.TemplateResponse(request, "attendance_checks/list.html", context, status_code=400)
+    session.add(AttendanceContactConfirmation(
+        child_id=child_id, target_date=day, action=action,
+        status=AttendanceVerificationStatus(status), method=method, note=note.strip(),
+        recorded_by_name=current_user.name,
+    ))
+    session.flush()
+    sync_attendance_alarm(session, child_id=child_id, target_date=day)
+    session.commit()
+    return RedirectResponse(_build_redirect_url(
+        target_day=day, selected_layout=_parse_layout(layout),
+        selected_filter=_parse_filter(status_filter), selected_classroom_id=_parse_optional_int(classroom_id),
+        notice="contact_received" if action == "received" else "contact_revoked",
+    ), status_code=303)
 
 
 @router.post("/{child_id}/verification", response_class=HTMLResponse)

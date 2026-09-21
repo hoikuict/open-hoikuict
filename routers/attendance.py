@@ -1,6 +1,5 @@
 import csv
-import hashlib
-import re
+from pickup_plan_service import pickup_revision as _pickup_revision, save_pickup_plan
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from io import BytesIO, StringIO
@@ -12,7 +11,6 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import selectinload
-from sqlalchemy import update
 from sqlmodel import Session, select
 
 from auth import Role, get_current_staff_user, require_can_edit
@@ -134,6 +132,7 @@ class AttendanceReportRow:
     extended_care_status_label: str
     extended_care_requires_attention: bool
     extended_care_reason: str = ""
+    actual_pickup_person: str = ""
 def _parse_target_date(raw: Optional[str]) -> date:
     if not raw:
         return local_today()
@@ -231,6 +230,8 @@ def _build_filters(
 
 
 def _attendance_status(record: Optional[AttendanceRecord]) -> str:
+    if record and record.check_out_at:
+        return "降園済み"
     if not record or not record.check_in_at:
         return "未登園"
     if not record.check_out_at:
@@ -279,6 +280,7 @@ def _build_row(
         check_out_at=record.check_out_at if record else None,
         planned_pickup_time=record.planned_pickup_time if record and record.planned_pickup_time else "",
         pickup_person=record.pickup_person if record and record.pickup_person else "",
+        actual_pickup_person=record.actual_pickup_person or "" if record else "",
         note=record.note if record and record.note else "",
         status=_attendance_status(record),
         extended_care_charge_id=extended_care_charge_id,
@@ -825,11 +827,6 @@ def _pickup_record(session: Session, child_id: int, day: date) -> tuple[Child, A
     return child, record
 
 
-def _pickup_revision(record: AttendanceRecord) -> str:
-    return hashlib.sha256(repr((record.id, record.updated_at, record.planned_pickup_time,
-                                record.pickup_person)).encode()).hexdigest()
-
-
 def _pickup_form(request, session, current_user, child, record, return_query, *, error="", values=None, status_code=200):
     history = session.exec(select(AttendancePickupHistory).where(
         AttendancePickupHistory.attendance_record_id == record.id,
@@ -860,33 +857,16 @@ def save_pickup(request: Request, child_id: int, date: str = Form(...),
     require_can_edit(current_user)
     day = _parse_target_date(date)
     child, record = _pickup_record(session, child_id, day)
-    values = {"planned_pickup_time": planned_pickup_time.strip(), "pickup_person": pickup_person.strip()}
-    if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", values["planned_pickup_time"]):
-        return _pickup_form(request, session, current_user, child, record, return_query,
-                            error="お迎え予定時刻を時・分で入力してください。", values=values, status_code=400)
-    if not values["pickup_person"] or len(values["pickup_person"]) > 100 or any(ord(c) < 32 for c in values["pickup_person"]):
-        return _pickup_form(request, session, current_user, child, record, return_query,
-                            error="お迎え予定者を100文字以内で入力してください。", values=values, status_code=400)
-    if revision != _pickup_revision(record):
-        return _pickup_form(request, session, current_user, child, record, return_query,
-                            error="別の操作で記録が更新されました。最新の内容を確認して入力し直してください。", status_code=409)
-    if (record.planned_pickup_time, record.pickup_person) != (values["planned_pickup_time"], values["pickup_person"]):
-        history = AttendancePickupHistory(
-            attendance_record_id=record.id, previous_time=record.planned_pickup_time,
-            previous_person=record.pickup_person, new_time=values["planned_pickup_time"],
-            new_person=values["pickup_person"], changed_by_user_id=current_user.user_id,
-            changed_by_name=current_user.name,
-        )
-        result = session.execute(update(AttendanceRecord).where(
-            AttendanceRecord.id == record.id, AttendanceRecord.updated_at == record.updated_at,
-        ).values(**values, updated_at=utc_now()).execution_options(synchronize_session=False))
-        if result.rowcount != 1:
-            session.rollback()
-            session.refresh(record)
-            return _pickup_form(request, session, current_user, child, record, return_query,
-                                error="別の操作で記録が更新されました。最新の内容を確認して入力し直してください。", status_code=409)
-        session.add(history)
+    try:
+        save_pickup_plan(session, child_id=child_id, day=day, revision=revision,
+            planned_pickup_time=planned_pickup_time, pickup_person=pickup_person,
+            actor_name=current_user.name, actor_user_id=current_user.user_id, source="staff")
         session.commit()
+    except HTTPException as exc:
+        session.rollback()
+        session.refresh(record)
+        return _pickup_form(request, session, current_user, child, record, return_query,
+                            error=str(exc.detail), status_code=exc.status_code)
     return RedirectResponse(_build_redirect_url(day, return_query) + "&notice=pickup_updated", status_code=303)
 
 
@@ -958,6 +938,8 @@ def check_in(
 
     now = local_naive_now()
     audit_now = utc_now()
+    if record and record.check_out_at:
+        raise HTTPException(409, "降園済みです。打刻の取消・履歴から記録を確認してください。")
     if not record:
         record = AttendanceRecord(child_id=child_id, attendance_date=day, check_in_at=now)
     elif record.check_in_at is None:

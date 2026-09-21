@@ -15,7 +15,6 @@ from local_auth import (
     issue_existing_staff_activation,
 )
 from models import PasswordCredential, User
-from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 
 
 BOOTSTRAP_FIELDS = {
@@ -131,7 +130,6 @@ def activate_existing_staff_command() -> int:
             select(User)
             .where(
                 User.is_active.is_(True),
-                User.staff_sort_order < STAFF_USER_SORT_ORDER_LIMIT,
             )
             .order_by(User.staff_sort_order, User.display_name, User.email)
         ).all()

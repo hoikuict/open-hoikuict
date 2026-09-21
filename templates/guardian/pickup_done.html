@@ -10,9 +10,13 @@
   </section>
 </div>
 
+{% if terminal_mode %}
+<div data-terminal-return-url="{{ redirect_url }}" data-terminal-return-ms="{{ redirect_ms }}" hidden></div>
+{% else %}
 <script>
   setTimeout(function () {
     window.location.href = "{{ redirect_url }}";
   }, {{ redirect_ms }});
 </script>
+{% endif %}
 {% endblock %}

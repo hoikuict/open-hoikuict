@@ -13,7 +13,6 @@ from starlette.requests import HTTPConnection
 
 from csrf import rotate_csrf_token
 from security_config import is_public_demo, parent_auth_mode, secure_cookie_enabled, staff_auth_mode
-from staff_user_service import STAFF_USER_SORT_ORDER_LIMIT
 
 
 class Role(str, Enum):
@@ -235,13 +234,11 @@ class LocalPasswordStaffAuthBackend:
     def establish_session(self, response: Response, subject: StaffSessionSubject) -> None:
         raise RuntimeError("local password sessionには認証済みopaque tokenが必要です")
 
-    def set_session_token(self, response: Response, raw_token: str) -> None:
-        from local_auth import staff_session_cookie_max_age
-
+    def set_session_token(self, response: Response, raw_token: str, *, max_age: int) -> None:
         response.set_cookie(
             self.cookie_name,
             raw_token,
-            max_age=staff_session_cookie_max_age(),
+            max_age=max_age,
             **_auth_cookie_kwargs(),
         )
         rotate_csrf_token(response)
@@ -556,7 +553,7 @@ def get_current_staff_user_record(request: Request, session):
     if staff_user_id is None:
         return None
     user = session.get(User, staff_user_id)
-    if user is None or not user.is_active or user.staff_sort_order >= STAFF_USER_SORT_ORDER_LIMIT:
+    if user is None or not user.is_active:
         return None
     return user
 
@@ -593,10 +590,10 @@ def set_staff_cookies(
     )
 
 
-def set_local_staff_session_cookie(response: Response, raw_token: str) -> None:
+def set_local_staff_session_cookie(response: Response, raw_token: str, *, max_age: int) -> None:
     if not isinstance(_staff_auth_backend, LocalPasswordStaffAuthBackend):
         raise RuntimeError("local password職員認証が有効ではありません")
-    _staff_auth_backend.set_session_token(response, raw_token)
+    _staff_auth_backend.set_session_token(response, raw_token, max_age=max_age)
 
 
 def clear_staff_cookies(

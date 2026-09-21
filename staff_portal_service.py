@@ -78,11 +78,13 @@ class ClassroomAttendanceSummary:
     absent_count: int = 0
     not_checked_in_count: int = 0
     attention_count: int = 0
+    alarm_count: int = 0
+    missing_punch_count: int = 0
     attention_items: list[AttentionItem] = field(default_factory=list)
 
     @property
     def attendance_url(self) -> str:
-        return "/attendance?" + urlencode(
+        return "/attendance-checks/?" + urlencode(
             {
                 "date": self.target_date.isoformat(),
                 "classroom_id": str(self.classroom_id),
@@ -290,15 +292,19 @@ def build_attendance_summaries(
         is_unknown = verification is None or verification.status == AttendanceVerificationStatus.unknown
         has_check_in = bool(record and record.check_in_at is not None)
         has_check_out = bool(record and record.check_in_at is not None and record.check_out_at is not None)
+        visually_present = bool(verification and verification.status == AttendanceVerificationStatus.present)
+        has_arrived = has_check_in or visually_present
         needs_attention = bool(alarm and alarm.is_active) or is_unknown
 
         summary.enrolled_count += 1
-        summary.checked_in_count += int(has_check_in)
+        summary.checked_in_count += int(has_arrived)
         summary.checked_out_count += int(has_check_out)
-        summary.present_count += int(has_check_in and not has_check_out)
+        summary.present_count += int(has_arrived and not has_check_out and not is_absent)
         summary.absent_count += int(is_absent)
-        summary.not_checked_in_count += int(not has_check_in and not is_absent)
+        summary.not_checked_in_count += int(not has_arrived and not is_absent)
         summary.attention_count += int(needs_attention)
+        summary.alarm_count += int(bool(alarm and alarm.is_active))
+        summary.missing_punch_count += int(visually_present and not has_check_in)
 
         if needs_attention and (
             attention_limit is None or len(summary.attention_items) < attention_limit

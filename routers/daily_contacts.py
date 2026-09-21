@@ -259,8 +259,8 @@ def save_daily_contact_reply(
             DailyContactEntry.target_date == day,
         )
     ).first()
-    if not entry:
-        raise HTTPException(status_code=404, detail="返信対象の日次連絡が見つかりません")
+    if action not in {"draft", "publish"}:
+        raise HTTPException(status_code=400, detail="保存方法が不正です")
 
     values = reply_values_from_mapping(
         {
@@ -275,13 +275,13 @@ def save_daily_contact_reply(
     if reply is None:
         reply = DailyContactReply(
             child_id=child_id,
-            daily_contact_entry_id=entry.id,
+            daily_contact_entry_id=entry.id if entry else None,
             target_date=day,
             created_at=now,
         )
 
     next_status = DailyContactReplyStatus.published if action == "publish" else DailyContactReplyStatus.draft
-    reply.daily_contact_entry_id = entry.id
+    reply.daily_contact_entry_id = entry.id if entry else None
     reply.status = next_status
     reply.field_values = values
     reply.message = reply_message.strip() or None

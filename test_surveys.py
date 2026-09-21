@@ -21,6 +21,7 @@ from models import (
     SurveyQuestion,
     SurveyResponse,
     SurveyStatus,
+    SurveyResultViewer,
     SurveyTarget,
     SurveyTargetType,
     User,
@@ -225,6 +226,10 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertIn("未回答", home_response.text)
         self.assertIn(f'/parent-portal/surveys/{self.parent_survey_id}', home_response.text)
 
+        attention_response = self.client.get("/parent-portal/attention")
+        self.assertEqual(attention_response.status_code, 200)
+        self.assertIn(f'href="/parent-portal/surveys/{self.parent_survey_id}"', attention_response.text)
+
         answer_response = self.client.post(
             f"/parent-portal/surveys/{self.parent_survey_id}",
             data={f"q{self.parent_question_id}": "夏祭り"},
@@ -234,6 +239,7 @@ class SurveyFeatureTests(unittest.TestCase):
 
         answered_home_response = self.client.get("/parent-portal/")
         self.assertNotIn("保護者アンケート", answered_home_response.text)
+        self.assertNotIn("保護者アンケート", self.client.get("/parent-portal/attention").text)
 
     def test_parent_unanswered_count_deduplicates_accounts_in_same_family(self):
         with Session(self.engine) as session:
@@ -298,6 +304,9 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertIn("未回答", unanswered_list_response.text)
 
     def test_staff_survey_answer_detail_displays_staff_name(self):
+        with Session(self.engine) as session:
+            session.add(SurveyResultViewer(survey_id=self.staff_survey_id, user_id=self.staff_user_id, granted_by="管理者"))
+            session.commit()
         self._login_staff(self.staff_user_id)
         response = self.client.post(
             f"/staff-surveys/{self.staff_survey_id}",
@@ -527,6 +536,8 @@ class SurveyFeatureTests(unittest.TestCase):
         self.assertEqual(survey_effective_status_label(survey, after_local_end), "公開終了")
 
     def test_expired_published_survey_is_displayed_and_filtered_as_closed(self):
+        from auth import Role
+        authenticate_mock_staff(self.client, role=Role.ADMIN)
         with Session(self.engine) as session:
             survey = session.get(Survey, self.parent_survey_id)
             survey.opens_at = datetime(2020, 1, 1, 9, 0)

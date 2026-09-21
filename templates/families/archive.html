@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}家族のアーカイブ | open-hoikuict{% endblock %}
+{% block content %}
+<a href="{{ list_url }}" class="text-sm text-indigo-600 hover:underline">← {{ 'CSVの確認へ戻る' if preview else '家族一覧へ戻る' }}</a>
+<h1 class="mb-2 mt-5 text-2xl font-bold text-slate-800">{{ '家族の内容・記録' if action == 'records' else '家庭を通常の一覧に戻す' if action == 'restore' else '家族のアーカイブ' }}</h1>
+<p class="text-sm text-slate-500">家族名と家族番号、関連する記録を確認してください。</p>
+{% if error %}<div role="alert" class="mt-5 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">{{ error }}</div>{% endif %}
+{% include "families/_summary.html" %}
+{% if family.is_archived %}<p class="mt-4 text-sm text-amber-800">アーカイブ済み ／ {{ family.archived_at|jst_datetime('%Y/%m/%d %H:%M') }}<br>{% if history %}理由: {{ history[0].reason or '未記入' }}{% if history[0].note %} ／ メモ: {{ history[0].note }}{% endif %}{% endif %}</p>{% endif %}
+<section class="mt-6"><h2 class="font-semibold text-slate-800">この家族に紐づくデータ</h2>
+<dl class="mt-3 divide-y divide-slate-200 border-y border-slate-200 text-sm">{% for item in dependencies %}<div class="flex justify-between gap-4 py-3"><dt class="text-slate-600">{{ item.label }}</dt><dd>{{ item.count }}{{ item.unit }}</dd></div>{% endfor %}</dl></section>
+{% if action == 'records' %}
+<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5"><h2 class="font-semibold">保存されている記録</h2>
+{% for answer in answers %}<p class="mt-3"><a class="text-indigo-700 underline" href="/surveys/{{ answer.survey_id }}">アンケート回答（回答番号 {{ answer.id }}）を確認</a></p>{% endfor %}
+{% for enrollment, registration in enrollments %}<p class="mt-3">保護者の初回入力記録：{{ '反映済み' if enrollment.applied_at else registration.status }}{% if current_user.is_admin %} ／ <a class="text-indigo-700 underline" href="/parent-accounts/{{ registration.parent_account_id }}/authentication">依頼・受付記録を確認</a>{% endif %}</p>{% endfor %}
+{% if not answers and not enrollments %}<p class="mt-3 text-sm text-slate-500">回答・初回入力の記録はありません。</p>{% endif %}
+<p class="mt-4 text-sm text-slate-500">請求や園児の過去記録は、それぞれの画面で引き続き確認できます。</p></section>
+{% elif review_token %}
+<div class="mt-5 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-indigo-900"><strong>{{ '家庭を通常の一覧に再表示します。' if action == 'restore' else '紐づけを残したまま、家庭の一覧を整理します。' }}</strong>
+<p class="mt-2 text-sm">{% if action == 'restore' %}園児・保護者の状態や進行中の依頼は、そのまま引き継ぎます。{% else %}家庭は「アーカイブ済み」タブに移ります。園児・保護者の利用、編集、入力依頼、通知・請求は続きます。家庭の選択やIDを指定したCSV更新もできます。{% endif %}</p></div>
+{% if ongoing_usage %}<div class="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900"><strong>このまま利用が続くデータ</strong><ul class="mt-2 list-disc pl-5">{% for item in ongoing_usage %}<li>{{ item }}</li>{% endfor %}</ul><p class="mt-2 text-sm">紐づけを外す作業は不要です。このまま{{ '一覧に戻せます' if action == 'restore' else 'アーカイブできます' }}。</p></div>{% endif %}
+<form method="post" action="/families/{{ family.id }}/{{ action }}" class="mt-5 space-y-4 rounded-xl border border-slate-200 bg-white p-5">
+<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}"><input type="hidden" name="review_token" value="{{ review_token }}">
+<input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="scope" value="{{ scope }}"><input type="hidden" name="preview" value="{{ preview }}">
+{% if action == 'archive' %}<label class="block text-sm">アーカイブ理由（任意）<select name="reason" class="mt-1 block w-full max-w-lg rounded border border-slate-300 px-3 py-2"><option value="">選択してください</option>{% for choice in reasons %}<option {% if choice == reason %}selected{% endif %}>{{ choice }}</option>{% endfor %}</select></label>{% endif %}
+<label class="block text-sm">{{ '復帰時のメモ' if action == 'restore' else 'メモ' }}（任意）<textarea name="note" maxlength="500" rows="3" class="mt-1 w-full rounded border border-slate-300 px-3 py-2">{{ note }}</textarea></label>
+<p class="text-sm text-slate-500">「{{ '通常の一覧に戻す' if action == 'restore' else 'アーカイブする' }}」を押した時点で保存します。「取消」では変更しません。</p>
+<div class="flex flex-wrap gap-3"><a href="{{ list_url }}" class="rounded border border-slate-300 px-4 py-2">取消</a><button class="rounded bg-indigo-600 px-4 py-2 text-white">{{ '通常の一覧に戻す' if action == 'restore' else 'アーカイブする' }}</button></div></form>
+{% else %}<div class="mt-5 rounded border border-amber-300 bg-amber-50 p-4">この家族の状態は変更済みです。一覧から内容を確認してください。</div>{% endif %}
+{% if history %}<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5"><h2 class="font-semibold">アーカイブ・復帰の履歴</h2>{% for item in history %}<div class="mt-3 border-t pt-3 text-sm text-slate-600">{{ item.created_at|jst_datetime('%Y/%m/%d %H:%M') }} ／ {{ item.actor_name }} ／ {{ 'アーカイブ' if item.action == 'archive' else '通常の一覧に復帰' }}{% if item.reason %}<p>理由: {{ item.reason }}</p>{% endif %}{% if item.note %}<p class="whitespace-pre-wrap break-words">メモ: {{ item.note }}</p>{% endif %}</div>{% endfor %}</section>{% endif %}
+{% if action == 'records' %}<div class="mt-5 flex flex-wrap gap-3"><a class="whitespace-nowrap rounded border px-4 py-2" href="{{ list_url }}">一覧へ戻る</a>{% if current_user.can_manage_child_records %}<a class="rounded bg-indigo-600 px-4 py-2 text-white" href="/families/{{ family.id }}/{{ 'restore' if family.is_archived else 'archive' }}?scope={{ scope }}&q={{ q|urlencode }}">{{ '元に戻す' if family.is_archived else 'アーカイブ' }}</a>{% endif %}</div>{% endif %}
+{% endblock %}

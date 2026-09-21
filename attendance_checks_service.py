@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from models import (
     AttendanceAlarmHistory,
     AttendanceAlarmState,
+    AttendanceContactConfirmation,
     AttendanceRecord,
     AttendanceVerification,
     AttendanceVerificationStatus,
@@ -37,6 +38,7 @@ def build_alarm_reasons(
     record: Optional[AttendanceRecord],
     entry: Optional[DailyContactEntry],
     verification: Optional[AttendanceVerification],
+    confirmation: Optional[AttendanceContactConfirmation] = None,
 ) -> list[str]:
     if verification is None or verification.status == AttendanceVerificationStatus.unknown:
         return []
@@ -51,10 +53,18 @@ def build_alarm_reasons(
     if record and record.check_in_at is not None and visually_absent:
         reasons.append("punched_but_not_present")
 
-    if entry and entry.contact_type in {ParentContactType.absent_private, ParentContactType.absent_sick} and visually_present:
+    has_absence_contact = (
+        entry.contact_type in {ParentContactType.absent_private, ParentContactType.absent_sick}
+        if entry else confirmation is not None and confirmation.action == "received"
+    )
+    if has_absence_contact and visually_present:
         reasons.append("absence_contact_but_present")
 
-    if entry is None and visually_absent:
+    contact_received = (
+        confirmation is not None and confirmation.action == "received"
+        and confirmation.status == verification.status
+    )
+    if entry is None and visually_absent and not contact_received:
         reasons.append("no_contact_and_not_present")
 
     return reasons
@@ -90,7 +100,13 @@ def sync_attendance_alarm(
         )
     ).first()
 
-    reasons = build_alarm_reasons(record, entry, verification)
+    confirmation = session.exec(
+        select(AttendanceContactConfirmation).where(
+            AttendanceContactConfirmation.child_id == child_id,
+            AttendanceContactConfirmation.target_date == target_date,
+        ).order_by(AttendanceContactConfirmation.id.desc())
+    ).first()
+    reasons = build_alarm_reasons(record, entry, verification, confirmation)
     next_is_active = bool(reasons)
     reasons_payload = reasons or None
 

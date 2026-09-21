@@ -3,10 +3,30 @@ from enum import Enum
 import uuid
 from typing import Any, List, Optional
 
-from sqlalchemy import JSON, CheckConstraint, Index, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Index, LargeBinary, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, SQLModel
 
 from time_utils import local_naive_now, local_today, utc_now
+
+
+class ChildSex(str, Enum):
+    not_set = "not_set"
+    male = "male"
+    female = "female"
+
+    @property
+    def label(self) -> str:
+        return {self.not_set: "未設定", self.male: "男", self.female: "女"}[self]
+
+
+class ProfilePhoto(SQLModel, table=True):
+    __tablename__ = "profile_photos"
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
+    child_id: Optional[int] = Field(default=None, foreign_key="children.id", index=True)
+    family_id: Optional[int] = Field(default=None, foreign_key="families.id", index=True)
+    content: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ChildStatus(str, Enum):
@@ -486,11 +506,16 @@ class Family(SQLModel, table=True):
     home_address: Optional[str] = None
     home_phone: Optional[str] = None
     shared_profile: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
     children: List["Child"] = Relationship(back_populates="family")
     parent_accounts: List["ParentAccount"] = Relationship(back_populates="family")
+
+    @property
+    def is_archived(self) -> bool:
+        return self.archived_at is not None
 
     def guardian_profiles(self) -> list[dict[str, Any]]:
         profile = self.shared_profile if isinstance(self.shared_profile, dict) else {}
@@ -512,7 +537,20 @@ class Family(SQLModel, table=True):
 
     @property
     def selection_label(self) -> str:
-        return self.identity_label
+        return self.identity_label + ("（家庭一覧でアーカイブ済み）" if self.is_archived else "")
+
+
+class FamilyArchiveLog(SQLModel, table=True):
+    __tablename__ = "family_archive_logs"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    family_id: int = Field(foreign_key="families.id", index=True)
+    action: str = Field(max_length=16)
+    reason: str = Field(default="", max_length=80)
+    note: str = Field(default="", max_length=500)
+    actor_id: Optional[str] = Field(default=None, max_length=64)
+    actor_name: str = Field(max_length=100)
+    created_at: datetime = Field(default_factory=utc_now, index=True)
 
 
 class Classroom(SQLModel, table=True):
@@ -539,6 +577,8 @@ class Child(SQLModel, table=True):
     registration_verification_name: Optional[str] = Field(default=None, max_length=200)
     registration_verification_name_type: Optional[str] = Field(default=None, max_length=16)
     birth_date: date
+    sex: ChildSex = Field(default=ChildSex.not_set)
+    photo_id: Optional[str] = None
     enrollment_date: date
     withdrawal_date: Optional[date] = None
     status: ChildStatus = Field(default=ChildStatus.enrolled)
@@ -845,11 +885,25 @@ class HealthCheckRecord(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class HealthCheckCorrection(SQLModel, table=True):
+    __tablename__ = "health_check_corrections"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    record_id: int = Field(foreign_key="health_check_records.id", index=True)
+    before: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    after: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    reason: str = Field(max_length=500)
+    actor_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    actor_name: str
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class Guardian(SQLModel, table=True):
     __tablename__ = "guardians"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="children.id")
+    photo_id: Optional[str] = None
     last_name: str
     first_name: str
     last_name_kana: Optional[str] = None
@@ -945,6 +999,8 @@ class AttendanceRecord(SQLModel, table=True):
     planned_pickup_time: Optional[str] = None
     pickup_person: Optional[str] = None
     snack_required: bool = Field(default=False)
+    pickup_snack_confirmed: bool = Field(default=False)
+    actual_pickup_person: Optional[str] = None
     note: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -963,9 +1019,13 @@ class AttendancePickupHistory(SQLModel, table=True):
     attendance_record_id: int = Field(foreign_key="attendance_records.id", index=True)
     previous_time: Optional[str] = None
     previous_person: Optional[str] = None
+    previous_snack_required: Optional[bool] = None
     new_time: str
     new_person: str
+    new_snack_required: Optional[bool] = None
     changed_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    changed_by_parent_account_id: Optional[int] = Field(default=None, foreign_key="parent_accounts.id")
+    source: str = Field(default="staff")
     changed_by_name: str
     changed_at: datetime = Field(default_factory=utc_now)
 
@@ -993,6 +1053,10 @@ class GuardianTerminalStatus(SQLModel, table=True):
     last_seen_at: datetime = Field(default_factory=utc_now)
     created_at: datetime = Field(default_factory=utc_now)
 
+    @property
+    def registration_number(self) -> str:
+        return "-".join(self.device_id.upper()[i:i + 8] for i in range(0, len(self.device_id), 8))
+
 
 class DocumentReviewRequest(SQLModel, table=True):
     __tablename__ = "document_review_requests"
@@ -1007,6 +1071,7 @@ class DocumentReviewRequest(SQLModel, table=True):
     decided_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     decided_by_name: Optional[str] = None
     decided_at: Optional[datetime] = None
+    return_acknowledged_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -1196,6 +1261,25 @@ class ParentAccount(SQLModel, table=True):
     def family_display_name(self) -> str:
         return self.family.family_name if self.family else ""
 
+    @property
+    def email_removed(self) -> bool:
+        return self.email.startswith("removed:")
+
+    @property
+    def contact_email(self) -> str:
+        return "" if self.email_removed else self.email
+
+
+class ParentAddressRemoval(SQLModel, table=True):
+    __tablename__ = "parent_address_removals"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_account_id: int = Field(foreign_key="parent_accounts.id", index=True)
+    actor_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    actor_name: str
+    reason: str = Field(max_length=500)
+    created_at: datetime = Field(default_factory=utc_now)
+
 
 class ParentChildLink(SQLModel, table=True):
     __tablename__ = "parent_child_links"
@@ -1378,6 +1462,11 @@ class DailyContactEntry(SQLModel, table=True):
 
 
     @property
+    def home_care_details(self) -> list[tuple[str, str]]:
+        from home_care_details import care_display_items
+        return care_display_items(self.extra_data)
+
+    @property
     def is_present_contact(self) -> bool:
         return self.contact_type == ParentContactType.present
 
@@ -1435,6 +1524,20 @@ class AttendanceVerificationHistory(SQLModel, table=True):
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
     updated_by_name: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AttendanceContactConfirmation(SQLModel, table=True):
+    """Append-only history of staff receiving or withdrawing an oral absence contact."""
+    __tablename__ = "attendance_contact_confirmations"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", index=True)
+    target_date: date = Field(index=True)
+    action: str = Field(default="received")
+    status: AttendanceVerificationStatus
+    method: str
+    note: str
+    recorded_by_name: str
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -1862,6 +1965,15 @@ class Survey(SQLModel, table=True):
     targets: List["SurveyTarget"] = Relationship(back_populates="survey")
     questions: List["SurveyQuestion"] = Relationship(back_populates="survey")
     answers: List["SurveyAnswer"] = Relationship(back_populates="survey")
+
+
+class SurveyResultViewer(SQLModel, table=True):
+    __tablename__ = "survey_result_viewers"
+
+    survey_id: int = Field(foreign_key="surveys.id", primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
+    granted_by: str
+    granted_at: datetime = Field(default_factory=utc_now)
 
 
 class SurveyTarget(SQLModel, table=True):
@@ -2757,6 +2869,44 @@ class AuthSession(SQLModel, table=True):
     revoke_reason: Optional[str] = Field(default=None, max_length=64)
 
 
+class StaffSessionTimeout(SQLModel, table=True):
+    """Only new staff sessions get a timeout snapshot; legacy sessions use the environment."""
+    __tablename__ = "staff_session_timeouts"
+    __table_args__ = (CheckConstraint("idle_minutes BETWEEN 5 AND 1440"),)
+
+    token_hash: str = Field(primary_key=True, foreign_key="auth_sessions.token_hash", ondelete="CASCADE")
+    idle_minutes: int
+
+
+class StaffSessionPolicy(SQLModel, table=True):
+    __tablename__ = "staff_session_policies"
+    __table_args__ = (
+        CheckConstraint("id = 1"),
+        CheckConstraint("idle_minutes BETWEEN 5 AND 1440"),
+        CheckConstraint("absolute_hours BETWEEN 1 AND 24"),
+        CheckConstraint("idle_minutes <= absolute_hours * 60"),
+    )
+
+    id: int = Field(default=1, primary_key=True)
+    idle_minutes: int = 30
+    absolute_hours: int = 12
+    updated_at: datetime = Field(default_factory=utc_now)
+    updated_by_user_id: uuid.UUID = Field(foreign_key="users.id")
+
+
+class StaffSessionPolicyAudit(SQLModel, table=True):
+    __tablename__ = "staff_session_policy_audits"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    changed_at: datetime = Field(default_factory=utc_now, index=True)
+    changed_by_user_id: uuid.UUID = Field(foreign_key="users.id")
+    changed_by_name_snapshot: str
+    old_idle_minutes: int
+    old_absolute_hours: int
+    new_idle_minutes: int
+    new_absolute_hours: int
+
+
 class LoginThrottle(SQLModel, table=True):
     __tablename__ = "login_throttles"
 
@@ -2988,6 +3138,28 @@ class Event(SQLModel, table=True):
     is_deleted: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarImportSource(SQLModel, table=True):
+    __tablename__ = "calendar_import_sources"
+    __table_args__ = (UniqueConstraint("calendar_id", "source_key", name="uq_calendar_import_source"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    source_key: str = Field(max_length=64)
+    event_id: uuid.UUID = Field(foreign_key="events.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CalendarImportBatch(SQLModel, table=True):
+    __tablename__ = "calendar_import_batches"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    calendar_id: uuid.UUID = Field(foreign_key="calendars.id", index=True)
+    items: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    expires_at: datetime = Field(index=True)
+    used_at: Optional[datetime] = None
 
 
 class EventOverride(SQLModel, table=True):

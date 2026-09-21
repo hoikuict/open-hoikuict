@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}未読・未回答 | open-hoikuict{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">未読・未回答 <span class="text-amber-600">{{ updates|length }}件</span></h1>
+    <p class="mt-2 text-sm text-gray-600">未読のお知らせ・出欠確認と、未回答のアンケートを確認できます。</p>
+    <p class="mt-1 text-sm text-gray-600">各項目をタップすると、詳細・回答画面が開きます。</p>
+  </div>
+  <a href="/parent-portal/" class="inline-flex min-h-11 items-center rounded-lg border border-indigo-200 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">保護者ホームへ戻る</a>
+</div>
+
+<section class="space-y-3">
+  <h2 class="sr-only">未読・未回答の内容</h2>
+  {% for update in updates %}
+  {% include "parent_portal/_update_card.html" %}
+  {% else %}
+  <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">未読・未回答はありません。</div>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -96,11 +96,16 @@ class GuardianTerminalTests(unittest.TestCase):
         path = f"/guardian/child/{self.child_id}"
         denied = self.client.post(path + "/check-in", data={"date": self.today}, follow_redirects=False)
         self.assertEqual(denied.status_code, 403)
-        self.assertEqual(self.post(path + "/check-in", date=self.today).status_code, 303)
-        pickup = self.post(path + "/pickup/commit", date=self.today, planned_pickup_time="17:00", pickup_person="母")
+        started = self.post(path + "/check-in", date=self.today)
+        self.assertEqual(started.status_code, 200)
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(AttendanceRecord)).all(), [])
+        pickup = self.post(path + "/pickup/commit", date=self.today, revision=started.context["pickup_revision"],
+            arrival_token=started.context["arrival_token"], planned_pickup_time="17:00", pickup_person="母", snack_required="0")
         self.assertEqual(pickup.status_code, 200)
         self.assertIn('href="/guardian/terminal"', pickup.text)
-        checkout = self.post(path + "/check-out/commit", date=self.today)
+        self.assertEqual(self.post(path + "/check-out/commit", date=self.today).status_code, 400)
+        checkout = self.post(path + "/check-out/commit", date=self.today, actual_pickup_person="父")
         self.assertEqual(checkout.status_code, 200)
         self.assertIn("降園を受け付けました", checkout.text)
         self.assertIn('href="/guardian/terminal"', checkout.text)
@@ -113,12 +118,22 @@ class GuardianTerminalTests(unittest.TestCase):
         self.assertEqual(self.client.get("/guardian/terminal/status").status_code, 404)
         self.activate()
         response = self.client.get("/guardian/terminal/status")
-        self.assertEqual(response.json(), {"kiosk": True, "today": self.today})
+        self.assertTrue(response.json()["kiosk"])
+        self.assertEqual(response.json()["today"], self.today)
         self.assertEqual(response.headers["cache-control"], "no-store")
         from models import GuardianTerminalStatus
         with Session(self.engine) as session:
             terminal = session.exec(select(GuardianTerminalStatus)).one()
             self.assertIsNotNone(terminal.last_seen_at)
+            self.assertEqual(response.json()['registration_number'], terminal.registration_number)
+            number = terminal.registration_number
+            terminal.label = '玄関の端末'
+            session.add(terminal)
+            session.commit()
+        page = self.client.get('/guardian/terminal')
+        self.assertIn(number, page.text)
+        self.assertNotIn(self.client.cookies.get(KIOSK_DEVICE_COOKIE), page.text)
+        self.assertEqual(self.client.get('/guardian/terminal/status').json()['label'], '玄関の端末')
         with patch.dict(os.environ, {"HOIKUICT_KIOSK_TOKEN": "rotated"}):
             self.assertEqual(self.client.get("/guardian/terminal/status").status_code, 404)
             self.assertIn('id="kiosk-token"', self.client.get("/guardian/terminal").text)

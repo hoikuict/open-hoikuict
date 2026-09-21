@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}設定 | open-hoikuict{% endblock %}
+{% macro item(url, title, description) %}
+<a href="{{ url }}" class="settings-item flex items-center justify-between gap-4 border-t border-slate-100 px-5 py-4 hover:bg-indigo-50 focus:bg-indigo-50">
+  <span><span class="block font-semibold text-slate-800">{{ title }}</span><span class="mt-1 block text-sm text-slate-500">{{ description }}</span></span>
+  <span aria-hidden="true" class="text-indigo-600">›</span>
+</a>
+{% endmacro %}
+{% block content %}
+<div class="max-w-4xl space-y-6">
+  <div><h1 class="text-2xl font-bold text-slate-800">設定</h1><p class="mt-2 text-sm text-slate-500">園の運用や職員の管理に使う設定をまとめています。利用できる項目を表示しています。</p></div>
+  {% if current_user.is_admin %}
+  <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="staff-settings">
+    <h2 id="staff-settings" class="px-5 py-3 font-semibold text-slate-600">職員とログイン</h2>
+    {{ item('/settings/staff-sessions', 'ログイン時間設定', '職員の管理画面でログインを維持する時間を設定します。') }}
+    {{ item('/staff/users', '職員管理', '職員の登録・在職状況・認証情報を管理します。') }}
+    {{ item('/staff/permissions', '職員権限設定', '職員ごとの操作権限を管理します。') }}
+  </section>
+  {% endif %}
+  <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="nursery-settings">
+    <h2 id="nursery-settings" class="px-5 py-3 font-semibold text-slate-600">園の運用</h2>
+    {{ item('/classrooms/', 'クラス管理', 'クラス名・表示順・所属園児数を確認します。') }}
+    {% if current_user.is_admin %}{{ item('/settings/child-records', '児童記録設定', '児童記録に使う項目を設定します。') }}{% endif %}
+    {{ item('/extended-care-fees/settings', '延長保育料金ルール', '料金ルールや計算方法を確認します。変更できる範囲は権限によって異なります。') }}
+  </section>
+  {% if current_user.is_admin %}
+  <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="parent-settings">
+    <h2 id="parent-settings" class="px-5 py-3 font-semibold text-slate-600">保護者と端末</h2>
+    {% if parent_enrollment_enabled() %}{{ item('/parent-accounts/registration-qr', '保護者登録の受付', '登録案内のQRコードと、新しい申請の受付を管理します。') }}{% endif %}
+    {{ item('/settings/guardian-terminals', '保護者端末の監視', '端末の稼働状況と監視時間を管理します。') }}
+  </section>
+  {% if not is_public_demo() %}<section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="maintenance-settings">
+    <h2 id="maintenance-settings" class="px-5 py-3 font-semibold text-slate-600">保守</h2>
+    {{ item('/settings/backups', 'バックアップ・復元' if restore_enabled else 'バックアップ管理', 'バックアップの状況確認・実行・予約と、園全体の復元を行います。' if restore_enabled else 'バックアップの状況確認と実行・予約を行います。') }}
+  </section>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}

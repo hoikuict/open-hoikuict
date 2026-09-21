@@ -1,0 +1,24 @@
+<a href="{{ update.url }}" class="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+  <div class="mb-2 flex items-center gap-2">
+    {% if update.kind == "survey" %}
+    <span class="rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">アンケート</span>
+    <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未回答</span>
+    {% endif %}
+    {% if update.kind == "parent_notification" %}
+    <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">出欠確認</span>
+    {% if update.is_unread %}<span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未読</span>{% endif %}
+    {% endif %}
+    {% if update.is_important %}
+    <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">重要</span>
+    {% endif %}
+    {% if update.kind == "notice" and update.is_unread %}
+    <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未読</span>
+    {% endif %}
+  </div>
+  <h3 class="font-semibold text-gray-800">{{ update.title }}</h3>
+  {% if update.summary %}<p class="mt-2 text-sm leading-6 text-gray-700">{{ update.summary }}</p>{% endif %}
+  <p class="mt-1 text-sm text-gray-500">
+    {{ update.published_at_label }} JST
+    {% if update.closes_at_label %}<span class="ml-2 text-amber-700">期限 {{ update.closes_at_label }} JST</span>{% endif %}
+  </p>
+</a>

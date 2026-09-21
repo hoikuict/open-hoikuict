@@ -17,15 +17,16 @@
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <div>
         <div class="flex flex-wrap items-center gap-2">
-          <h2 class="text-lg font-semibold text-gray-800">{{ entry.child.full_name if entry.child else "-" }}</h2>
-          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">{{ entry.contact_type.label }}</span>
+          <h2 class="text-lg font-semibold text-gray-800">{{ item.child.full_name if item.child else "-" }}</h2>
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">{{ entry.contact_type.label if entry else '保護者連絡は未提出' }}</span>
         </div>
-        <p class="text-sm text-gray-500">{{ entry.target_date.isoformat() }}</p>
+        <p class="text-sm text-gray-500">{{ item.target_date.isoformat() }}</p>
       </div>
-      <a href="/parent-portal/children/{{ entry.child_id }}/contact?date={{ entry.target_date.isoformat() }}" class="text-sm text-indigo-600 hover:underline">内容を編集</a>
+      <a href="/parent-portal/children/{{ item.child_id }}/contact?date={{ item.target_date.isoformat() }}" class="text-sm text-indigo-600 hover:underline">{{ '内容を編集' if entry else '連絡を入力' }}</a>
     </div>
 
-    {% if entry.is_present_contact %}
+    {% if entry and entry.is_present_contact %}
+    {% include 'parent_portal/_home_care_details.html' %}
     <div class="mt-4 grid gap-3 text-sm text-gray-700 md:grid-cols-4">
       <div class="rounded border border-gray-200 px-3 py-2">体温: {{ entry.temperature or "-" }}</div>
       <div class="rounded border border-gray-200 px-3 py-2">朝食: {{ entry.breakfast_status or "-" }}</div>
@@ -42,7 +43,7 @@
         <div class="whitespace-pre-wrap">{{ entry.contact_note or "-" }}</div>
       </div>
     </div>
-    {% else %}
+    {% elif entry %}
     <div class="mt-4 grid gap-3 text-sm text-gray-700 md:grid-cols-2">
       <div class="rounded border border-gray-200 px-3 py-3">
         <div class="mb-1 text-xs font-semibold text-gray-500">欠席理由</div>
@@ -72,7 +73,7 @@
     {% if item.reply %}
     <div class="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3">
       <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        <h3 class="font-semibold text-sky-900">園からの返信</h3>
+        <h3 class="font-semibold text-sky-900">園からの連絡</h3>
         <div class="flex flex-wrap items-center gap-2 text-xs text-sky-700">
           {% if item.reply.staff_name %}
           <span>返信者: {{ item.reply.staff_name }}</span>

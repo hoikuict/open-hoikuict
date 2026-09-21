@@ -119,8 +119,10 @@ def add_diff(result, row_number, entity, entity_id, before, after):
     for key in sorted(set(before) | set(after)):
         old, new = before.get(key), after.get(key)
         if key == "guardians_data":
-            old_profiles = {p["order"]: p for p in old or []}
-            new_profiles = {p["order"]: p for p in new or []}
+            # Older demo snapshots store guardian order as "1"/"2" in JSON.
+            # Compare the same slot without mixing string and integer sort keys.
+            old_profiles = {str(p["order"]): p for p in old or []}
+            new_profiles = {str(p["order"]): p for p in new or []}
             for order in sorted(set(old_profiles) | set(new_profiles)):
                 add_diff(result, row_number, entity, entity_id,
                          {f"保護者{order} {label}": old_profiles.get(order, {}).get(field) for label, field in (*GUARDIAN_COLUMNS, ("アカウントID", "parent_account_id"))},

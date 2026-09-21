@@ -21,7 +21,7 @@ STAFF_PERMISSION_DEFINITIONS = (
     StaffPermissionDefinition(
         key="can_manage_child_records",
         label="園児台帳管理",
-        description="園児・家族・保護者アカウントの追加と編集を許可します。",
+        description="園児・家族・保護者アカウントの追加と編集、関連記録のない家族の削除を許可します。",
     ),
     StaffPermissionDefinition(
         key="can_manage_billing_accounts",

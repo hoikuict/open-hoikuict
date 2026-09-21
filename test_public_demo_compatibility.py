@@ -1,4 +1,6 @@
 import os
+import html
+import re
 import sqlite3
 import shutil
 import time
@@ -17,6 +19,8 @@ from demo_runtime import get_demo_session_manager, reset_demo_runtime_cache
 from models import (
     CareTimeCategory,
     Child,
+    Family,
+    FamilyArchiveLog,
     ChildCareCertification,
     DocumentReviewRequest,
     ExtendedCareCalculationSetting,
@@ -94,6 +98,120 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                 self.assertEqual(parent_auth_mode(), "mock")
             parent_mail.assert_not_called()
             staff_mail.assert_not_called()
+
+    def _login_admin(self, client):
+        from csrf import CSRF_COOKIE_NAME
+
+        response = client.get("/staff/login")
+        session_id = response.headers["X-Demo-Session-Id"]
+        with Session(get_demo_session_manager().get_engine(session_id)) as session:
+            admin = session.exec(select(User).where(User.staff_role == "admin")).first()
+            admin_id = str(admin.id)
+        response = client.post("/staff/login", data={"user_id": admin_id},
+                               headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
+        self.assertEqual(response.status_code, 200)
+        return session_id
+
+    def _form_token(self, response, name):
+        self.assertEqual(response.status_code, 200)
+        token = re.search(r'name="' + name + r'" value="([^"]+)"', response.text)
+        self.assertIsNotNone(token)
+        return html.unescape(token.group(1))
+
+    def test_linked_family_archive_and_parent_login_remain_session_isolated(self):
+        from csrf import CSRF_COOKIE_NAME
+
+        with TestClient(main.app, base_url="https://testserver") as client:
+            first_id = self._login_admin(client)
+            manager = get_demo_session_manager()
+            with Session(manager.get_engine(first_id)) as session:
+                account = session.exec(select(ParentAccount).where(ParentAccount.family_id.is_not(None))).first()
+                family_id, parent_id = account.family_id, account.id
+                family = session.get(Family, family_id)
+                children_before = [(child.id, child.status, child.family_id) for child in family.children]
+                parents_before = [(parent.id, parent.status, parent.family_id) for parent in family.parent_accounts]
+                family_updated_at = family.updated_at
+            self.assertTrue(children_before)
+            url = f"/families/{family_id}/archive"
+            token = self._form_token(client.get(url), "review_token")
+            csrf = client.cookies.get(CSRF_COOKIE_NAME)
+            headers = {"X-CSRF-Token": csrf}
+            response = client.post(url, data={"review_token": token}, headers=headers, follow_redirects=False)
+            self.assertEqual(response.status_code, 303)
+            self.assertEqual(client.get(f"/families/{family_id}/edit").status_code, 200)
+            self.assertEqual(client.get(f"/parent-portal/mock-login/{parent_id}").status_code, 200)
+            self.assertEqual(client.get("/parent-portal/").status_code, 200)
+            with Session(manager.get_engine(first_id)) as session:
+                family = session.get(Family, family_id)
+                self.assertTrue(family.is_archived)
+                self.assertEqual(family.updated_at, family_updated_at)
+                self.assertEqual([(c.id, c.status, c.family_id) for c in family.children], children_before)
+                self.assertEqual([(p.id, p.status, p.family_id) for p in family.parent_accounts], parents_before)
+            first_cookies = dict(client.cookies)
+            client.cookies.clear()
+            second_id = self._login_admin(client)
+            self.assertNotEqual(first_id, second_id)
+            # Even with the same seeded actor and copied CSRF cookie, a review from
+            # another visitor may not mutate this visitor's corresponding family.
+            client.cookies.set(CSRF_COOKIE_NAME, csrf, domain="testserver.local", path="/")
+            response = client.post(url, data={"review_token": token}, headers=headers, follow_redirects=False)
+            self.assertEqual(response.status_code, 409)
+            with Session(manager.get_engine(second_id)) as session:
+                self.assertFalse(session.get(Family, family_id).is_archived)
+                self.assertEqual(session.exec(select(FamilyArchiveLog)).all(), [])
+            client.cookies.clear()
+            client.cookies.update(first_cookies)
+            restore_url = f"/families/{family_id}/restore"
+            token = self._form_token(client.get(restore_url), "review_token")
+            response = client.post(restore_url, data={"review_token": token},
+                                   headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}, follow_redirects=False)
+            self.assertEqual(response.status_code, 303)
+            with Session(manager.get_engine(first_id)) as session:
+                self.assertFalse(session.get(Family, family_id).is_archived)
+                self.assertEqual(len(session.exec(select(FamilyArchiveLog)).all()), 2)
+
+    def test_csv_preview_is_bound_to_its_demo_session(self):
+        from csrf import CSRF_COOKIE_NAME
+        from data_transfer_service import build_csv_content, export_rows
+        from routers import data_transfers
+
+        with patch.object(data_transfers, "PREVIEW_DIR", self.runtime_dir / "previews"), TestClient(main.app, base_url="https://testserver") as client:
+            first_id = self._login_admin(client)
+            with Session(get_demo_session_manager().get_engine(first_id)) as session:
+                rows = export_rows(session, "families")
+                content = build_csv_content(rows[:2])
+            response = client.post("/data-transfers/import/families/preview",
+                                   files={"file": ("families.csv", content, "text/csv")},
+                                   headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
+            token = self._form_token(response, "preview_token")
+            first_cookies = dict(client.cookies)
+            client.cookies.clear()
+            self.assertNotEqual(self._login_admin(client), first_id)
+            preview_url = "/data-transfers/?dataset=families&preview=" + token
+            self.assertEqual(client.get(preview_url).status_code, 403)
+            response = client.post("/data-transfers/import/families/commit", data={"preview_token": token},
+                                   headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
+            self.assertEqual(response.status_code, 403)
+            client.cookies.clear()
+            client.cookies.update(first_cookies)
+            self.assertEqual(client.get(preview_url).status_code, 200)
+
+    def test_settings_keep_global_maintenance_unavailable_in_public_demo(self):
+        from csrf import CSRF_COOKIE_NAME
+        from restore_control import enabled
+
+        with patch.dict(os.environ, {"HOIKUICT_RESTORE_ENABLED": "1"}), TestClient(main.app, base_url="https://testserver") as client:
+            self._login_admin(client)
+            self.assertFalse(enabled())
+            response = client.get("/settings")
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn('href="/settings/backups', response.text)
+            self.assertEqual(client.get("/settings/backups/restore").status_code, 404)
+            response = client.post("/settings/backups/restore/execute",
+                                   headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(client.get("/settings/staff-sessions").status_code, 200)
+            self.assertEqual(client.get("/static/js/staff-session-settings.js").status_code, 200)
 
     def test_http_clients_receive_isolated_demo_sessions(self):
         with TestClient(main.app) as client:
