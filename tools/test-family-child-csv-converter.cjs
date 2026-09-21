@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { deflateRawSync } = require('node:zlib');
+const fs = require('node:fs');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 
 function testWorkbook(matrix) {
@@ -81,9 +82,105 @@ function testWorkbook(matrix) {
     await page.evaluate(matrix=>{matrix[1].values[6]='検証祖母';rows=convert(matrix,false);render();},fixture);
     assert.equal(await page.locator('#familySave').isEnabled(),false);
     assert.match(await page.locator('#familyBody').innerText(),/検証祖母/);
+    const beforeSkip=await page.evaluate(()=>({guardians:groups[0].guardians,children:rows.map(r=>r.v)}));
+    const skip=page.getByLabel('姓名が未入力の保護者を無視して続ける',{exact:true});
+    assert.equal(await skip.isChecked(),false);
+    await skip.check();
+    assert.equal(await page.locator('#familySave').isEnabled(),true);
+    assert.match(await page.locator('#skipGuardianSummary').innerText(),/今回取り込まない保護者：1人/);
+    assert.match(await page.locator('#skipGuardianList').innerText(),/2行・保護者②/);
+    assert.equal(await page.getByLabel('2行 保護者②電話番号',{exact:true}).getAttribute('readonly'),'');
+    assert.deepEqual(await page.evaluate(()=>groups[0].guardians),beforeSkip.guardians);
+    assert.deepEqual(await page.evaluate(()=>rows.map(r=>r.v)),beforeSkip.children);
+    // Inspect the actual saved bytes, not just the export function's return value.
+    const skippedDownloadPromise=page.waitForEvent('download');
+    await page.locator('#familySave').click();
+    const skippedDownload=await skippedDownloadPromise;
+    const savedText=fs.readFileSync(await skippedDownload.path(),'utf8');
+    assert(savedText.startsWith('\uFEFF'));
+    const savedRows=await page.evaluate(text=>parseCSV(text),savedText);
+    assert.equal(savedRows[1].length,24);
+    assert(savedRows[1].slice(4).every(value=>value===''));
+    assert.equal(savedRows[1][1],await page.evaluate(()=>groups[0].name));
+    const skippedChildPromise=page.waitForEvent('download');
+    await page.locator('#download').click();
+    const skippedChild=await skippedChildPromise;
+    const savedChildren=await page.evaluate(text=>parseCSV(text),fs.readFileSync(await skippedChild.path(),'utf8'));
+    assert.deepEqual(savedChildren.slice(1),beforeSkip.children);
+    // Undo keeps the original fields and reinstates validation.
+    await skip.uncheck();
+    assert.equal(await page.locator('#familySave').isEnabled(),false);
+    assert.deepEqual(await page.evaluate(()=>groups[0].guardians),beforeSkip.guardians);
+    await skip.check();
+    await page.locator('#download').click();
+    assert.match(await page.locator('#status').innerText(),/家庭CSVを先に保存/);
+    // Type surname, then click the next field without Enter/Tab. A full render on
+    // blur used to detach that field, lose focus and discard the following input.
+    await skip.uncheck();
+    await page.getByLabel('2行 保護者②姓',{exact:true}).fill('検証');
+    assert.equal(await page.evaluate(()=>groups[0].guardians[10]),'検証');
+    await page.getByLabel('2行 保護者②名',{exact:true}).click();
+    await page.keyboard.insertText('祖母');
+    assert.equal(await page.getByLabel('2行 保護者②名',{exact:true}).inputValue(),'祖母');
+    assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'2行 保護者②名');
+    assert.equal(await page.evaluate(()=>groups[0].guardians[11]),'祖母');
+    assert.doesNotMatch(await page.locator('#familyBody').innerText(),/保護者②の姓・名を入力/);
+    assert.equal(await page.locator('#familySave').isEnabled(),true);
+    assert.equal(await page.evaluate(()=>parseCSV(familyCSV())[1][20]),'09012345678');
+    const correctedDownloadPromise=page.waitForEvent('download');
+    await page.locator('#familySave').click();
+    const correctedDownload=await correctedDownloadPromise;
+    const correctedRows=await page.evaluate(text=>parseCSV(text),fs.readFileSync(await correctedDownload.path(),'utf8'));
+    assert.deepEqual(correctedRows[1].slice(14,16),['検証','祖母']);
+    // Kana normalization on blur keeps the next input focused and preserves the
+    // unchanged source-reference label while the actual export uses edited data.
+    await page.getByLabel('2行 保護者②姓カナ',{exact:true}).fill('けんしょう');
+    await page.getByLabel('2行 保護者②名カナ',{exact:true}).click();
+    await page.keyboard.insertText('そぼ');
+    await page.getByLabel('2行 保護者②名カナ',{exact:true}).press('Enter');
+    assert.equal(await page.getByLabel('2行 保護者②姓カナ',{exact:true}).inputValue(),'ケンショウ');
+    assert.equal(await page.getByLabel('2行 保護者②名カナ',{exact:true}).inputValue(),'ソボソボ');
+    assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'2行 保護者②名カナ');
+    // Omit guardian one only; guardian two stays in its original ten columns.
+    await page.evaluate(matrix=>{
+      matrix[0].values.push('保護者名①','保護者名①（ふりがな）','保護者①メールアドレス','保護者①携帯電話番号');
+      matrix[1].values.push('検証保護者','ケンショウホゴシャ','first@example.test','09000000000');
+      rows=convert(matrix,false);render();
+    },fixture);
+    assert.equal(await skip.isChecked(),false);
+    await skip.check();
+    csvRows=await page.evaluate(()=>parseCSV(familyCSV()));
+    assert(csvRows[1].slice(4,14).every(value=>value===''));
+    assert.equal(csvRows[1][14],'検証');
+    assert.equal(csvRows[1][19],'shared@example.test');
+    assert.equal(csvRows[1][20],'09012345678');
+    // Excluding children changes which guardians are counted, without clearing input.
+    for(let index=0;index<3;index++)await page.locator('#body input[type=checkbox]').nth(index).uncheck();
+    assert.match(await page.locator('#skipGuardianSummary').innerText(),/今回取り込まない保護者：0人/);
+    assert.equal(await page.locator('#familySave').isEnabled(),false);
+    await page.locator('#body input[type=checkbox]').first().check();
+    assert.match(await page.locator('#skipGuardianSummary').innerText(),/今回取り込まない保護者：1人/);
+    assert.equal(await page.locator('#familySave').isEnabled(),true);
+    // Other guardian, source-review and child checks still apply while skipping.
+    await page.getByLabel('2行 保護者②メールアドレス',{exact:true}).fill('invalid-mail');
+    await page.getByLabel('2行 保護者②メールアドレス',{exact:true}).press('Tab');
+    assert.equal(await page.locator('#familySave').isEnabled(),false);
+    assert.match(await page.locator('#familyBody').innerText(),/保護者②のメールアドレスを確認/);
+    await page.getByLabel('2行 保護者②メールアドレス',{exact:true}).fill('shared@example.test');
+    await page.getByLabel('2行 保護者②メールアドレス',{exact:true}).press('Tab');
+    await page.evaluate(()=>{groups[0].review=['自宅電話番号が数値です。'];render();});
+    assert.equal(await page.locator('#familySave').isEnabled(),false);
+    await page.getByLabel('原本で確認・修正した').check();
+    await page.getByLabel('2行1人目 入園日',{exact:true}).fill('');
+    await page.getByLabel('2行1人目 入園日',{exact:true}).press('Tab');
+    assert.equal(await page.locator('#familySave').isEnabled(),true);
+    assert.equal(await page.locator('#download').isEnabled(),false);
+    await page.screenshot({path:'.local-dev/converter-guardian-skip-check.png',fullPage:true});
     // Separate answer rows never merge merely because address and phone match.
     await page.evaluate(matrix=>{matrix.push({...matrix[1],line:3});rows=convert(matrix,false);render();},fixture);
     assert.equal(await page.evaluate(()=>groups.length),2);
+    assert.equal(await skip.isChecked(),false);
+    await skip.check();
     assert.equal(await page.locator('#familySave').isEnabled(),false);
     // Existing child IDs, family IDs and order-two profile survive a round trip.
     await page.evaluate(matrix=>{
@@ -99,8 +196,17 @@ function testWorkbook(matrix) {
     await page.waitForFunction(()=>!templateVerified);
     assert.equal(await page.locator('#download').isEnabled(),false);
     assert.equal(await page.locator('#familySave').isEnabled(),false);
+    await skip.check();
+    assert.equal(await page.locator('#familySave').isEnabled(),false);
+    assert.equal(await page.locator('#download').isEnabled(),false);
+    // A failed new source load also clears omission consent and stale downloads.
+    await page.locator('#file').setInputFiles({name:'invalid.xlsx',mimeType:'application/octet-stream',buffer:Buffer.from('not an xlsx')});
+    await page.waitForFunction(()=>document.getElementById('message').className==='warn');
+    assert.equal(await skip.isChecked(),false);
+    assert.equal(await page.locator('#familySave').isEnabled(),false);
+    assert.equal(await page.evaluate(()=>lastFamilyDownload),'');
     await page.screenshot({path:'.local-dev/converter-browser-check.png',fullPage:true});
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-    console.log('Converter browser checks passed: 24 columns, siblings, sparse guardians, validation, round trip, downloads, no network.');
+    console.log('Converter browser checks passed: 24 columns, siblings, optional guardian omission, continuous guardian editing, focus and saved corrections, undo, reload reset, validation, round trip, no network.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
