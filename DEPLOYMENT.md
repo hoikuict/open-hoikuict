@@ -38,7 +38,7 @@ Keep the VAPID key pair stable across deployments so an existing browser subscri
 
 The public demo retains mock staff/parent selection and isolated session databases, including when production security settings are enabled. Local password registration and mail workers are not activated in this mode. Web Push requires the exact demo origin and the demo security checks above; only registered test devices receive actual demo pushes. Ordinary production Web Push uses the separate local-password configuration described in `docs/parent-push-production-setup.md`.
 
-The September 13 main integration includes document review requests in the staff sidebar, attendance corrections, guardian terminal screens, fee settings, and family/contact improvements. The packaged synthetic database is upgraded in a runtime copy before creating browser sessions. Host backup management is unavailable in public demo mode.
+The September 22 integration includes the production changes through `5dec9cf`: list-only family archiving, guarded deletion, settings navigation, staff session settings, and the September 15–19 workflow improvements. It also includes the guardian CSV converter's optional omission and continuous name editing fixes. The packaged synthetic database is upgraded in a runtime copy before creating browser sessions. Mock staff and parent selection remain enabled; archive confirmations and CSV previews are bound to each visitor's demo session. Host backup and restore management remain unavailable in public demo mode.
 
 ## Dockge
 
