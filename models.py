@@ -537,7 +537,7 @@ class Family(SQLModel, table=True):
 
     @property
     def selection_label(self) -> str:
-        return self.identity_label
+        return self.identity_label + ("（家庭一覧でアーカイブ済み）" if self.is_archived else "")
 
 
 class FamilyArchiveLog(SQLModel, table=True):

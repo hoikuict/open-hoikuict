@@ -13,8 +13,9 @@
 </div>
 
 {% if archive_notice %}<div role="status" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">{{ archive_notice }}</div>{% endif %}
-<nav class="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="家族の表示範囲">{% for key, label in [('active','使用中'),('archived','アーカイブ済み'),('all','すべて')] %}<a href="/families/?scope={{ key }}&q={{ q|urlencode }}" class="rounded px-4 py-2 {{ 'bg-indigo-600 text-white' if scope == key else 'bg-white text-slate-700' }}" {% if scope == key %}aria-current="page"{% endif %}>{{ label }} {{ counts[key] }}</a>{% endfor %}</nav>
-{% if scope == 'archived' %}<p class="mb-4 text-sm text-slate-600">記録は保管されています。再び使うときは「元に戻す」を選びます。</p>{% endif %}
+<p class="mb-4 text-sm text-slate-600">アーカイブは家庭一覧の整理に使います。紐づいている園児・保護者の利用や、進行中の入力依頼はそのまま続きます。</p>
+<nav class="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="家族の表示範囲">{% for key, label in [('active','通常表示'),('archived','アーカイブ済み'),('all','すべて')] %}<a href="/families/?scope={{ key }}&q={{ q|urlencode }}" class="rounded px-4 py-2 {{ 'bg-indigo-600 text-white' if scope == key else 'bg-white text-slate-700' }}" {% if scope == key %}aria-current="page"{% endif %}>{{ label }} {{ counts[key] }}</a>{% endfor %}</nav>
+{% if scope == 'archived' %}<p class="mb-4 text-sm text-slate-600">記録と紐づけを保管しています。編集や園児・保護者の利用は続けられます。「元に戻す」で通常の家庭一覧に再表示します。</p>{% endif %}
 {% if delete_notice %}
 <div role="status" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{{ delete_notice }}</div>
 {% endif %}
@@ -34,7 +35,7 @@
       <div class="space-y-2">
         <div class="flex flex-wrap items-center gap-3">
           <h2 class="break-words text-xl font-semibold text-slate-800">{{ family.family_name }} <span class="text-xs font-normal text-slate-500">{{ family.display_code }}</span></h2>
-          <span class="rounded-full px-2 py-1 text-xs {{ 'bg-amber-50 text-amber-800' if family.is_archived else 'bg-indigo-50 text-indigo-700' }}">{{ 'アーカイブ済み' if family.is_archived else '使用中' }}</span>
+          <span class="rounded-full px-2 py-1 text-xs {{ 'bg-amber-50 text-amber-800' if family.is_archived else 'bg-indigo-50 text-indigo-700' }}">{{ '家庭一覧でアーカイブ済み' if family.is_archived else '通常表示' }}</span>
           <span class="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">{{ family.children|length }}人の園児</span>
           <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ family.parent_accounts|length }}人の保護者</span>
         </div>
@@ -73,6 +74,7 @@
       <div class="flex flex-wrap gap-2">
         {% if current_user and current_user.can_manage_child_records %}
         {% if family.is_archived %}
+        <a href="/families/{{ family.id }}/edit" class="rounded border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50">編集</a>
         <a href="/families/{{ family.id }}/restore?scope={{ scope }}&q={{ q|urlencode }}" class="rounded bg-indigo-600 px-3 py-1 text-sm text-white">元に戻す</a>
         {% else %}
         <a href="/families/{{ family.id }}/archive?scope={{ scope }}&q={{ q|urlencode }}" aria-label="{{ family.display_code }}をアーカイブ" class="rounded border border-slate-300 px-3 py-1 text-sm text-slate-700">アーカイブ</a>

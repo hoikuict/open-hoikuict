@@ -10,7 +10,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import local_today, utc_now
-import family_archive_guard  # noqa: F401 -- protects all ORM write paths
+import family_archive_guard  # noqa: F401 -- requires audited archive-state transitions
 
 DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 _database_url = make_url(DATABASE_URL)

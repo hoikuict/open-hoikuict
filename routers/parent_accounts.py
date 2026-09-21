@@ -13,7 +13,6 @@ from auth import (
     require_child_record_manager,
 )
 from database import get_session
-from family_archive_guard import require_active_family
 from parent_address_removal import remove_parent_address
 from family_support import (
     bind_parent_account_guardian,
@@ -43,7 +42,6 @@ templates = create_templates()
 def _all_families(session: Session) -> list[Family]:
     return session.exec(
         select(Family)
-        .where(Family.archived_at.is_(None))
         .options(selectinload(Family.children), selectinload(Family.parent_accounts))
         .order_by(Family.family_name, Family.id)
     ).all()
@@ -250,7 +248,6 @@ def create_parent_account(
         normalized_status = ParentAccountStatus.active
 
     selected_family_id = int(family_id) if family_id and family_id.isdigit() else None
-    require_active_family(session, selected_family_id)
     account = ParentAccount(
         display_name=display_name.strip(),
         email=email.strip(),
@@ -290,8 +287,6 @@ def edit_parent_account_form(
 ):
     require_child_record_manager(current_user)
     account = _load_account(session, account_id)
-    if account.family and account.family.is_archived:
-        return RedirectResponse(f"/families/{account.family_id}/records", status_code=303)
     families = _all_families(session)
     selected_link = next((f"{family.id}:{profile['order']}" for family in families
                           for profile in family.guardian_profiles()
@@ -339,8 +334,6 @@ def update_parent_account(
     account = _load_account(session, account_id)
     email = validate_parent_contact_email(session, email, account.id)
     previous_address = account.home_address
-    require_active_family(session, account.family_id)
-    require_active_family(session, int(family_id) if family_id and family_id.isdigit() else None)
     old_family_id = account.family_id
     old_email = account.email
     old_verification = (

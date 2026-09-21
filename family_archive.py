@@ -37,8 +37,8 @@ class FamilyArchiveError(Exception):
         self.status = status
 
 
-def archive_blockers(session, family):
-    """Historical dependency counts are deliberately not archive blockers."""
+def continuing_family_usage(session, family):
+    """Describe ongoing use without preventing family-list organization."""
     children = session.exec(select(Child).where(Child.family_id == family.id)).all()
     child_ids = [child.id for child in children]
     issues = []
@@ -87,12 +87,13 @@ def archive_blockers(session, family):
     return issues
 
 
-def issue_archive_review(request, actor, family, action):
+def issue_archive_review(request, actor, family, action, *, archive_revision):
     return _pack(
         {
             "id": family.id,
             "action": action,
             "revision": family_revision(family),
+            "archive_revision": archive_revision,
             "issued": time(),
             "binding": _binding(request, actor),
         },
@@ -129,6 +130,15 @@ def transition_family(
             review.get("id") != family.id
             or review.get("action") != action
             or review.get("revision") != family_revision(family)
+            or review.get("archive_revision")
+            != (
+                session.exec(
+                    select(FamilyArchiveLog.id)
+                    .where(FamilyArchiveLog.family_id == family.id)
+                    .order_by(FamilyArchiveLog.id.desc())
+                ).first()
+                or 0
+            )
         ):
             raise FamilyArchiveError(
                 "確認後に家族の情報が変更されました。内容をもう一度確認してください。"
@@ -137,13 +147,10 @@ def transition_family(
             raise FamilyArchiveError(
                 "この家族の状態は変更済みです。一覧で確認してください。"
             )
-        if action == "archive":
-            blockers = archive_blockers(session, family)
-            if blockers:
-                raise FamilyArchiveError(" ".join(blockers))
         session.info["family_archive_transition"] = True
         family.archived_at = utc_now() if action == "archive" else None
-        family.updated_at = utc_now()
+        # List visibility does not invalidate an in-progress enrollment snapshot.
+        # The signed history revision above invalidates reviews across restore cycles.
         session.add(
             FamilyArchiveLog(
                 family_id=family.id,

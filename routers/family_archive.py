@@ -10,7 +10,7 @@ from database import get_session
 from family_archive import (
     REASONS,
     FamilyArchiveError,
-    archive_blockers,
+    continuing_family_usage,
     issue_archive_review,
     require_archive_manager,
     transition_family,
@@ -70,11 +70,17 @@ def _render(
         .where(FamilyArchiveLog.family_id == family.id)
         .order_by(FamilyArchiveLog.created_at.desc(), FamilyArchiveLog.id.desc())
     ).all()
-    blockers = archive_blockers(session, family) if action == "archive" else []
+    ongoing_usage = continuing_family_usage(session, family)
     valid_state = family.is_archived == (action == "restore")
     review_token = (
-        issue_archive_review(request, actor, family, action)
-        if action in {"archive", "restore"} and valid_state and not blockers
+        issue_archive_review(
+            request,
+            actor,
+            family,
+            action,
+            archive_revision=max((item.id for item in history), default=0),
+        )
+        if action in {"archive", "restore"} and valid_state
         else ""
     )
     answers = (
@@ -111,7 +117,7 @@ def _render(
             "action": action,
             "dependencies": dependency_counts(session, family),
             "history": history,
-            "blockers": blockers,
+            "ongoing_usage": ongoing_usage,
             "review_token": review_token,
             "error": error,
             "reason": reason,

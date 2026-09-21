@@ -703,7 +703,6 @@ def _plan_families(session, rows, result, *, commit):
     for row_number, row in rows:
         start_errors = len(result.errors)
         family = _resolve_family_for_import(session, row, row_number, result)
-        _check_archived_family(session, family, row_number, result)
         if family is None and not row["家庭名"]:
             result.errors.append(TransferMessage(row_number, "家庭名", "", "新規登録時は家庭名が必須です。"))
         key = f"families:id:{family.id}" if family else _row_key("families", row, fallback=f"{row['家庭名']}|{row['電話番号']}")
@@ -714,6 +713,11 @@ def _plan_families(session, rows, result, *, commit):
         result.errors.extend(errors)
         if len(result.errors) != start_errors:
             continue
+        if family and family.is_archived:
+            result.warnings.append(TransferMessage(
+                row_number, "ID", str(family.id),
+                "家庭一覧でアーカイブ済みです。アーカイブ状態を維持して更新します。",
+            ))
         preview_family_changes(session, result, row_number, family, payload)
         if family is None:
             result.create_count += 1
@@ -737,9 +741,7 @@ def _plan_children(
     for row_number, row in rows:
         start_errors = len(result.errors)
         child = _resolve_child_for_import(session, row, row_number, result)
-        _check_archived_family(session, session.get(Family, child.family_id) if child and child.family_id else None, row_number, result)
         family = _resolve_family_reference(session, row, row_number, result)
-        _check_archived_family(session, family, row_number, result)
         classroom = _resolve_classroom_reference(session, row, row_number, result)
         birth_date = _parse_date(row["生年月日"], row_number, "生年月日", result, required=child is None)
         enrollment_date = _parse_date(row["入園日"], row_number, "入園日", result, required=child is None)
@@ -862,9 +864,7 @@ def _plan_parent_accounts(
     for row_number, row in rows:
         start_errors = len(result.errors)
         account = _resolve_parent_account_for_import(session, row, row_number, result)
-        _check_archived_family(session, session.get(Family, account.family_id) if account and account.family_id else None, row_number, result)
         family = _resolve_family_reference(session, row, row_number, result)
-        _check_archived_family(session, family, row_number, result)
         status = _parse_parent_status(row["状態"], row_number, result, required=False)
         verification_name, verification_name_type = _parse_registration_name_fields(
             row, row_number, result
@@ -962,8 +962,6 @@ def _plan_parent_child_links(
         target_child_id = child.id if child else (link.child_id if link else None)
         target_parent = parent or (session.get(ParentAccount, target_parent_id) if target_parent_id else None)
         target_child = child or (session.get(Child, target_child_id) if target_child_id else None)
-        for member in (target_parent, target_child):
-            _check_archived_family(session, session.get(Family, member.family_id) if member and member.family_id else None, row_number, result)
         if (
             target_parent is not None
             and target_child is not None
@@ -1044,13 +1042,6 @@ def _resolve_classroom_for_import(
     return None
 
 
-def _check_archived_family(session, family, row_number, result):
-    if family and family.is_archived:
-        if not any(error.row_number == row_number and error.family_id == family.id for error in result.errors):
-            result.errors.append(TransferMessage(row_number, "家庭ID", str(family.id),
-                "アーカイブ済みの家庭です。先に使用中へ戻して再検証するか、今回の取込から外してください。", family.id))
-
-
 def _resolve_family_for_import(
     session: Session,
     row: dict[str, str],
@@ -1066,10 +1057,7 @@ def _resolve_family_for_import(
     if not row["家庭名"]:
         return None
     candidates = session.exec(select(Family).where(Family.family_name == row["家庭名"])).all()
-    archived = [family for family in candidates if family.is_archived]
-    if archived:
-        for family in archived:
-            _check_archived_family(session, family, row_number, result)
+    if len(candidates) > 1:
         result.errors.append(TransferMessage(row_number, "ID", "", "同名の家庭があります。対象の家庭IDを指定して再検証してください。"))
         return None
     matches = [family for family in candidates if (family.home_phone or "") == row["電話番号"]]

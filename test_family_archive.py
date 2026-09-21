@@ -22,7 +22,7 @@ from data_transfer_service import (
     preview_import,
     template_rows,
 )
-from family_archive import archive_blockers
+from family_archive import continuing_family_usage
 from family_support import bootstrap_family_data
 from models import (
     Child,
@@ -59,7 +59,11 @@ class FamilyArchiveTests(unittest.TestCase):
                     raise AssertionError(
                         "Concurrent archive did not reach the writer lock"
                     )
-            elif statement == "BEGIN IMMEDIATE" and inserting.is_set():
+
+        def mark_archive_attempt(
+            connection, cursor, statement, parameters, context, many
+        ):
+            if statement == "BEGIN IMMEDIATE" and inserting.is_set():
                 archive_attempted.set()
 
         def register_child():
@@ -67,7 +71,8 @@ class FamilyArchiveTests(unittest.TestCase):
                 session.add(self.child(status=ChildStatus.enrolled))
                 session.commit()
 
-        event.listen(self.engine, "before_cursor_execute", pause_insert)
+        event.listen(self.engine, "after_cursor_execute", pause_insert)
+        event.listen(self.engine, "before_cursor_execute", mark_archive_attempt)
         try:
             with ThreadPoolExecutor(max_workers=2) as pool:
                 child_write = pool.submit(register_child)
@@ -80,12 +85,13 @@ class FamilyArchiveTests(unittest.TestCase):
                 finally:
                     release.set()
                 child_write.result(timeout=5)
-                self.assertEqual(archive_write.result(timeout=5).status_code, 409)
+                self.assertEqual(archive_write.result(timeout=5).status_code, 303)
         finally:
             release.set()
-            event.remove(self.engine, "before_cursor_execute", pause_insert)
+            event.remove(self.engine, "after_cursor_execute", pause_insert)
+            event.remove(self.engine, "before_cursor_execute", mark_archive_attempt)
         with Session(self.engine) as session:
-            self.assertFalse(session.get(Family, 101).is_archived)
+            self.assertTrue(session.get(Family, 101).is_archived)
             self.assertEqual(session.exec(select(Child)).one().family_id, 101)
 
     def setUp(self):
@@ -163,12 +169,14 @@ class FamilyArchiveTests(unittest.TestCase):
         self.assertIn("アンケート回答（回答番号", records.text)
         self.assertIn("アーカイブ・復帰の履歴", records.text)
         with Session(self.engine) as s:
-            bootstrap_family_data(s)
-            s.commit()
             self.assertEqual(
                 s.get(Family, 101).model_dump(exclude={"archived_at", "updated_at"}),
                 before,
             )
+            bootstrap_family_data(s)
+            s.commit()
+            self.assertTrue(s.get(Family, 101).is_archived)
+            self.assertEqual(s.exec(select(Child)).one().home_address, "架空住所")
             self.assertEqual(len(s.exec(select(SurveyAnswer)).all()), 1)
             self.assertEqual(len(s.exec(select(FamilyBillingProfile)).all()), 1)
         self.assertEqual(self.submit(self.token("restore"), "restore").status_code, 303)
@@ -188,19 +196,18 @@ class FamilyArchiveTests(unittest.TestCase):
                 ["archive", "restore"],
             )
 
-    def test_active_children_and_race_after_review_block_archive(self):
+    def test_active_children_added_after_review_can_still_be_archived(self):
         token = self.token()
         with Session(self.engine) as s:
             s.add(self.child(ChildStatus.enrolled))
             s.commit()
         result = self.submit(token)
-        self.assertEqual(result.status_code, 409)
-        self.assertIn("在園中の園児", result.text)
-        self.assertNotIn('name="review_token"', result.text)
+        self.assertEqual(result.status_code, 303)
         with Session(self.engine) as s:
-            self.assertFalse(s.get(Family, 101).is_archived)
+            self.assertTrue(s.get(Family, 101).is_archived)
+            self.assertEqual(s.exec(select(Child)).one().status, ChildStatus.enrolled)
 
-    def test_active_parent_blocker(self):
+    def test_active_parent_is_information_not_a_blocker(self):
         with Session(self.engine) as s:
             s.add(
                 ParentAccount(
@@ -212,9 +219,15 @@ class FamilyArchiveTests(unittest.TestCase):
             s.commit()
         page = self.client.get("/families/101/archive")
         self.assertIn("有効な保護者アカウント", page.text)
-        self.assertNotIn('name="review_token"', page.text)
+        self.assertIn('name="review_token"', page.text)
+        self.assertIn("このまま利用が続くデータ", page.text)
+        self.archive()
+        with Session(self.engine) as s:
+            account = s.exec(select(ParentAccount)).one()
+            self.assertEqual(account.status, ParentAccountStatus.active)
+            self.assertEqual(account.family_id, 101)
 
-    def test_pending_intake_blocks_but_completed_record_does_not(self):
+    def test_pending_intake_can_continue_after_archive(self):
         with Session(self.engine) as s:
             parent = ParentAccount(display_name="初回", email="intake@example.invalid")
             s.add(parent)
@@ -231,12 +244,20 @@ class FamilyArchiveTests(unittest.TestCase):
             )
             s.add(entry)
             s.commit()
-            self.assertTrue(archive_blockers(s, s.get(Family, 101)))
+            entry_id = entry.registration_request_id
+            registration_id = registration.id
+            self.assertTrue(continuing_family_usage(s, s.get(Family, 101)))
+        self.archive()
+        with Session(self.engine) as s:
+            entry = s.get(ParentEnrollment, entry_id)
+            self.assertEqual(
+                s.get(ParentRegistrationRequest, registration_id).status, "invited"
+            )
+            self.assertEqual(entry.source_snapshot["family_id"], 101)
             entry.applied_at = utc_now()
             s.add(entry)
             s.commit()
-            self.assertFalse(archive_blockers(s, s.get(Family, 101)))
-        self.archive()
+            self.assertFalse(continuing_family_usage(s, s.get(Family, 101)))
         self.assertIn("反映済み", self.client.get("/families/101/records").text)
 
     def test_csrf_owner_action_permission_and_replay(self):
@@ -281,27 +302,32 @@ class FamilyArchiveTests(unittest.TestCase):
             self.assertFalse(s.get(Family, 101).is_archived)
             self.assertEqual(s.exec(select(FamilyArchiveLog)).all(), [])
 
-    def test_archived_family_write_and_association_guards(self):
+    def test_archived_family_edits_and_associations_continue(self):
         with Session(self.engine) as s:
             s.add(self.child())
             s.commit()
+            child_id = s.exec(select(Child)).one().id
         self.archive()
         self.assertEqual(
-            self.client.get("/families/101/edit", follow_redirects=False).headers[
-                "location"
-            ],
-            "/families/101/records",
+            self.client.get("/families/101/edit", follow_redirects=False).status_code,
+            200,
         )
         self.assertEqual(
             self.client.post(
                 "/families/101/edit",
                 data={
                     "family_name": "変更",
+                    "home_address": "同期する住所",
+                    "child_ids": str(child_id),
                     "csrf_token": self.client.cookies.get(CSRF_COOKIE_NAME),
                 },
+                follow_redirects=False,
             ).status_code,
-            409,
+            303,
         )
+        with Session(self.engine) as s:
+            self.assertEqual(s.get(Child, child_id).home_address, "同期する住所")
+            self.assertTrue(s.get(Family, 101).is_archived)
         for kind in ("child", "family", "move"):
             with self.subTest(kind=kind), Session(self.engine) as s:
                 if kind == "child":
@@ -309,10 +335,41 @@ class FamilyArchiveTests(unittest.TestCase):
                 elif kind == "family":
                     s.get(Family, 101).home_address = "変更"
                 else:
-                    s.exec(select(Child)).one().family_id = 102
+                    s.get(Child, child_id).family_id = 102
+                s.commit()
+                self.assertTrue(s.get(Family, 101).is_archived)
+
+    def test_only_reviewed_archive_state_transitions_are_allowed(self):
+        for archived in (False, True):
+            if archived:
+                self.archive()
+            with Session(self.engine) as s:
+                s.get(Family, 101).archived_at = None if archived else utc_now()
                 with self.assertRaises(HTTPException):
                     s.commit()
                 s.rollback()
+        with Session(self.engine) as s:
+            s.add(Family(family_name="不正な初期状態", archived_at=utc_now()))
+            with self.assertRaises(HTTPException):
+                s.commit()
+
+    def test_archive_preserves_content_timestamp_and_old_review_cannot_replay(self):
+        token = self.token()
+        with Session(self.engine) as s:
+            before = s.get(Family, 101).updated_at
+        self.assertEqual(self.submit(token).status_code, 303)
+        self.assertEqual(self.submit(self.token("restore"), "restore").status_code, 303)
+        self.assertEqual(self.submit(token).status_code, 409)
+        with Session(self.engine) as s:
+            self.assertEqual(s.get(Family, 101).updated_at, before)
+            self.assertFalse(s.get(Family, 101).is_archived)
+
+    def test_content_edit_invalidates_archive_review(self):
+        token = self.token()
+        with Session(self.engine) as s:
+            s.get(Family, 101).home_address = "確認後の更新"
+            s.commit()
+        self.assertEqual(self.submit(token).status_code, 409)
 
     def test_csv_archive_matching_export_scopes_and_exclusion(self):
         self.archive()
@@ -322,8 +379,8 @@ class FamilyArchiveTests(unittest.TestCase):
         )
         with Session(self.engine) as s:
             result = preview_import(s, "families", "sample.csv", content)
-            self.assertEqual(result.errors[0].family_id, 101)
-            self.assertEqual(result.update_count, 1)
+            self.assertFalse(result.errors)
+            self.assertEqual(result.update_count, 2)
             self.assertEqual(len(export_rows(s, "families")), 2)
             self.assertEqual(len(export_rows(s, "families", archive_scope="all")), 3)
             self.assertEqual(
@@ -351,6 +408,18 @@ class FamilyArchiveTests(unittest.TestCase):
             self.assertFalse(applied.errors)
             self.assertEqual(s.get(Family, 102).home_address, "架空更新住所")
             self.assertNotEqual(s.get(Family, 101).home_address, "変更")
+            result = preview_import(s, "families", "sample.csv", content)
+            applied = commit_import(
+                s,
+                "families",
+                "sample.csv",
+                content,
+                actor_name="架空",
+                expected_revision=result.revision,
+            )
+            self.assertFalse(applied.errors)
+            self.assertEqual(s.get(Family, 101).home_address, "変更")
+            self.assertTrue(s.get(Family, 101).is_archived)
 
     def test_archive_invalidates_old_preview_and_restore_requires_revalidation(self):
         content = self.content({"ID": "102", "住所": "架空更新住所"})
