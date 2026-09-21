@@ -49,11 +49,11 @@ convert=function(matrix,epoch){const result=baseConvert(matrix,epoch);groups=[];
 const baseRender=render;
 render=function(){if(!rows.length)groups=[];syncGroups();baseRender();const active=selectedGroups(),bad=active.filter(g=>familyProblems(g).length);$('familyCount').textContent=`${active.length}家庭 ／ 要確認 ${bad.length}家庭`;$('familySave').disabled=!active.length||!!bad.length;$('download').disabled=$('download').disabled||!!bad.length;if(bad.length)$('status').textContent='家庭の要確認を解消すると、紐づけ付き園児CSVを保存できます。';$('familyMsg').textContent=familyLoadError|| (knownFamilies.length?`登録済み ${knownFamilies.length}家庭から選択できます。`:'既存家庭CSV未選択。既存の家庭へ紐づける場合はCSVを選んでください。');
  const body=$('familyBody');body.replaceChildren();for(const g of active){const tr=document.createElement('tr'),label=document.createElement('td');label.textContent=`${g.line}行：${g.members.filter(r=>r.include).map(r=>r.raw).join(' ／ ')}`;tr.append(label);const td=document.createElement('td'),sel=document.createElement('select');let o=document.createElement('option');o.value='';o.textContent='新しい家庭';sel.append(o);const options=[...knownFamilies];if(g.id&&!options.some(f=>f[0]===g.id))options.push([g.id,g.name]);for(const f of options){let o=document.createElement('option');o.value=f[0];o.textContent=`${f[0]}：${f[1]}`;sel.append(o)}sel.value=g.id;sel.onchange=()=>chooseFamily(g,sel.value);td.append(sel);tr.append(td);
- for(const k of ['id','name','address','phone']){const td=document.createElement('td'),input=document.createElement('input');input.value=g[k];input.setAttribute('aria-label',`${g.line}行 家庭 ${k}`);input.readOnly=k==='id'||k==='name'&&!!g.id;input.onchange=()=>{g[k]=input.value.trim();syncGroups();render()};td.append(input);tr.append(td)}const td2=document.createElement('td'),e=familyProblems(g);td2.textContent=e.length?e.join('・'):'出力可';td2.className=e.length?'warn':'ok';tr.append(td2);body.append(tr)}
+ for(const k of ['id','name','address','phone']){const td=document.createElement('td'),input=document.createElement('input');input.value=g[k];input.setAttribute('aria-label',`${g.line}行 家庭 ${k}`);input.readOnly=k==='id'||k==='name'&&!!g.id;input.onchange=()=>{g[k]=input.value.trim();syncGroups();render()};td.append(input);tr.append(td)}const td2=document.createElement('td'),e=familyProblems(g),message=document.createElement('span');message.dataset.familyProblems='1';message.textContent=e.length?e.join('・'):'出力可';td2.append(message);td2.className=e.length?'warn':'ok';tr.append(td2);body.append(tr)}
  for(const tr of $('body').rows)for(const j of [10,11,12,13]){const input=tr.cells[j+1]?.querySelector('input');if(input){input.readOnly=true;input.title='上の家庭欄で編集すると兄弟姉妹に共通で反映します';}}
 };
 function csvMatrix(matrix){return '\uFEFF'+matrix.map(r=>r.map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(',')).join('\r\n')+'\r\n';}
-function familyCSV(){return csvMatrix([FH,...selectedGroups().map(g=>[g.id,g.name,g.address,g.phone,...(g.guardians||Array(20).fill(''))])]);}
+function familyCSV(){return csvMatrix([FH,...selectedGroups().map(g=>[g.id,g.name,g.address,g.phone,...exportGuardians(g)])]);}
 function saveText(text,name){const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('familySave').onclick=()=>{if(!selectedGroups().length||selectedGroups().some(g=>familyProblems(g).length))return;saveText(familyCSV(),'01_家庭インポート.csv');};
 $('download').onclick=()=>{if(!rows.some(r=>r.include)||rows.some(r=>issues(r).length)||selectedGroups().some(g=>familyProblems(g).length))return;syncGroups();saveText(csv(),'02_園児インポート.csv');};
@@ -64,10 +64,28 @@ render();
 
 <script>
 // The extension keeps the supplied offline XLSX reader and child identity rules.
-let templateVerified=false, lastFamilyDownload='';
+let templateVerified=false, lastFamilyDownload='', skipIncompleteGuardians=false;
+function guardianHasMissingName(g,slot){
+  const values=(g.guardians||[]).slice(slot*10,slot*10+10);
+  return Boolean((values.some(Boolean)||g.rawGuardians?.[slot]?.partial)&&(!values[0]||!values[1]));
+}
+function shouldSkipGuardian(g,slot){return skipIncompleteGuardians&&guardianHasMissingName(g,slot);}
+function exportGuardians(g){
+  const values=Array.from({length:20},(_,i)=>g.guardians?.[i]||'');
+  for(let slot=0;slot<2;slot++)if(shouldSkipGuardian(g,slot))values.fill('',slot*10,slot*10+10);
+  return values;
+}
 const templateSection=document.createElement('section');templateSection.className='card';
 templateSection.innerHTML='<h2>アプリの対応を確認</h2><p>データ入出力から「家庭」の最新テンプレートCSVを保存し、ここで選択してください。保護者①②を含む24列を確認するまで出力できません。</p><input id="schemaFile" type="file" accept=".csv"><p id="schemaStatus">テンプレート未確認</p>';
 section.before(templateSection);
+const skipPanel=document.createElement('section');skipPanel.id='guardian-skip';skipPanel.className='card';
+skipPanel.innerHTML=`<h2>保護者の姓名が未入力の場合</h2>
+  <label><input id="skipIncompleteGuardian" type="checkbox"> 姓名が未入力の保護者を無視して続ける</label>
+  <p>チェックすると、姓または名が空欄の保護者は、電話・メール・勤務先を含むその人の情報すべてを今回のCSVに出しません。家庭・園児と、姓名が揃っている保護者は出力します。</p>
+  <p class="hint">入力内容は画面に残ります。チェックを外すと元に戻せます。登録済みの保護者情報を削除する操作ではありません。</p>
+  <p id="skipGuardianSummary" role="status"></p><ul id="skipGuardianList"></ul>`;
+section.before(skipPanel);
+$('skipIncompleteGuardian').onchange=()=>{skipIncompleteGuardians=$('skipIncompleteGuardian').checked;lastFamilyDownload='';render();};
 $('schemaFile').onchange=async()=>{templateVerified=false;try{const f=$('schemaFile').files[0];if(!f)throw Error('テンプレート未確認');if(f.size>1024*1024)throw Error('テンプレートのサイズを確認してください');const hs=parseCSV(await f.text())[0]||[];if(hs.length!==24||FH.some((h,i)=>h!==hs[i]))throw Error('24列の最新家庭テンプレートではありません。アプリを更新してください。');templateVerified=true;$('schemaStatus').textContent='家庭24列のテンプレートを確認しました。';}catch(e){$('schemaStatus').textContent=e.message;}render();};
 const guardianSourceNames=n=>['保護者名'+n,'保護者名'+n+'（ふりがな）',n==='①'?'続柄':'続柄②','保護者'+n+'メールアドレス','保護者'+n+'携帯電話番号','保護者'+n+'勤務先名','保護者'+n+'勤務先住所','保護者'+n+'勤務先電話番号'];
 function sourceGuardians(matrix,g){
@@ -96,13 +114,14 @@ function supplementExisting(g){
   }
 }
 const convertFamilies=convert;
-convert=function(matrix,epoch){const result=convertFamilies(matrix,epoch);for(const g of groups)sourceGuardians(matrix,g);lastFamilyDownload='';return result;};
+convert=function(matrix,epoch){skipIncompleteGuardians=false;lastFamilyDownload='';const result=convertFamilies(matrix,epoch);for(const g of groups)sourceGuardians(matrix,g);return result;};
 const selectKnownFamily=chooseFamily;
 chooseFamily=function(g,id){selectKnownFamily(g,id);supplementExisting(g);render();};
 const basicFamilyProblems=familyProblems;
 familyProblems=function(g){
   const e=basicFamilyProblems(g);if(!templateVerified)e.push('最新の家庭テンプレートで24列対応を確認してください');
   for(let slot=0;slot<2;slot++){
+    if(shouldSkipGuardian(g,slot))continue;
     const v=(g.guardians||[]).slice(slot*10,slot*10+10),raw=g.rawGuardians?.[slot],label='保護者'+['①','②'][slot];
     if(v.some(Boolean)||raw?.partial){
       if(!v[0]||!v[1])e.push(label+'の姓・名を入力（元の氏名から推測はしません）');
@@ -116,14 +135,72 @@ familyProblems=function(g){
   if(g.review?.length&&!g.reviewed)e.push('原本との確認が必要な項目があります');return e;
 };
 const renderFamilies=render;
-render=function(){renderFamilies();
+render=function(){
+  if(!rows.length){skipIncompleteGuardians=false;lastFamilyDownload='';}
+  renderFamilies();
   const active=selectedGroups(),table=$('familyBody').closest('table'),head=table.querySelector('thead tr');
   if(!head.dataset.guardians){for(const h of FH.slice(4)){const th=document.createElement('th');th.textContent=h;head.insertBefore(th,head.lastElementChild);}head.dataset.guardians='1';}
-  [...$('familyBody').rows].forEach((tr,i)=>{const g=active[i];for(let j=0;j<20;j++){const td=document.createElement('td'),input=document.createElement('input');input.value=g.guardians?.[j]||'';input.setAttribute('aria-label',`${g.line}行 ${FH[j+4]}`);input.onchange=()=>{g.guardians[j]=[2,3].includes(j%10)?kana(input.value):norm(input.value);render();};td.append(input);tr.insertBefore(td,tr.lastElementChild);}
+  [...$('familyBody').rows].forEach((tr,i)=>{const g=active[i];for(let j=0;j<20;j++){const td=document.createElement('td'),input=document.createElement('input');input.value=g.guardians?.[j]||'';input.setAttribute('aria-label',`${g.line}行 ${FH[j+4]}`);
+    const update=()=>{g.guardians[j]=[2,3].includes(j%10)?kana(input.value):norm(input.value);updateGuardianValidation();};
+    input.oninput=update;
+    input.onchange=()=>{update();input.value=g.guardians[j];};
+    input.onkeydown=event=>{if(event.key==='Enter'&&!event.isComposing){event.preventDefault();input.onchange();}};
+    td.append(input);tr.insertBefore(td,tr.lastElementChild);}
     const note=document.createElement('small');note.textContent=(g.rawGuardians||[]).map((r,j)=>`保護者${j+1}の元の氏名：${r.full||'空欄'} ／ カナ：${r.reading||'空欄'}`).join('\n');tr.cells[0].append(note);
     if(g.review?.length){const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=g.reviewed;check.onchange=()=>{g.reviewed=check.checked;render();};label.append(check,document.createTextNode('原本で確認・修正した'));const warnings=document.createElement('p');warnings.textContent=g.review.join('\n');warnings.className='warn';tr.lastElementChild.append(warnings,label);}
   });
+  renderGuardianSkipState(active);
 };
+// Keep the focused inputs in the DOM while editing, including IME composition.
+function updateGuardianValidation(){
+  const active=selectedGroups(),bad=active.filter(g=>familyProblems(g).length);
+  active.forEach((g,i)=>{
+    const cell=$('familyBody').rows[i].lastElementChild,errors=familyProblems(g);
+    cell.querySelector('[data-family-problems]').textContent=errors.length?errors.join('・'):'出力可';
+    cell.className=errors.length?'warn':'ok';
+  });
+  $('familyCount').textContent=`${active.length}家庭 ／ 要確認 ${bad.length}家庭`;
+  $('familySave').disabled=!active.length||!!bad.length;
+  const selected=rows.filter(r=>r.include),badChildren=selected.filter(r=>issues(r).length);
+  $('download').disabled=!selected.length||!!badChildren.length||!!bad.length;
+  $('status').textContent=bad.length?'家庭の要確認を解消すると、紐づけ付き園児CSVを保存できます。'
+    :badChildren.length?'不足・重複のある欄を直すとCSVを保存できます。'
+    :selected.length?'変換できました。氏名・日付・クラスを確認してCSVを保存してください。'
+    :'園児データがありません。データの入ったシートを選んでください。';
+  renderGuardianSkipState(active);
+}
+function renderGuardianSkipState(active){
+  const omitted=[],missing=[];
+  active.forEach((g,rowIndex)=>{
+    const tr=$('familyBody').rows[rowIndex];
+    for(const note of tr.querySelectorAll('[data-skipped-guardian]'))note.remove();
+    for(let j=0;j<20;j++){
+      const cell=tr.cells[6+j],input=cell.querySelector('input');
+      cell.style.background='';input.readOnly=false;input.removeAttribute('title');
+    }
+    for(let slot=0;slot<2;slot++){
+      if(!guardianHasMissingName(g,slot))continue;
+      const label=`${g.line}行・保護者${['①','②'][slot]}`;
+      missing.push(label);
+      if(!shouldSkipGuardian(g,slot))continue;
+      omitted.push(label);
+      const note=document.createElement('small');note.dataset.skippedGuardian='1';
+      note.textContent=`保護者${['①','②'][slot]}：今回は取り込まない`;note.className='warn';tr.cells[0].append(note);
+      for(let field=0;field<10;field++){
+        const cell=tr.cells[6+slot*10+field],input=cell.querySelector('input');
+        cell.style.background='#f1f3f3';input.readOnly=document.activeElement!==input;
+        input.title='今回は出力しません。編集するには上のチェックを外してください。';
+      }
+    }
+  });
+  $('skipIncompleteGuardian').checked=skipIncompleteGuardians;
+  $('skipGuardianSummary').textContent=skipIncompleteGuardians
+    ?`今回取り込まない保護者：${omitted.length}人。家庭・園児は除外しません。`
+    :`姓名が未入力の保護者：${missing.length}人。チェックを入れると、この保護者を除いて保存できます。`;
+  $('skipGuardianList').replaceChildren();
+  for(const label of omitted){const item=document.createElement('li');item.textContent=label+'：連絡先を含めて今回は取り込まない';$('skipGuardianList').append(item);}
+  if(omitted.length)$('familyCount').textContent+=` ／ 今回取り込まない保護者 ${omitted.length}人`;
+}
 const saveFamily=$('familySave').onclick;
 $('familySave').onclick=()=>{if(selectedGroups().length&&!selectedGroups().some(g=>familyProblems(g).length)){saveFamily();lastFamilyDownload=familyCSV();}};
 const saveChildren=$('download').onclick;

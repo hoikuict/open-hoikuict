@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self'; form-action 'none'; base-uri 'none'">
+  <title>確認用｜家族のアーカイブ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section class="review-bar" aria-label="モックの試用設定">
+    <div><strong>変更案の確認用モック｜家庭の一覧だけ整理</strong><span>本番未反映。すべて架空のデータです。操作はこのタブ内だけに反映され、再読み込みで元に戻ります。</span></div>
+    <div class="review-controls">
+      <label>試す場面 <select id="scenario">
+        <option value="list">家族一覧から整理する</option>
+        <option value="ready">記録を残してアーカイブ</option>
+        <option value="empty">未入力の家族</option>
+        <option value="partial">一部入力の家族</option>
+        <option value="child">在園児がいてもアーカイブ</option>
+        <option value="parent">有効な保護者がいてもアーカイブ</option>
+        <option value="pending">入力依頼を続けたままアーカイブ</option>
+        <option value="continued">アーカイブ後も編集・利用を続ける</option>
+        <option value="restore">アーカイブから戻す</option>
+        <option value="error">保存時にエラー</option>
+        <option value="csv-id">CSV：アーカイブ済みのID</option>
+        <option value="csv-name">CSV：同名の家庭がある</option>
+      </select></label>
+      <button type="button" id="reset">モックを初期状態に戻す</button>
+    </div>
+  </section>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">open-hoikuict<small>見本の保育園</small></div>
+      <p class="nav-label">園児・保護者</p>
+      <nav aria-label="確認する画面">
+        <a href="#list" data-nav="list">家族・兄弟姉妹の管理</a>
+        <a href="#csv" data-nav="csv">データ入出力</a>
+        <a href="#choices" data-nav="choices">家庭の選択候補を確認</a>
+        <a href="#usage" data-nav="usage">園児・保護者の利用を確認</a>
+      </nav>
+      <div class="sidebar-note">園児台帳管理者として試用中<br>本番のデータには接続しません。</div>
+    </aside>
+    <main id="app" tabindex="-1"></main>
+  </div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <script>/* REVIEW_TEMPLATES */</script>
+  <script src="app.js"></script>
+</body>
+</html>
