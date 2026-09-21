@@ -149,6 +149,15 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-09-22 家庭一覧アーカイブの本番更新: deployment-family-archive-list-only-2026-09-22.md
+          - 2026-09-22 家庭一覧アーカイブの仕様: family-archive-list-only-proposal-2026-09-22.md
+          - 2026-09-21 家庭アーカイブの本番更新: deployment-family-archive-2026-09-21.md
+          - 2026-09-21 家庭アーカイブの画面確認: family-archive-ui-proposal-2026-09-21.md
+          - 2026-09-21 保護者CSVの入力・省略: guardian-skip-converter-review-2026-09-21.md
+          - 2026-09-21 家庭削除の本番更新: deployment-family-deletion-2026-09-21.md
+          - 2026-09-21 家庭削除の画面確認: family-delete-ui-proposal-2026-09-21.md
+          - 2026-09-21 復元画面の本番更新: deployment-restore-ui-2026-09-21.md
+          - 2026-09-21 復元画面の仕様: restore-ui-proposal-2026-09-21.md
           - 2026-09-20 所属園児数の修正: classroom-count-review-2026-09-20.md
           - 2026-09-20 職員ログイン時間設定: staff-session-settings-review-2026-09-20.md
           - 2026-09-20 設定メニューの全体点検: settings-navigation-audit-2026-09-20.md
