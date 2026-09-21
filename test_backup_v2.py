@@ -22,7 +22,7 @@ from scripts.backup_runtime import (
     BackupConfig, BackupError, _payload_inventory, _write_json, _write_sha256sums,
     convert_legacy, create_backup, verify_backup_set,
 )
-from scripts.backup_validation import CURRENT_CONTRACT, load_contract
+from scripts.backup_validation import CURRENT_CONTRACT, load_contract, schema_check
 from test_backup_support import full_databases
 from time_utils import utc_now
 
@@ -120,6 +120,18 @@ def test_contract_covers_registered_application_schema():
     import plan_docs.db_models  # noqa: F401
     contract, _ = load_contract()
     assert contract["main"] == {name: sorted(table.columns.keys()) for name, table in SQLModel.metadata.tables.items()}
+
+
+def test_backup_before_staff_session_settings_keeps_recorded_contract(runtime):
+    for table in ("staff_session_timeouts", "staff_session_policy_audits", "staff_session_policies"):
+        execute(runtime.main, f'DROP TABLE "{table}"')
+    assert schema_check(runtime.main, runtime.facility, CURRENT_CONTRACT)["status"] == "failed"
+
+    previous_contract = "spec-changes-20260919"
+    backup = create_backup(replace(runtime.config, schema_contract=previous_contract))
+    result = verify_backup_set(backup)
+    assert result["verification"]["schema"]["status"] == "ok"
+    assert result["verification"]["schema"]["contract_id"] == previous_contract
 
 
 def test_full_roundtrip_preserves_photos_history_and_disables_schedule(runtime):
