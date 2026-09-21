@@ -95,6 +95,8 @@ def enrollment_target(
     child = session.get(Child, child_id)
     if child is None:
         raise ValueError("対象園児が見つかりません")
+    if child.family and child.family.is_archived:
+        raise ValueError("アーカイブ済みの家庭です。先に家族一覧から使用中に戻してください。")
     profiles = (
         child.family.guardian_profiles()
         if child.family

@@ -403,6 +403,8 @@ def backfill_family_guardian_account_links(session: Session, family: Family) -> 
 
 
 def sync_family_to_children(session: Session, family: Family, *, updated_at: Optional[datetime] = None, child_ids: set[int] | None = None, preserve_empty_contacts: bool = False, preserve_empty_guardians: bool = False) -> None:
+    if family.is_archived:
+        return
     now = updated_at or utc_now()
     children = session.exec(
         select(Child)
@@ -692,7 +694,9 @@ def bootstrap_family_data(session: Session) -> None:
         .options(selectinload(ParentAccount.child_links))
         .order_by(ParentAccount.id)
     ).all()
-    accounts = [account for account in accounts if account.id not in pending_intake_accounts or account.child_links]
+    archived_ids = set(session.exec(select(Family.id).where(Family.archived_at.is_not(None))).all())
+    children = [child for child in children if child.family_id not in archived_ids]
+    accounts = [account for account in accounts if account.family_id not in archived_ids and (account.id not in pending_intake_accounts or account.child_links)]
     if not children and not accounts:
         return
 

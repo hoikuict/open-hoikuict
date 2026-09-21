@@ -36,6 +36,7 @@ _GROUPS = (
     ("billing_history", "引落データ・請求設定変更履歴", "件", ("zengin_export_lines", "family_billing_profile_change_logs")),
     ("surveys", "アンケート回答", "件", ("survey_answers",)),
     ("photos", "家族に結びつく写真", "件", ("profile_photos",)),
+    ("archive", "アーカイブ・復帰の履歴", "件", ("family_archive_logs",)),
 )
 
 

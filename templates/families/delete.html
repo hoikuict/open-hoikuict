@@ -48,6 +48,7 @@
 <div role="alert" class="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">
   <p class="font-semibold">この家族は削除できません。</p>
   <p class="mt-1 text-sm">関連データが残っています。登録内容を確認し、必要な記録を保持してください。</p>
+  <a class="mt-3 inline-block rounded border border-indigo-300 bg-white px-4 py-2 text-indigo-700" href="/families/{{ family.id }}/{{ 'restore' if family.is_archived else 'archive' }}?q={{ q|urlencode }}">{{ '元に戻す' if family.is_archived else '記録を残してアーカイブを確認' }}</a>
 </div>
 {% elif review_token %}
 <div class="mt-5 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800">

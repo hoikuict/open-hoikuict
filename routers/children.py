@@ -29,6 +29,7 @@ from child_profile_history import (
 )
 from profile_photos import PhotoUploads, photo_uploads, save_photo, apply_family_photo_edits, photo_response
 from database import get_session
+from family_archive_guard import require_active_family
 from family_support import (
     apply_family_shared_data,
     build_family_form_data,
@@ -150,6 +151,7 @@ def _apply_child_sort(statement, sort_by: str, sort_order: str):
 def _all_families(session: Session) -> list[Family]:
     return session.exec(
         select(Family)
+        .where(Family.archived_at.is_(None))
         .options(selectinload(Family.children), selectinload(Family.parent_accounts))
         .order_by(Family.family_name, Family.id)
     ).all()
@@ -217,6 +219,7 @@ def _load_family(session: Session, raw_selection: Optional[str]) -> Optional[Fam
         family_id = int(raw_selection)
     except (TypeError, ValueError):
         return None
+    require_active_family(session, family_id)
     return session.get(Family, family_id)
 
 
@@ -1030,6 +1033,8 @@ def edit_child_form(
 ):
     require_child_record_manager(current_user)
     child = _load_child(session, child_id)
+    if child.family and child.family.is_archived:
+        return RedirectResponse(f"/families/{child.family_id}/records", status_code=303)
     return _base_form_context(
         request,
         child=child,
@@ -1097,6 +1102,7 @@ def update_child(
     child = _load_child(session, child_id)
     previous_snapshot = build_child_profile_snapshot(session, child)
     ensure_initial_child_profile_history(session, child, snapshot=previous_snapshot)
+    require_active_family(session, child.family_id)
     old_family_id = child.family_id
     old_registration_identity = (
         child.registration_verification_name,

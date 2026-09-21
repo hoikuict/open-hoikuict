@@ -78,8 +78,9 @@ def schema(path: Path) -> list:
 
 
 def schema_compatible(source: Path, current: Path) -> bool:
-    # This release supports exactly the deployed schema, including nursery-specific tables.
-    return schema(source) == schema(current)
+    from restore_family_archive import compatible
+    source_rows, current_rows = schema(source), schema(current)
+    return source_rows == current_rows or compatible(source_rows, current_rows)
 
 
 def admin_credential(database: Path, actor_id: str) -> dict:
@@ -212,6 +213,13 @@ def prepare_copy(paths: RestorePaths, backup_id: str, job_id: str, *, suffix: st
     data.mkdir(mode=0o700)
     _copy_sqlite_database(root / "db/hoikuict.db", data / "hoikuict.db")
     _copy_sqlite_database(root / "db/facility.sqlite", data / "facility.sqlite")
+    # Upgrade only the isolated copy. Provenance/facility checks and strict schema
+    # checks for every unrelated table remain in force.
+    from restore_family_archive import upgrade_copy
+    try:
+        upgrade_copy(data / "hoikuict.db", schema(paths.data / "hoikuict.db"))
+    except ValueError as exc:
+        raise RestoreError("データ構造が現在のアプリ版と異なるため、復元を中止しました。") from exc
     _copy_attachment_tree(root / "storage", destination / "storage")
     invalidate(data / "hoikuict.db", job_id)
     verify_payload(data / "hoikuict.db", data / "facility.sqlite", destination / "storage")

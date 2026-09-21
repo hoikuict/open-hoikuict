@@ -26,7 +26,8 @@ from family_support import (
     merge_guardian_profiles,
     sync_parent_child_links,
 )
-from models import Child, Family, ParentAccount
+from models import Child, Family, FamilyArchiveLog, ParentAccount
+from family_archive_guard import require_active_family
 from time_utils import utc_now
 
 router = APIRouter(prefix="/families", tags=["families"])
@@ -46,6 +47,7 @@ def _parse_ids(raw_values: list[str]) -> list[int]:
 def _all_children(session: Session) -> list[Child]:
     return session.exec(
         select(Child)
+        .where((Child.family_id.is_(None)) | Child.family_id.not_in(select(Family.id).where(Family.archived_at.is_not(None))))
         .options(selectinload(Child.family))
         .order_by(Child.last_name_kana, Child.first_name_kana)
     ).all()
@@ -54,6 +56,7 @@ def _all_children(session: Session) -> list[Child]:
 def _all_parent_accounts(session: Session) -> list[ParentAccount]:
     return session.exec(
         select(ParentAccount)
+        .where((ParentAccount.family_id.is_(None)) | ParentAccount.family_id.not_in(select(Family.id).where(Family.archived_at.is_not(None))))
         .options(selectinload(ParentAccount.family))
         .order_by(ParentAccount.display_name)
     ).all()
@@ -231,6 +234,7 @@ def _fill_linked_guardian_emails(
 def family_list(
     request: Request,
     q: str = "",
+    scope: str = "active",
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -239,6 +243,11 @@ def family_list(
         .options(selectinload(Family.children), selectinload(Family.parent_accounts))
         .order_by(Family.family_name, Family.id)
     ).all()
+    scope = scope if scope in {"active", "archived", "all"} else "active"
+    counts = {"active": sum(not f.is_archived for f in families), "archived": sum(f.is_archived for f in families), "all": len(families)}
+    families = [f for f in families if scope == "all" or f.is_archived == (scope == "archived")]
+    history = session.exec(select(FamilyArchiveLog).order_by(FamilyArchiveLog.id)).all()
+    archive_latest = {item.family_id: item for item in history}
     query = q.strip().casefold()
     if query:
         families = [family for family in families if query in " ".join([
@@ -259,6 +268,8 @@ def family_list(
             "families": families,
             "q": q,
             "delete_notice": read_notice(request, current_user),
+            "scope": scope, "counts": counts, "archive_latest": archive_latest,
+            "archive_notice": {"archive": "家族をアーカイブしました。記録は保持されています。", "restore": "家族を使用中に戻しました。"}.get(request.query_params.get("archive_notice"), ""),
             "family_parent_accounts_by_id": {
                 family.id: {
                     account.id: account for account in family.parent_accounts
@@ -456,6 +467,8 @@ def edit_family_form(
 ):
     require_child_record_manager(current_user)
     family = _load_family(session, family_id)
+    if family.is_archived:
+        return RedirectResponse(f"/families/{family.id}/records", status_code=303)
     return _render_form(
         request,
         current_user=current_user,
@@ -503,6 +516,7 @@ def update_family(
 ):
     require_child_record_manager(current_user)
     family = _load_family(session, family_id)
+    require_active_family(session, family.id)
 
     try:
         photo_edits = photos.validate()
@@ -593,3 +607,7 @@ def update_family(
 
     session.commit()
     return RedirectResponse(url="/families/", status_code=303)
+
+
+from routers.family_archive import router as archive_router
+router.include_router(archive_router)

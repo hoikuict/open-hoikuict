@@ -53,6 +53,7 @@ class TransferMessage:
     column: str
     value: str
     message: str
+    family_id: int | None = None
 
 
 @dataclass
@@ -79,10 +80,13 @@ class ImportPreviewResult:
     changes: list[dict] = field(default_factory=list)
     audit_metadata: list[dict] = field(default_factory=list)
     actor_id: str | None = None
+    excluded_rows: list[int] = field(default_factory=list)
+    source_rows: list[dict] = field(default_factory=list)
+    recheck_required: bool = False
 
     @property
     def can_commit(self) -> bool:
-        return not self.errors and self.total_rows > 0 and self.preview_token is not None
+        return not self.errors and self.total_rows > 0 and self.preview_token is not None and not self.recheck_required
 
 
 DATASETS: dict[str, DatasetDefinition] = {
@@ -292,7 +296,7 @@ def build_xlsx_content(rows: list[list[str]], sheet_name: str) -> bytes:
     return buffer.getvalue()
 
 
-def export_rows(session: Session, dataset: str, *, classroom_id: str = "", status: str = "") -> list[list[str]]:
+def export_rows(session: Session, dataset: str, *, classroom_id: str = "", status: str = "", archive_scope: str = "active") -> list[list[str]]:
     definition = get_dataset(dataset)
     rows = [list(definition.all_headers)]
     if dataset == "staff_users":
@@ -300,7 +304,7 @@ def export_rows(session: Session, dataset: str, *, classroom_id: str = "", statu
     elif dataset == "classrooms":
         rows.extend(_export_classrooms(session))
     elif dataset == "families":
-        rows.extend(_export_families(session))
+        rows.extend(_export_families(session, archive_scope=archive_scope))
     elif dataset == "children":
         rows.extend(_export_children(session, classroom_id=classroom_id, status=status))
     elif dataset == "parent_accounts":
@@ -323,8 +327,13 @@ def _export_classrooms(session: Session) -> list[list[str]]:
     return [[_text(item.id), item.name, _text(item.display_order)] for item in classrooms]
 
 
-def _export_families(session: Session) -> list[list[str]]:
-    families = session.exec(select(Family).order_by(Family.family_name, Family.id)).all()
+def _export_families(session: Session, *, archive_scope: str = "active") -> list[list[str]]:
+    if archive_scope not in {"active", "archived", "all"}:
+        raise ValueError("家庭の出力範囲が不正です。")
+    statement = select(Family).order_by(Family.family_name, Family.id)
+    if archive_scope != "all":
+        statement = statement.where(Family.archived_at.is_not(None) if archive_scope == "archived" else Family.archived_at.is_(None))
+    families = session.exec(statement).all()
     return [[_text(item.id), item.family_name, _text(item.home_address), _text(item.home_phone), *family_csv_values(item)] for item in families]
 
 
@@ -463,7 +472,7 @@ def parse_import_file(dataset: str, filename: str, content: bytes) -> ParsedImpo
         warnings=[TransferMessage(1, header, "", "未対応の列は取り込みません。") for header in headers if header and header not in definition.all_headers])
 
 
-def preview_import(session: Session, dataset: str, filename: str, content: bytes) -> ImportPreviewResult:
+def preview_import(session: Session, dataset: str, filename: str, content: bytes, *, excluded_rows: list[int] | None = None) -> ImportPreviewResult:
     definition = get_dataset(dataset)
     parsed = parse_import_file(dataset, filename, content)
     result = ImportPreviewResult(
@@ -479,11 +488,21 @@ def preview_import(session: Session, dataset: str, filename: str, content: bytes
     if result.errors:
         return result
 
-    _plan_import(session, dataset, parsed.rows, result, commit=False)
+    excluded = set(excluded_rows or [])
+    if any(type(n) is not int for n in excluded) or (excluded and dataset != "families") or not excluded <= {n for n, _ in parsed.rows}:
+        result.errors.append(TransferMessage(0, "除外行", "", "対象行の指定が不正です。もう一度事前検証してください。"))
+        return result
+    result.excluded_rows = sorted(excluded)
+    if dataset == "families":
+        result.source_rows = [{"row": n, "id": row.get("ID", ""), "name": row.get("家庭名", "")} for n, row in parsed.rows]
+    rows = [(n, row) for n, row in parsed.rows if n not in excluded]
+    result.total_rows = len(rows)
+    result.skipped_count += len(excluded)
+    _plan_import(session, dataset, rows, result, commit=False)
     return result
 
 
-def commit_import(session: Session, dataset: str, filename: str, content: bytes, *, actor_name: str, expected_revision: str | None = None, actor_id: str | None = None) -> ImportPreviewResult:
+def commit_import(session: Session, dataset: str, filename: str, content: bytes, *, actor_name: str, expected_revision: str | None = None, actor_id: str | None = None, excluded_rows: list[int] | None = None) -> ImportPreviewResult:
     from child_profile_history import build_child_profile_snapshot, record_child_profile_history
 
     # End the read transaction, then hold the writer lock through validation and commit.
@@ -494,7 +513,7 @@ def commit_import(session: Session, dataset: str, filename: str, content: bytes,
     try:
         session.execute(sql_text("BEGIN IMMEDIATE"))
         before = ledger_state(session)
-        result = preview_import(session, dataset, filename, content)
+        result = preview_import(session, dataset, filename, content, excluded_rows=excluded_rows)
         result.actor_id = actor_id
         if expected_revision and expected_revision != state_revision(before):
             result.errors.append(TransferMessage(0, "台帳", "", "事前確認後に台帳が更新されました。もう一度ファイルを事前検証してください。"))
@@ -509,7 +528,8 @@ def commit_import(session: Session, dataset: str, filename: str, content: bytes,
         parsed = parse_import_file(dataset, filename, content)
         applied = ImportPreviewResult(dataset=result.dataset, dataset_label=result.dataset_label,
             filename=result.filename, total_rows=result.total_rows, skipped_count=result.skipped_count, actor_id=actor_id)
-        _plan_import(session, dataset, parsed.rows, applied, commit=True)
+        applied.excluded_rows = result.excluded_rows
+        _plan_import(session, dataset, [(n, row) for n, row in parsed.rows if n not in result.excluded_rows], applied, commit=True)
         if applied.errors:
             session.rollback()
             _record_import_log(session, dataset, filename, actor_name, applied, "failed")
@@ -683,6 +703,7 @@ def _plan_families(session, rows, result, *, commit):
     for row_number, row in rows:
         start_errors = len(result.errors)
         family = _resolve_family_for_import(session, row, row_number, result)
+        _check_archived_family(session, family, row_number, result)
         if family is None and not row["家庭名"]:
             result.errors.append(TransferMessage(row_number, "家庭名", "", "新規登録時は家庭名が必須です。"))
         key = f"families:id:{family.id}" if family else _row_key("families", row, fallback=f"{row['家庭名']}|{row['電話番号']}")
@@ -716,7 +737,9 @@ def _plan_children(
     for row_number, row in rows:
         start_errors = len(result.errors)
         child = _resolve_child_for_import(session, row, row_number, result)
+        _check_archived_family(session, session.get(Family, child.family_id) if child and child.family_id else None, row_number, result)
         family = _resolve_family_reference(session, row, row_number, result)
+        _check_archived_family(session, family, row_number, result)
         classroom = _resolve_classroom_reference(session, row, row_number, result)
         birth_date = _parse_date(row["生年月日"], row_number, "生年月日", result, required=child is None)
         enrollment_date = _parse_date(row["入園日"], row_number, "入園日", result, required=child is None)
@@ -839,7 +862,9 @@ def _plan_parent_accounts(
     for row_number, row in rows:
         start_errors = len(result.errors)
         account = _resolve_parent_account_for_import(session, row, row_number, result)
+        _check_archived_family(session, session.get(Family, account.family_id) if account and account.family_id else None, row_number, result)
         family = _resolve_family_reference(session, row, row_number, result)
+        _check_archived_family(session, family, row_number, result)
         status = _parse_parent_status(row["状態"], row_number, result, required=False)
         verification_name, verification_name_type = _parse_registration_name_fields(
             row, row_number, result
@@ -937,6 +962,8 @@ def _plan_parent_child_links(
         target_child_id = child.id if child else (link.child_id if link else None)
         target_parent = parent or (session.get(ParentAccount, target_parent_id) if target_parent_id else None)
         target_child = child or (session.get(Child, target_child_id) if target_child_id else None)
+        for member in (target_parent, target_child):
+            _check_archived_family(session, session.get(Family, member.family_id) if member and member.family_id else None, row_number, result)
         if (
             target_parent is not None
             and target_child is not None
@@ -1017,6 +1044,13 @@ def _resolve_classroom_for_import(
     return None
 
 
+def _check_archived_family(session, family, row_number, result):
+    if family and family.is_archived:
+        if not any(error.row_number == row_number and error.family_id == family.id for error in result.errors):
+            result.errors.append(TransferMessage(row_number, "家庭ID", str(family.id),
+                "アーカイブ済みの家庭です。先に使用中へ戻して再検証するか、今回の取込から外してください。", family.id))
+
+
 def _resolve_family_for_import(
     session: Session,
     row: dict[str, str],
@@ -1031,11 +1065,14 @@ def _resolve_family_for_import(
         return family
     if not row["家庭名"]:
         return None
-    matches = [
-        family
-        for family in session.exec(select(Family).where(Family.family_name == row["家庭名"])).all()
-        if (family.home_phone or "") == row["電話番号"]
-    ]
+    candidates = session.exec(select(Family).where(Family.family_name == row["家庭名"])).all()
+    archived = [family for family in candidates if family.is_archived]
+    if archived:
+        for family in archived:
+            _check_archived_family(session, family, row_number, result)
+        result.errors.append(TransferMessage(row_number, "ID", "", "同名の家庭があります。対象の家庭IDを指定して再検証してください。"))
+        return None
+    matches = [family for family in candidates if (family.home_phone or "") == row["電話番号"]]
     if len(matches) > 1:
         result.errors.append(TransferMessage(row_number, "家庭名", row["家庭名"], "同じ家庭名と電話番号の家庭が複数あります。"))
         return None
