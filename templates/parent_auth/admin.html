@@ -2,22 +2,11 @@
 {% block title %}保護者認証管理{% endblock %}
 {% block content %}
 {% if form_error %}<p role="alert" class="mb-5 rounded-xl bg-rose-50 p-5 font-semibold text-rose-800">{{ form_error }}</p>{% endif %}
-{% set latest_registration = registrations[0] if registrations else none %}
-{% if credential and credential.disabled_at %}
-  {% set authentication_status = "停止中" %}
-  {% set authentication_status_class = "bg-rose-50 text-rose-700" %}
-{% elif credential and credential.password_hash %}
-  {% set authentication_status = "利用中" %}
-  {% set authentication_status_class = "bg-emerald-50 text-emerald-700" %}
-{% elif latest_registration %}
-  {% set authentication_status = registration_status_labels.get(latest_registration.status, latest_registration.status) %}
-  {% set authentication_status_class = "bg-amber-50 text-amber-700" %}
-{% else %}
-  {% set authentication_status = "未招待" %}
-  {% set authentication_status_class = "bg-slate-100 text-slate-600" %}
-{% endif %}
+{% set authentication_status = lifecycle.label %}
+{% set authentication_status_class = 'bg-emerald-50 text-emerald-700' if lifecycle.code == 'active' else 'bg-slate-100 text-slate-700' %}
 
 <div class="space-y-6">
+  {% if notice == 'lifecycle_changed' %}<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">利用状態を更新しました。現在：{{ lifecycle.label }}。</p>{% endif %}
   {% if notice == 'login_id_changed' %}
   <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">登録メールアドレスとログインIDを変更しました。パスワードは変更されていません。</div>
   {% endif %}
@@ -25,7 +14,7 @@
     <div>
       <p class="text-sm font-semibold text-indigo-600">保護者アカウント</p>
       <h1 class="mt-1 text-2xl font-bold text-slate-900">認証管理</h1>
-      <p class="mt-2 text-sm text-slate-600">{{ account.display_name }}さんの初回登録、パスワード再設定、利用停止を管理します。</p>
+      <p class="mt-2 text-sm text-slate-600">{{ account.display_name }}さんの利用状態・本人確認・パスワードを管理します。</p>
     </div>
     <div class="flex flex-wrap gap-2">
       <a href="/parent-accounts/{{ account.id }}/edit" class="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">保護者情報を編集</a>
@@ -40,7 +29,7 @@
       <p class="mt-1 break-all text-sm text-slate-600">{{ account.contact_email }}</p>
     </div>
     <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">認証状態</p>
+      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">利用状態</p>
       <span class="mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold {{ authentication_status_class }}">{{ authentication_status }}</span>
     </div>
     <div>
@@ -48,6 +37,8 @@
       <p class="mt-1 text-2xl font-bold text-slate-900">{{ active_session_count }}<span class="ml-1 text-sm font-normal text-slate-500">件</span></p>
     </div>
   </section>
+
+  {% include "parent_auth/lifecycle.html" %}
 
   {% if credential and credential.password_hash %}
   <section class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
@@ -74,14 +65,16 @@
   <section class="grid gap-4 lg:grid-cols-2">
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 class="text-lg font-bold text-slate-900">初回登録の案内</h2>
-      {% if invitation_issues %}
+      {% if invitation_issues and not (credential and credential.password_hash) %}
       <div class="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
         <p class="font-semibold">招待前に登録情報を確認してください</p>
         <ul class="mt-2 list-inside list-disc">{% for issue in invitation_issues %}<li>{{ issue }}</li>{% endfor %}</ul>
         <div class="mt-2 flex flex-wrap gap-3"><a href="/parent-accounts/{{ account.id }}/edit" class="underline">保護者情報を編集</a>{% for child in invitation_children %}<a href="/children/{{ child.id }}/edit" class="underline">{{ child.full_name }}の情報を編集</a>{% endfor %}</div>
       </div>
       {% endif %}
-      {% if enrollment_pending %}
+      {% if credential and credential.password_hash %}
+      <p class="mt-2 text-sm leading-6 text-slate-600">初回パスワード設定は完了しています。利用再開は上の「利用停止・再開」から操作してください。</p>
+      {% elif enrollment_pending %}
       <p class="mt-2 text-sm leading-6 text-slate-600">初回入力の招待です。保護者が子ども・保護者・連絡先をまとめて入力し、園が下の申請内容を確認して承認すると台帳に反映され、パスワード設定の案内が届きます。再送すると以前のリンクと未承認の提出内容は取り消されます。</p>
       {% elif latest_enrollment and latest_enrollment.applied_at %}
       <p class="mt-2 text-sm leading-6 text-slate-600">初回入力は台帳へ反映済みです。保護者はパスワード設定の案内メールから利用を開始できます。初期情報を入力し直す必要はありません。再招待は通常の本人情報照合で行います。</p>
@@ -99,9 +92,9 @@
       </form>
     </div>
 
-    {% if not enrollment_pending and (not credential or not credential.password_hash or credential.disabled_at) %}
+    {% if not enrollment_pending and not account.email_removed and (not credential or not credential.password_hash) and lifecycle.code != 'review' %}
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 class="text-lg font-bold text-slate-900">初期設定・利用再開</h2>
+      <h2 class="text-lg font-bold text-slate-900">初回パスワード設定</h2>
       <p class="mt-1 text-sm text-slate-600">本人確認後にコードを発行し、登録メールアドレス {{ account.contact_email }} へコード入力URL・認証コード・ログインの案内を送信します。コードは24時間有効です。</p>
       <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/activate">
         <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
@@ -120,7 +113,7 @@
     <div class="mt-4 space-y-3">
       {% for delivery in mail_deliveries %}
       <div class="rounded-lg border border-slate-200 p-3 text-sm">
-        <div class="flex flex-wrap justify-between gap-2"><span class="font-semibold">{{ {'invitation': '初回登録の招待', 'completion': 'パスワード設定の案内', 'parent_activate': '初回設定・利用再開コード', 'parent_reset': 'パスワード再設定コード', 'login_id_change': 'ログインID変更の通知'}.get(delivery.message_type, '保護者への案内') }}</span>
+        <div class="flex flex-wrap justify-between gap-2"><span class="font-semibold">{{ {'invitation': '初回登録の招待', 'completion': 'パスワード設定の案内', 'parent_activate': '初回設定コード', 'parent_resume': '利用再開コード', 'parent_reset': 'パスワード再設定コード', 'login_id_change': 'ログインID変更の通知'}.get(delivery.message_type, '保護者への案内') }}</span>
           <span>{{ {'pending': '送信待ち・再試行待ち', 'processing': '送信処理中', 'sent': 'メールサーバー受付済み', 'captured': 'テスト保存済み（外部送信なし）', 'failed': '送信失敗', 'cancelled': '送信取消'}.get(delivery.status, '状態確認中') }}</span></div>
         <p class="mt-1 break-all text-slate-600">宛先: {{ delivery.recipient }}</p>
         <p class="mt-1 text-xs text-slate-500">受付: {{ delivery.created_at|jst_datetime('%Y-%m-%d %H:%M') }} JST{% if delivery.sent_at %} / 処理完了: {{ delivery.sent_at|jst_datetime('%Y-%m-%d %H:%M') }} JST{% endif %}</p>
@@ -202,7 +195,7 @@
     {% endif %}
   </section>
 
-  {% if credential and credential.password_hash and not credential.disabled_at %}
+  {% if lifecycle.code == 'active' %}
   <section class="grid gap-4 lg:grid-cols-2">
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 class="text-lg font-bold text-slate-900">パスワード再設定</h2>
@@ -216,18 +209,13 @@
       </form>
     </div>
 
-    <div class="rounded-xl border border-rose-200 bg-rose-50 p-5">
-      <h2 class="text-lg font-bold text-rose-900">認証を停止</h2>
-      <p class="mt-1 text-sm text-rose-700">ログイン中の端末と通知登録も無効になります。</p>
-      <form class="mt-4" method="post" action="/parent-accounts/{{ account.id }}/authentication/disable">
-        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
-        <label class="block text-sm font-semibold text-rose-900">停止理由
-          <textarea name="reason" required rows="3" class="mt-2 w-full rounded border border-rose-300 bg-white px-3 py-2"></textarea>
-        </label>
-        <button class="mt-3 rounded bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800">資格情報を停止</button>
-      </form>
-    </div>
   </section>
   {% endif %}
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-lg font-bold text-slate-900">利用停止・再開の履歴</h2>
+    <ul class="mt-4 space-y-3 text-sm">{% for entry, actor_name in lifecycle_history %}
+      <li class="rounded border border-slate-200 p-3"><p class="font-semibold">{{ lifecycle_actions.get(entry.operation, '利用停止') }}</p><p class="whitespace-pre-wrap break-words">{{ entry.reason }}</p><p class="text-xs text-slate-500">{{ actor_name or '管理者' }} ／ {{ entry.created_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</p></li>
+    {% else %}<li class="text-slate-500">まだ記録はありません。</li>{% endfor %}</ul>
+  </section>
 </div>
 {% endblock %}

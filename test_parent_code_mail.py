@@ -74,7 +74,7 @@ def test_issued_code_mail_has_both_urls_and_can_set_password_then_login(pilot, m
         assert delivery.status == "sent" and sent == ["parent@example.test"]
     admin = client.get(f"/parent-accounts/{account_id}/authentication")
     assert "メールサーバー受付済み" in admin.text and code not in admin.text
-    assert ("パスワード再設定コード" if action == "reset" else "初回設定・利用再開コード") in admin.text
+    assert ("パスワード再設定コード" if action == "reset" else "初回設定コード") in admin.text
     response = client.post(f"/parent-portal/{action}/verify", data={"activation_code" if action == "activate" else "reset_code": code})
     assert response.status_code == 200 and "新しいパスワード" in response.text
     password = "Maple!5938Long-Phrase"
