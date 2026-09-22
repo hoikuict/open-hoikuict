@@ -39,6 +39,7 @@ from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
 from routers.data_transfers import router as data_transfers_router
 from routers.data_transfers import _cleanup_stale_previews
+from routers.initial_ledger import router as initial_ledger_router
 from routers.daily_contacts import router as daily_contacts_router
 from routers.dev_parent_push import router as dev_parent_push_router
 from routers.extended_care_fees import router as extended_care_fees_router
@@ -148,6 +149,7 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
+app.include_router(initial_ledger_router)
 app.include_router(families_router)
 app.include_router(children_router)
 app.include_router(care_certifications_router)
