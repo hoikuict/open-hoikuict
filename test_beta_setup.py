@@ -105,6 +105,23 @@ class SetupTests(unittest.TestCase):
         self.assertFalse(self.target.exists())
         self.assertEqual(list(self.root.glob(".installation.setup-*")), [sibling])
 
+    @unittest.skipUnless(sys.platform == "win32", "Windows path limit")
+    def test_long_install_path_rejected_before_staging(self):
+        self.package({"runtime/Lib/site-packages/" + "a" * 90 + ".py": b"data"})
+        long_target = self.root / ("x" * 100)
+        with self.assertRaises(SetupError) as error:
+            self.manager.begin({**self.values(), "path": str(long_target)})
+        self.assertEqual(error.exception.code, "path_too_long")
+        self.assertIsNone(self.manager.thread)
+        self.assertFalse(long_target.exists())
+        self.assertEqual(list(self.root.glob(".*.setup-*")), [])
+
+    def test_archive_paths_checked_before_first_file_is_written(self):
+        self.package({"app/first.py": b"valid", "app/../../escape": b"bad"})
+        with self.assertRaises(SetupError):
+            extract_bundle(self.bundle, self.target, threading.Event())
+        self.assertFalse(self.target.exists())
+
     def test_lock_excludes_second_process_owner(self):
         first, second = FileLock(self.root / "lock"), FileLock(self.root / "lock")
         first.acquire()

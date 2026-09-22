@@ -264,6 +264,23 @@ def safe_member(name: str) -> bool:
             and ":" not in name and path.parts and path.parts[0] in {"runtime", "app"})
 
 
+def check_bundle_paths(destination: Path, names) -> None:
+    for name in names:
+        if not safe_member(name):
+            raise SetupError("配布ファイルのパスが不正です。", "bundle_invalid")
+        if sys.platform == "win32":
+            path = destination.joinpath(*PurePosixPath(name).parts)
+            # Do not require a machine-wide Windows long-path setting.
+            if (len(str(path).encode("utf-16-le")) // 2 >= 260
+                    or len(str(path.parent).encode("utf-16-le")) // 2 >= 248):
+                raise SetupError("保存場所の名前が長すぎます。標準の保存場所に戻すか、階層の浅い短いフォルダー名を指定してください。", "path_too_long")
+
+
+def check_install_paths(root: Path, manifest: dict) -> None:
+    stage = root.parent / f".{root.name}.setup-{'0' * 32}"
+    check_bundle_paths(stage, manifest["files"])
+
+
 def extract_bundle(bundle: Path, destination: Path, cancel: threading.Event) -> dict:
     manifest = json.loads((bundle / "bundle.json").read_text(encoding="utf-8"))
     archive = bundle / "payload.zip"
@@ -275,6 +292,7 @@ def extract_bundle(bundle: Path, destination: Path, cancel: threading.Event) -> 
         names = [item.filename for item in members]
         if len(set(names)) != len(names) or set(names) != set(expected):
             raise SetupError("配布ファイルの一覧が一致しません。", "bundle_invalid")
+        check_bundle_paths(destination, names)
         if shutil.disk_usage(destination.parent).free < sum(m.file_size for m in members) + 128 * 1024 * 1024:
             raise SetupError("保存先の空き容量が不足しています。", "disk_full")
         for item in members:
@@ -347,6 +365,10 @@ class Installer:
                 raise SetupError("この接続ポートは使用中です。別の番号を選んでください。", "port_busy") from None
         if not self.online and not (self.bundle / "bundle.json").is_file():
             raise SetupError("新規導入には元の配布フォルダーから導入アプリを開いてください。", "missing_bundle")
+        if self.release:
+            check_install_paths(root, self.release["manifest"])
+        elif not self.online:
+            check_install_paths(root, json.loads((self.bundle / "bundle.json").read_text(encoding="utf-8")))
         return {"existing": False, "port": int(v["port"])}
 
     def begin(self, values: dict) -> None:
@@ -364,6 +386,7 @@ class Installer:
                 if not values.get("release_revision") or values["release_revision"] != fresh["revision"]:
                     raise SetupError("配布版が更新されました。導入する版をもう一度確認してください。", "release_changed")
                 release = self.release
+                check_install_paths(Path(v["path"]), release["manifest"])
             self.cancel.clear()
             self.job = {"state": "installing", "progress": 0, "message": "保存先を確認しています"}
             self.thread = threading.Thread(target=self._install, args=(v, release), daemon=True)

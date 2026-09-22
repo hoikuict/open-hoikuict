@@ -35,4 +35,22 @@ GitHubの公式仕様：[Releases API](https://docs.github.com/en/rest/releases/
 
 ## 検証と結果
 
-実装・ビルド・新規導入の検証中。配布版の公開と実ダウンロード試験の結果は完了後に追記する。
+境界テスト17件、Ruff、JavaScript構文の確認が成功。Windowsの長い保存先で展開が止まるケースを修正し、配布ファイル一覧から準備中のパス長を事前検査する。標準の保存先を使えばWindows全体の長いパス設定を変更する必要はない。
+
+実行ファイルのビルド・新規導入を検証中。配布版の公開と実ダウンロード試験の結果は完了後に追記する。
+
+## 配布版を作る手順
+
+本番機能を含む専用チェックアウトで、変更をコミットしてから次を実行する。各パスは絶対パスで指定する。検証先には階層の浅い専用フォルダーを選ぶ。
+
+```powershell
+./scripts/build_windows_installer.ps1 -Runtime <Python3.12-x64> -BuildPython <build-venv/python.exe> -SitePackages <build-venv/Lib/site-packages> -Output <new-output> -VerificationWorkspace <short-test-folder> -ReleaseTag v2026.9.23.1
+```
+
+このコマンドは境界テスト、実行ファイル・配布データの生成、架空の管理者での実導入・ログイン・再起動を順に行い、失敗した場合は止まる。全て成功した後に3点の添付ファイルをReleaseへ登録し、アップロード後のdigestを照合してから公開する。
+
+公開後には、生成した実行ファイルを使って実際の取得元から導入する。
+
+```text
+python scripts/verify_beta_bundle.py --bundle <output/bundle> --workspace <short-test-folder> --online --skip-weak-password
+```

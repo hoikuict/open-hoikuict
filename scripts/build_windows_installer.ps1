@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory=$true)][string]$BuildPython,
     [Parameter(Mandatory=$true)][string]$SitePackages,
     [Parameter(Mandatory=$true)][string]$Output,
+    [Parameter(Mandatory=$true)][string]$VerificationWorkspace,
     [Parameter(Mandatory=$true)][ValidatePattern('^v[0-9][0-9A-Za-z.-]{0,79}$')][string]$ReleaseTag
 )
 $ErrorActionPreference='Stop'
@@ -17,7 +18,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Launcher build failed.' }
     & $BuildPython scripts/build_beta_bundle.py --runtime $Runtime --site-packages $SitePackages --launcher "$taskOutput/launcher/OpenHoikuICT.exe" --output "$taskOutput/bundle" --release-tag $ReleaseTag
     if ($LASTEXITCODE -ne 0) { throw 'Bundle build failed.' }
-    & $BuildPython scripts/verify_beta_bundle.py --bundle "$taskOutput/bundle" --workspace "$taskOutput/checks"
+    & $BuildPython scripts/verify_beta_bundle.py --bundle "$taskOutput/bundle" --workspace $VerificationWorkspace
     if ($LASTEXITCODE -ne 0) { throw 'New installation verification failed. Do not publish.' }
     Write-Output "Verified release files: $taskOutput/bundle"
 }

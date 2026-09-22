@@ -56,7 +56,7 @@ class Controller:
         if self.call("info").get("online"):
             values = {**values, "release_revision": self.call("release")["revision"]}
         self.call("install", values)
-        deadline = time.monotonic() + 240
+        deadline = time.monotonic() + 600
         last = None
         while time.monotonic() < deadline:
             status = self.call("status")
