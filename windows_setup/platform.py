@@ -106,9 +106,12 @@ def restrict_directory(path: Path, *, service: str | None = None, writable: bool
         if not re.fullmatch(r"S-1-[0-9-]+", owner_sid):
             raise SetupError("導入者の識別情報を確認できません。", "owner_invalid")
         entries.append({"identity": owner_sid, "rights": "FullControl", "sid": True})
-    # Replace the DACL, including explicit grants left by a previous attempt.
+    # Change only the DACL, including explicit grants from a previous attempt.
+    # Set-Acl may also try to persist audit information and request
+    # SeSecurityPrivilege, which the unelevated coordinator must not need.
     powershell("""
-      $acl=Get-Acl -LiteralPath $v.path
+      $directory=[IO.DirectoryInfo]::new($v.path)
+      $acl=$directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Access)
       $acl.SetAccessRuleProtection($true,$false)
       foreach($rule in @($acl.Access)){ [void]$acl.RemoveAccessRuleSpecific($rule) }
       foreach($entry in $v.entries){
@@ -118,7 +121,7 @@ def restrict_directory(path: Path, *, service: str | None = None, writable: bool
           $identity,$entry.rights,'ContainerInherit,ObjectInherit','None','Allow')
         $acl.AddAccessRule($rule)
       }
-      Set-Acl -LiteralPath $v.path -AclObject $acl
+      $directory.SetAccessControl($acl)
     """, {"path": str(path), "entries": entries})
 
 
