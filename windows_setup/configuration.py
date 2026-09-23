@@ -102,7 +102,7 @@ def service_xml(code: Path, root: Path, instance: str) -> str:
         "id": service_name(instance), "name": "OpenHoikuICT " + instance[:8],
         "description": "保育ICTの園内サーバー・HTTPS・バックアップ",
         "executable": str(code / "runtime/python.exe"),
-        "arguments": '-I -B "' + str(code / "app/windows_setup/worker_entry.py") + '" "' + str(root) + '"',
+        "startarguments": '-I -B "' + str(code / "app/windows_setup/worker_entry.py") + '" "' + str(root) + '"',
         "workingdirectory": str(code / "app"), "startmode": "Automatic",
         "stoptimeout": "45 sec", "logpath": str(root / "logs"),
         "stopexecutable": str(code / "runtime/python.exe"),

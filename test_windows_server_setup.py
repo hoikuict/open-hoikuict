@@ -158,6 +158,8 @@ class ServerSetupTests(unittest.TestCase):
         self.assertIn('Automatic', markup)
         self.assertNotIn('secret', markup)
         self.assertNotIn('powershell', markup)
+        self.assertIn('<startarguments>', markup)
+        self.assertNotIn('<arguments>', markup)
         with self.assertRaises(ValueError):
             configuration.service_name('../arbitrary')
 
@@ -183,6 +185,15 @@ class ServerSetupTests(unittest.TestCase):
         config = next(call.args[0] for call in run.call_args_list if 'config' in call.args[0])
         self.assertEqual(config[config.index('obj=') + 1], 'NT SERVICE\\' + configuration.service_name(INSTANCE))
         self.assertNotIn('password=', config)
+
+    def test_stop_pending_waits_before_returning_without_second_stop(self):
+        code = self.root / 'code'
+        state = dict(exists=True, state='Stop Pending', path=str(code / 'service.exe'))
+        with patch.object(platform, 'service_state', return_value=state), \
+                patch.object(platform, 'powershell') as ps, patch.object(platform, 'run') as run:
+            platform.change_service(code, INSTANCE, 'stop')
+        run.assert_not_called()
+        self.assertEqual(ps.call_args.args[1]['status'], 'Stopped')
 
     def test_request_hash_and_expiration_precede_mutations(self):
         request_file = self.root / '.server-setup/jobs' / ('f'*32) / 'request.bin'

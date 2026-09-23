@@ -181,15 +181,15 @@ def main():
             time.sleep(.3)
         assert drill['state'] == 'complete', drill
         print('Backup and isolated restore verification passed', flush=True)
-        stop(); process = start(); wait_healthy(data, token)
+        previous_started = control(data, token, '/status')['started_at']
+        stop(); process = start(); restarted = wait_healthy(data, token)
+        assert restarted['started_at'] > previous_started, 'Service did not actually restart'
         with http.open(url+'/classrooms/', timeout=15) as response:
             assert response.url.endswith('/classrooms/')
         assert control(data, token, '/status')['drill']['state'] == 'complete'
         print('Restart, session keys and completed verification persisted', flush=True)
         result = dict(passed=True, service_verified=args.service, workspace=str(workspace), checks=['production HTTPS', 'activation gate',
                     'migrated password', 'secure cookie', 'backup', 'isolated restore', 'restart', 'persistent session keys'])
-        atomic_json(workspace / 'verification.json', result)
-        print(json.dumps(result), flush=True)
     finally:
         if args.service:
             cleanup()
@@ -197,6 +197,8 @@ def main():
         elif process and process.poll() is None:
             stop()
         log.close()
+    atomic_json(workspace / 'verification.json', result)
+    print(json.dumps(result), flush=True)
 
 
 if __name__ == '__main__':

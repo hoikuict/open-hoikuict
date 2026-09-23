@@ -166,7 +166,21 @@ def change_service(code: Path, instance: str, operation: str) -> None:
         raise SetupError("サービスの実行元が異なります。操作を中止しました。", "service_mismatch")
     if operation == "stop" and state["state"] == "Stopped":
         return
-    run([str(code / "service.exe"), operation], timeout=90)
+    def wait_for(status):
+        powershell("""
+          $service=Get-Service -Name $v.name -ErrorAction Stop
+          try { $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]$v.status,[TimeSpan]::FromSeconds(60)) }
+          finally { $service.Dispose() }
+        """, {"name": service_name(instance), "status": status}, timeout=75)
+    if operation == "start" and state["state"] == "Stop Pending":
+        wait_for("Stopped")
+    pending = {"start": "Start Pending", "stop": "Stop Pending"}
+    if state["state"] != pending.get(operation):
+        run([str(code / "service.exe"), operation], timeout=90)
+    # WinSW can return while SCM is still starting/stopping the service.
+    # Do not restart, migrate data, or delete files until SCM confirms it.
+    if operation in pending:
+        wait_for("Running" if operation == "start" else "Stopped")
 
 
 def firewall(lan: dict, instance: str, *, remove: bool = False) -> None:
