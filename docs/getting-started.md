@@ -9,6 +9,7 @@ Windowsの新しいPCで始める方は、[導入アプリのダウンロード]
 | 手元で画面・業務の流れを確認 | development・モック認証・架空データ | [開発環境とテスト](development.md) |
 | Windows 11／Ubuntu 24.04 LTSにβを新規導入 | development・ローカルパスワード認証・β専用DB | [β版の導入手順書](beta-installation.md) |
 | 既存のローカル環境で認証設定を確認 | development・ローカルパスワード認証 | [ローカル環境の設定](environment-profiles.md) |
+| Windows PCを園内サーバーにし、必要に応じて園外公開 | production・HTTPS・SMTP・Windowsサービス・専用保存領域 | [Windowsの段階別導入手順](windows-server-setup.md) |
 | TrueNASへ空の状態から導入 | production・HTTPS・SMTP・専用保存領域 | [TrueNAS導入ガイド](truenas-beginner-installation-guide.md) |
 | 稼働しているTrueNASを更新 | 現在のDB・秘密鍵・保存領域を継続使用 | [導入ガイドの更新手順](truenas-beginner-installation-guide.md#maintenance) |
 
@@ -34,6 +35,8 @@ Windowsでまず試す場合は、[かんたん導入](beta-quickstart.md)で名
 ローカルβの `capture` メールは送信内容を検証用に保持する方式で、実メールを配送しません。SMTPを使う実機の確認は、担当者が受信できるテスト用アドレスで行います。
 
 ## 園のサーバーへ導入する
+
+Windows 11 x64では、[Windowsの段階別導入手順](windows-server-setup.md)で、このPCでの試用から園内LAN、必要に応じて園外公開へ進めます。導入アプリがサービス・HTTPS・メール・定期バックアップを準備し、ルーターや端末側の作業を案内します。
 
 [TrueNAS導入ガイド](truenas-beginner-installation-guide.md)を入口に、[初期構成の詳細](truenas-fresh-install.md)で保存先とComposeを確認します。現在の配布構成は `deploy/truenas/compose.yaml` です。
 

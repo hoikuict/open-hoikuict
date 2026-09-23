@@ -146,7 +146,7 @@ OS別手順には、このローカルβを**完全に停止してフォルダ�
 | バックアップ | 全保存対象、停止方式、必要なworker、別系統保存、暗号化、隔離復元試験 | [バックアップ検証](backup-verification-guide.md) |
 | 利用開始 | 対象者・業務範囲、担当者、障害時の代替手段、取扱ルール、受入記録 | [リリース確認](release-checklist.md) |
 
-現在、専用の配備構成と実機更新記録がある入口は[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)です。WindowsサービスやUbuntuのsystemdによる常駐、一般Linux向けのHTTPS配備は、この初版では導入・実機検証の対象に含めていません。
+このページの手動導入はローカル試用までを対象にしています。Windowsのサービス・HTTPS・SMTP・バックアップを導入アプリで設定する場合は、[Windowsの段階別導入手順](windows-server-setup.md)へ進んでください。TrueNASは[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)が入口です。Ubuntuのsystemdによる常駐と一般Linux向けのHTTPS配備は、この手順書の導入・実機検証には含めていません。
 
 ## 8. この手順書の確認範囲
 

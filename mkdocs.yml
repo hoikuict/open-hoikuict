@@ -82,6 +82,7 @@ nav:
   - ダウンロード: download.md
   - 利用開始マニュアル:
       - start-manual.md
+      - Windowsで園内LAN・園外へ: windows-server-setup.md
       - 初期台帳のExcel準備・登録: initial-ledger-guide.md
       - 保護者の利用停止・再開: parent-account-lifecycle.md
   - 詳しい資料:
