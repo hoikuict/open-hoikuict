@@ -289,6 +289,19 @@ def test_capture_is_local_and_expired_mail_is_erased(recovery):
         assert session.exec(select(StaffMailDelivery)).one().body == ""
 
 
+def test_windows_public_stop_holds_recovery_mail_until_resumed(recovery, monkeypatch):
+    request_link(recovery)
+    with Session(recovery.engine) as session:
+        monkeypatch.setenv('HOIKUICT_ACTION_MAIL_SUSPENDED', '1')
+        staff_recovery.dispatch_pending_staff_mail(session)
+        delivery = session.exec(select(StaffMailDelivery)).one()
+        assert delivery.status == 'pending' and delivery.attempt_count == 0
+        monkeypatch.setenv('HOIKUICT_ACTION_MAIL_SUSPENDED', '0')
+        staff_recovery.dispatch_pending_staff_mail(session)
+        session.refresh(delivery)
+        assert delivery.status == 'captured'
+
+
 @pytest.mark.parametrize("different_links", [False, True])
 def test_concurrent_completion_changes_password_only_once(recovery, different_links):
     first = request_link(recovery)

@@ -29,7 +29,9 @@ def selected(name: str) -> bool:
         return True
     if len(path.parts) == 1:
         return path.suffix == ".py"
-    if path.parts[0] in {"routers", "child_records", "plan_docs", "scripts"}:
+    if path.parts[0] in {"routers", "child_records", "plan_docs", "scripts", "beta_setup", "windows_setup"}:
+        if name == "windows_setup/components-lock.json":
+            return True
         return path.suffix == ".py" or name.startswith("scripts/backup_contracts/") and path.suffix == ".json"
     return path.parts[0] in {"templates", "static", "assets"} and path.suffix.lower() not in {".db", ".sqlite", ".sqlite3", ".env"}
 
@@ -41,6 +43,7 @@ def main() -> int:
     parser.add_argument("--launcher", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--release-tag", help="Published tag, e.g. v2026.9.23.1; requires a clean source checkout")
+    parser.add_argument("--server-components", type=Path)
     args = parser.parse_args()
     if args.release_tag:
         if not re.fullmatch(r"v[0-9][0-9A-Za-z.-]{0,79}", args.release_tag):
@@ -66,6 +69,14 @@ def main() -> int:
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
     sources = {f"app/{name}": ROOT / name for name in tracked if name and selected(name)}
     sources["app/_beta_runtime.py"] = ROOT / "beta_setup/runtime.py"
+    if args.server_components:
+        locked = json.loads((ROOT / "windows_setup/components-lock.json").read_text(encoding="utf-8"))
+        for name in ("winsw.exe", "caddy.exe", "cloudflared.exe"):
+            component = args.server_components.resolve() / name
+            with component.open("rb") as stream:
+                if hashlib.file_digest(stream, "sha256").hexdigest() != locked[name]["sha256"]:
+                    raise ValueError("Windows component checksum mismatch")
+            sources["app/windows_setup/components/" + name] = component
     for path in runtime.rglob("*"):
         if not path.is_file() or "__pycache__" in path.parts or path.suffix == ".pyc":
             continue
@@ -83,7 +94,9 @@ def main() -> int:
                 "files": {}}
     if args.release_tag:
         manifest.update(release_tag=args.release_tag, architecture="x64",
-                        minimum_installer_protocol=1, runtime_protocol=1)
+                        minimum_installer_protocol=2 if args.server_components else 1, runtime_protocol=1)
+    if args.server_components:
+        manifest["server_protocol"] = 1
     archive = output / "payload.zip"
     with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as package:
         for name, path in sorted(sources.items()):

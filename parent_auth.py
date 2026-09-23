@@ -514,6 +514,8 @@ def dispatch_pending_parent_mail(
 ) -> None:
     now = utc_now()
     statement = select(ParentMailDelivery.id).where(*_mail_claim_conditions(now))
+    if os.getenv("HOIKUICT_ACTION_MAIL_SUSPENDED") == "1":
+        statement = statement.where(ParentMailDelivery.message_type == "attendance_confirmation")
     if registration_request_id is not None:
         statement = statement.where(
             ParentMailDelivery.registration_request_id == registration_request_id

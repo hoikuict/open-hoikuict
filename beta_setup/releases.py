@@ -17,7 +17,7 @@ from beta_setup.core import Cancelled, SetupError
 REPOSITORY = "hoikuict/open-hoikuict"
 RELEASES_URL = f"https://github.com/{REPOSITORY}/releases"
 API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
-INSTALLER_PROTOCOL = 1
+INSTALLER_PROTOCOL = 2
 MAX_METADATA = 8 * 1024 * 1024
 MAX_PACKAGE = 512 * 1024 * 1024
 ALLOWED_HOSTS = {"api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"}
@@ -104,7 +104,7 @@ def latest_release() -> dict:
     minimum = manifest.get("minimum_installer_protocol")
     if isinstance(minimum, int) and minimum > INSTALLER_PROTOCOL:
         raise SetupError("新しい導入アプリが必要です。公式配布ページから取得して開き直してください。", "installer_outdated")
-    if (manifest.get("format") != 1 or minimum != INSTALLER_PROTOCOL or manifest.get("runtime_protocol") != 1
+    if (manifest.get("format") != 1 or type(minimum) is not int or minimum not in {1, INSTALLER_PROTOCOL} or manifest.get("runtime_protocol") != 1
             or manifest.get("platform") != sys.platform or manifest.get("architecture") != "x64"
             or manifest.get("release_tag") != tag or manifest.get("archive_sha256") != payload["sha256"]
             or manifest.get("archive_bytes") != payload["size"]

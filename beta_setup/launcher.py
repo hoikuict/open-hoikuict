@@ -24,7 +24,18 @@ def main() -> int:
     parser.add_argument("--home", type=Path)
     parser.add_argument("--bundle", type=Path)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--apply-server", type=Path)
+    parser.add_argument("--request-hash")
     args = parser.parse_args()
+    if args.apply_server:
+        if not args.request_hash:
+            return 2
+        from windows_setup.operations import execute_job
+        try:
+            execute_job(args.apply_server.resolve(), args.request_hash)
+            return 0
+        except Exception:
+            return 1
     frozen = bool(getattr(sys, "frozen", False))
     base = Path(sys.executable).resolve().parent if frozen else Path(__file__).resolve().parent
     home = target_path(str(args.home or default_home(base)))

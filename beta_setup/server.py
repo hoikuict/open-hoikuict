@@ -23,6 +23,8 @@ class SetupServer(ThreadingHTTPServer):
 
     def __init__(self, installer: Installer, port: int = 0):
         self.installer = installer
+        from windows_setup.manager import ServerManager
+        self.server_manager = ServerManager(installer)
         self.token = secrets.token_urlsafe(32)
         super().__init__(("127.0.0.1", port), Handler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -92,6 +94,17 @@ class Handler(BaseHTTPRequestHandler):
                            "problem": problem, "status": self.server.installer.snapshot()})
             elif path == "/api/status":
                 self.json({"ok": True, **self.server.installer.snapshot()})
+            elif path in {"/api/server/info", "/api/server/status", "/api/server/certificate"}:
+                try:
+                    manager = self.server.server_manager
+                    if path.endswith("/certificate"):
+                        self.respond(200, manager.certificate(), "application/x-x509-ca-cert")
+                    else:
+                        self.json({"ok": True, **(manager.info() if path.endswith("/info") else manager.status())})
+                except SetupError as exc:
+                    self.json({"ok": False, "message": str(exc), "code": exc.code}, 409)
+                except Exception:
+                    self.json({"ok": False, "message": "サーバーの導入情報を読み取れません。保存先と権限を確認してください。"}, 409)
             elif path == "/api/release":
                 try:
                     self.json({"ok": True, **self.server.installer.check_release()})
@@ -102,9 +115,10 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.json({"ok": False}, 404)
             return
-        files = {"/": ("index.html", "text/html; charset=utf-8"),
+        files = {"/": ("server-index.html", "text/html; charset=utf-8"),
                  "/style.css": ("style.css", "text/css; charset=utf-8"),
-                 "/wizard.js": ("wizard.js", "text/javascript; charset=utf-8")}
+                 "/views.js": ("views.js", "text/javascript; charset=utf-8"),
+                 "/wizard.js": ("server-wizard.js", "text/javascript; charset=utf-8")}
         if path not in files:
             self.json({"ok": False}, 404)
             return
@@ -132,6 +146,18 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/preflight":
                 self.json({"ok": True, **manager.preflight(payload)})
+            elif path == '/api/select':
+                from beta_setup.core import target_path
+                with manager.guard:
+                    if self.server.server_manager.busy or (manager.thread and manager.thread.is_alive()):
+                        raise SetupError('設定処理の完了を待ってください。', 'busy')
+                    root = target_path(payload.get('path', ''))
+                    if not installation(root):
+                        raise SetupError('導入済みの保存先を指定してください。', 'not_installed')
+                    if manager.app.running and manager.home != root:
+                        raise SetupError('起動中の試用アプリを停止してください。', 'busy')
+                    manager.home = root
+                    self.json({'ok': True, **self.server.server_manager.info()})
             elif path == "/api/install":
                 manager.begin(payload)
                 self.json({"ok": True}, 202)
@@ -139,7 +165,23 @@ class Handler(BaseHTTPRequestHandler):
                 manager.cancel.set()
                 self.json({"ok": True})
             elif path == "/api/launch":
-                self.json({"ok": True, **manager.launch(payload)})
+                self.json({"ok": True, **(self.server.server_manager.launch_url()
+                           if self.server.server_manager.state() else manager.launch(payload))})
+            elif path == "/api/server/check":
+                self.json({"ok": True, **self.server.server_manager.check(payload.get("kind"), payload.get("values", {}))})
+            elif path == "/api/server/draft":
+                self.server.server_manager.draft(payload)
+                self.json({"ok": True})
+            elif path == "/api/server/apply":
+                self.server.server_manager.begin(payload.get("operation"), payload.get("values", {}))
+                self.json({"ok": True}, 202)
+            elif path == "/api/server/cancel":
+                self.server.server_manager.cancel_job()
+                self.json({"ok": True})
+            elif path == "/api/server/drill":
+                self.json({"ok": True, **self.server.server_manager.drill()})
+            elif path == "/api/server/confirm":
+                self.json({"ok": True, **self.server.server_manager.confirm(payload)})
             elif path == "/api/stop":
                 with manager.guard:
                     if manager.thread and manager.thread.is_alive():

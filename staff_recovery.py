@@ -240,7 +240,8 @@ def dispatch_pending_staff_mail(session: Session) -> None:
         StaffMailDelivery.expires_at <= now, StaffMailDelivery.body != "",
     ).values(body="", status="expired").execution_options(synchronize_session=False))
     session.commit()
-    if staff_auth_mode() != "local_password" or mail_transport() not in {"smtp", "capture"}:
+    if (os.getenv("HOIKUICT_ACTION_MAIL_SUSPENDED") == "1"
+            or staff_auth_mode() != "local_password" or mail_transport() not in {"smtp", "capture"}):
         return
     ids = session.exec(select(StaffMailDelivery.id).where(*_claim_conditions(now)).limit(20)).all()
     for delivery_id in ids:

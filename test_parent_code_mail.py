@@ -50,6 +50,20 @@ def issue(pilot, account_id, action="activate"):
     return code
 
 
+def test_windows_public_stop_holds_action_mail_until_resumed(pilot, monkeypatch):
+    account_id = create_account(pilot)
+    issue(pilot, account_id)
+    with Session(pilot[1]) as session:
+        monkeypatch.setenv('HOIKUICT_ACTION_MAIL_SUSPENDED', '1')
+        parent_auth.dispatch_pending_parent_mail(session)
+        delivery = session.exec(select(ParentMailDelivery)).one()
+        assert delivery.status == 'pending' and delivery.attempt_count == 0
+        monkeypatch.setenv('HOIKUICT_ACTION_MAIL_SUSPENDED', '0')
+        parent_auth.dispatch_pending_parent_mail(session)
+        session.refresh(delivery)
+        assert delivery.status == 'captured'
+
+
 @pytest.mark.parametrize("action", ["activate", "reset"])
 def test_issued_code_mail_has_both_urls_and_can_set_password_then_login(pilot, monkeypatch, action):
     client, engine, _, _ = pilot

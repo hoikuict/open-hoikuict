@@ -74,7 +74,7 @@ class ReleaseTests(unittest.TestCase):
                 self.release = saved
 
     def test_incompatible_installer_and_manifest_tampering_are_rejected(self):
-        self.manifest["minimum_installer_protocol"] = 2
+        self.manifest["minimum_installer_protocol"] = releases.INSTALLER_PROTOCOL + 1
         self.refresh_assets()
         with self.assertRaises(SetupError) as error: self.latest()
         self.assertEqual(error.exception.code, "installer_outdated")

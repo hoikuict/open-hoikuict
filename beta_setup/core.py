@@ -246,7 +246,11 @@ def installation(root: Path) -> dict | None:
             raise ValueError
         if not 1024 <= int(data["port"]) <= 65535:
             raise ValueError
-        for relative in ("app/.env.beta.local", "app/hoikuict-beta-auth.db", "app/_beta_runtime.py"):
+        if data.get("server"):
+            from windows_setup.configuration import service_name
+            service_name(data["server"]["instance"])
+        config = "app/.env.beta.migrated" if data.get("server") else "app/.env.beta.local"
+        for relative in (config, "app/hoikuict-beta-auth.db", "app/_beta_runtime.py"):
             reject_links(root / relative)
             if not (root / relative).is_file():
                 raise ValueError
@@ -494,6 +498,8 @@ class Installer:
             data = installation(root)
             if data is None:
                 raise SetupError("導入先が見つかりません。", "not_installed")
+            if data.get("server"):
+                raise SetupError("この環境はWindowsサービスで動作しています。導入ホームから開いてください。", "server_managed")
             self.app.start(root, data["port"])
             self.home = root
             self.update(state="complete", progress=7, login=data.get("login", ""), port=data["port"],
