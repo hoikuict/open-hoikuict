@@ -79,6 +79,11 @@ validation:
 nav:
   - はじめに: index.md
   - デモを試す: https://demo.hoikuict.net/
+  - ダウンロード: download.md
+  - 利用開始マニュアル:
+      - start-manual.md
+      - 初期台帳のExcel準備・登録: initial-ledger-guide.md
+      - 保護者の利用停止・再開: parent-account-lifecycle.md
   - 詳しい資料:
       - technical-guide.md
       - 全体像・機能:
@@ -88,6 +93,10 @@ nav:
           - ライセンス・問い合わせ: license.md
       - 導入:
           - 導入方法を選ぶ: getting-started.md
+          - β版をかんたん導入: beta-quickstart.md
+          - β版の導入手順書: beta-installation.md
+          - β版導入（Windows 11）: beta-installation-windows.md
+          - β版導入（Ubuntu 24.04 LTS）: beta-installation-linux.md
           - ローカル環境の設定: environment-profiles.md
           - TrueNAS導入ガイド: truenas-beginner-installation-guide.md
           - TrueNAS初期構成の詳細: truenas-fresh-install.md

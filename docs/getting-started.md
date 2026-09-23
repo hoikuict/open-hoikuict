@@ -2,10 +2,13 @@
 
 画面を試すのか、認証・メールを確認するのか、サーバーを構築するのかを選びます。同じソースコードを使い、環境設定と保存先を分けます。
 
+Windowsの新しいPCで始める方は、[導入アプリのダウンロード](download.md)から[利用開始マニュアル](start-manual.md)へ進んでください。導入、Excelの初期台帳、保護者の利用開始まで順番に確認できます。
+
 | 目的 | 使う環境 | 最初に読むページ |
 | --- | --- | --- |
 | 手元で画面・業務の流れを確認 | development・モック認証・架空データ | [開発環境とテスト](development.md) |
-| 職員・保護者の登録やログインを確認 | development・ローカルパスワード認証・β専用DB | [ローカル環境の設定](environment-profiles.md) |
+| Windows 11／Ubuntu 24.04 LTSにβを新規導入 | development・ローカルパスワード認証・β専用DB | [β版の導入手順書](beta-installation.md) |
+| 既存のローカル環境で認証設定を確認 | development・ローカルパスワード認証 | [ローカル環境の設定](environment-profiles.md) |
 | TrueNASへ空の状態から導入 | production・HTTPS・SMTP・専用保存領域 | [TrueNAS導入ガイド](truenas-beginner-installation-guide.md) |
 | 稼働しているTrueNASを更新 | 現在のDB・秘密鍵・保存領域を継続使用 | [導入ガイドの更新手順](truenas-beginner-installation-guide.md#maintenance) |
 
@@ -21,6 +24,10 @@
 通常起動は業務デモデータを自動投入しません。空DBで職員選択に候補がない場合は、用途に応じてデモ投入またはローカル認証の初期管理者作成へ進みます。
 
 ## 認証を含めて試す
+
+Windowsでまず試す場合は、[かんたん導入](beta-quickstart.md)で名前・メールアドレス・パスワードを入力して始められます。
+
+手動で導入する場合は、[β版の導入手順書](beta-installation.md)に[Windows 11版](beta-installation-windows.md)と[Ubuntu 24.04 LTS版](beta-installation-linux.md)を用意しています。Python・Gitの準備から初期管理者の作成、起動・停止、停止中の退避・復旧まで順に進められます。まずは架空データを使うローカル試用が対象です。
 
 [ローカルβの設定](environment-profiles.md)で専用DBと固定の秘密鍵を準備し、CLIで初期管理者を作成します。その後、[アカウントガイド](accounts.md)に沿って職員と保護者の利用開始を確認します。
 

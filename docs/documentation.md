@@ -55,4 +55,8 @@ git diff --check
 
 ## 公開
 
-このリポジトリのCIにはドキュメントのstrictビルドを含めます。CIでの検査と公開サイトへの配備は別です。ローカルの編集・ビルドだけでは `open.hoikuict.net` は更新されません。公開担当者が配備先の手順で、承認した版を反映します。
+このリポジトリのCIにはドキュメントのstrictビルドを含めます。公開サイト `open.hoikuict.net` はCloudflare Pagesの `open-hoikuict` プロジェクトから配信しています。`main` に公開対象をプッシュすると、Cloudflare Pagesがビルド・配備します（2026年9月23日確認）。ローカルの編集・ビルドだけでは公開サイトは更新されません。
+
+公開時は対象ファイルを限定し、`python -m mkdocs build --strict` と差分を確認してからプッシュします。GitHubの対象コミットの **Cloudflare Pages** チェックが成功した後、公開URLを開き、本文・リンク・CSSの反映を確認します。CIの `test` とCloudflare Pagesの配備結果は別のチェックです。
+
+Windows導入アプリへのボタンは、公式GitHub Releasesの `releases/latest/download/OpenHoikuICT.exe` を参照します。配布版を更新するときは、公開するReleaseに同名の実行ファイルがあることと、[ダウンロードページ](download.md)の対応環境・版・サイズの説明を確認してください。

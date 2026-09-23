@@ -1,5 +1,7 @@
 # ローカル環境の設定
 
+初めて導入する場合は、[Windows 11版](beta-installation-windows.md)または[Ubuntu 24.04 LTS版](beta-installation-linux.md)でPython・Gitの準備から進められます。対象と確認項目は[β版の導入手順書](beta-installation.md)を参照してください。
+
 機能コードは共通とし、認証方式・DB・保存先・ポート・公開条件を環境設定で分けます。「β」は用途の名前で、`HOIKUICT_ENV=beta` という設定値はありません。使用できる値は `development`、`test`、`production` です。
 
 | 環境 | 用途 | 認証・配送 | DBの例 |

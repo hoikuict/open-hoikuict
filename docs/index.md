@@ -18,6 +18,11 @@ hide:
 
 <p class="welcome-demo-help">開いたら、おためし用の職員を選んで進めます。</p>
 
+[Windows用アプリをダウンロード](https://github.com/hoikuict/open-hoikuict/releases/latest/download/OpenHoikuICT.exe){ .home-button .home-button-secondary }
+[利用開始マニュアル](start-manual.md){ .home-button .home-button-secondary }
+
+<p class="welcome-demo-help">Windows 11 x64のPCで試せます。<a href="download/">対応PC・配布内容はこちら</a></p>
+
 <p class="welcome-note">デモは架空の園児やご家庭のデータを使っています。<br>実際のお子さんやご家庭の名前・連絡先は入力しないでください。</p>
 
 </div>
@@ -107,6 +112,8 @@ hide:
 パソコンやシステムに詳しい担当者の方と、一緒に準備を進めてください。
 
 導入の手順や詳しい機能の説明は、こちらにまとめています。
+
+[導入から初期台帳登録までのマニュアル](start-manual.md){ .welcome-technical-link }
 
 [導入・運用・開発を担当する方へ →](technical-guide.md){ .welcome-technical-link }
 
