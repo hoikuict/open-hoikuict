@@ -335,6 +335,7 @@ class GuidedSetupTests(unittest.TestCase):
     def test_mail_errors_distinguish_auth_connection_and_recipient_without_leaking(self):
         cases = [(preflight.smtplib.SMTPAuthenticationError(535, b'private server response'), 'smtp_auth_failed'),
                  (OSError('private connection detail'), 'smtp_connection_failed'),
+                 (preflight.smtplib.SMTPDataError(452, b'private quota response'), 'smtp_failed'),
                  (preflight.smtplib.SMTPRecipientsRefused({'secret@example.test': (550, b'private')}), 'smtp_recipient_failed')]
         for error, code in cases:
             with self.subTest(code=code), patch.object(preflight.smtplib, 'SMTP', side_effect=error):

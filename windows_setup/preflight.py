@@ -141,7 +141,11 @@ def check_mail(values: dict) -> dict:
         raise SetupError("メールの認証が認められませんでした。送信元と接続用パスワードを確認してください。", "smtp_auth_failed") from None
     except smtplib.SMTPRecipientsRefused:
         raise SetupError("確認メールの宛先が受け付けられませんでした。送信先を確認してください。", "smtp_recipient_failed") from None
-    except (OSError, smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected):
+    except (smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected):
+        raise SetupError("メールサーバーへ接続できませんでした。接続先・ポートとネットワークを確認してください。", "smtp_connection_failed") from None
+    except smtplib.SMTPException:
+        raise SetupError("メールサーバーが送信を受け付けませんでした。送信元・送信制限・STARTTLSの対応を確認してください。", "smtp_failed") from None
+    except OSError:
         raise SetupError("メールサーバーへ接続できませんでした。接続先・ポートとネットワークを確認してください。", "smtp_connection_failed") from None
     except Exception:
         raise SetupError("確認メールを送信できませんでした。サーバー名・ポート・認証情報を確認してください。", "smtp_failed") from None
