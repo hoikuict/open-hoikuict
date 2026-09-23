@@ -13,7 +13,7 @@ $taskOutput=[IO.Path]::GetFullPath($Output)
 if (Test-Path -LiteralPath $taskOutput) { throw 'Use a new output directory for each build.' }
 Push-Location $taskRoot
 try {
-    & $BuildPython -m unittest test_beta_setup test_beta_releases test_windows_server_setup
+    & $BuildPython -m unittest test_beta_setup test_beta_releases test_windows_server_setup test_atomic_file test_restore_runtime
     if ($LASTEXITCODE -ne 0) { throw 'Installer tests failed.' }
     $previousAclTest = $env:HOIKUICT_TEST_WINDOWS_ACL
     try {

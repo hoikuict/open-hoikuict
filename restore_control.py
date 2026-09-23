@@ -92,6 +92,7 @@ def read_json(path: Path, *, limit: int = 2_000_000) -> dict:
 
 
 def atomic_json(path: Path, value: dict) -> None:
+    from atomic_file import replace_file
     if path.is_symlink() or path.parent.is_symlink():
         raise RestoreError("復元処理の保存先が不正です。")
     temporary = path.parent / ("." + path.name + "." + uuid4().hex)
@@ -102,7 +103,7 @@ def atomic_json(path: Path, value: dict) -> None:
             output.write("\n")
             output.flush()
             os.fsync(output.fileno())
-        os.replace(temporary, path)
+        replace_file(temporary, path)
         if os.name != "nt":
             fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
             try:

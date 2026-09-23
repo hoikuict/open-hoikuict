@@ -131,6 +131,11 @@ class Operation:
         metadata = installation(self.source)
         if not metadata or metadata.get("server"):
             raise SetupError("この環境を新規のLAN設定へ切り替えられません。", "already_configured")
+        # Python's private Windows directory uses OWNER RIGHTS. A file created
+        # by the elevated helper is owned by Administrators, so that relative
+        # grant no longer identifies the operator. Pin the existing operator's
+        # SID before replacing any records in the trial directory.
+        platform.restrict_directory(self.source, owner_sid=self.request["owner_sid"])
         self.update("配布版と引継ぎ元を確認しています", 0)
         manifest = package_manifest(self.request)
         payload = self.source / ".server-setup" / ("download-" + manifest["archive_sha256"][:16]) / 'payload.zip'
@@ -222,19 +227,22 @@ class Operation:
             # trial data after the nursery begins using the copied live data.
             os.replace(self.source / "app/.env.beta.local", self.source / "app/.env.beta.migrated")
             self.record("retired_trial")
-            atomic_json(self.source / "installation.json", {**metadata, "server": {"instance": self.instance}})
             save_secrets(self.source / ".server-setup/controller.bin", {"instance": self.instance, "token": token})
             if lan["tls"] == "internal":
                 shutil.copyfile(self.root / "tls/pki/authorities/local/root.crt", self.source / ".server-setup/lan-root.crt")
             # An individual operator may inspect non-secret state, but never
             # write service binaries or protected settings.
             platform.powershell("""
-              $p=$v.path; $a=Get-Acl -LiteralPath $p
+              $directory=[IO.DirectoryInfo]::new($v.path)
+              $a=$directory.GetAccessControl([Security.AccessControl.AccessControlSections]::Access)
               $r=[Security.AccessControl.FileSystemAccessRule]::new(
                 [Security.Principal.SecurityIdentifier]::new($v.sid), 'ReadAndExecute',
                 'ContainerInherit,ObjectInherit','None','Allow')
-              $a.AddAccessRule($r); Set-Acl -LiteralPath $p -AclObject $a
+              $a.AddAccessRule($r); $directory.SetAccessControl($a)
             """, {"path": str(self.root), "sid": self.request["owner_sid"]})
+            # Publish only after the normal-user coordinator can read state
+            # and authenticate to the service, including while it is polling.
+            atomic_json(self.source / "installation.json", {**metadata, "server": {"instance": self.instance}})
             # HTTP requests remain gated until all migration metadata is durable.
             # Once ready exists, never return to the stale trial database.
             self.journal["state"] = "complete"

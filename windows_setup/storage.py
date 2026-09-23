@@ -10,6 +10,7 @@ import secrets
 import time
 
 from beta_setup.core import SetupError, reject_links
+from atomic_file import replace_file
 from windows_setup.model import public_values
 
 
@@ -22,7 +23,7 @@ def atomic_json(path: Path, value: dict) -> None:
             json.dump(value, stream, ensure_ascii=True, sort_keys=True, indent=2)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        replace_file(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -87,7 +88,7 @@ def save_secrets(path: Path, values: dict) -> None:
             stream.write(encrypted)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        replace_file(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
 
