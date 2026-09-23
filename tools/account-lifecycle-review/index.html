@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; script-src 'self'; style-src 'self'; form-action 'none'; base-uri 'none'">
+  <title>確認用｜アカウントの利用停止・再開</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section class="review-bar" aria-label="確認用モックの設定">
+    <div class="review-heading"><strong>仕様確認用モック</strong><span>架空データのみ。本番未反映。保存・メール送信はこのタブ内での再現です。</span><button id="show-candidates" class="plain">他の一本化候補を見る</button></div>
+    <div class="review-controls">
+      <label>アカウントの場面<select id="scenario"><option value="stopped">一時停止中</option><option value="active">利用中</option><option value="legacy">従来の「有効／認証停止中」</option><option value="pending">再開手続き待ち</option><option value="unregistered">未登録・初回設定前</option><option value="review">初回登録の確認待ち</option><option value="security">再設定が必要な停止</option><option value="removed">メールアドレス削除済み</option></select></label>
+      <label>入力・保存の状態<select id="input-mode"><option value="empty">未入力</option><option value="filled">入力済み</option><option value="partial">一部入力</option><option value="error">保存時にエラー</option></select></label>
+      <label>試す権限<select id="actor"><option value="admin">管理者</option><option value="ledger">台帳担当（認証操作不可）</option></select></label>
+      <button id="reset">初期状態に戻す</button><button id="simulate-login">保護者の再ログインを試す</button><button id="complete-password" hidden>メール受信後の設定完了を再現</button>
+    </div>
+    <p id="review-result" role="status" aria-live="polite">通常の再開はパスワードを維持します。過去のログイン状態・通知登録は復活しません。</p>
+  </section>
+  <div class="layout">
+    <aside class="sidebar"><div class="brand">open-hoikuict<small>見本の保育園</small></div><p class="muted small">管理者・見本 花子</p><p class="nav-caption">基本業務</p><div class="nav-placeholder">園児一覧</div><div class="nav-placeholder">家族・兄弟姉妹の管理</div><p class="nav-caption">アカウント</p><nav><a href="#list" data-page="list">保護者アカウント</a></nav><div class="sidebar-note">このモックの対象<br>一覧・保護者情報編集・認証管理</div></aside>
+    <main id="main">
+      <nav class="page-tabs" aria-label="対象画面"><a href="#list" data-page="list">一覧</a><a href="#edit" data-page="edit">保護者情報</a><a href="#auth" data-page="auth">認証管理</a></nav>
+      <div id="feedback" role="status" aria-live="polite" hidden></div>
+      <div id="app"></div>
+    </main>
+  </div>
+  <dialog id="confirmation" aria-labelledby="confirm-title"><h2 id="confirm-title"></h2><div id="confirm-body"></div><div class="actions"><button id="back-to-form">修正に戻る</button><button id="execute" class="primary">確定する</button></div></dialog>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>

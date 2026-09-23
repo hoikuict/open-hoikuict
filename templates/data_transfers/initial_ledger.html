@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Excelから初期台帳を登録 | open-hoikuict{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/initial-ledger.css">
+<div id="initial-ledger">
+<p><a href="/data-transfers/">インポート・エクスポートへ戻る</a></p>
+<h1>Excelから、はじめの台帳をつくる</h1>
+{% if request.state.initial_ledger_trial|default(false) %}<div class="ledger-warnings"><strong>初期取り込みの試用環境</strong><p>登録すると、このPCの試用専用台帳に実際に保存されます。</p><form action="/trial/preview" method="post"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}"><button type="submit">架空の3人で取り込みを試す</button></form></div>{% endif %}
+<p>園児1人につき1行。家庭と保護者①②の情報を、いつもの名簿から貼り付けます。</p>
+<p class="ledger-note">台帳を登録します。保護者ログイン用アカウントは後から作成します。</p>
+{% if receipt %}<div class="ledger-success" role="status"><h2>台帳の登録が完了しました</h2><p>園児 {{ receipt.created_count }}人を登録しました。アカウント作成・招待メール送信は行っていません。</p><a href="/children/">園児台帳で確認する</a> ／ <a href="/families/">家庭台帳で確認する</a></div>{% endif %}
+<section><h2>1. Excelを用意する</h2><p>入力用シートの5行目から、値のみ貼り付けてください。園児整理番号・家庭整理番号・家庭名は入力不要です。</p><p>きょうだいは任意の「きょうだいグループ」に同じ文字を入力します。空欄なら園児ごとに別家庭です。</p><a class="ledger-button" href="/initial-ledger/template.xlsx">入力用Excelをダウンロード</a>
+<form action="/initial-ledger/preview" method="post" enctype="multipart/form-data" class="ledger-upload"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}"><label>Excelファイル<input type="file" name="file" accept=".xlsx" required></label><button type="submit">読み込んで確認する</button></form><p class="ledger-help">「入力用」だけを読み込みます。「記入例」は登録されません。最大1000人・20MB。同じ内容の再取り込みは重複登録しません。</p></section>
+{% if plan %}
+<section><h2>2. 読み込んだ内容を確認する</h2><p>{{ plan.filename }}</p>
+{% if plan.already_imported %}<div class="ledger-success" role="status">この内容は取り込み済みです。追加登録は行いません。<a href="/initial-ledger/?receipt={{ plan.receipt_id }}">登録結果を確認する</a></div>{% else %}
+<div class="ledger-counts"><div>園児<strong>{{ plan.children|length }}人</strong></div><div>家庭<strong>{{ plan.families|length }}件</strong></div><div>クラス<strong>{{ plan.classes|length }}件</strong></div><div>エラー<strong>{{ plan.errors|length }}件</strong></div></div>
+{% if plan.classes %}<p class="ledger-help">{% for classroom in plan.classes %}{{ classroom.name }}：{{ '登録済みを使用' if classroom.existing_id else '新規作成' }}{% if not loop.last %} ／ {% endif %}{% endfor %}</p>{% endif %}
+{% for title, messages, style in [('修正が必要です', plan.errors, 'ledger-errors'), ('原本で確認してください', plan.warnings, 'ledger-warnings')] %}{% if messages %}<div class="{{ style }}" role="status"><strong>{{ title }}</strong><ul>{% for message in messages %}<li>{% if message.row_number %}<button type="button" class="ledger-issue" data-line="{{ message.row_number }}" data-column="{{ message.column }}">{{ message.row_number }}行目／{{ message.column }}：{{ message.message }}</button>{% else %}{{ message.column }}：{{ message.message }}{% endif %}</li>{% endfor %}</ul></div>{% endif %}{% endfor %}
+{% if plan.preview_token %}
+<form id="ledger-edit-form" action="/initial-ledger/repreview" method="post"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}"><input type="hidden" name="preview_token" value="{{ plan.preview_token }}"><input type="hidden" name="rows_json" id="ledger-rows-json">
+<div class="ledger-editor-nav"><label>編集する園児<select id="ledger-child-select"></select></label><button type="button" id="ledger-add-row">園児を1行追加</button><button type="button" id="ledger-remove-row">選択した行を除外</button></div><div id="ledger-editor"></div><p id="ledger-dirty" class="ledger-warnings" hidden>編集内容を再確認してください。番号と家庭名は再確認後に更新されます。</p><button type="submit" id="ledger-recheck">編集内容を再確認する</button></form>
+<script id="ledger-page-data" type="application/json">{{ {'rows':plan.rows,'children':plan.children,'fields':fields,'groups':groups}|tojson }}</script>
+{% endif %}
+{% endif %}</section>
+{% if not plan.already_imported %}
+<section><h2>3. 家庭のまとめ方を確認する</h2><div class="ledger-table"><table><thead><tr><th>家庭整理番号（自動）</th><th>家庭名（自動）</th><th>園児と園児整理番号</th><th>保護者①②</th></tr></thead><tbody>{% for family in plan.families %}<tr><td>F-{{ '%05d'|format(family.id) }}</td><td>{{ family.name }}</td><td>{% for child in family.children %}<div>{{ child['姓'] }} {{ child['名'] }}（C-{{ '%05d'|format(child.id) }}）</div>{% endfor %}</td><td>{% for guardian in family.guardians %}<div>{{ guardian.last_name }} {{ guardian.first_name }}</div>{% else %}未入力{% endfor %}</td></tr>{% else %}<tr><td colspan="4">まだ家庭データがありません。</td></tr>{% endfor %}</tbody></table></div><p class="ledger-help">同じ家庭の先頭行の園児の姓を使います。同姓の別家庭がある場合は姓名、姓名も重なる場合は番号を添えます。登録済みの家庭は変更しません。</p>
+{% if plan.can_commit and plan.preview_token %}<button type="button" id="ledger-review">登録内容の最終確認へ</button>{% endif %}
+</section>
+{% if plan.can_commit and plan.preview_token %}<section id="ledger-confirmation" hidden><h2>この内容で台帳を登録します</h2><p>園児{{ plan.children|length }}人・家庭{{ plan.families|length }}件と必要なクラスを登録します。途中で保存できなければ、今回の登録をすべて取り消します。</p><form action="/initial-ledger/commit" method="post" id="ledger-commit-form"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}"><input type="hidden" name="preview_token" value="{{ plan.preview_token }}"><label class="ledger-check"><input type="checkbox" name="confirmed" value="yes" id="ledger-agree" required>人数・家庭のまとまり・確認事項を確認しました</label><button type="submit" id="ledger-commit" disabled>台帳に登録する</button><button type="button" id="ledger-back">修正に戻る</button></form></section>{% endif %}
+{% endif %}
+{% if plan.preview_token %}<form action="/initial-ledger/cancel" method="post"><input type="hidden" name="csrf_token" value="{{ request.state.csrf_token|default('') }}"><input type="hidden" name="preview_token" value="{{ plan.preview_token }}"><button type="submit">今回の読み込みを取り消す</button></form>{% endif %}
+{% endif %}
+<p class="ledger-help">初回登録用です。登録済み園児を変更する場合は園児台帳から編集してください。画面での修正は元のExcelに書き戻しません。</p>
+</div><script src="/static/js/initial-ledger.js" defer></script>
+{% endblock %}

@@ -31,6 +31,7 @@ from models import (
     ProfileChangeNotification,
 )
 from parent_auth import cancel_open_parent_registrations, list_pending_parent_registrations, suspend_parent_authentication
+from parent_account_lifecycle import parent_lifecycle_state, parent_lifecycle_states
 from time_utils import utc_now
 
 router = APIRouter(prefix="/parent-accounts", tags=["parent_accounts"])
@@ -165,6 +166,7 @@ def parent_account_list(
         {
             "request": request,
             "accounts": accounts,
+            "lifecycle_states": parent_lifecycle_states(session, accounts),
             "notifications": notifications,
             "pending_registrations": pending_registrations,
             "parent_mock_login_available": parent_auth_is_mock(),
@@ -305,6 +307,7 @@ def edit_parent_account_form(
             "selected_family_id": account.family_id if account.family_id else "",
             "action_url": f"/parent-accounts/{account_id}/edit",
             "submit_label": "更新する",
+            "lifecycle": parent_lifecycle_state(session, account),
             "current_user": current_user,
             "status_options": list(ParentAccountStatus),
         },
@@ -321,7 +324,7 @@ def update_parent_account(
     workplace: str = Form(""),
     workplace_address: str = Form(""),
     workplace_phone: str = Form(""),
-    status: str = Form("active"),
+    status: str | None = Form(None),
     family_id: str = Form(""),
     guardian_link: str | None = Form(default=None),
     registration_verification_name: str = Form(""),
@@ -332,6 +335,8 @@ def update_parent_account(
 ):
     require_child_record_manager(current_user)
     account = _load_account(session, account_id)
+    if parent_auth_is_local_password() and status is not None and status != account.status.value:
+        raise HTTPException(400, "利用停止・再開は認証管理から操作してください。保護者情報は変更されていません。")
     email = validate_parent_contact_email(session, email, account.id)
     previous_address = account.home_address
     old_family_id = account.family_id
@@ -342,9 +347,9 @@ def update_parent_account(
     )
 
     try:
-        normalized_status = ParentAccountStatus(status)
+        normalized_status = ParentAccountStatus(status) if status is not None else account.status
     except ValueError:
-        normalized_status = ParentAccountStatus.active
+        raise HTTPException(400, "状態が正しくありません")
 
     account.display_name = display_name.strip()
     account.email = email.strip()
@@ -379,7 +384,7 @@ def update_parent_account(
         )
     ):
         cancel_open_parent_registrations(session, account.id)
-    if account.status == ParentAccountStatus.inactive:
+    if not parent_auth_is_local_password() and account.status == ParentAccountStatus.inactive:
         suspend_parent_authentication(
             session,
             account,

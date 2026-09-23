@@ -124,6 +124,8 @@ def prepare_enrollment(
     child_name: str,
     child_id: int | None = None,
     guardian_order: int | None = None,
+    *,
+    allow_stopped: bool = False,
 ) -> ParentEnrollment:
     child_name = child_name.strip()
     if not child_name or len(child_name) > 200:
@@ -134,7 +136,7 @@ def prepare_enrollment(
             PasswordCredential.principal_type == "parent",
         )
     ).first()
-    if account.status != ParentAccountStatus.active or (
+    if (account.status != ParentAccountStatus.active and not allow_stopped) or (
         credential and credential.password_hash
     ):
         raise ValueError("利用開始済み・停止中のアカウントには初回入力を依頼できません")

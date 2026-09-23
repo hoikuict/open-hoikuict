@@ -44,6 +44,8 @@ python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 ## 導入・運用
 
+- [β版をかんたん導入](docs/beta-quickstart.md)：Windows試用アプリで入力から起動まで進める
+- [β版の導入手順書](docs/beta-installation.md)：[Windows 11版](docs/beta-installation-windows.md)／[Ubuntu 24.04 LTS版](docs/beta-installation-linux.md)（架空データでのローカル試用）
 - [TrueNASへの導入ガイド](docs/truenas-beginner-installation-guide.md)と[初期構成の詳細](docs/truenas-fresh-install.md)
 - [職員・保護者のアカウント](docs/accounts.md)、[共通QR登録](docs/parent-public-registration.md)
 - [日々の業務](docs/daily-work.md)、[通知ガイド](docs/notifications.md)、[家庭・園児CSV](docs/family-guardian-csv-guide.md)

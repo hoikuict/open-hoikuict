@@ -62,6 +62,7 @@ exclude_docs: |
   /beta-implementation-policy-review-2026-09-05.md
   /competitive-differentiation-analysis-2026-09-05.md
   /comprehensive-project-review-2026-09-05.md
+  /daily-retrospective-2026-09-23.md
   /kernel-main-consistency-review-2026-09-05.md
   /next-direction-discussion-2026-09-06.md
   /next-validation-milestone-2026-09-05.md
@@ -162,6 +163,16 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-09-23 園内接続・Gmail案内の仕様: windows-lan-guide-proposal-2026-09-23.md
+          - 2026-09-23 Windows段階導入の仕様: windows-server-installer-proposal-2026-09-23.md
+          - 2026-09-23 GitHubからの導入アプリ: github-installer-2026-09-23.md
+          - 2026-09-23 保護者の停止・再開の本番更新: deployment-parent-lifecycle-2026-09-23.md
+          - 2026-09-23 保護者の停止・再開の実装: account-lifecycle-unification-implementation-2026-09-23.md
+          - 2026-09-23 保護者の停止・再開の仕様: account-lifecycle-unification-proposal-2026-09-23.md
+          - 2026-09-23 家族の紐づけと認証状態の調査: account-unlink-investigation-2026-09-23.md
+          - 2026-09-22 初期台帳取込の本番更新: deployment-initial-ledger-2026-09-22.md
+          - 2026-09-22 初期台帳取込の実装: initial-ledger-import-implementation-2026-09-22.md
+          - 2026-09-22 初期台帳取込の仕様: initial-ledger-import-proposal-2026-09-22.md
           - 2026-09-22 mainへの変更統合: main-integration-2026-09-22.md
           - 2026-09-22 家庭一覧アーカイブの本番更新: deployment-family-archive-list-only-2026-09-22.md
           - 2026-09-22 家庭一覧アーカイブの実装: family-archive-list-only-implementation-2026-09-22.md

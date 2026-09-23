@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>オープン保育ICT — かんたん導入</title>
+  <link rel="stylesheet" href="style.css"><script src="wizard.js" defer></script>
+</head>
+<body>
+  <header class="brand"><span class="brand-mark" aria-hidden="true">育</span><div>オープン保育ICT<small>かんたん導入</small></div><span class="beta-tag">β版・試用</span></header>
+  <main class="layout">
+    <aside class="guide"><p class="eyebrow">はじめる準備を、ひとつずつ。</p><h1>検証済みの最新版を、<br>このPCへ。</h1><p>GitHubから必要なものを<br>まとめて取り寄せます。</p><ol id="steps" aria-label="導入の手順"></ol><div class="guide-note">まずはこのPCだけで試用します。<br>実在する園児や家庭の情報は、入力せずにお試しください。</div></aside>
+    <section class="card" id="wizard" aria-label="導入ウィザード"><h2>読み込み中です</h2></section>
+  </main>
+  <footer class="page-footer">Windows 11 x64 ・ ローカル試用版<br>この画面は実際にインストールを行います。<br><button type="button" id="exit" class="link-button">アプリを停止して終了する</button></footer>
+  <dialog id="cancel-dialog" aria-labelledby="cancel-title"><h2 id="cancel-title">いったん中断しますか？</h2><p>実行中の場合は、処理の区切りまで待ってから中断します。確定前の準備用フォルダーだけを片付けます。</p><div class="buttons"><button type="button" id="keep-working" class="secondary">続ける</button><button type="button" id="confirm-cancel" class="primary">中断する</button></div></dialog>
+  <dialog id="exit-dialog" aria-labelledby="exit-title"><h2 id="exit-title">アプリを終了しますか？</h2><p>起動中の保育ICTを停止して、この導入アプリを終了します。入力中の情報は保存しません。</p><div class="buttons"><button type="button" id="keep-open" class="secondary">戻る</button><button type="button" id="confirm-exit" class="primary">停止して終了</button></div></dialog>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+  <title>園内接続をひとつずつ — 操作モック</title>
+  <link rel="stylesheet" href="base.css"><link rel="stylesheet" href="preview.css">
+  <link rel="stylesheet" href="guide.css">
+  <script src="wizard.js" defer></script><script src="guide.js" defer></script>
+</head>
+<body>
+  <div class="review-tools" aria-label="モックの試用設定">
+    <div><strong>操作確認用モック</strong><span>架空のデータです。PC設定の変更・メール送信・外部公開は行いません。<br>本物のパスワードや接続用トークンは入力しないでください。</span></div>
+    <div class="review-selects">
+      <label for="fixture">試す状態<select id="fixture">
+        <option value="empty" selected>園内接続・未入力</option><option value="partial">園内接続・一部入力</option><option value="filled">園内接続・入力済み</option>
+        <option value="mail-empty">メール・未入力</option><option value="mail-partial">Gmail・準備の途中</option><option value="mail-filled">Gmail・入力済み</option>
+        <option value="local">このPCへの導入済み</option><option value="lan">園内LANで利用中</option><option value="public">園外からも利用中</option>
+      </select></label>
+      <label for="fault">試すエラー<select id="fault">
+        <option value="none">エラーなし</option><option value="download">ダウンロード失敗</option><option value="port">ポート使用中</option>
+        <option value="dns">園内の名前が見つからない</option><option value="token">証明書用トークンの権限不足</option><option value="ip">PCのIPアドレスが変わった</option><option value="mail">メール接続失敗</option><option value="backup">バックアップ先に保存不可</option>
+        <option value="gmail-auth">Gmailで認証できない</option>
+        <option value="admin">Windowsの管理者許可なし</option><option value="lan">LAN構築の途中で失敗</option><option value="tunnel">園外接続の設定失敗</option>
+      </select></label>
+    </div>
+  </div>
+  <header class="brand"><span class="brand-mark" aria-hidden="true">育</span><div>オープン保育ICT<small>Windows かんたん導入</small></div><span class="beta-tag">提案・動作は模擬</span></header>
+  <main class="layout">
+    <aside class="guide"><p class="eyebrow">使う範囲を、ひとつずつ。</p><h1>このPCから、<br>園内、そして園外へ。</h1><p id="guide-text">同じアプリで、導入から<br>接続の管理まで進めます。</p><ol id="steps" aria-label="導入の手順"></ol><div class="guide-note">アプリの設定は最後に適用します。ルーターなどで手動保存した設定は、その時点で反映されます。</div></aside>
+    <section class="card" id="wizard" aria-label="導入ウィザード"></section>
+  </main>
+  <footer class="page-footer">これは画面の確認用です。入力と処理結果は、このページを開いている間だけ保持します。<br>版番号・IPアドレス・確認結果は例です。ページを閉じると初期状態に戻ります。</footer>
+  <dialog id="help-dialog" aria-labelledby="help-title"><h2 id="help-title">担当者に渡す相談内容</h2><p>この内容を園の担当者に渡せます。自動では送信しません。</p><label for="help-text">依頼文（選択してコピーできます）</label><textarea id="help-text" rows="10" readonly></textarea><p class="subtle">本物のパスワード・トークンは含めないでください。</p><button type="button" id="help-close" class="primary">案内に戻る</button></dialog>
+  <dialog id="dialog" aria-labelledby="dialog-title"><h2 id="dialog-title"></h2><p id="dialog-message"></p><div class="buttons"><button class="secondary" id="dialog-back" type="button">戻る</button><button class="primary" id="dialog-confirm" type="button"></button></div></dialog>
+</body>
+</html>
