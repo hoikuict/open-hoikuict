@@ -143,7 +143,9 @@ def install_service(code: Path, root: Path, instance: str) -> None:
     run([str(wrapper), "install"])
     sc = str(Path(os.environ["SystemRoot"]) / "System32/sc.exe")
     # A virtual account has no password and no administrator membership.
-    run([sc, "config", name, "obj=", "NT SERVICE\\" + name, "password=", ""])
+    # Virtual accounts require a NULL password in ChangeServiceConfig, not an
+    # empty password string. Omitting password= makes sc.exe pass NULL.
+    run([sc, "config", name, "obj=", "NT SERVICE\\" + name])
     run([sc, "sidtype", name, "unrestricted"])
     restrict_directory(code, service=name)
     restrict_directory(root, service=name, writable=True)

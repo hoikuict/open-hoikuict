@@ -176,6 +176,14 @@ class ServerSetupTests(unittest.TestCase):
                 operations.extract_verified_payload(payload, self.root / 'code', {'archive_sha256': '0'*64})
             run.assert_not_called()
 
+    def test_virtual_service_account_uses_no_password_parameter(self):
+        with patch.object(platform, 'service_state', return_value={'exists': False}), \
+                patch.object(platform, 'restrict_directory'), patch.object(platform, 'run') as run:
+            platform.install_service(self.root / 'code', self.root / 'data', INSTANCE)
+        config = next(call.args[0] for call in run.call_args_list if 'config' in call.args[0])
+        self.assertEqual(config[config.index('obj=') + 1], 'NT SERVICE\\' + configuration.service_name(INSTANCE))
+        self.assertNotIn('password=', config)
+
     def test_request_hash_and_expiration_precede_mutations(self):
         request_file = self.root / '.server-setup/jobs' / ('f'*32) / 'request.bin'
         request_file.parent.mkdir(parents=True); request_file.write_bytes(b'opaque')

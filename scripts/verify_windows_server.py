@@ -95,7 +95,7 @@ def main():
                     input=(json.dumps(values)+'\n').encode(), capture_output=True, cwd=trial, env=clean_environment(), timeout=120)
     assert initialized.returncode == 0 and json.loads(initialized.stdout.splitlines()[-1])['ok'], 'Fictional initialization failed'
     print('Fictional trial initialized', flush=True)
-    data.mkdir()
+    data.mkdir(parents=True)
     if args.service: platform.restrict_directory(data)
     keys = migrate(source, data)
     for name in ('config', 'logs', 'restore-control', 'restore-staging', 'restore-drills', 'tls'):
@@ -148,6 +148,8 @@ def main():
             (code/'service.xml').write_text(service_xml(code, data, identifier), encoding='utf-8')
             registered = True
             platform.install_service(code, data, identifier)
+            account = platform.service_state(identifier)['account']
+            assert account.casefold() == ('NT SERVICE\\' + platform.service_name(identifier)).casefold(), account
         process = start(); wait_healthy(data, token)
         cert = data / 'tls/pki/authorities/local/root.crt'
         deadline = time.monotonic()+30
