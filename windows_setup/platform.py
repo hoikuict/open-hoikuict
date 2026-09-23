@@ -50,7 +50,9 @@ def network_adapters() -> list[dict]:
       foreach($a in $n.IPv4Address) {
         if($a.IPAddress -notlike '169.254.*' -and $a.IPAddress -ne '127.0.0.1') {
           [pscustomobject]@{id=[string]$n.InterfaceIndex; name=$n.InterfaceAlias;
-            ip=$a.IPAddress; prefix=$a.PrefixLength; private=($p.NetworkCategory -eq 'Private')}
+            ip=$a.IPAddress; prefix=$a.PrefixLength; private=($p.NetworkCategory -eq 'Private');
+            pcName=$env:COMPUTERNAME; mac=$n.NetAdapter.MacAddress;
+            gateway=(@($n.IPv4DefaultGateway.NextHop) -join ', ')}
         }
       }
     }); ConvertTo-Json -InputObject $items -Compress

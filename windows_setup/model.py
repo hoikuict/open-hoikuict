@@ -14,12 +14,12 @@ LAN_FIELDS = frozenset({
     "facility", "adapter", "ip", "subnet", "ipReserved", "tls", "hostname",
     "localHostname", "dnsToken", "dnsReady", "smtpHost", "smtpPort", "smtpUser",
     "smtpPassword", "mailFrom", "testRecipient", "backupPath", "backupTime",
-    "retention", "noSleep",
+    "retention", "noSleep", "mailProvider",
 })
 CHECK_FIELDS = {
     "pc": {"facility", "adapter"},
     "dns": {"adapter", "ip", "subnet", "ipReserved", "tls", "hostname", "localHostname", "dnsToken", "dnsReady"},
-    "mail": {"smtpHost", "smtpPort", "smtpUser", "smtpPassword", "mailFrom", "testRecipient"},
+    "mail": {"smtpHost", "smtpPort", "smtpUser", "smtpPassword", "mailFrom", "testRecipient", "mailProvider"},
     "backup": {"backupPath"},
     "tunnel": {"publicHostname", "tunnelToken"},
 }
@@ -103,6 +103,9 @@ def network(values: dict) -> dict:
 
 
 def normalize_mail(values: dict) -> dict:
+    provider = text(values, "mailProvider", required=False)
+    if provider not in {"", "custom", "gmail"}:
+        raise SetupError("使うメールの種類を選んでください。", "smtp_invalid")
     host = text(values, "smtpHost")
     if not re.fullmatch(r"[A-Za-z0-9.-]+", host):
         raise SetupError("メールサーバー名を確認してください。", "smtp_invalid")
@@ -116,6 +119,13 @@ def normalize_mail(values: dict) -> dict:
               "testRecipient": email(text(values, "testRecipient"))}
     if bool(result["smtpUser"]) != bool(result["smtpPassword"]):
         raise SetupError("メール認証を使う場合はIDとパスワードの両方を入力してください。", "smtp_invalid")
+    if provider == "gmail":
+        if host.lower() != "smtp.gmail.com" or int(port) != 587 or result["smtpUser"] != result["mailFrom"]:
+            raise SetupError("Gmailの接続先と送信元を確認してください。", "smtp_invalid")
+        result["smtpPassword"] = result["smtpPassword"].replace(" ", "")
+        if not re.fullmatch(r"[A-Za-z0-9]{16}", result["smtpPassword"]):
+            raise SetupError("Googleで発行した16文字のアプリパスワードを入力してください。", "gmail_password_invalid")
+    result["mailProvider"] = provider
     return result
 
 

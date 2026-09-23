@@ -115,15 +115,39 @@ class DraftStore:
         record = read_json(self.path, limit=65536)
         if record.get("format") != 1:
             raise SetupError("下書きの形式が未対応です。", "draft_invalid")
-        return {"flow": record["flow"], "step": record["step"],
-                "values": public_values(record.get("values", {}))}
+        flow, step = record.get("flow"), record.get("step")
+        self.validate_position(flow, step)
+        return {"flow": flow, "step": step, "guide": self.guide_position(record.get("guide", {})),
+                "values": self.sanitized_values(record.get("values", {}))}
 
-    def save(self, flow: str, step: int, values: dict) -> None:
+    @staticmethod
+    def validate_position(flow: str, step: int) -> None:
         if flow not in {"home", "lan", "public"} or type(step) is not int or not 0 <= step <= 5:
             raise SetupError("下書きの指定が不正です。", "draft_invalid")
+
+    @staticmethod
+    def guide_position(guide: dict) -> dict:
+        if not isinstance(guide, dict):
+            raise SetupError("下書きの手順が不正です。", "draft_invalid")
+        result = {}
+        for key, maximum in (("netStep", 7), ("tokenStep", 2), ("mailStep", 4)):
+            value = guide.get(key, 0)
+            if type(value) is not int or not 0 <= value <= maximum:
+                raise SetupError("下書きの手順が不正です。", "draft_invalid")
+            result[key] = value
+        return result
+
+    @staticmethod
+    def sanitized_values(values: dict) -> dict:
+        if not isinstance(values, dict):
+            raise SetupError("下書きの形式が不正です。", "draft_invalid")
         from windows_setup.model import LAN_FIELDS
-        allowed = LAN_FIELDS | {"publicHostname"}
-        sanitized = {key: value for key, value in public_values(values).items()
-                     if key in allowed and (type(value) is bool or isinstance(value, str) and len(value) <= 2048)}
+        allowed = LAN_FIELDS | {"publicHostname", "networkConfirmed", "domainReady", "trustPlan", "googleReady"}
+        return {key: value for key, value in public_values(values).items()
+                if key in allowed and (type(value) is bool or isinstance(value, str) and len(value) <= 2048)}
+
+    def save(self, flow: str, step: int, values: dict, guide: dict | None = None) -> None:
+        self.validate_position(flow, step)
         atomic_json(self.path, {"format": 1, "flow": flow, "step": step,
-                                "values": sanitized, "saved_at": time.time()})
+                                "guide": self.guide_position({} if guide is None else guide),
+                                "values": self.sanitized_values(values), "saved_at": time.time()})

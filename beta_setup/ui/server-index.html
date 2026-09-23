@@ -3,15 +3,16 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>オープン保育ICT — Windows かんたん導入</title>
-  <link rel="stylesheet" href="style.css"><script src="views.js" defer></script><script src="wizard.js" defer></script>
+  <link rel="stylesheet" href="style.css"><script src="views.js" defer></script><link rel="stylesheet" href="guide.css"><script src="guided.js" defer></script><script src="guide-actions.js" defer></script><script src="wizard.js" defer></script>
 </head>
 <body>
   <header class="brand"><span class="brand-mark" aria-hidden="true">育</span><div>オープン保育ICT<small>Windows かんたん導入</small></div><span class="beta-tag">このPC → 園内 → 園外</span></header>
   <main class="layout">
-    <aside class="guide"><p class="eyebrow">使う範囲を、ひとつずつ。</p><h1>このPCから、<br>園内、そして園外へ。</h1><p>同じアプリで、導入から<br>接続の管理まで進めます。</p><ol id="steps" aria-label="導入の手順"></ol><div class="guide-note">確認画面で実行するまでは、利用範囲を変更しません。</div></aside>
+    <aside class="guide"><p class="eyebrow">使う範囲を、ひとつずつ。</p><h1>このPCから、<br>園内、そして園外へ。</h1><p>同じアプリで、導入から<br>接続の管理まで進めます。</p><ol id="steps" aria-label="導入の手順"></ol><div class="guide-note">アプリの設定は最後に適用します。ルーターなどで手動保存した設定は、その時点で反映されます。</div></aside>
     <section class="card" id="wizard" aria-label="導入ウィザード"><h2>導入状態を確認しています</h2></section>
   </main>
   <footer class="page-footer">Windows 11 x64 ・ この画面は実際の導入・接続設定を行います。<br>園内サーバーは、この画面を閉じた後も動作します。<br><button type="button" class="link-button" id="exit">導入アプリを終了</button></footer>
+  <dialog id="help-dialog" aria-labelledby="help-title"><h2 id="help-title">担当者に渡す相談内容</h2><p>この内容を園の担当者に渡せます。自動では送信しません。</p><label for="help-text">依頼文（選択してコピーできます）</label><textarea id="help-text" rows="10" readonly></textarea><p class="subtle">本物のパスワード・トークンは含めないでください。</p><button type="button" id="help-close" class="primary">案内に戻る</button></dialog>
   <dialog id="dialog" aria-labelledby="dialog-title"><h2 id="dialog-title"></h2><p id="dialog-message"></p><div class="buttons"><button class="secondary" id="dialog-back" type="button">戻る</button><button class="primary" id="dialog-confirm" type="button"></button></div></dialog>
 </body>
 </html>

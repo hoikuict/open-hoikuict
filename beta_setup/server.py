@@ -118,7 +118,10 @@ class Handler(BaseHTTPRequestHandler):
         files = {"/": ("server-index.html", "text/html; charset=utf-8"),
                  "/style.css": ("style.css", "text/css; charset=utf-8"),
                  "/views.js": ("views.js", "text/javascript; charset=utf-8"),
-                 "/wizard.js": ("server-wizard.js", "text/javascript; charset=utf-8")}
+                 "/wizard.js": ("server-wizard.js", "text/javascript; charset=utf-8"),
+                 "/guided.js": ("guided.js", "text/javascript; charset=utf-8"),
+                 "/guide-actions.js": ("guide-actions.js", "text/javascript; charset=utf-8"),
+                 "/guide.css": ("guide.css", "text/css; charset=utf-8")}
         if path not in files:
             self.json({"ok": False}, 404)
             return

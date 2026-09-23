@@ -135,6 +135,18 @@ class ServerManager:
         with self.guard:
             if self.busy:
                 raise SetupError("設定処理の完了を待ってください。", "busy")
+            proof = "dns" if kind == "connection" else kind
+            self.checks.pop(proof, None)
+            if kind == "adapters":
+                self._adapters = platform.network_adapters()
+                self.checks.pop("pc", None)
+                self.checks.pop("dns", None)
+                return {"adapters": self._adapters, "message": "PCの接続情報を読み直しました。"}
+            if kind == "connection":
+                result = preflight.inspect_connection(values)
+                if result["complete"]:
+                    self.checks["dns"] = check_revision("dns", values)
+                return result
             functions = {"pc": lambda: preflight.check_pc(self.home, values),
                          "dns": lambda: preflight.check_dns(values),
                          "mail": lambda: preflight.check_mail(values),
@@ -159,7 +171,7 @@ class ServerManager:
         if not installation(self.home):
             raise SetupError("導入先を確認してください。", "not_installed")
         self._private_folder()
-        DraftStore(self.home).save(values.get("flow"), values.get("step"), values.get("values", {}))
+        DraftStore(self.home).save(values.get("flow"), values.get("step"), values.get("values", {}), values.get("guide"))
 
     def begin(self, operation: str, values: dict):
         with self.guard, self.installer.guard:

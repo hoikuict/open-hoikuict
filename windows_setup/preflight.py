@@ -54,14 +54,20 @@ def check_pc(root: Path, values: dict) -> dict:
     return {"message": "導入済み環境・ネットワーク・空き容量を確認しました。", "adapters": matching}
 
 
-def check_dns(values: dict) -> dict:
+def check_network_address(values: dict) -> None:
     configured = network(values)
-    if values.get("ipReserved") is not True or values.get("dnsReady") is not True:
-        raise SetupError("ルーターの固定IPと園内DNSを確認してください。", "network_unconfirmed")
+    if values.get("ipReserved") is not True:
+        raise SetupError("ルーターのIP予約を確認してください。", "network_unconfirmed")
     matches = [item for item in platform.network_adapters()
                if item["id"] == configured["adapter"] and item["ip"] == configured["ip"] and item["private"]]
     if not matches:
         raise SetupError("選択したネットワークに、このIPアドレスが設定されていません。", "ip_mismatch")
+
+
+def check_name_resolution(values: dict) -> None:
+    configured = network(values)
+    if values.get("dnsReady") is not True:
+        raise SetupError("園内DNSの設定を確認してください。", "network_unconfirmed")
     internal = values.get("tls") == "internal"
     host = hostname(text(values, "localHostname" if internal else "hostname"), internal=internal)
     try:
@@ -70,6 +76,14 @@ def check_dns(values: dict) -> dict:
         raise SetupError("園内DNSからホスト名を確認できませんでした。", "dns_unresolved") from None
     if addresses != {configured["ip"]}:
         raise SetupError("園内DNSの接続先が、このPCのIPアドレスと一致しません。", "dns_mismatch")
+
+
+def check_certificate_preparation(values: dict) -> None:
+    mode = text(values, "tls")
+    if mode not in {"domain", "internal"}:
+        raise SetupError("暗号化の方式を選んでください。", "tls_invalid")
+    internal = mode == "internal"
+    host = hostname(text(values, "localHostname" if internal else "hostname"), internal=internal)
     if not internal:
         token = text(values, "dnsToken", limit=2048)
         cloudflare("user/tokens/verify", token)
@@ -83,7 +97,31 @@ def check_dns(values: dict) -> dict:
                 break
         if not found:
             raise SetupError("このホスト名のドメインを管理する権限を確認できませんでした。", "dns_zone_missing")
+
+
+def check_dns(values: dict) -> dict:
+    check_network_address(values)
+    check_name_resolution(values)
+    check_certificate_preparation(values)
     return {"message": "園内DNSと証明書設定の事前確認ができました。証明書の発行は適用時に行います。"}
+
+
+def inspect_connection(values: dict) -> dict:
+    """Return independent readiness results; this never issues a certificate."""
+    results = {}
+    for key, check in (("ip", check_network_address), ("dns", check_name_resolution),
+                       ("tls", check_certificate_preparation)):
+        try:
+            if key == "tls" and values.get("tls") == "internal" and values.get("trustPlan") is not True:
+                raise SetupError("各端末に証明書を登録する担当者を確認してください。", "trust_unconfirmed")
+            check(values)
+            results[key] = {"passed": True}
+        except SetupError as error:
+            results[key] = {"passed": False, "message": str(error), "code": error.code}
+    complete = all(item["passed"] for item in results.values())
+    return {"complete": complete, "results": results,
+            "message": "接続の準備を確認しました。実際のHTTPS接続は適用後に確認します。" if complete
+            else "要確認の項目があります。表示された作業へ戻って確認してください。"}
 
 
 def check_mail(values: dict) -> dict:
@@ -99,6 +137,12 @@ def check_mail(values: dict) -> dict:
             if settings["smtpUser"]:
                 smtp.login(settings["smtpUser"], settings["smtpPassword"])
             smtp.send_message(message)
+    except smtplib.SMTPAuthenticationError:
+        raise SetupError("メールの認証が認められませんでした。送信元と接続用パスワードを確認してください。", "smtp_auth_failed") from None
+    except smtplib.SMTPRecipientsRefused:
+        raise SetupError("確認メールの宛先が受け付けられませんでした。送信先を確認してください。", "smtp_recipient_failed") from None
+    except (OSError, smtplib.SMTPConnectError, smtplib.SMTPServerDisconnected):
+        raise SetupError("メールサーバーへ接続できませんでした。接続先・ポートとネットワークを確認してください。", "smtp_connection_failed") from None
     except Exception:
         raise SetupError("確認メールを送信できませんでした。サーバー名・ポート・認証情報を確認してください。", "smtp_failed") from None
     return {"message": "確認メールを送信しました。指定した宛先で受信を確認してください。"}

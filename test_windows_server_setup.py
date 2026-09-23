@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 from beta_setup.core import Installer, SetupError, make_config
 from beta_setup.server import SetupServer
-from windows_setup import configuration, migration, model, operations, platform, storage
+from windows_setup import configuration, migration, model, operations, platform, preflight, storage
 from windows_setup.manager import ServerManager
 
 INSTANCE = 'e' * 32
@@ -300,6 +300,123 @@ class ServerSetupTests(unittest.TestCase):
         self.assertTrue((root/names[0]).exists())
         self.assertTrue((root/names[2]).exists() and (root/names[3]).exists())
         self.assertTrue((root/'.incomplete.partial').exists())
+
+
+class GuidedSetupTests(unittest.TestCase):
+    def gmail(self):
+        return {**values(), 'mailProvider': 'gmail', 'smtpHost': 'smtp.gmail.com',
+                'smtpUser': 'office@example.test', 'smtpPassword': 'abcd efgh ijkl mnop'}
+
+    def test_gmail_presets_and_password_normalization(self):
+        result = model.normalize_mail(self.gmail())
+        self.assertEqual(result['smtpPassword'], 'abcdefghijklmnop')
+        self.assertEqual(result['mailProvider'], 'gmail')
+        self.assertEqual(model.normalize_mail(values())['smtpPassword'], ' secret ')
+        for key, value in [('smtpHost', 'smtp.other.test'), ('smtpPort', '465'),
+                           ('smtpUser', 'different@example.test'), ('smtpPassword', 'short'),
+                           ('mailProvider', 'unknown')]:
+            with self.subTest(key=key), self.assertRaises(SetupError):
+                model.normalize_mail({**self.gmail(), key: value})
+
+    def test_mail_sends_only_one_explicit_recipient_over_starttls(self):
+        with patch.object(preflight.smtplib, 'SMTP') as factory:
+            smtp = factory.return_value.__enter__.return_value
+            preflight.check_mail(self.gmail())
+            factory.assert_called_once_with('smtp.gmail.com', 587, timeout=20)
+            smtp.starttls.assert_called_once()
+            smtp.login.assert_called_once_with('office@example.test', 'abcdefghijklmnop')
+            smtp.send_message.assert_called_once()
+            message = smtp.send_message.call_args.args[0]
+            self.assertEqual(message['To'], 'admin@example.test')
+            self.assertIsNone(message['Cc'])
+            self.assertIsNone(message['Bcc'])
+            self.assertEqual([c[0] for c in smtp.method_calls], ['starttls', 'login', 'send_message'])
+
+    def test_mail_errors_distinguish_auth_connection_and_recipient_without_leaking(self):
+        cases = [(preflight.smtplib.SMTPAuthenticationError(535, b'private server response'), 'smtp_auth_failed'),
+                 (OSError('private connection detail'), 'smtp_connection_failed'),
+                 (preflight.smtplib.SMTPRecipientsRefused({'secret@example.test': (550, b'private')}), 'smtp_recipient_failed')]
+        for error, code in cases:
+            with self.subTest(code=code), patch.object(preflight.smtplib, 'SMTP', side_effect=error):
+                with self.assertRaises(SetupError) as caught:
+                    preflight.check_mail(self.gmail())
+                self.assertEqual(caught.exception.code, code)
+                self.assertNotIn('private', str(caught.exception))
+                self.assertNotIn('secret@example.test', str(caught.exception))
+
+    def test_connection_reports_independent_results_and_retains_no_false_proof(self):
+        adapter = {'id': '8', 'ip': '192.168.50.20', 'private': True}
+        fixture = {**values(), 'trustPlan': True}
+        manager = ServerManager(MagicMock())
+        with patch.object(platform, 'network_adapters', return_value=[adapter]), patch.object(preflight.socket, 'getaddrinfo', return_value=[(None, None, None, None, ('192.168.50.20', 443))]):
+            self.assertTrue(manager.check('connection', fixture)['complete'])
+            self.assertIn('dns', manager.checks)
+            with patch.object(preflight.socket, 'getaddrinfo', side_effect=OSError):
+                report = manager.check('connection', fixture)
+            self.assertFalse(report['complete'])
+            self.assertTrue(report['results']['ip']['passed'])
+            self.assertTrue(report['results']['tls']['passed'])
+            self.assertEqual(report['results']['dns']['code'], 'dns_unresolved')
+            self.assertNotIn('dns', manager.checks)
+
+    def test_domain_check_only_verifies_token_and_zone_without_writing_dns(self):
+        fixture = {**values(), 'tls': 'domain', 'hostname': 'hoikuict.garden.org'}
+        replies = [{'result': {'status': 'active'}}, {'result': []}, {'result': [{'name': 'garden.org'}]}]
+        with patch.object(preflight, 'cloudflare', side_effect=replies) as api:
+            preflight.check_certificate_preparation(fixture)
+            paths = [call.args[0] for call in api.call_args_list]
+            self.assertEqual(paths[0], 'user/tokens/verify')
+            self.assertTrue(all(path.startswith('zones?') for path in paths[1:]))
+
+    def test_failed_retest_invalidates_previous_mail_acceptance(self):
+        manager = ServerManager(MagicMock())
+        with patch.object(preflight, 'check_mail', return_value={'message': 'accepted'}):
+            manager.check('mail', self.gmail())
+        self.assertIn('mail', manager.checks)
+        with patch.object(preflight, 'check_mail', side_effect=SetupError('failed', 'smtp_failed')):
+            with self.assertRaises(SetupError):
+                manager.check('mail', self.gmail())
+        self.assertNotIn('mail', manager.checks)
+
+    def test_guide_draft_resumes_substeps_without_secrets_or_connection_proofs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            store = storage.DraftStore(Path(temporary))
+            draft = {**self.gmail(), 'mailReceived': True, 'checks': {'mail': True},
+                     'mailDrafts': {'gmail': {'smtpPassword': 'never-persist'}},
+                     'password': 'never-persist', 'googleReady': True}
+            position = {'netStep': 7, 'tokenStep': 2, 'mailStep': 3}
+            store.save('lan', 2, draft, {**position, 'secret': 'never-persist'})
+            loaded = store.load()
+            self.assertEqual(loaded['guide'], position)
+            self.assertTrue(loaded['values']['googleReady'])
+            for name in ('smtpPassword', 'dnsToken', 'tunnelToken', 'mailReceived', 'mailDrafts', 'checks', 'password'):
+                self.assertNotIn(name, loaded['values'])
+            self.assertNotIn('never-persist', store.path.read_text())
+            for guide in ({'netStep': 8}, {'mailStep': -1}, {'tokenStep': True}, 'invalid'):
+                with self.assertRaises(SetupError):
+                    store.save('lan', 2, draft, guide)
+            storage.atomic_json(store.path, {'format': 1, 'flow': 'lan', 'step': 1, 'values': {'hostname': 'garden.org'}})
+            self.assertEqual(store.load()['guide'], {'netStep': 0, 'tokenStep': 0, 'mailStep': 0})
+
+    def test_installer_serves_guided_assets_with_script_restrictions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            installer = Installer(root / 'bundle', root / 'new')
+            server = SetupServer(installer)
+            thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+            try:
+                for asset in ('/', '/guided.js', '/guide-actions.js', '/guide.css'):
+                    connection = http.client.HTTPConnection('127.0.0.1', server.server_port)
+                    connection.request('GET', asset)
+                    response = connection.getresponse(); body = response.read().decode(); connection.close()
+                    self.assertEqual(response.status, 200)
+                    self.assertIn("script-src 'self'", response.getheader('Content-Security-Policy'))
+                    self.assertNotIn('DEMO-NOT-A-REAL', body)
+                    if asset == '/':
+                        self.assertIn('guide-actions.js', body)
+                        self.assertIn('id="help-dialog"', body)
+            finally:
+                server.shutdown(); server.server_close(); thread.join(); installer.close()
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ function button(action,label,kind='primary',disabled=false){return `<button type
 function input(key,label,type='text',note='',optional=false) {
   return `<label for="${key}">${label}${note?`<span id="${key}-hint">${note}</span>`:''}<input id="${key}" name="${key}" type="${type}" value="${esc(s.v[key])}" ${optional?'':'required'} ${type==='number'?'min="1" max="65535"':''} maxlength="${key==='tunnelToken'?8192:['dnsToken','smtpPassword'].includes(key)?2048:['path','backupPath'].includes(key)?1024:255}" autocomplete="${type==='password'?'new-password':'off'}" ${note?`aria-describedby="${key}-hint"`:''}></label>`;
 }
-function select(key,label,items,note=''){return `<label for="${key}">${label}${note?`<span>${note}</span>`:''}<select name="${key}" id="${key}">${items.map(([v,l])=>`<option value="${v}" ${s.v[key]===v?'selected':''}>${l}</option>`).join('')}</select></label>`;}
+function select(key,label,items,note=''){return `<label for="${key}">${label}${note?`<span>${note}</span>`:''}<select name="${key}" id="${key}">${items.map(([v,l])=>`<option value="${esc(v)}" ${s.v[key]===v?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;}
 function check(key,label,note=''){return `<label class="check-row" for="${key}"><input type="checkbox" id="${key}" name="${key}" ${s.v[key]?'checked':''}><span>${label}${note?`<small>${note}</small>`:''}</span></label>`;}
 function row(label,value,action=''){return `<div><dt>${label}</dt><dd>${esc(value)}${action?button(action,'変更','edit'):''}</dd></div>`;}
 function title(label,description){return `<p class="eyebrow">${s.flow==='local'?'このPCに導入':s.flow==='lan'?'園内LANの設定':'園外からの利用'} ・ ${s.step+1} / ${names[s.flow].length}</p><h2 tabindex="-1">${label}</h2><p class="intro">${description}</p>`;}
@@ -43,18 +43,8 @@ function lanPage(){
     ${s.adapters.some(a=>a.id===s.v.adapter&&!a.private)?'<div class="result error">このネットワークは「パブリック」です。園のネットワークであることを確認し、Windowsの設定を見直してください。</div>':''}
     <div class="inline-action">${button('check-pc','このPCを確認する','secondary')}</div>${checkResult('pc','既存環境・空き容量・ネットワークを確認しました')}
     ${note('適用時は元のデータを保持したままコピーし、初回バックアップも作ります。設定の入力中は、このPCの試用環境を変更しません。')}${footer('next','園内の接続設定へ')}`;
-  if(s.step===1)return title('園内で使うアドレスを設定','サーバーの住所と、ブラウザーで開くURLを決めます。')+
-    `<div class="fields"><div class="two-col">${input('ip','サーバーのIPアドレス','text','ルーターで予約するアドレス')}${input('subnet','接続を許可する園内範囲','text','例：192.168.10.0/24')}</div></div>
-    ${check('ipReserved','ルーターで、このPCのIPアドレスを固定しました','DHCPの「アドレス予約」などで設定します。設定名は機種により異なります。')}
-    <div class="fields">${select('tls','HTTPSの用意方法',[['domain','園用ドメインを使う（後で園外公開する場合に推奨）'],['internal','園内専用の証明書を使う']])}</div>
-    ${s.v.tls==='domain'?`<div class="fields">${input('hostname','園内で開くホスト名','text','https:// や末尾の / は付けません。例：hoikuict.sakura.example')}${input('dnsToken','証明書用のDNS接続トークン','password','Cloudflare DNSを使用。対象ドメインのDNS編集だけを許可します。')}</div><p class="choice-note">ドメインを管理するCloudflareアカウントが必要です。証明書はサーバーを外部公開せずに取得し、自動更新する構成です。</p>`:`<div class="fields">${input('localHostname','園内専用のホスト名','text','例：hoikuict.home.arpa')}</div>${note('使うPC・タブレットすべてに園内証明書を登録します。園外公開へ進むときは公開用URLに変わるため、ブックマークや通知の再設定が必要になる場合があります。')}`}
-    <details><summary>ルーターで必要な設定を見る</summary><ol class="numbered"><li>このPCのIPアドレスを予約します。</li><li>園内DNSで、上のホスト名をこのPCのIPアドレスに割り当てます。</li><li>対応していないルーターでは、ネットワーク担当者に園内DNSの設定を依頼します。</li></ol></details>
-    ${check('dnsReady','園内DNSで、URLがこのPCを指すよう設定しました')}
-    <div class="inline-action">${button('check-dns','URLとHTTPSを確認する','secondary')}</div>${checkResult('dns','URLと証明書の設定を確認しました')}${footer('next','メールの設定へ')}`;
-  if(s.step===2)return title('送信用メールを設定','登録案内やパスワード再設定に使います。園内LANでの本番利用にも必要です。')+
-    `<div class="fields"><div class="two-col">${input('smtpHost','メールサーバー（SMTP）')}${input('smtpPort','メールの接続ポート','number','STARTTLS対応。通常は587')}</div>${input('mailFrom','送信元メールアドレス','email')}${input('smtpUser','メールのログインID','text','認証が不要な園内メールサーバーでは空欄',true)}${input('smtpPassword','メールのパスワード','password','メール提供元が指定するアプリパスワード等を使います。',true)}${input('testRecipient','確認メールの送信先','email','この宛先だけに確認メールを送ります。')}</div>
-    <p class="subtle">暗号化：STARTTLSを使用します。保護者への案内メールは、この設定操作では送りません。</p><div class="inline-action">${button('check-mail','確認メールを送る','secondary')}</div>${checkResult('mail','メールサーバーが確認メールを受け付けました')}
-    ${check('mailReceived','確認メールを受信できました')}${footer('next','バックアップの設定へ')}`;
+  if(s.step===1)return guidePage();
+  if(s.step===2)return mailGuidePage();
   if(s.step===3)return title('自動起動とバックアップ','毎日の運用を続けるための設定です。保存先には、サーバー本体とは別のドライブを推奨します。')+
     `<div class="fields">${input('backupPath','バックアップの保存場所','text','例：E:\\HoikuICT-Backup。常時接続した保存先を指定します。')}<div class="two-col">${input('backupTime','毎日のバックアップ時刻','time')}${select('retention','保存期間',[['14','14日'],['30','30日'],['90','90日']])}</div></div>
     <div class="inline-action">${button('check-backup','保存先を確認する','secondary')}</div>${checkResult('backup','保存権限・空き容量を確認しました')}
