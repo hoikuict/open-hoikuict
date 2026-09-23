@@ -1,9 +1,12 @@
 """Opt-in Windows integration with fictional data and loopback-only listeners.
 
-Does not install services, alter firewall/DNS/power, trust a certificate, or send mail.
+Default: no services or machine settings are changed. --service explicitly adds
+a temporary service with a dedicated virtual account and removes it afterward.
+Neither mode changes firewall/DNS/power/trust settings or sends mail.
 """
 from __future__ import annotations
 import argparse
+import atexit
 from http.cookiejar import CookieJar
 import json
 import os
@@ -28,22 +31,57 @@ from windows_setup.configuration import caddy_config, ports, production_environm
 from windows_setup.migration import migrate
 from windows_setup.operations import control, wait_healthy
 from windows_setup.storage import atomic_json, save_secrets
+from windows_setup import platform
+from windows_setup.configuration import service_xml
+
+
+def cleanup_service_instance(code, data, identifier, workspace):
+    from beta_setup.core import reject_links
+    expected = platform.instance_paths(identifier)
+    if (code, data) != expected or code.name != identifier or data.name != identifier:
+        raise AssertionError('Refusing cleanup outside verified instance paths')
+    if platform.service_state(identifier)['exists']:
+        platform.change_service(code, identifier, 'stop')
+        platform.change_service(code, identifier, 'uninstall')
+    if (data/'logs').is_dir():
+        shutil.copytree(data/'logs', workspace/'service-logs', dirs_exist_ok=True)
+    for folder in (code, data):
+        if not folder.exists():
+            continue
+        reject_links(folder)
+        for item in folder.rglob('*'):
+            reject_links(item)
+        shutil.rmtree(folder)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--workspace', type=Path, required=True)
     parser.add_argument('--components', type=Path, required=True)
+    parser.add_argument('--service', action='store_true', help='Opt-in temporary SCM service; requires administrator')
+    parser.add_argument('--bundle', type=Path)
     args = parser.parse_args()
+    if args.service and (not platform.is_admin() or not args.bundle):
+        raise SystemExit('Service verification requires administrator and a verified --bundle.')
     identifier = secrets.token_hex(16)
     workspace = args.workspace.resolve() / identifier[:8]
     workspace.mkdir(parents=True, exist_ok=False)
     code = workspace / 'code'; app = code / 'app'
     source = workspace / 'trial'; trial = source / 'app'
     data = workspace / 'data'
+    if args.service:
+        code, data = platform.instance_paths(identifier)
+        app = code / 'app'
+        if code.exists() or data.exists():
+            raise AssertionError('Verification instance already exists')
+        cleanup = lambda: cleanup_service_instance(code, data, identifier, workspace)
+        atexit.register(cleanup)
+        from windows_setup.operations import extract_verified_payload
+        manifest = json.loads((args.bundle/'bundle.json').read_text(encoding='utf-8'))
+        extract_verified_payload(args.bundle/'payload.zip', code, manifest)
     files = subprocess.check_output(['git', '-c', 'safe.directory='+str(ROOT.as_posix()), 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
     for name in files:
-        if name and selected(name):
+        if name and selected(name) and not args.service:
             destination = app / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, destination)
@@ -57,17 +95,20 @@ def main():
                     input=(json.dumps(values)+'\n').encode(), capture_output=True, cwd=trial, env=clean_environment(), timeout=120)
     assert initialized.returncode == 0 and json.loads(initialized.stdout.splitlines()[-1])['ok'], 'Fictional initialization failed'
     print('Fictional trial initialized', flush=True)
-    data.mkdir(); keys = migrate(source, data)
+    data.mkdir()
+    if args.service: platform.restrict_directory(data)
+    keys = migrate(source, data)
     for name in ('config', 'logs', 'restore-control', 'restore-staging', 'restore-drills', 'tls'):
         (data / name).mkdir()
-    component_dir = app / 'windows_setup/components'; component_dir.mkdir()
-    for name in ('caddy.exe', 'cloudflared.exe'):
-        shutil.copyfile(args.components / name, component_dir / name)
+    if not args.service:
+        component_dir = app / 'windows_setup/components'; component_dir.mkdir()
+        for name in ('caddy.exe', 'cloudflared.exe'):
+            shutil.copyfile(args.components / name, component_dir / name)
     with socket.socket() as probe:
         probe.bind(('127.0.0.1', 0)); tls_port = probe.getsockname()[1]
     lan = dict(facility='架空園', ip='127.0.0.1', tls='internal', localHostname='localhost',
                smtpHost='127.0.0.1', smtpPort='1', smtpUser='', smtpPassword='', mailFrom='qa@example.test',
-               dnsToken='', backupPath=str(workspace / ('open-hoikuict-'+identifier)), retention='30')
+               dnsToken='', backupPath=str((data / 'backups' if args.service else workspace) / ('open-hoikuict-'+identifier)), retention='30')
     environment = production_environment(lan, data, code, keys, identifier, 'a'*40)
     url = 'https://localhost:'+str(tls_port)
     environment.update(HOIKUICT_ALLOWED_ORIGINS=url, HOIKUICT_PARENT_REGISTRATION_BASE_URL=url,
@@ -83,11 +124,18 @@ def main():
     token = settings['control_token']
     log = (workspace / 'worker.log').open('wb')
     process = None
+    registered = False
     def start():
+        if args.service:
+            platform.change_service(code, identifier, 'start')
+            return True
         return subprocess.Popen([sys.executable, '-I', '-B', str(app / 'windows_setup/worker_entry.py'), str(data)],
                                  stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=clean_environment(),
                                  creationflags=subprocess.CREATE_NO_WINDOW)
     def stop():
+        if args.service:
+            platform.change_service(code, identifier, 'stop')
+            return
         (data / 'stop-requested').touch()
         try:
             process.wait(timeout=65)
@@ -96,6 +144,10 @@ def main():
             raise AssertionError('Owned service did not stop gracefully')
         assert process.returncode == 0, 'Service failed; inspect isolated worker.log'
     try:
+        if args.service:
+            (code/'service.xml').write_text(service_xml(code, data, identifier), encoding='utf-8')
+            registered = True
+            platform.install_service(code, data, identifier)
         process = start(); wait_healthy(data, token)
         cert = data / 'tls/pki/authorities/local/root.crt'
         deadline = time.monotonic()+30
@@ -132,12 +184,15 @@ def main():
             assert response.url.endswith('/classrooms/')
         assert control(data, token, '/status')['drill']['state'] == 'complete'
         print('Restart, session keys and completed verification persisted', flush=True)
-        result = dict(passed=True, workspace=str(workspace), checks=['production HTTPS', 'activation gate',
+        result = dict(passed=True, service_verified=args.service, workspace=str(workspace), checks=['production HTTPS', 'activation gate',
                     'migrated password', 'secure cookie', 'backup', 'isolated restore', 'restart', 'persistent session keys'])
         atomic_json(workspace / 'verification.json', result)
         print(json.dumps(result), flush=True)
     finally:
-        if process and process.poll() is None:
+        if args.service:
+            cleanup()
+            atexit.unregister(cleanup)
+        elif process and process.poll() is None:
             stop()
         log.close()
 
