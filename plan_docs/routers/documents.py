@@ -32,6 +32,7 @@ from ..store import (
     SqlModelDocumentRepository,
 )
 from ..templating import render_template
+from ..services.monthly_access import can_edit_monthly_document, EDIT_REASON
 
 
 router = APIRouter(tags=["documents"])
@@ -109,6 +110,8 @@ def _can_edit_document(
 ) -> bool:
     if not user.can_edit:
         return False
+    if document.document_type == DocumentType.MONTHLY_PLAN:
+        return can_edit_monthly_document(repository.session, user, document)
     if document.document_type != DocumentType.CHILD_PROGRESS_RECORD:
         return True
     child = _progress_child(document, repository)
@@ -127,7 +130,7 @@ def _require_document_edit_access(
 ) -> None:
     require_can_edit(user, request)
     if not _can_edit_document(document, user, repository):
-        raise HTTPException(status_code=403, detail="この園児の児童票を編集できません")
+        raise HTTPException(status_code=403, detail=EDIT_REASON if document.document_type == DocumentType.MONTHLY_PLAN else "この園児の児童票を編集できません")
 
 
 def _visible_document(
@@ -264,6 +267,8 @@ def document_detail(
         monthly_boot = _context(user, repository, document.monthly_sheet["classroom_id"],
                                 document.target_month, document.monthly_sheet["age"], document.id)
         monthly_boot["editable"] = False
+        monthly_boot["edit_reason"] = "閲覧中です。修正は月案の編集画面から行います。"
+        monthly_boot["base_token"] = None
     reflection = (
         reflection_for_document(repository.session, document_id)
         if document.document_type == DocumentType.DAILY_PLAN

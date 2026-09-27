@@ -16,7 +16,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from auth import MOCK_CALENDAR_USER_COOKIE, MOCK_ROLE_COOKIE, MOCK_STAFF_NAME_COOKIE
 from child_records.models import ChildRecordSettingVersion
 from child_records.settings import default_config
-from models import Child, ChildStatus, Classroom, User
+from models import Child, ChildStatus, Classroom, User, StaffClassroomAssignment
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from plan_docs.contracts import DocumentType
 from plan_docs.db_models import (
@@ -1115,6 +1115,10 @@ class PlanDocsIntegrationTests(unittest.TestCase):
                     ),
                 ]
             )
+            session.commit()
+        with Session(self.engine) as session:
+            classroom_id = session.exec(select(Classroom.id).where(Classroom.name == "ひよこ組")).one()
+            session.add(StaffClassroomAssignment(staff_user_id=creator_id, classroom_id=classroom_id, starts_on=date(2020, 1, 1)))
             session.commit()
         creator_cookies = self.staff_cookies(
             role="can_edit",

@@ -60,3 +60,22 @@
     #monthly-print-root button {border:0;background:white;font:inherit;color:#111;}
     #monthly-print-root .print-footer {font-size:8pt;margin:5pt 0;}
   }
+
+/* Shared editing and explicit conflict resolution. */
+  #editing-presence{position:sticky;top:8px;z-index:2;margin:0 18px 14px;padding:12px 16px;border:1px solid #b3c8da;border-radius:7px;background:#f4f8fc;box-shadow:0 2px 7px #0001}
+  #editing-presence[data-state=same]{background:#fff5e6;border-color:#c69141}#editing-presence[data-state=offline]{background:#f3f1ef;border-color:#afa8a1}
+  #editing-presence p{margin:5px 0}#editing-presence h3{font-size:15px;margin:0 0 8px}#editing-presence .presence-person{display:inline-flex;gap:9px;align-items:center;border:1px solid #bbcede;border-radius:6px;padding:7px 11px;background:white}
+  #editing-presence .presence-dot{width:8px;height:8px;border-radius:50%;background:#247a4a}#editing-presence[data-state=offline] .presence-dot{background:#8a8074}
+  #editing-presence small{color:#536576}#presence-warning{color:#884300;font-weight:600}#presence-self{font-size:12px;margin-left:12px;color:#5e6c64}
+  #drive-monthly-plan [data-other-editor]{outline:2px solid #ca8c38;outline-offset:-2px}
+  #cell-conflict-dialog{width:min(920px,90vw);max-height:86vh;overflow:auto;border:1px solid #c49242;border-radius:10px;padding:24px;color:#263f32;font:15px/1.6 Meiryo,sans-serif}
+  #cell-conflict-dialog::backdrop{background:#14291d88}#cell-conflict-dialog h2{margin:0;font-size:21px}.conflict-field{border-top:1px solid #d4dace;padding:12px 0}.conflict-field h3{font-size:16px;margin:0 0 10px}.conflict-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.conflict-columns pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f3;padding:12px;min-height:90px;font:inherit}.conflict-columns textarea{box-sizing:border-box;width:100%;padding:12px;min-height:140px;font:inherit;margin:12px 0}
+  @media(max-width:650px){.conflict-columns{grid-template-columns:1fr}}
+#permission-banner{margin:0 18px 12px;color:#415e50;font-size:14px}
+#drive-monthly-plan [data-peer-editing=true]{outline:2px solid #c69141;outline-offset:-2px}
+#editing-presence .presence-person{margin:0 8px 6px 0}
+#cell-conflict-dialog button{font:inherit;padding:8px 12px;border:1px solid #b6c3ba;border-radius:5px;cursor:pointer}
+#cell-conflict-dialog button[aria-pressed=true]{background:#176846;color:white}
+.conflict-actions{display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:white;padding-top:12px}
+#cell-conflict-dialog button:disabled{opacity:.45;cursor:default}
+@media print{#permission-banner,#editing-presence,#cell-conflict-dialog{display:none!important}}

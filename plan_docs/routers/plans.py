@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..services.monthly_access import require_monthly_edit, classroom_id_for_ref
+
 import calendar
 from datetime import date
 import re
@@ -335,6 +337,7 @@ def create_monthly_plan(
     selected_classroom_ref = classroom_ref or class_name or (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
     selected_class_name = class_name or selected_classroom_ref
     require_classroom_access(user, selected_classroom_ref)
+    require_monthly_edit(repository.session, user, classroom_id_for_ref(repository.session, selected_classroom_ref), target_month)
     document = generate_monthly_plan(
         {
             "target_month": target_month,

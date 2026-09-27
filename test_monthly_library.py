@@ -16,14 +16,15 @@ from sqlmodel import Session, SQLModel, create_engine, select
 import child_records.models  # noqa: F401
 import database
 from csrf import CsrfTokenMiddleware, verify_csrf
-from models import Child, Classroom
+from models import Child, Classroom, User, StaffClassroomAssignment
+from uuid import uuid4
 from plan_docs.auth_adapter import StaffUser, resolve_plan_docs_staff_user
 from plan_docs.contracts import DocumentStatus, DocumentType, Role
 from plan_docs.db_models import PlanDocumentRow, PlanRevisionRow
 from plan_docs.models import PlanDocument, SectionBlock
 from plan_docs.routers.monthly_library import router
 from plan_docs.routers.documents import router as documents_router
-from plan_docs.services.monthly_library import previous_months, search_phrases, field_definitions
+from plan_docs.services.monthly_library import previous_months
 from plan_docs.store import SqlModelDocumentRepository
 
 
@@ -65,14 +66,19 @@ class MonthlyLibraryTests(unittest.TestCase):
         self.env.start()
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread":False}, poolclass=StaticPool)
         SQLModel.metadata.create_all(self.engine)
+        self.staff_id = uuid4()
         with Session(self.engine) as session:
+            session.add(User(id=self.staff_id, email="monthly@example.test", display_name="架空職員"))
             session.add_all([Classroom(id=1, name="A組"), Classroom(id=2,name="B組")])
             for i in (1,2):
                 session.add(Child(id=i,last_name="架空",first_name=str(i),last_name_kana="カクウ",
                     first_name_kana=str(i),birth_date=date(2024,5,1),enrollment_date=date(2024,6,1),classroom_id=1))
             session.commit()
+            for classroom_id in (1, 2):
+                session.add(StaffClassroomAssignment(staff_user_id=self.staff_id, classroom_id=classroom_id, starts_on=date(2024, 1, 1)))
+            session.commit()
         self.user=StaffUser(role=Role.CAN_EDIT, actor_ref="staff:test",nursery_ref="test-nursery",
-                            classroom_refs=("A組",),name="架空職員")
+                            classroom_refs=("A組",),name="架空職員",user_id=self.staff_id)
         self.app=FastAPI(dependencies=[Depends(verify_csrf)])
         self.app.add_middleware(CsrfTokenMiddleware)
         self.app.include_router(router,prefix="/plans")
@@ -178,7 +184,7 @@ class MonthlyLibraryTests(unittest.TestCase):
 
     def test_history_cross_year_class_change_missing_and_legacy(self):
         self.assertEqual(previous_months('2027-01'),['2026-10','2026-11','2026-12'])
-        old=self.save(self.payload(self.context().json(),{
+        self.save(self.payload(self.context().json(),{
             'child:1:life':{'body':'10月の計画'},'child:1:review':{'body':'10月の実施後反省'},
             'child:2:life':{'body':'他の園児'}})).json()
         with Session(self.engine) as session:

@@ -2,19 +2,20 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import sqlite3
 
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
 from html import escape
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlmodel import select
 
 from models import Classroom
 from time_utils import local_today
 from ..auth_adapter import CurrentUser, require_actor, require_can_edit, require_classroom_access
 from ..contracts import DocumentStatus, DocumentType
-from ..db_models import PlanDocumentRow
+from ..db_models import PlanDocumentRow, PlanRevisionRow
 from ..models import PlanDocument
 from ..services.monthly_library import (
     COLUMNS, DOMAINS, PERSONAL, TEMPLATES, TEMPLATE_VERSION, SaveInput,
@@ -25,6 +26,10 @@ from ..store import ConcurrentUpdateError, DocumentRepositoryDep
 from ..services.monthly_ai import GenerateInput, availability, generate
 from ..services.monthly_export import ExportInput, export_context, render_export
 from ..templating import render_template
+
+from ..services.monthly_access import can_edit_monthly, require_monthly_edit, EDIT_REASON
+from ..services.monthly_presence import PresenceInput, heartbeat
+from ..services.monthly_merge import baseline_token, read_baseline, merge_cells
 
 router = APIRouter(prefix="/monthly-library", tags=["monthly-library"])
 
@@ -64,19 +69,36 @@ def _scope(user, repository, classroom_id, target_month, age, document_id=None):
     return classroom, document, sheet
 
 
+def _begin_snapshot(repository, *, write=False):
+    connection = repository.session.connection()
+    if connection.dialect.name == "sqlite" and not connection.connection.driver_connection.in_transaction:
+        connection.exec_driver_sql("BEGIN IMMEDIATE" if write else "BEGIN")
+
+
 def _context(user, repository, classroom_id, target_month, age, document_id=None):
+    _begin_snapshot(repository)
     classroom, document, sheet = _scope(user, repository, classroom_id, target_month, age, document_id)
-    return {"document_id": document.id if document else None,
-            "lock_version": repository.lock_version(document.id) if document else 0,
+    head = repository.head(document.id) if document else None
+    if head:
+        revision = repository.session.get(PlanRevisionRow, head.current_revision_id)
+        if (revision is None or revision.snapshot.get("monthly_sheet") != document.monthly_sheet
+                or revision.snapshot.get("owner_name") != document.owner_name):
+            raise HTTPException(409, "月案が更新されました。入力は保持しています。もう一度お試しください")
+    allowed = can_edit_monthly(repository.session, user, classroom_id, target_month)
+    result = {"document_id": document.id if document else None,
+            "lock_version": head.lock_version if head else 0,
             "classroom_id": classroom.id, "classroom_name": classroom.name,
             "target_month": target_month, "age": age, "sheet": sheet,
             "owner_name": document.owner_name if document else user.name,
-            "editable": user.can_edit and (document is None or document.can_edit_body),
+            "editable": allowed and (document is None or document.can_edit_body),
+            "edit_reason": EDIT_REASON if not allowed else ("この状態の月案は閲覧のみです。" if document and not document.can_edit_body else "対象月の担当者として編集できます。"),
             "status": document.status_label if document else "未保存",
             "definitions": field_definitions(sheet, target_month),
             "ai": availability(user.nursery_ref),
             "template": TEMPLATES[min(age, 3)],
             "personal": PERSONAL, "columns": COLUMNS, "domains": DOMAINS}
+    result["base_token"] = baseline_token(user, repository, result) if result["editable"] else None
+    return result
 
 
 @router.get("")
@@ -108,6 +130,16 @@ def context(request: Request, user: CurrentUser, repository: DocumentRepositoryD
     return _context(user, repository, classroom_id, target_month, age, document_id)
 
 
+@router.post("/presence")
+def presence(payload: PresenceInput, request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
+    require_actor(user, request)
+    context = _context(user, repository, payload.classroom_id, payload.target_month, payload.age, payload.document_id)
+    try:
+        return heartbeat(repository.session, user, payload, context)
+    except (OSError, sqlite3.Error) as exc:
+        raise HTTPException(503, "編集中の状況を確認できません。入力内容は保持されています") from exc
+
+
 @router.get("/candidates")
 def candidates(request: Request, user: CurrentUser, repository: DocumentRepositoryDep,
                classroom_id: int, target_month: str, field: str,
@@ -126,6 +158,7 @@ def candidates(request: Request, user: CurrentUser, repository: DocumentReposito
 def generate_candidates(payload: GenerateInput, request: Request, user: CurrentUser,
                         repository: DocumentRepositoryDep):
     require_can_edit(user, request)
+    require_monthly_edit(repository.session, user, payload.classroom_id, payload.target_month)
     _, document, sheet = _scope(user, repository, payload.classroom_id,
         payload.target_month, payload.age, payload.document_id)
     if document and not document.can_edit_body:
@@ -145,6 +178,8 @@ def _export_response(payload, request, user, repository, pdf_attachment=False):
     require_actor(user, request)
     classroom, document, sheet = _scope(user, repository, payload.classroom_id,
         payload.target_month, payload.age, payload.document_id)
+    if payload.mode == "current":
+        require_monthly_edit(repository.session, user, payload.classroom_id, payload.target_month)
     snapshot = export_context(payload, user, repository, classroom, document, sheet)
     return render_export(snapshot, payload.kind, payload.mode,
         fixture=bool(getattr(request.app.state, 'monthly_library_fixture', False)),
@@ -174,9 +209,79 @@ def export_file(request: Request, user: CurrentUser, repository: DocumentReposit
         status_code=code, headers={'Cache-Control':'no-store'})
 
 
+def _save_merged(payload, user, repository):
+    base = read_baseline(payload, user, repository)
+    if not payload.owner_name.strip():
+        raise HTTPException(422, "担任名を入力してください")
+    for attempt in range(3):
+        # Rollback also expires identity-map objects after a competing CAS wins.
+        if attempt:
+            repository.session.rollback()
+            repository.session.expire_all()
+        _begin_snapshot(repository, write=True)
+        require_monthly_edit(repository.session, user, payload.classroom_id, payload.target_month)
+        latest = _context(user, repository, payload.classroom_id, payload.target_month,
+                          payload.age, payload.document_id)
+        if not latest["editable"]:
+            raise HTTPException(409, latest["edit_reason"])
+        sheet = deepcopy(latest["sheet"])
+        # A baseline's verified provenance stays valid even if a peer cleared it.
+        validation_sheet = deepcopy(sheet)
+        for key, cell in base["fields"].items():
+            entry = validation_sheet["fields"].setdefault(key, {"body": "", "origins": []})
+            entry["origins"] = cell.get("origins", []) + entry.get("origins", [])
+        mine = {"fields": validated_fields(payload, validation_sheet, user.nursery_ref),
+                "owner": payload.owner_name}
+        merged, conflicts, remote = merge_cells(base, mine,
+            {"fields": sheet["fields"], "owner": latest["owner_name"]})
+        def field_label(key):
+            label = "担任名" if key == "@owner" else latest["definitions"].get(key, {}).get("label", key)
+            if key.startswith("child:"):
+                ref = ":".join(key.split(":")[:2])
+                child = next((c["name"] for c in sheet["children"] if c["ref"] == ref), "")
+                label = child + " / " + label
+            return label
+        if conflicts:
+            raise HTTPException(409, {"kind": "cell_conflict", "latest": latest,
+                "conflicts": [{"key": key, "label": field_label(key)} for key in conflicts]})
+        if sum(len(cell.get("body", "")) for cell in merged["fields"].values()) > 500000:
+            raise HTTPException(422, "本文が保存可能な容量を超えています")
+        sheet["fields"] = merged["fields"]
+        title = f"{payload.target_month} 月案（{latest['classroom_name']}・{payload.age}歳児）"
+        try:
+            if latest["document_id"]:
+                document = repository.get(latest["document_id"])
+                repository.update_document(document.id, title=title, owner_name=merged["owner"],
+                    confirmation_items=document.confirmation_items, section_updates={},
+                    monthly_sheet=sheet, expected_lock_version=latest["lock_version"], actor_ref=user.actor_ref)
+            else:
+                target = month_date(payload.target_month)
+                document = repository.create(PlanDocument(id=0, document_type=DocumentType.MONTHLY_PLAN,
+                    title=title, status=DocumentStatus.DRAFT, nursery_ref=user.nursery_ref,
+                    classroom_ref=latest["classroom_name"], actor_ref=user.actor_ref,
+                    owner_name=merged["owner"], sections=[], monthly_sheet=sheet,
+                    target_month=payload.target_month, age_class=f"{payload.age}歳児",
+                    school_year=target.year - (target.month < 4)))
+        except OperationalError as exc:
+            if getattr(exc.orig, "sqlite_errorcode", 0) & 255 not in (5, 6):
+                raise
+            continue
+        except (ConcurrentUpdateError, IntegrityError):
+            continue
+        result = _context(user, repository, payload.classroom_id, payload.target_month, payload.age, document.id)
+        result["merged_remote_fields"] = [field_label(key) for key in remote]
+        return result
+    repository.session.rollback()
+    raise HTTPException(409, "更新が続いています。入力は保持しています。もう一度保存してください")
+
+
 @router.post("/save")
 def save(payload: SaveInput, request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     require_can_edit(user, request)
+    _begin_snapshot(repository, write=True)
+    require_monthly_edit(repository.session, user, payload.classroom_id, payload.target_month)
+    if payload.base_token:
+        return _save_merged(payload, user, repository)
     if not payload.owner_name.strip():
         raise HTTPException(422, "担任名を入力してください")
     classroom, document, sheet = _scope(user, repository, payload.classroom_id,
