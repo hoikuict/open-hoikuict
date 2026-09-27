@@ -4,6 +4,7 @@ import hashlib
 import http.client
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import sqlite3
 import tempfile
 import threading
@@ -177,7 +178,8 @@ class ServerSetupTests(unittest.TestCase):
 
     def test_virtual_service_account_uses_no_password_parameter(self):
         with patch.object(platform, 'service_state', return_value={'exists': False}), \
-                patch.object(platform, 'restrict_directory'), patch.object(platform, 'run') as run:
+                patch.object(platform, 'restrict_directory'), patch.object(platform, 'run') as run, \
+                patch.dict(os.environ, {'SystemRoot': str(self.root / 'Windows')}):
             platform.install_service(self.root / 'code', self.root / 'data', INSTANCE)
         config = next(call.args[0] for call in run.call_args_list if 'config' in call.args[0])
         self.assertEqual(config[config.index('obj=') + 1], 'NT SERVICE\\' + configuration.service_name(INSTANCE))
@@ -243,7 +245,8 @@ class ServerSetupTests(unittest.TestCase):
     def test_changed_check_cannot_apply_or_elevate(self):
         installer = Installer(self.root / 'bundle', self.root / 'trial', launcher=self.root / 'installer.exe')
         manager = ServerManager(installer)
-        with patch.object(manager, 'status', return_value={}), patch.object(platform, 'elevate') as elevate:
+        with patch.object(manager, 'status', return_value={}), patch.object(platform, 'elevate') as elevate, \
+                patch('windows_setup.manager.os', SimpleNamespace(name='nt')):
             with self.assertRaises(SetupError) as caught:
                 manager.begin('lan', {**values(), 'mailReceived': True})
             self.assertEqual(caught.exception.code, 'check_expired')
