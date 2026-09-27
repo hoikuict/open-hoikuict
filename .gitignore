@@ -32,6 +32,8 @@ env/
 *.sqlite3
 !demo_data/
 !demo_data/demo-template.sqlite3
+# Public-demo phrase samples are deployed separately after content screening.
+/demo_data/monthly-library/
 hoikuict.db
 data/
 .db-wal

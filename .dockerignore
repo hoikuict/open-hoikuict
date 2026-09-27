@@ -38,3 +38,5 @@ tmp*
 !gen_bunnrei/facility.sqlite
 # Public demo ships only its versioned, synthetic baseline database.
 !demo_data/demo-template.sqlite3
+# Phrase samples are a separate read-only bind mount, never an image layer.
+/demo_data/monthly-library

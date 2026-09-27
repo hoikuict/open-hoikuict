@@ -63,6 +63,10 @@ If you use the bundled `cloudflared` service:
 
 ## Notes
 
+- Monthly phrase samples can be supplied separately under `demo_data/monthly-library/`, mounted read-only at `/app/demo_data/monthly-library`. Set `HOIKU_MONTHLY_LIBRARY_SOURCES` to the nursery-scoped JSON map shown in `.env.example`. An empty setting keeps phrase search unconfigured.
+- Only deploy content screened for public display. Original file paths, names, source/cell identifiers, and individual retrospective records must not be included in the public sample. The sample database and local inspection files are not committed to Git or embedded in the image.
+- This read-only phrase mount does not persist the visitor databases; demo session data still resets on container recreation.
+
 - Public demo mode keeps runtime session data under `./runtime`, which is ignored by git.
 - No persistent volume is configured on purpose, so demo sessions disappear on redeploy or container recreation.
 - Regenerate the packaged template with SQLite's backup API. Do not copy a live `hoikuict.db` together with `-wal` or `-shm` sidecar files.

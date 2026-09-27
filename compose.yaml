@@ -21,6 +21,9 @@ services:
       DEMO_SESSION_INPUT_LIMIT_BYTES: ${DEMO_SESSION_INPUT_LIMIT_BYTES:-65536}
       DEMO_MAX_REQUEST_BODY_BYTES: ${DEMO_MAX_REQUEST_BODY_BYTES:-16384}
       DEMO_SECURE_COOKIES: ${DEMO_SECURE_COOKIES:-1}
+      HOIKU_MONTHLY_LIBRARY_SOURCES: ${HOIKU_MONTHLY_LIBRARY_SOURCES:-}
+    volumes:
+      - ./demo_data/monthly-library:/app/demo_data/monthly-library:ro
     ports:
       - "${PORT:-8000}:8000"
 
