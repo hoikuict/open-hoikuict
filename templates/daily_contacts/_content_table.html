@@ -23,14 +23,14 @@
     {% set care = (entry.extra_data or {}) if entry else {} %}
     <tr data-child-id="{{ child.id }}">
       <td>
-        <div class="contact-name-cell"><span class="contact-avatar" aria-hidden="true">{{ child.full_name[:1] }}</span><div>
+        <div>
           <a class="contact-name" href="/daily-contacts/{{ child.id }}?{{ detail_query_string }}">{{ child.full_name }}</a>
           <span class="contact-sub">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</span>
           {% if entry %}
           <span class="contact-badge {% if entry.is_absent_contact %}contact-badge-absent{% endif %}">{{ entry.contact_type.label }}</span>
           <span class="contact-sub">{{ entry.updated_at|jst_datetime('%Y-%m-%d %H:%M') }}<br>提出者：{{ entry.parent_account.display_name if entry.parent_account else '—' }}</span>
           {% else %}<span class="contact-badge contact-badge-missing">未提出</span>{% endif %}
-        </div></div>
+        </div>
       </td>
       {% if entry and entry.is_absent_contact %}
       {% for _ in range(4) %}<td class="contact-muted">対象外</td>{% endfor %}

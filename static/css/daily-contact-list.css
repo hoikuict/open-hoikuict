@@ -28,8 +28,6 @@
 .contact-content-table th:first-child { z-index: 3; background: #f1f5f9; }
 .contact-content-table tr:hover td { background: #fafbff; }
 .contact-content-table tr:hover td:first-child { background: #f7f8ff; }
-.contact-name-cell { display: flex; align-items: start; gap: 9px; }
-.contact-avatar { display: grid; place-items: center; width: 32px; height: 32px; min-width: 32px; margin-top: 3px; border-radius: 50%; background: #eef2f6; color: #94a3b8; font-size: 12px; }
 .contact-name { font-size: 17px; font-weight: 600; color: #334155; }
 .contact-name:hover { color: #4338ca; text-decoration: underline; }
 .contact-sub { display: block; margin-top: 4px; color: #64748b; font-size: 11px; line-height: 1.7; }
@@ -53,7 +51,6 @@
 @media (max-width: 1023px) { #contact-wide { display: none; } }
 @media (max-width: 600px) {
   .contact-content-table col:nth-child(1) { width: 172px; }
-  .contact-avatar { display: none; }
   .contact-name { font-size: 15px; }
   .contact-caption { flex-direction: column; gap: 4px; }
   .contact-view-bar { padding-bottom: 8px; }
@@ -67,5 +64,4 @@
   .contact-content-table col { width: auto !important; }
   .contact-content-table th, .contact-content-table td { position: static !important; padding: 4px; }
   .contact-name { font-size: 11px; }
-  .contact-avatar { display: none; }
 }
