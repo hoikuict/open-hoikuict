@@ -40,6 +40,8 @@
 .contact-label { display: block; margin-bottom: 2px; font-size: 10px; color: #64748b; }
 .contact-cell-section + .contact-cell-section { margin-top: 12px; }
 .contact-reply-draft { font-size: 12px; color: #92400e; }
+.contact-reply-action { display: inline-flex; align-items: center; min-height: 38px; padding: 6px 10px; border: 1px solid #d9a864; border-radius: 6px; background: #fffbeb; line-height: 1.5; }
+.contact-reply-action:hover { background: #fef3c7; border-color: #b45309; text-decoration: underline; }
 .contact-reply-published { font-size: 12px; color: #0369a1; }
 .contact-empty { padding: 40px 20px; text-align: center; background: white; border: 1px solid #e2e8f0; border-radius: 8px; color: #64748b; }
 .contact-legend { margin-top: 12px; color: #64748b; font-size: 11px; line-height: 1.8; }

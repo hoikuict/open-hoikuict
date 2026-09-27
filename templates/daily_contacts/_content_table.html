@@ -62,10 +62,14 @@
       <td>{% if entry %}{{ part('咳', entry.cough) }}{{ part('鼻水', entry.runny_nose) }}{{ part('服薬', entry.medication) }}{% else %}{{ value(none) }}{% endif %}</td>
       {% endif %}
       <td>
-        {% if reply and reply.pending_draft is not none %}<span class="contact-reply-draft">未送信の変更あり</span>
-        {% elif reply and reply.status == published_reply_status %}<span class="contact-reply-published">返信済み</span>
-        {% elif reply %}<span class="contact-reply-draft">未送信</span>
-        {% else %}<span class="contact-reply-draft">未送信（未入力）</span>{% endif %}
+        {% if reply and reply.status == published_reply_status and reply.pending_draft is none %}
+        <span class="contact-reply-published">返信済み</span>
+        {% else %}
+        {% set reply_label = '未送信の変更あり' if reply and reply.pending_draft is not none else '未送信' if reply else '未送信（未入力）' %}
+        {% if current_user.can_edit %}
+        <a class="contact-reply-draft contact-reply-action" href="/daily-contacts/{{ child.id }}?{{ detail_query_string }}#daily-reply-form" aria-label="{{ child.full_name }} の返信を記入（{{ reply_label }}）">{{ reply_label }}</a>
+        {% else %}<span class="contact-reply-draft">{{ reply_label }}</span>{% endif %}
+        {% endif %}
         {% if reply and reply.staff_name %}<span class="contact-sub">返信者: {{ reply.staff_name }}</span>{% endif %}
       </td>
     </tr>
