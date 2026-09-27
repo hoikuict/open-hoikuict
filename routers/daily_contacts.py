@@ -1,4 +1,8 @@
 from datetime import date, timedelta
+import re
+import unicodedata
+import re
+import unicodedata
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -16,7 +20,8 @@ from daily_contact_reply_fields import (
     reply_values_from_mapping,
 )
 from database import get_session
-from models import Child, ChildStatus, Classroom, DailyContactEntry, DailyContactReply, DailyContactReplyStatus
+from models import AttendanceRecord, Child, ChildStatus, Classroom, DailyContactEntry, DailyContactReply, DailyContactReplyStatus
+from home_care_details import STOOL_LABELS
 from time_utils import local_today, utc_now
 
 router = APIRouter(prefix="/daily-contacts", tags=["daily_contacts"])
@@ -48,6 +53,20 @@ def _parse_target_date(raw: Optional[str]) -> date:
 
 def _normalize_sort(raw: Optional[str]) -> str:
     return raw if raw in DAILY_CONTACT_SORT_OPTIONS else "classroom"
+
+
+def _normalize_view(raw: Optional[str]) -> str:
+    return "status" if raw == "status" else "content"
+
+
+def _temperature_display(raw: Optional[str]) -> str:
+    value = unicodedata.normalize("NFKC", str(raw or "")).strip()
+    return value + "℃" if re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value) else value
+
+
+def _temperature_display(raw: Optional[str]) -> str:
+    value = unicodedata.normalize("NFKC", str(raw or "")).strip()
+    return value + "℃" if re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value) else value
 
 
 def _parse_optional_int(raw: Optional[str]) -> Optional[int]:
@@ -95,13 +114,15 @@ def _sort_children_by_contact_status(
     return sorted(children, key=_child_sort_key)
 
 
-def _daily_contact_query(day: date, classroom_id: Optional[int], sort: str, **extra: str) -> str:
+def _daily_contact_query(day: date, classroom_id: Optional[int], sort: str, *, view: str = "content", **extra: str) -> str:
     params: dict[str, str] = {
         "date": day.isoformat(),
         "sort": _normalize_sort(sort),
     }
     if classroom_id is not None:
         params["classroom_id"] = str(classroom_id)
+    if _normalize_view(view) == "status":
+        params["view"] = "status"
     params.update({key: value for key, value in extra.items() if value})
     return urlencode(params)
 
@@ -121,12 +142,14 @@ def daily_contact_list(
     target_date: Optional[str] = Query(default=None, alias="date"),
     classroom_id: Optional[str] = Query(default=None),
     sort: Optional[str] = Query(default="classroom"),
+    view: Optional[str] = Query(default="content"),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     day = _parse_target_date(target_date)
     selected_classroom_id = _parse_optional_int(classroom_id)
     selected_sort = _normalize_sort(sort)
+    selected_view = _normalize_view(view)
     classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
     children_query = (
         select(Child)
@@ -153,6 +176,14 @@ def daily_contact_list(
         )
     ).all() if child_ids else []
     reply_by_child_id = {reply.child_id: reply for reply in replies}
+    pickup_by_child_id = {}
+    if selected_view == "content" and child_ids:
+        pickup_by_child_id = {record.child_id: record for record in session.exec(
+            select(AttendanceRecord).where(
+                AttendanceRecord.attendance_date == day,
+                AttendanceRecord.child_id.in_(child_ids),
+            )
+        ).all()}
     children = _sort_children_by_contact_status(children, entry_by_child_id, selected_sort)
     if selected_sort == "unsent_first":
         children.sort(key=lambda child: bool(
@@ -171,18 +202,28 @@ def daily_contact_list(
             "classrooms": classrooms,
             "selected_classroom_id": selected_classroom_id,
             "selected_sort": selected_sort,
+            "selected_view": selected_view,
             "sort_options": DAILY_CONTACT_SORT_OPTIONS,
-            "detail_query_string": _daily_contact_query(day, selected_classroom_id, selected_sort),
+            "detail_query_string": _daily_contact_query(day, selected_classroom_id, selected_sort, view=selected_view),
+            "view_urls": {mode: "/daily-contacts/?" + _daily_contact_query(day, selected_classroom_id, selected_sort, view=mode)
+                          for mode in ("content", "status")},
             "children": children,
             "entry_by_child_id": entry_by_child_id,
             "reply_by_child_id": reply_by_child_id,
+            "pickup_by_child_id": pickup_by_child_id,
+            "stool_labels": STOOL_LABELS,
+            "temperature_display": _temperature_display,
+            "temperature_display": _temperature_display,
+            "contact_counts": {"total": len(children), "submitted": len(entries),
+                               "missing": len(children) - len(entries),
+                               "absent": sum(entry.is_absent_contact for entry in entries)},
             "published_reply_status": DailyContactReplyStatus.published,
-        },
+        }, headers={"Cache-Control": "private, no-store"},
     )
 
 
 def _detail_response(request, session, current_user, child_id, day, classroom_id, sort,
-                     *, notice="", attempted=None, error="", status_code=200):
+                     *, notice="", attempted=None, error="", status_code=200, view="content"):
     child = session.exec(select(Child).options(selectinload(Child.classroom)).where(Child.id == child_id)).first()
     if not child:
         raise HTTPException(404, "園児が見つかりません")
@@ -194,11 +235,11 @@ def _detail_response(request, session, current_user, child_id, day, classroom_id
     message = draft.get("message", "") if draft is not None else (reply.message or "" if reply else "")
     return templates.TemplateResponse(request, "daily_contacts/detail.html", {
         "current_user": current_user, "target_date": day, "target_date_value": day.isoformat(),
-        "selected_classroom_id": classroom_id, "selected_sort": sort,
-        "list_url": f"/daily-contacts/?{_daily_contact_query(day, classroom_id, sort)}",
-        "previous_url": f"/daily-contacts/{child_id}?{_daily_contact_query(day - timedelta(days=1), classroom_id, sort)}" if day > date.min else None,
-        "next_url": f"/daily-contacts/{child_id}?{_daily_contact_query(day + timedelta(days=1), classroom_id, sort)}" if day < date.max else None,
-        "history_url": f"/daily-contacts/{child_id}/history?{_daily_contact_query(day, classroom_id, sort)}",
+        "selected_classroom_id": classroom_id, "selected_sort": sort, "selected_view": _normalize_view(view),
+        "list_url": f"/daily-contacts/?{_daily_contact_query(day, classroom_id, sort, view=view)}",
+        "previous_url": f"/daily-contacts/{child_id}?{_daily_contact_query(day - timedelta(days=1), classroom_id, sort, view=view)}" if day > date.min else None,
+        "next_url": f"/daily-contacts/{child_id}?{_daily_contact_query(day + timedelta(days=1), classroom_id, sort, view=view)}" if day < date.max else None,
+        "history_url": f"/daily-contacts/{child_id}/history?{_daily_contact_query(day, classroom_id, sort, view=view)}",
         "child": child, "entry": entry, "reply": reply, "reply_fields": reply_field_definitions(),
         "reply_form_values": attempted if attempted is not None else reply_values_for_form(reply),
         "reply_message_value": attempted.get("message", "") if attempted is not None else message,
@@ -213,17 +254,19 @@ def _detail_response(request, session, current_user, child_id, day, classroom_id
 def daily_contact_detail(request: Request, child_id: int,
                          target_date: Optional[str] = Query(None, alias="date"),
                          classroom_id: Optional[str] = Query(None), sort: Optional[str] = Query("classroom"),
+                         view: Optional[str] = Query("content"),
                          notice: Optional[str] = Query(None), session: Session = Depends(get_session),
                          current_user=Depends(get_current_staff_user)):
     return _detail_response(request, session, current_user, child_id, _parse_target_date(target_date),
                             _parse_optional_int(classroom_id), _normalize_sort(sort),
-                            notice=DAILY_CONTACT_REPLY_NOTICE_MESSAGES.get(notice or "", ""))
+                            notice=DAILY_CONTACT_REPLY_NOTICE_MESSAGES.get(notice or "", ""), view=_normalize_view(view))
 
 
 @router.get("/{child_id}/history", response_class=HTMLResponse)
 def daily_contact_history(request: Request, child_id: int,
                           target_date: Optional[str] = Query(None, alias="date"),
                           classroom_id: Optional[str] = Query(None), sort: Optional[str] = Query("classroom"),
+                          view: Optional[str] = Query("content"),
                           session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
     child = session.get(Child, child_id)
     if not child:
@@ -235,13 +278,13 @@ def daily_contact_history(request: Request, child_id: int,
     replies = {item.target_date: item for item in session.exec(select(DailyContactReply).where(
         DailyContactReply.child_id == child_id, DailyContactReply.target_date >= start, DailyContactReply.target_date <= day)).all()}
     scope, ordering = _parse_optional_int(classroom_id), _normalize_sort(sort)
-    rows = [{"date": day - timedelta(days=offset), "url": f"/daily-contacts/{child_id}?{_daily_contact_query(day - timedelta(days=offset), scope, ordering)}"}
+    rows = [{"date": day - timedelta(days=offset), "url": f"/daily-contacts/{child_id}?{_daily_contact_query(day - timedelta(days=offset), scope, ordering, view=view)}"}
             for offset in range((day - start).days + 1)]
     return templates.TemplateResponse(request, "daily_contacts/history.html", {
         "current_user": current_user, "child": child, "rows": rows, "entries": entries, "replies": replies,
-        "target_date_value": day.isoformat(), "selected_classroom_id": scope, "selected_sort": ordering,
-        "back_url": f"/daily-contacts/{child_id}?{_daily_contact_query(day, scope, ordering)}",
-        "older_url": f"/daily-contacts/{child_id}/history?{_daily_contact_query(start - timedelta(days=1), scope, ordering)}" if start > child.enrollment_date else None,
+        "target_date_value": day.isoformat(), "selected_classroom_id": scope, "selected_sort": ordering, "selected_view": _normalize_view(view),
+        "back_url": f"/daily-contacts/{child_id}?{_daily_contact_query(day, scope, ordering, view=view)}",
+        "older_url": f"/daily-contacts/{child_id}/history?{_daily_contact_query(start - timedelta(days=1), scope, ordering, view=view)}" if start > child.enrollment_date else None,
     }, headers={"Cache-Control": "private, no-store"})
 
 
@@ -250,6 +293,7 @@ def save_daily_contact_reply(request: Request, child_id: int,
     target_date: str = Form(..., alias="date"), reply_nap_time: str = Form(""),
     reply_temperature: str = Form(""), reply_bowel_movement: str = Form(""), reply_appetite: str = Form(""),
     reply_message: str = Form(""), classroom_id: str = Form(""), sort: str = Form("classroom"),
+    view: str = Form("content"),
     action: str = Form("draft"), revision: Optional[str] = Form(None),
     session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
     if not getattr(current_user, "can_edit", False):
@@ -281,7 +325,7 @@ def save_daily_contact_reply(request: Request, child_id: int,
             from fastapi.responses import JSONResponse
             return JSONResponse({"detail": error}, status_code=409 if revision is not None and revision != expected else 400)
         return _detail_response(request, session, current_user, child_id, day, scope, ordering,
-                                attempted=attempted, error=error, status_code=400)
+                                attempted=attempted, error=error, status_code=400, view=view)
     values = reply_values_from_mapping({"reply_" + key: value for key, value in attempted.items()})
     entry = session.exec(select(DailyContactEntry).where(DailyContactEntry.child_id == child_id,
                                                        DailyContactEntry.target_date == day)).first()
@@ -314,10 +358,10 @@ def save_daily_contact_reply(request: Request, child_id: int,
             from fastapi.responses import JSONResponse
             return JSONResponse({"detail": message}, status_code=409)
         return _detail_response(request, session, current_user, child_id, day, scope, ordering,
-                                attempted=attempted, error=message, status_code=409)
+                                attempted=attempted, error=message, status_code=409, view=view)
     session.refresh(reply)
     notice = "reply_published" if action == "publish" else "reply_saved"
     if request.headers.get("X-Reply-Request") == "1":
         return {"revision": reply.updated_at.isoformat(), "notice": DAILY_CONTACT_REPLY_NOTICE_MESSAGES[notice],
                 "status": "未送信の変更あり" if reply.pending_draft is not None else "公開済み" if action == "publish" else "未送信"}
-    return RedirectResponse(f"/daily-contacts/{child_id}?{_daily_contact_query(day, scope, ordering, notice=notice)}", status_code=303)
+    return RedirectResponse(f"/daily-contacts/{child_id}?{_daily_contact_query(day, scope, ordering, view=view, notice=notice)}", status_code=303)

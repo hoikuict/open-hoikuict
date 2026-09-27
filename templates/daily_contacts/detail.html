@@ -14,7 +14,7 @@
 
   <nav class="reply-date-nav" aria-label="同じ子どもの日付移動">
     {% if previous_url %}<a href="{{ previous_url }}">← 前日</a>{% endif %}
-    <form method="get"><label>日付 <input type="date" name="date" value="{{ target_date_value }}" required></label><input type="hidden" name="classroom_id" value="{{ selected_classroom_id or '' }}"><input type="hidden" name="sort" value="{{ selected_sort }}"><button>移動</button></form>
+    <form method="get"><label>日付 <input type="date" name="date" value="{{ target_date_value }}" required></label><input type="hidden" name="classroom_id" value="{{ selected_classroom_id or '' }}"><input type="hidden" name="sort" value="{{ selected_sort }}"><input type="hidden" name="view" value="{{ selected_view }}"><button>移動</button></form>
     {% if next_url %}<a href="{{ next_url }}">翌日 →</a>{% endif %}<a href="{{ history_url }}">この子の履歴一覧</a>
   </nav>
   {% if error %}<p role="alert" class="rounded border border-rose-300 bg-rose-50 p-3 text-rose-800">{{ error }}</p>{% endif %}
@@ -74,6 +74,7 @@
     <input type="hidden" name="revision" value="{{ reply_revision }}">
     <input type="hidden" name="date" value="{{ target_date_value }}">
     <input type="hidden" name="sort" value="{{ selected_sort }}">
+    <input type="hidden" name="view" value="{{ selected_view }}">
     <input type="hidden" name="classroom_id" value="{{ selected_classroom_id or '' }}">
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <div>

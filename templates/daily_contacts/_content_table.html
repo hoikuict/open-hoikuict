@@ -1,0 +1,77 @@
+{% macro value(item) -%}
+  {% if item is not none and item != '' %}{{ item }}{% else %}<span class="contact-muted">—</span>{% endif %}
+{%- endmacro %}
+{% macro part(label, item) -%}
+  <div class="contact-cell-section"><span class="contact-label">{{ label }}</span><div class="contact-text">{{ value(item) }}</div></div>
+{%- endmacro %}
+<div class="contact-caption"><strong>{{ target_date_value }}</strong><span>横にスクロールできます。名前と見出しは固定表示です。</span></div>
+{% if children %}
+<div class="contact-table-scroll" tabindex="0" role="region" aria-label="保護者の連絡内容一覧。左右にスクロールできます">
+  <table class="contact-content-table">
+    <caption class="sr-only">{{ target_date_value }} の保護者連絡内容一覧</caption>
+    <colgroup>{% for _ in range(10) %}<col>{% endfor %}</colgroup>
+    <thead><tr>
+      <th scope="col">名前</th><th scope="col">機嫌</th><th scope="col">排便<small>前日夕方から連絡時まで</small></th>
+      <th scope="col">睡眠<small>就寝 〜 起床</small></th><th scope="col">食事</th><th scope="col">検温</th>
+      <th scope="col">お迎え</th><th scope="col">子どもの様子・連絡</th><th scope="col">症状・服薬</th><th scope="col">園返信</th>
+    </tr></thead>
+    <tbody>
+    {% for child in children %}
+    {% set entry = entry_by_child_id.get(child.id) %}
+    {% set reply = reply_by_child_id.get(child.id) %}
+    {% set pickup = pickup_by_child_id.get(child.id) %}
+    {% set care = (entry.extra_data or {}) if entry else {} %}
+    <tr data-child-id="{{ child.id }}">
+      <td>
+        <div class="contact-name-cell"><span class="contact-avatar" aria-hidden="true">{{ child.full_name[:1] }}</span><div>
+          <a class="contact-name" href="/daily-contacts/{{ child.id }}?{{ detail_query_string }}">{{ child.full_name }}</a>
+          <span class="contact-sub">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</span>
+          {% if entry %}
+          <span class="contact-badge {% if entry.is_absent_contact %}contact-badge-absent{% endif %}">{{ entry.contact_type.label }}</span>
+          <span class="contact-sub">{{ entry.updated_at|jst_datetime('%Y-%m-%d %H:%M') }}<br>提出者：{{ entry.parent_account.display_name if entry.parent_account else '—' }}</span>
+          {% else %}<span class="contact-badge contact-badge-missing">未提出</span>{% endif %}
+        </div></div>
+      </td>
+      {% if entry and entry.is_absent_contact %}
+      {% for _ in range(4) %}<td class="contact-muted">対象外</td>{% endfor %}
+      <td>{% if entry.contact_type.value == 'absent_sick' %}{{ value(temperature_display(entry.absence_temperature)) }}{% else %}<span class="contact-muted">対象外</span>{% endif %}</td>
+      <td class="contact-muted">対象外</td>
+      <td>{{ part('欠席理由', entry.contact_type.label) }}{{ part('備考', entry.absence_note) }}</td>
+      <td>{% if entry.contact_type.value == 'absent_sick' %}{{ part('症状', entry.absence_symptoms) }}{{ part('医師から伝えられた診断名', entry.absence_diagnosis) }}{% else %}<span class="contact-muted">対象外</span>{% endif %}</td>
+      {% else %}
+      <td>{{ value(entry.mood if entry else none) }}</td>
+      <td>
+        {{ value(stool_labels.get(care.get('stool_consistency'), care.get('stool_consistency'))) }}
+        {% if care.get('stool_count') is not none and care.get('stool_count') != '' %}<span class="contact-nowrap">（{{ care.stool_count }}回）</span>{% endif %}
+        {% if entry and entry.bowel_movement_status %}<span class="contact-sub contact-text">{{ entry.bowel_movement_status }}</span>{% endif %}
+      </td>
+      <td>{% if care.get('bedtime') or care.get('wakeup_time') %}{{ value(care.get('bedtime')) }} 〜 {{ value(care.get('wakeup_time')) }}{% else %}{{ value(none) }}{% endif %}
+        {% if entry and entry.sleep_notes %}<span class="contact-sub contact-text">{{ entry.sleep_notes }}</span>{% endif %}
+      </td>
+      <td>{% if entry %}{{ part('朝食・食欲', entry.breakfast_status) }}{{ part('食べた内容', care.get('breakfast_contents')) }}{% else %}{{ value(none) }}{% endif %}</td>
+      <td>{{ value(temperature_display(entry.temperature if entry else none)) }}</td>
+      <td>
+        {% if pickup and (pickup.planned_pickup_time or pickup.pickup_person or pickup.pickup_snack_confirmed) %}
+        {{ value(pickup.planned_pickup_time) }}
+        <span class="contact-sub">迎え：{{ value(pickup.pickup_person) }}</span>
+        <span class="contact-sub">補食：{% if pickup.pickup_snack_confirmed %}{{ '必要' if pickup.snack_required else '不要' }}{% else %}{{ value(none) }}{% endif %}</span>
+        {% if not entry %}<span class="contact-sub">予定のみ登録あり</span>{% endif %}
+        {% else %}{{ value(none) }}{% endif %}
+      </td>
+      <td>{% if entry %}{{ part('体調メモ', entry.condition_note) }}{{ part('園への連絡事項', entry.contact_note) }}{% else %}<span class="contact-muted">保護者からの連絡は未提出です。</span>{% endif %}</td>
+      <td>{% if entry %}{{ part('咳', entry.cough) }}{{ part('鼻水', entry.runny_nose) }}{{ part('服薬', entry.medication) }}{% else %}{{ value(none) }}{% endif %}</td>
+      {% endif %}
+      <td>
+        {% if reply and reply.pending_draft is not none %}<span class="contact-reply-draft">未送信の変更あり</span>
+        {% elif reply and reply.status == published_reply_status %}<span class="contact-reply-published">返信済み</span>
+        {% elif reply %}<span class="contact-reply-draft">未送信</span>
+        {% else %}<span class="contact-reply-draft">未送信（未入力）</span>{% endif %}
+        {% if reply and reply.staff_name %}<span class="contact-sub">返信者: {{ reply.staff_name }}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}<p class="contact-empty">対象の園児が見つかりません。</p>{% endif %}
+<p class="contact-legend">「未提出」は連絡が届いていない園児です。「—」は未入力、「対象外」は欠席連絡で使わない項目です。お迎え予定・補食は出欠記録の予定を表示します。</p>
