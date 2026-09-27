@@ -37,7 +37,7 @@ def start(w):
 
 def arrival_values(w, started, **overrides):
     values = dict(date=str(w.day), class_id=w.classroom, arrival_token=started.context["arrival_token"],
-                  revision=started.context["pickup_revision"], planned_pickup_time="22:15", pickup_person="母", snack_required="0")
+                  revision=started.context["pickup_revision"], planned_pickup_time="18:15", pickup_person="母", snack_required="0")
     values.update(overrides)
     return values
 
@@ -62,7 +62,7 @@ def test_parent_contact_and_plan_save_together_with_all_care_fields(workbench):
     assert page.context["pickup_values"]["planned_pickup_time"] == "22:45"
     kiosk = w.client.get(f"/guardian/?date={w.day}&child_id={w.child}")
     assert "登園する" in kiosk.text and "降園する" not in kiosk.text
-    assert start(w).template.name == "guardian/pickup_confirm.html"
+    assert start(w).template.name == "guardian/pickup_form.html"  # Existing after-close plan must be corrected.
 
 
 @pytest.mark.parametrize("time_value,person,snack,exists", [("", "", "", False), ("17:00", "", "", True),
@@ -152,7 +152,7 @@ def test_arrival_preview_edit_cancel_do_not_write_and_commit_uses_first_time(wor
     confirmed = w.client.post(f"/guardian/child/{w.child}/pickup", data=values)
     assert confirmed.status_code == 200 and confirmed.context["arrival_at"] == first
     edited = w.client.post(f"/guardian/child/{w.child}/arrival/edit", data=values)
-    assert edited.status_code == 200 and edited.context["pickup_values"]["planned_pickup_time"] == "22:15"
+    assert edited.status_code == 200 and edited.context["pickup_values"]["planned_pickup_time"] == "18:15"
     assert edited.context["arrival_token"] == started.context["arrival_token"]
     w.client.get(f"/guardian?date={w.day}")  # Cancel returns to the class chooser.
     with Session(w.engine) as session:
@@ -163,7 +163,7 @@ def test_arrival_preview_edit_cancel_do_not_write_and_commit_uses_first_time(wor
     assert committed.status_code == 200
     with Session(w.engine) as session:
         record = session.exec(select(AttendanceRecord)).one()
-        assert record.check_in_at == first and record.planned_pickup_time == "22:15"
+        assert record.check_in_at == first and record.planned_pickup_time == "18:15"
     assert w.client.post(f"/guardian/child/{w.child}/pickup/commit", data=values).status_code == 409
 
 

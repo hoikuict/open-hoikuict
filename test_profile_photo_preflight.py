@@ -129,8 +129,9 @@ def test_old_schema_upgrade_and_photo_backup_restore(tmp_path, monkeypatch):
     engine.dispose()
     facility_db = runtime / "facility.sqlite"
     with sqlite3.connect(facility_db) as connection:
-        connection.execute("CREATE TABLE examples (id INTEGER PRIMARY KEY)")
-    config = BackupConfig(output_root=tmp_path / "backups", database_url=f"sqlite:///{main_db}", facility_db=facility_db, storage_root=storage, git_sha="a" * 40, app_image="test@sha256:" + "b" * 64, compose_sha256="c" * 64, quiesced=True, environment="test")
+        from plan_docs.services.bunrei import _ensure_facility_table
+        _ensure_facility_table(connection)
+    config = BackupConfig(output_root=tmp_path / "backups", database_url=f"sqlite:///{main_db}", facility_db=facility_db, storage_root=storage, git_sha="a" * 40, app_image="test@sha256:" + "b" * 64, compose_sha256="c" * 64, quiesced=True, environment="test", cloudflared_image="cloudflared@sha256:" + "d" * 64, recovery_kit_ref="test-kit", actor_ref="test-operator", baseline_ref="test-baseline")
     backup = create_backup(config)
     assert verify_backup_set(backup)["status"] == "ok"
     restored = tmp_path / "restored.db"

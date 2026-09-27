@@ -28,6 +28,7 @@
     <h2 id="parent-settings" class="px-5 py-3 font-semibold text-slate-600">保護者と端末</h2>
     {% if parent_enrollment_enabled() %}{{ item('/parent-accounts/registration-qr', '保護者登録の受付', '登録案内のQRコードと、新しい申請の受付を管理します。') }}{% endif %}
     {{ item('/settings/guardian-terminals', '保護者端末の監視', '端末の稼働状況と監視時間を管理します。') }}
+    {{ item('/settings/guardian-hours', 'キオスクの閉園時刻', '予定時刻の選択範囲と、登降園の受付終了時刻を設定します。') }}
   </section>
   {% if not is_public_demo() %}<section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="maintenance-settings">
     <h2 id="maintenance-settings" class="px-5 py-3 font-semibold text-slate-600">保守</h2>

@@ -973,6 +973,7 @@ def child_detail(
 ):
     child = _load_child(session, child_id)
     family_children = _sorted_family_children(child)
+    from parent_account_lifecycle import parent_lifecycle_states
     family_parent_accounts = (
         sorted(
             child.family.parent_accounts,
@@ -1002,6 +1003,7 @@ def child_detail(
             "care_error": care_error,
             "family_children": family_children,
             "family_parent_accounts": family_parent_accounts,
+            "parent_lifecycle_states": parent_lifecycle_states(session, family_parent_accounts),
             "family_parent_accounts_by_id": {
                 account.id: account for account in family_parent_accounts
             },

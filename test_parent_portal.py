@@ -597,7 +597,7 @@ class ParentPortalTests(unittest.TestCase):
             f"/daily-contacts/?date={target.isoformat()}"
         )
         self.assertEqual(staff_list_with_draft.status_code, 200)
-        self.assertIn("下書き", staff_list_with_draft.text)
+        self.assertIn("未送信", staff_list_with_draft.text)
         self.assertIn("返信者: 台帳担当", staff_list_with_draft.text)
         self.assertNotIn("返信済み", staff_list_with_draft.text)
 

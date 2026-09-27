@@ -11,7 +11,9 @@
 </div>
 
 <div class="space-y-4">
-  {% for notification in parent_notifications %}
+  {% for update in updates %}
+  {% if update.kind == "parent_notification" %}
+  {% set notification = update.notification %}
   <a href="/parent-portal/notifications/{{ notification.id }}" class="block rounded-xl border border-rose-200 bg-white p-5 shadow-sm hover:border-rose-400">
     <div class="mb-2 flex items-center gap-2">
       <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">出欠確認</span>
@@ -25,14 +27,14 @@
     <p class="mt-2 text-sm text-gray-700">{{ notification.body }}</p>
     <p class="mt-2 text-sm text-gray-500">{{ notification.created_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
   </a>
-  {% endfor %}
-  {% for notice in notices %}
+  {% else %}
+  {% set notice = update.notice %}
   <a href="/parent-portal/notices/{{ notice.id }}" class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:border-indigo-300">
     <div class="mb-2 flex items-center gap-2">
       {% if notice.priority.value == 'high' %}
       <span class="rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700">重要</span>
       {% endif %}
-      {% if notice.id not in read_notice_ids %}
+      {% if update.is_unread %}
       <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未読</span>
       {% else %}
       <span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">既読</span>
@@ -41,10 +43,9 @@
     <h2 class="text-lg font-semibold text-gray-800">{{ notice.title }}</h2>
     <p class="mt-1 text-sm text-gray-500">{{ (notice.publish_start_at if notice.publish_start_at else notice.created_at)|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
   </a>
-  {% else %}
-  {% if not parent_notifications %}
-  <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">表示できるお知らせはありません。</div>
   {% endif %}
+  {% else %}
+  <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">表示できるお知らせはありません。</div>
   {% endfor %}
 </div>
 {% endblock %}

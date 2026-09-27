@@ -28,6 +28,8 @@
           {% for option in categories %}<option value="{{ option }}" {% if category == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
         </select>
       </label>
+      <label class="text-sm">共有範囲<select name="sharing" class="mt-1 block rounded-lg border px-3 py-2"><option value="all">すべて</option><option value="private" {% if sharing == 'private' %}selected{% endif %}>自分だけ</option><option value="shared" {% if sharing == 'shared' %}selected{% endif %}>みんなで共有</option></select></label>
+      <label class="text-sm"><input type="checkbox" name="include_voided" value="true" {% if include_voided %}checked{% endif %}> 無効化した記録も表示</label>
       <button type="submit" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">絞り込む</button>
     </form>
   </section>
@@ -41,12 +43,14 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <time class="font-semibold text-slate-900">{{ log.observed_on.strftime('%Y年%m月%d日') }}</time>
+              <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{{ '自分だけ' if log.visibility == 'private' else ('指定した職員に共有' if log.visibility == 'shared' and log.sensitivity == 'restricted' else ('みんなで共有' if log.visibility == 'shared' else '従来の共有範囲')) }}</span>
+              {% if log.voided_at %}<span class="text-sm text-rose-700">無効化済み</span>{% endif %}
               {% if log.sensitivity == 'restricted' %}<span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">取扱注意</span>{% endif %}
               {% for item in log.categories %}<span class="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{{ item }}</span>{% endfor %}
             </div>
             <p class="mt-1 text-xs text-slate-500">{{ log.created_by_name }}・{{ log.classroom_name_snapshot or 'クラス未設定' }}／{{ log.created_at|jst_datetime }}</p>
           </div>
-          {% if current_user.can_edit %}<a href="/children/{{ child.id }}/records/{{ log.id }}/correct" class="text-sm font-medium text-indigo-600 hover:underline">訂正</a>{% endif %}
+          {% if log.id in correctable_ids %}<a href="/children/{{ child.id }}/records/{{ log.id }}/correct" class="text-sm font-medium text-indigo-600 hover:underline">訂正</a>{% endif %}
         </div>
         <div class="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-800">{{ log.child_state }}</div>
         {% if log.caregiver_support or log.reflection or log.next_focus or log.family_note or log.custom_values %}
@@ -61,6 +65,18 @@
           </dl>
         </details>
         {% endif %}
+        {% if revisions_by_log_id.get(log.id) or log.voided_at %}
+        <details class="mt-4 rounded-xl bg-slate-50 p-4"><summary class="cursor-pointer text-sm font-semibold">訂正・操作履歴</summary>
+          {% if log.voided_at %}<p class="mt-2 text-sm">{{ log.voided_at|jst_datetime }} 無効化：{{ log.void_reason }}</p>{% endif %}
+          {% for revision in revisions_by_log_id.get(log.id, []) %}
+          <div class="mt-3 border-l-2 border-indigo-200 pl-3 text-sm"><p>{{ revision.created_at|jst_datetime }} / {{ revision.created_by_name }} / {{ '無効化理由' if revision.snapshot.get('action') == 'void' else '訂正理由' }}：{{ revision.reason }}</p>
+            <details class="mt-2"><summary>変更前の内容</summary><p>{{ revision.snapshot.get('observed_on', '') }} / {{ '自分だけ' if revision.snapshot.get('visibility') == 'private' else ('みんなで共有' if revision.snapshot.get('visibility') == 'shared' else '従来の共有範囲') }}</p>
+              <dl>{% for key, label in [('child_state', '子どもの姿'), ('caregiver_support', '保育者の関わり'), ('reflection', '気付き・振り返り'), ('next_focus', '次に意識したいこと'), ('family_note', '家庭との共有・連携')] %}{% if revision.snapshot.get(key) %}<dt class="mt-2 font-semibold">{{ label }}</dt><dd class="whitespace-pre-wrap">{{ revision.snapshot[key] }}</dd>{% endif %}{% endfor %}
+              {% for key, value in revision.snapshot.get('custom_values', {}).items() %}<dt class="mt-2 font-semibold">{{ custom_labels_by_log_id.get(log.id, {}).get(key, '園独自項目') }}</dt><dd class="whitespace-pre-wrap">{{ value }}</dd>{% endfor %}</dl>
+              <p class="mt-2">{{ revision.snapshot.get('categories', [])|join(' / ') }} {{ revision.snapshot.get('perspective_tags', [])|join(' / ') }}</p>
+            </details>
+          </div>{% endfor %}
+        </details>{% endif %}
         {% if log.perspective_tags %}<div class="mt-4 flex flex-wrap gap-2">{% for tag in log.perspective_tags %}<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-700">{{ tag }}</span>{% endfor %}</div>{% endif %}
       </div>
     </article>

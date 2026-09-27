@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 from auth import (
@@ -23,6 +23,7 @@ from models import (
     Child,
     ChildStatus,
     ParentAccount,
+    ParentCredentialProvisioningAudit,
     ParentEnrollment,
     ParentMailDelivery,
     ParentPublicRegistration,
@@ -39,7 +40,6 @@ from parent_auth import (
     change_parent_password,
     complete_parent_action_password,
     complete_parent_registration,
-    disable_parent_authentication,
     exchange_completion_token,
     exchange_invitation_token,
     exchange_parent_action_code,
@@ -51,6 +51,11 @@ from parent_auth import (
     submit_parent_identity,
 )
 from security_config import secure_cookie_enabled
+from time_utils import utc_now
+from parent_account_lifecycle import (
+    ACTIONS, StaleParentLifecycle, change_parent_lifecycle, parent_lifecycle_state,
+    validate_parent_lifecycle,
+)
 from template_utils import create_templates
 from url_utils import safe_internal_redirect
 from parent_enrollment import (
@@ -451,7 +456,7 @@ def _action_page(
 
 
 def _action_path(purpose: str) -> str:
-    return "reset" if purpose == "parent_reset" else "activate"
+    return {"parent_reset": "reset", "parent_resume": "resume", "parent_activate": "activate"}[purpose]
 
 
 def _verify_action_code(
@@ -485,12 +490,14 @@ def _complete_action_password(
             password_confirmation=password_confirmation,
         )
     except AuthenticationFailed:
+        session.rollback()
         response = RedirectResponse(
             "/parent-portal/register/status?state=invalid", status_code=303
         )
         _clear_registration_cookie(response)
         return _no_store(response)
     except (PasswordPolicyError, ValueError) as exc:
+        session.rollback()
         return _render(
             request,
             "parent_auth/action_password.html",
@@ -514,6 +521,23 @@ def reset_page(request: Request):
 @router.get("/parent-portal/activate", response_class=HTMLResponse)
 def activate_page(request: Request):
     return _action_page(request, "parent_activate")
+
+
+@router.get("/parent-portal/resume", response_class=HTMLResponse)
+def resume_page(request: Request):
+    return _action_page(request, "parent_resume")
+
+
+@router.post("/parent-portal/resume/verify")
+def resume_verify(request: Request, reset_code: str = Form(...), session: Session = Depends(get_session)):
+    return _verify_action_code(request, session, reset_code, "parent_resume")
+
+
+@router.post("/parent-portal/resume/complete")
+def resume_complete(request: Request, password: str = Form(...), password_confirmation: str = Form(...),
+                    session: Session = Depends(get_session)):
+    return _complete_action_password(request, session, purpose="parent_resume", password=password,
+                                     password_confirmation=password_confirmation)
 
 
 @router.post("/parent-portal/reset/verify")
@@ -751,6 +775,7 @@ def _issue_admin_action_code(
             send_email=True,
         )
     except ValueError as exc:
+        session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _render_staff(
         request,
@@ -771,7 +796,8 @@ def admin_parent_auth_page(
     return _admin_auth_response(request, account_id, session, current_user)
 
 
-def _admin_auth_response(request, account_id, session, current_user, *, review_error="", review_values=None, status_code=200):
+def _admin_auth_response(request, account_id, session, current_user, *, review_error="", review_values=None,
+                         lifecycle_values=None, status_code=200):
     actor = _admin_actor(session, current_user)
     account = _load_admin_account(session, account_id)
     credential = session.exec(
@@ -784,14 +810,18 @@ def _admin_auth_response(request, account_id, session, current_user, *, review_e
         .where(ParentRegistrationRequest.parent_account_id == account_id)
         .order_by(ParentRegistrationRequest.created_at.desc())
     ).all()
+    lifecycle = parent_lifecycle_state(session, account)
     active_session_count = len(
         session.exec(
             select(AuthSession).where(
                 AuthSession.parent_account_id == account_id,
                 AuthSession.revoked_at.is_(None),
+                AuthSession.credential_version == (credential.credential_version if credential else 0),
+                AuthSession.idle_expires_at > utc_now(),
+                AuthSession.absolute_expires_at > utc_now(),
             )
         ).all()
-    )
+    ) if lifecycle["code"] == "active" else 0
     mail_deliveries = session.exec(
         select(ParentMailDelivery.message_type, ParentMailDelivery.recipient,
                ParentMailDelivery.status, ParentMailDelivery.created_at,
@@ -807,6 +837,15 @@ def _admin_auth_response(request, account_id, session, current_user, *, review_e
             "actor": actor,
             "account": account,
             "credential": credential,
+            "lifecycle": lifecycle,
+            "lifecycle_values": lifecycle_values or {},
+            "lifecycle_actions": ACTIONS,
+            "lifecycle_history": session.exec(select(ParentCredentialProvisioningAudit, User.display_name).join(
+                User, User.id == ParentCredentialProvisioningAudit.actor_user_id, isouter=True,
+            ).where(
+                ParentCredentialProvisioningAudit.parent_account_id == account_id,
+                ParentCredentialProvisioningAudit.operation.in_([*ACTIONS, "disable"]),
+            ).order_by(ParentCredentialProvisioningAudit.created_at.desc(), ParentCredentialProvisioningAudit.id.desc())).all(),
             "registrations": registrations,
             "enrollments": {str(item.id): session.get(ParentEnrollment, item.id) for item in registrations},
             "public_registrations": {str(item.id) for item in registrations if session.get(ParentPublicRegistration, item.id)},
@@ -818,7 +857,7 @@ def _admin_auth_response(request, account_id, session, current_user, *, review_e
             "enrollment_field_labels": FIELD_LABELS,
             "active_session_count": active_session_count,
             "mail_deliveries": mail_deliveries,
-            "invitation_issues": parent_invitation_requirements(session, account),
+            "invitation_issues": parent_invitation_requirements(session, account, allow_initial_restart=True),
             "invitation_children": [link.child for link in account.child_links if link.child],
             "registration_status_labels": REGISTRATION_STATUS_LABELS,
             "action_code": "",
@@ -875,13 +914,14 @@ def admin_invite(
         enrollment = latest_enrollment(session, account_id)
         updated_enrollment = None
         if enrollment_child_name is not None and enrollment and not enrollment.applied_at and enrollment.child_id is None:
-            updated_enrollment = prepare_enrollment(session, account, enrollment_child_name)
+            updated_enrollment = prepare_enrollment(session, account, enrollment_child_name, allow_stopped=True)
             account.display_name = f"{updated_enrollment.child_name}さんの保護者（初回入力待ち）"
             session.add(account)
         issue_parent_invitation(
             session, account=account, actor_user=actor, reason=reason, enrollment=updated_enrollment
         )
     except ValueError as exc:
+        session.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return RedirectResponse(
         f"/parent-accounts/{account_id}/authentication", status_code=303
@@ -968,17 +1008,44 @@ def admin_activation_code(
 
 @router.post("/parent-accounts/{account_id}/authentication/disable")
 def admin_disable(
+    request: Request,
     account_id: int,
     reason: str = Form(...),
+    revision: str = Form(""),
+    confirmed: str = Form(""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
+    # Old forms must go through the same confirmation and revision checks.
+    return admin_parent_lifecycle(request, account_id, "stop", reason, revision, confirmed, session, current_user)
+
+
+@router.post("/parent-accounts/{account_id}/authentication/lifecycle", response_class=HTMLResponse)
+def admin_parent_lifecycle(request: Request, account_id: int, action: str = Form(...),
+                           reason: str = Form(""), revision: str = Form(""), confirmed: str = Form(""),
+                           session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
     actor = _admin_actor(session, current_user)
     account = _load_admin_account(session, account_id)
+    values = {"action": action, "reason": reason}
+    if confirmed == "back":
+        return _admin_auth_response(request, account_id, session, current_user, lifecycle_values=values)
     try:
-        disable_parent_authentication(session, account, actor, reason)
+        lifecycle = validate_parent_lifecycle(session, account, action=action, reason=reason, revision=revision)
+        if confirmed != "yes":
+            return _render_staff(request, "parent_auth/lifecycle_confirm.html", {
+                "current_user": current_user, "account": account, "lifecycle": lifecycle,
+                "action": action, "action_label": ACTIONS[action], "reason": reason,
+            })
+        change_parent_lifecycle(session, account, actor, action=action, reason=reason, revision=revision)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        session.rollback()
+        return _admin_auth_response(request, account_id, session, current_user, review_error=str(exc),
+                                    lifecycle_values=values, status_code=409 if isinstance(exc, StaleParentLifecycle) else 400)
+    except SQLAlchemyError:
+        session.rollback()
+        return _admin_auth_response(request, account_id, session, current_user,
+                                    review_error="保存できませんでした。状態は変更されていません。入力内容を確認して再試行してください。",
+                                    lifecycle_values=values, status_code=503)
     return RedirectResponse(
-        f"/parent-accounts/{account_id}/authentication", status_code=303
+        f"/parent-accounts/{account_id}/authentication?notice=lifecycle_changed", status_code=303
     )

@@ -1,0 +1,12 @@
+{
+  "commit": "c907275b94cabcb613b4cf2a8edf778c05ade8dd",
+  "normalized_sha256": {
+    "templates/base.html": "275f7d523dd54bb28aa9f65b3b6da2e386e438b5034a1fe559dbcc2fceedf75c",
+    "templates/parent_portal/home.html": "c9d41606364347d5a74048f21b520f0a8fe49ec347fb85fe7a0986a5ea7ab9b4",
+    "templates/parent_portal/_update_card.html": "02d089f1262112e708dabf18585579d84897f134c234791531407f46e0c0816f",
+    "templates/parent_portal/notices.html": "fcc798cc9d157e0d6b140cf370a2bd7bece0d1aa6176aac1f111c8dc8d710e9c",
+    "templates/parent_portal/notice_detail.html": "78fb1824223bd55c76c7b97e29ed4c7e32bfebe1f38dbcbde77b6fe1abfec096",
+    "templates/parent_portal/notification_detail.html": "66c1baa93f42593d8ffcf9a80e827437d78799c9fe973844e26b25c496cdb83f",
+    "routers/parent_portal.py": "701939cdebc23743cf0f914bd21980d3ec13274ca70fe25a1a59dc31b87a4817"
+  }
+}

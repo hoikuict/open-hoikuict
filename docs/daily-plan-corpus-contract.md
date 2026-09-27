@@ -5,7 +5,9 @@
 - 推奨コーパス構築リポジトリ名: `hoiku-plan-corpus`
 - 受け入れ形式: SQLite 3（読み取り専用）
 - ステータス: 現行の受け入れ契約
-- 現況再確認: 2026-08-11
+- 現況再確認: 2026-09-14（ねらいテーブルと現行検証範囲を補記）
+
+希望する施設へ配布するサンプルの作成・任意導入・更新・停止は、[日案サンプルDB仕様](daily-plan-sample-db-spec.md)で計画する。同仕様の有効化設定や検証CLIは未実装である。
 
 ## 1. 方針
 
@@ -74,6 +76,13 @@ create table daily_plan_examples (
     pii_review_status text not null
 );
 
+create table daily_plan_aims (
+    daily_plan_id text not null references daily_plan_examples(id),
+    position integer not null check (position >= 0),
+    aim_text text not null,
+    primary key (daily_plan_id, position)
+);
+
 create table daily_plan_activity_blocks (
     id integer primary key,
     daily_plan_id text not null references daily_plan_examples(id),
@@ -104,9 +113,12 @@ create table daily_plan_activity_blocks (
 - `source_ref`: 原資料を直接公開せず照合できる内部参照ID。
 - `review_status`: 内容レビュー状態。本番は `approved` のみ使用する。
 - `pii_review_status`: 個人情報レビュー状態。本番は `approved` のみ使用する。
+- `daily_plan_aims`: 本体が読み込む必須テーブル。`daily_plan_id` で日案例に対応付け、`position` 順にねらいを下書きへコピーする。
 - 活動ブロックは `position` 順に読み、4列の下書きへコピーする。
 
-本体は必須テーブル、必須列、`schema_version` を起動後の初回読取時に検証する。互換性がない場合は候補表示を止め、手入力での日案作成は継続可能にする。
+上のSQLは主要な構造を示す。生成側の `schema/runtime.sql` は `STRICT`、値域・一意制約、検索索引と `daily_plan_activity_tags` も定義する。タグは現行の日案画面では検索対象にしていない。
+
+現行の本体は読取接続ごとに必須4テーブル、日案例・活動ブロックの指定列、`schema_version` を検証する。ねらいテーブルの列検査、全メタデータ・件数・値域・外部キーの一括検証までは実装していない。互換性がない場合は候補表示を止め、手入力での日案作成は継続可能にする。
 
 ## 4. 成果物
 
@@ -115,15 +127,17 @@ create table daily_plan_activity_blocks (
 - `daily_plan_examples.sqlite`
 - `manifest.json`
 
-`manifest.json` には少なくとも `schema_version`、`corpus_version`、`record_count`、SQLiteファイルのSHA-256を含める。本体への取り込み時にハッシュと件数を照合する。
+`manifest.json` には少なくとも `schema_version`、`corpus_version`、`record_count`、SQLiteファイルのSHA-256を含める。これは成果物の受け入れ要件であり、現行の本体読取処理にはマニフェストのハッシュ・件数照合は未実装である。配布・導入時の検証は[日案サンプルDB仕様](daily-plan-sample-db-spec.md)で追加する。
 
-本体は次の順にDBを探索する。
+現行の本体は次の優先順位でDBを決定する。
 
 1. 環境変数 `HOIKU_DAILY_PLAN_EXAMPLES_DB_PATH`
 2. `data/daily_plan_examples.sqlite`
 3. `gen_bunnrei/daily_plan_examples.sqlite`
 
-開発・運用環境では環境変数を推奨し、リリース同梱時のみリポジトリ内の既定位置を使う。
+環境変数に明示パスがある場合はそのパスだけを使用し、ファイルがなくても既定位置へ切り替えない。明示パスがない場合だけ、2、3の順に探索する。
+
+開発・運用環境では環境変数を推奨する。日案サンプルの任意配布では通常のソース・Dockerイメージへ同梱せず、導入先で版付きのパスを指定する方針とする。
 
 ## 5. 個人情報と著作権
 

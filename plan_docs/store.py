@@ -134,6 +134,7 @@ def _document_from_row(row: PlanDocumentRow) -> PlanDocument:
         parent_document_id=row.parent_document_id,
         related_document_ids=list(row.related_document_ids or []),
         schedule=_schedule_from_dict(row.schedule),
+        monthly_sheet=row.monthly_sheet,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -166,6 +167,11 @@ def _row_from_document(document: PlanDocument) -> PlanDocumentRow:
         related_document_ids=list(document.related_document_ids),
         sections=list(payload["sections"]),
         schedule=payload.get("schedule"),
+        monthly_sheet=document.monthly_sheet,
+        monthly_sheet_key=(json.dumps([
+            document.nursery_ref, document.monthly_sheet["classroom_id"],
+            document.target_month, document.monthly_sheet["age"],
+        ], ensure_ascii=False) if document.monthly_sheet else None),
         confirmation_items=list(document.confirmation_items),
         created_at=document.created_at,
         updated_at=document.updated_at,
@@ -182,6 +188,7 @@ def _apply_document_to_row(document: PlanDocument, row: PlanDocumentRow) -> None
     row.related_document_ids = list(document.related_document_ids)
     row.sections = list(payload["sections"])
     row.schedule = payload.get("schedule")
+    row.monthly_sheet = document.monthly_sheet
     row.confirmation_items = list(document.confirmation_items)
     row.updated_at = document.updated_at
 
@@ -305,6 +312,7 @@ class SqlModelDocumentRepository:
         confirmation_items: list[str],
         section_updates: dict[str, dict[str, object]],
         schedule_form: Mapping[str, str] | None = None,
+        monthly_sheet: dict | None = None,
         expected_lock_version: int,
         actor_ref: str,
     ) -> PlanDocument | None:
@@ -316,6 +324,8 @@ class SqlModelDocumentRepository:
         document.title = title
         document.owner_name = owner_name
         document.confirmation_items = confirmation_items
+        if monthly_sheet is not None:
+            document.monthly_sheet = monthly_sheet
         for section in document.sections:
             item = section_updates.get(section.section_key)
             if not item:

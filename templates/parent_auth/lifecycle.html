@@ -1,0 +1,34 @@
+{% macro lifecycle_form(action, label, reason_label) %}
+<form class="mt-4 space-y-3" method="post" action="/parent-accounts/{{ account.id }}/authentication/lifecycle">
+  <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+  <input type="hidden" name="action" value="{{ action }}">
+  <input type="hidden" name="revision" value="{{ lifecycle.revision }}">
+  <label class="block text-sm font-semibold text-slate-700">{{ reason_label }} 必須
+    <textarea name="reason" required maxlength="500" rows="3" class="mt-2 w-full rounded border border-slate-300 px-3 py-2">{{ lifecycle_values.get('reason', '') if lifecycle_values.get('action') == action else '' }}</textarea>
+  </label>
+  <button class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">{{ label }}の内容を確認</button>
+</form>
+{% endmacro %}
+<section id="lifecycle" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <h2 class="text-lg font-bold text-slate-900">利用停止・再開</h2>
+  {% if lifecycle.code == 'resume_pending' %}
+  <p class="mt-2 text-sm text-slate-600">保護者が案内からパスワードを設定するまでログインできません。再送すると以前のコードは失効します。</p>
+  {{ lifecycle_form('cancel_pending', '再開手続き取消', '取消理由') }}
+  {% elif lifecycle.can_resume %}
+  <p class="mt-2 text-sm text-slate-600">現在のパスワードで、保護者が再ログインできるようになります。パスワードの再設定やメール送信は行いません。</p>
+  <p class="mt-2 text-sm text-slate-600">停止前のログイン状態・通知登録は復活しません。園児{{ lifecycle.child_count }}人の紐づけは保持されます。</p>
+  {{ lifecycle_form('resume', '利用再開', '再開理由') }}
+  {% elif lifecycle.code == 'stopped' %}
+  <p class="mt-2 text-sm text-slate-600">{% if account.email_removed %}メールアドレスが削除されているため、この画面では再開できません。{% elif lifecycle.requires_reset %}パスワードの再設定が必要です。下の再開案内から手続きを行ってください。{% else %}初回登録・パスワード設定を完了していません。下の初回登録・初回設定の手続きを確認してください。{% endif %}</p>
+  {% else %}
+  <p class="mt-2 text-sm text-slate-600">利用を停止すると、ログイン中の端末、通知登録、未完了の招待・再設定コードを失効させます。パスワードと園児{{ lifecycle.child_count }}人の紐づけは保持されます。</p>
+  {{ lifecycle_form('stop', '利用停止', '停止理由') }}
+  {% endif %}
+  {% if lifecycle.can_reset_resume %}
+  <details class="mt-5 border-t border-slate-200 pt-4" {% if lifecycle.requires_reset or lifecycle_values.get('action') == 'reset_resume' %}open{% endif %}>
+    <summary class="cursor-pointer text-sm font-semibold text-indigo-700">パスワード再設定を伴う利用再開</summary>
+    <p class="mt-2 text-sm text-slate-600">登録メールへ再開案内を送信します。本人が新しいパスワードを設定してから利用を再開します。</p>
+    {{ lifecycle_form('reset_resume', '再開案内', '本人確認方法と再開理由') }}
+  </details>
+  {% endif %}
+</section>

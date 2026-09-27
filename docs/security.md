@@ -1,82 +1,58 @@
-# セキュリティ最低ライン
+# 本番設定・セキュリティ
 
-## 原則
+現況確認: 2026年9月13日。起動条件は `security_config.validate_runtime_security()`、認証・権限は各ルーターとサービスが検証します。このページは現行コードの設定を説明します。新規導入は[TrueNAS導入ガイド](truenas-beginner-installation-guide.md)から進めてください。
 
-保育ICTは、園児、保護者、職員の個人情報、健康情報、家庭状況、連絡履歴を扱います。便利さよりも、権限漏れ、誤送信、記録の改ざん、バックアップ不能を防ぐ設計を優先します。
+## productionの起動条件
 
-## デモ・開発環境
+| 設定 | 必須条件 |
+| --- | --- |
+| `HOIKUICT_ENV` | `production`。未指定時もproduction扱い |
+| `HOIKUICT_STAFF_AUTH_MODE` / `HOIKUICT_PARENT_AUTH_MODE` | 両方 `local_password` |
+| `HOIKUICT_ENABLE_MOCK_AUTH` / `HOIKUICT_ENABLE_MOCK_ROLE_OVERRIDE` | `1` を使用しない |
+| `HOIKUICT_COOKIE_SECURE` / `HOIKUICT_CSRF_ENFORCE` | 両方 `1` |
+| `HOIKUICT_SECRET_KEY` | 32文字以上 |
+| `HOIKUICT_LOGIN_THROTTLE_HMAC_KEY` | 32バイト以上 |
+| `HOIKUICT_PASSWORD_BLOCKLIST_PATH` | 読み取り可能なパスワード禁止リスト |
+| `FORWARDED_ALLOW_IPS` | 信頼するプロキシのIP/CIDRを明示。`*` は不可 |
+| `HOIKUICT_PARENT_MAIL_TRANSPORT` | `smtp` |
+| `HOIKUICT_PARENT_REGISTRATION_BASE_URL` | HTTPSの施設URL |
+| SMTP | `HOIKUICT_SMTP_HOST`、`HOIKUICT_SMTP_PORT`、`HOIKUICT_PARENT_MAIL_FROM`、`HOIKUICT_SMTP_STARTTLS=1` |
+| `HOIKUICT_KIOSK_ACCESS_MODE` | `disabled` または `token`。`token`には登録トークンが必要 |
+| `HOIKUICT_PUSH_TRANSPORT` | 既定は `disabled`。`capture`は禁止。`webpush`は追加検証あり |
 
-- 実在する個人情報を入れない
-- パスワードやAPIキーをリポジトリに置かない
-- 公開デモはダミーデータのみで運用する
-- ログに個人情報を出しすぎない
-- 画像・スクリーンショットにも個人情報を含めない
+productionを明示したプロセスへ、アプリ隣接の開発用 `.env` を自動マージしません。設定は配備先のCompose等で渡します。WebSocketドライバーも起動時に検査するため、`requirements.txt`のUvicorn依存を使います。
 
-## 本番環境の最低条件
+この検証を通ることは、権限設定・配送・バックアップが運用上正しいことまで保証しません。
 
-### 起動時のデータ生成
+## 認証と園児へのアクセス
 
-- すべての環境で、通常のアプリ起動時にデモ・サンプル・業務初期データを自動投入しない。
-- テーブルが空であることを、デモデータ投入の許可条件にしない。
-- デモ用シードは、デモ・ローカル環境で専用コマンドを明示実行した場合に限る。
-- `python -m scripts.seed_demo_100 --wipe-all`は破壊的なデモ専用操作であり、ベータ・本番DBに対して実行しない。
+職員と保護者は入口、セッションCookie、認証主体を分離します。ローカルパスワードにはArgon2id、セッションには推測困難なトークンを使い、試行制限と認証イベントを記録します。
 
-### 認証
+職員の基本ロールは `admin` / `can_edit` / `view_only` です。業務別権限と担当クラスを設定し、閲覧専用者が更新できないことを確認します。保護者は明示的な `ParentChildLink` による対象児だけへアクセスします。「同じ家庭の全園児」を無条件で許可しません。
 
-- 職員と保護者を分けて認証する
-- 退職・退園・卒園時のアカウント停止手順を持つ
-- パスワード再設定と招待フローを整備する
+初期設定・復旧・停止は[アカウントガイド](accounts.md)へ。MFA・回復コードは後続計画であり、配備設定によって有効化できる現行機能ではありません。
 
-### 権限
+## プロキシとブラウザー
 
-- 園長・主任・担任・閲覧専用・保護者の権限を分ける
-- 保護者は自家庭の情報だけを閲覧できる
-- 閲覧専用職員は更新できない
-- 管理者権限の利用者を最小限にする
+Uvicornは `--proxy-headers` で起動し、信頼する転送元だけを `FORWARDED_ALLOW_IPS` に指定します。プロキシ以外からアプリへ直接到達する経路を制限し、任意の転送ヘッダーで接続元を偽装できない構成にします。
 
-### 監査ログ
+`HOIKUICT_ALLOWED_ORIGINS`には利用する施設originを設定します。Web Pushでは公開origin・登録URLとの一致も検査します。フォームのCSRF、Secure Cookie、WebSocketのorigin検査を含めて確認してください。
 
-- 園児情報変更
-- 欠席・出欠確認
-- 保護者連絡の確認
-- お知らせ配信
-- アカウント作成・停止
-- 権限変更
+## キオスクの端末認証
 
-上記は、いつ、誰が、何を変更したかを追えるようにします。
+`/guardian` は氏名を表示して打刻する端末機能です。本番の `open` モードは拒否されます。`token` の場合は `/guardian/activate` で端末を一度有効化し、職員・保護者の個人ログインとは独立して扱います。秘密値をURLへ付けません。
 
-### バックアップ
+`/guardian/terminal` は専用の表示入口で、表示モードのCookie自体は認証を代替しません。[キオスク設定](chromebook-guardian-kiosk.md)に従って端末と接続制限を準備します。端末を失効させる場合はトークンまたはsecretのローテーションと、影響する端末の再有効化を計画します。
 
-- 詳細な保護対象、RPO/RTO、保持、暗号化、検査、復元は[バックアップ・復元仕様](backup-restore-spec.md)に従う。
-- 少なくとも日次バックアップ
-- 復旧手順書
-- 復旧テスト
-- バックアップの保管先権限管理
+## メール・Web Push
 
-### 通信と保存
+本番SMTPの資格情報とVAPID秘密鍵はGitへ置かず、配備先で管理します。通知は本人の設定と有効な園児リンクを配送直前にも確認します。Web Pushの送信先・鍵・originの検証と端末テストは[本番設定手順](parent-push-production-setup.md)を参照してください。
 
-- HTTPS/TLS を利用する
-- 本番DBへのアクセス権限を最小化する
-- 個人情報を含むファイルの外部共有を制限する
-- エラー画面に内部情報や個人情報を出さない
+## データと監査
 
-### リバースプロキシと接続元IP
+- 通常起動で業務デモデータを生成せず、初期管理者はCLIで明示作成する。
+- DBだけでなく、文例・添付・構成・鍵の保存先と復元方法を管理する。
+- アカウント、権限、園児情報変更、打刻訂正、料金・請求などの履歴を確認する。
+- 実在データをIssue、スクリーンショット、公開デモ、ログへ混入させない。
 
-- Uvicornは `--proxy-headers` で起動し、`FORWARDED_ALLOW_IPS` に指定した送信元からの転送ヘッダーだけを信頼する。
-- `FORWARDED_ALLOW_IPS` はリバースプロキシの実際のIPまたはDockerネットワークのCIDRへ限定し、`*` を使用しない。
-- アプリへ直接到達できる経路をファイアウォールで閉じ、信頼済みプロキシ以外から転送ヘッダーを注入できないようにする。
-- 設定後、異なる端末のログイン失敗が同じネットワークスロットルへ集約されないことを確認する。
-
-## 脆弱性報告
-
-公開Issueではなく `openhoikuict@gmail.com` へ連絡してください。
-## guardian キオスク
-
-`/guardian` はクラス選択後に在園児の氏名を表示し、登降園打刻を行う。信頼できないネットワークへ無認証で公開してはならない。
-
-- 本番の `HOIKUICT_KIOSK_ACCESS_MODE` は `disabled` または `token` とする。
-- `token` では `/guardian/activate` から端末を有効化する。秘密値をURLへ付与しない。
-- `open` は施設内で隔離された開発・検証環境専用で、本番起動時は拒否される。
-- キオスクを公開するリバースプロキシでも、到達元ネットワークを必要最小限に制限する。
-
-一般のChromebookを共用端末にする場合は、[保護者キオスクの端末設定手順](chromebook-guardian-kiosk.md)に従い `/guardian/terminal` を使用する。専用画面のCookieは表示モードだけを指定し、署名付き端末Cookieの認証を代替しない。
+保管・復旧は[バックアップ仕様](backup-restore-spec.md)、施設の取扱方針は[個人情報](privacy.md)、脆弱性の報告先は[問い合わせ](license.md)を参照してください。

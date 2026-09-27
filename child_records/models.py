@@ -48,6 +48,9 @@ class ChildObservationLog(SQLModel, table=True):
     perspective_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     custom_values: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     sensitivity: str = Field(default="normal", index=True)
+    # NULL keeps the access policy of records created before explicit sharing.
+    visibility: Optional[str] = None
+    shared_staff_ids: Optional[list[str]] = Field(default=None, sa_column=Column(JSON))
     setting_version_id: Optional[int] = Field(
         default=None,
         foreign_key="child_record_setting_versions.id",

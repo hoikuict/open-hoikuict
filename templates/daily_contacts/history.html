@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ child.full_name }} の連絡履歴 | open-hoikuict{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-4">
+  <header class="flex flex-wrap items-center justify-between gap-3"><h1 class="text-xl font-bold">{{ child.full_name }} の連絡履歴</h1><a href="{{ back_url }}" class="text-indigo-700">連絡詳細へ戻る</a></header>
+  <form method="get" class="flex flex-wrap items-center gap-3"><label>この日までの履歴 <input type="date" name="date" required value="{{ target_date_value }}" class="rounded border p-2"></label><input type="hidden" name="classroom_id" value="{{ selected_classroom_id or '' }}"><input type="hidden" name="sort" value="{{ selected_sort }}"><button class="rounded border bg-white px-3 py-2">表示</button></form>
+  <div class="overflow-x-auto rounded border bg-white"><table class="w-full text-left text-sm"><thead class="bg-slate-50"><tr><th class="p-2">日付</th><th class="p-2">家庭からの連絡</th><th class="p-2">園からの連絡</th><th class="p-2">更新者</th></tr></thead><tbody>
+  {% for row in rows %}{% set entry = entries.get(row.date) %}{% set reply = replies.get(row.date) %}
+    <tr class="border-t"><td class="p-2 whitespace-nowrap"><a href="{{ row.url }}" class="text-indigo-700 underline">{{ row.date }}</a></td><td class="p-2">{{ entry.contact_type.label if entry else '未提出' }}</td><td class="p-2">{% if reply and reply.pending_draft is not none %}<span class="text-amber-800">未送信の変更あり</span>{% elif reply and reply.status.value == 'published' %}<span class="text-emerald-800">公開済み</span>{% else %}<span class="text-amber-800">未送信{{ '（下書き保存済み）' if reply else '（未入力）' }}</span>{% endif %}</td><td class="p-2">{{ reply.pending_draft.get('staff_name') if reply and reply.pending_draft is not none else reply.staff_name if reply else '―' }}</td></tr>
+  {% endfor %}</tbody></table></div>
+  {% if older_url %}<a href="{{ older_url }}" class="inline-block text-indigo-700">さらに前の履歴 →</a>{% endif %}
+</div>
+{% endblock %}

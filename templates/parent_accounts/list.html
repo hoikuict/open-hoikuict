@@ -104,8 +104,8 @@
         </td>
         <td class="px-4 py-3 text-slate-700">{{ account.contact_email or '削除済み' }}</td>
         <td class="px-4 py-3">
-          <span class="rounded-full px-2 py-1 text-xs {% if account.status.value == 'active' %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
-            {{ account.status.label }}
+          <span class="rounded-full px-2 py-1 text-xs {% if (parent_enrollment_enabled() and lifecycle_states[account.id].code == 'active') or (not parent_enrollment_enabled() and account.status.value == 'active') %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+            {{ lifecycle_states[account.id].label if parent_enrollment_enabled() else account.status.label }}
           </span>
         </td>
         <td class="px-4 py-3 text-slate-700">
@@ -153,8 +153,8 @@
         <h2 class="font-semibold text-slate-800">{{ account.display_name }}</h2>
         <p class="mt-1 text-xs text-slate-500">{{ account.phone or "電話番号未登録" }}</p>
       </div>
-      <span class="shrink-0 rounded-full px-2 py-1 text-xs {% if account.status.value == 'active' %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
-        {{ account.status.label }}
+      <span class="shrink-0 rounded-full px-2 py-1 text-xs {% if (parent_enrollment_enabled() and lifecycle_states[account.id].code == 'active') or (not parent_enrollment_enabled() and account.status.value == 'active') %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ lifecycle_states[account.id].label if parent_enrollment_enabled() else account.status.label }}
       </span>
     </div>
 

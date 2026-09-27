@@ -32,6 +32,7 @@ router = APIRouter(tags=["home"])
 def home(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     classroom_refs = None if user.is_admin else user.classroom_refs
     documents = repository.list(nursery_ref=user.nursery_ref, classroom_refs=classroom_refs)
+    documents = [d for d in documents if d.monthly_sheet is None or user.actor_ref]
     daily_documents = [
         document for document in documents if document.document_type == DocumentType.DAILY_PLAN
     ]

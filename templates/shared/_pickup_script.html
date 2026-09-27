@@ -7,6 +7,8 @@
     const time = root.querySelector('[data-pickup-time-input]');
     const hour = root.querySelector('[data-pickup-hour-input]'), minute = root.querySelector('[data-pickup-minute-input]');
     const person = root.querySelector('[data-pickup-person-input]'), exact = root.querySelector('[data-pickup-minute-exact]');
+    const closing = root.dataset.closingTime || '';
+    const allowed = m => !closing || !hour.value || `${hour.value}:${m}` < closing;
     const timeError = root.querySelector('[data-pickup-time-error]');
     const sync = () => {
       const attendance = form.querySelector('[name=attendance_mode]:checked');
@@ -14,9 +16,10 @@
       time.value = hour.value && minute.value ? `${hour.value}:${minute.value}` : '';
       root.querySelector('[data-selected-pickup-time]').textContent = `${hour.value || '--'}:${minute.value || '--'}`;
       root.querySelectorAll('[data-pickup-hour]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pickupHour === hour.value)));
-      root.querySelectorAll('[data-pickup-minute]').forEach(b => { b.disabled = !active || !hour.value; b.setAttribute('aria-pressed', String(b.dataset.pickupMinute === minute.value)); });
+      root.querySelectorAll('[data-pickup-minute]').forEach(b => { b.hidden = !allowed(b.dataset.pickupMinute); b.disabled = !active || !hour.value || b.hidden; b.setAttribute('aria-pressed', String(b.dataset.pickupMinute === minute.value)); });
+      [...exact.options].forEach(option => { option.hidden = !!option.value && !allowed(option.value); option.disabled = option.hidden; });
       exact.disabled = !active || !hour.value; exact.value = minute.value;
-      if (time.value || (!hour.value && !minute.value && !required)) timeError.classList.add('hidden');
+      if ((time.value && (!closing || time.value < closing)) || (!hour.value && !minute.value && !required)) timeError.classList.add('hidden');
     };
     root.addEventListener('click', e => {
       const button = e.target.closest('button'); if (!button || !root.contains(button)) return;
@@ -38,7 +41,7 @@
     form.addEventListener('submit', e => {
       const attendance = form.querySelector('[name=attendance_mode]:checked');
       if (attendance && attendance.value !== 'present') return;
-      const badTime = !time.value && (required || !!hour.value || !!minute.value);
+      const badTime = (!time.value && (required || !!hour.value || !!minute.value)) || (!!time.value && !!closing && time.value >= closing);
       const badPerson = required && !person.value;
       const badSnack = required && !root.querySelector('[name=snack_required]:checked');
       timeError.classList.toggle('hidden', !badTime);

@@ -22,6 +22,7 @@ services:
       HOIKUICT_PUSH_TRANSPORT: ${HOIKUICT_PUSH_TRANSPORT:-disabled}
       HOIKUICT_PREVIEW_DIR: /data/data_transfer_previews
       HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+      HOIKUICT_BACKUP_REPLICA_TARGETS: ${BACKUP_REPLICA_TARGETS:-}
     volumes:
       - ${APP_DATA_PATH:-hoikuict_data}:/data
       - ${APP_STORAGE_PATH:-hoikuict_storage}:/app/storage
@@ -88,6 +89,8 @@ services:
       HOIKUICT_BACKUP_COMPOSE_SHA256: ${BACKUP_COMPOSE_SHA256:-}
       HOIKUICT_BACKUP_COMPOSE_FILE: /app/deploy/dockge/compose.yaml
       HOIKUICT_BACKUP_CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:-unknown}
+      HOIKUICT_BACKUP_RECOVERY_KIT_REF: ${BACKUP_RECOVERY_KIT_REF:-}
+      HOIKUICT_BACKUP_BASELINE_REF: ${BACKUP_BASELINE_REF:-}
     volumes:
       - ${APP_DATA_PATH:-hoikuict_data}:/data
       - ${APP_STORAGE_PATH:-hoikuict_storage}:/app/storage

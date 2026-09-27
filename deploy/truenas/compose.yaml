@@ -33,6 +33,7 @@ services:
       HOIKUICT_PASSWORD_BLOCKLIST_PATH: /run/secrets/password-blocklist.txt
       HOIKUICT_PREVIEW_DIR: /data/data_transfer_previews
       HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+      HOIKUICT_BACKUP_REPLICA_TARGETS: ${BACKUP_REPLICA_TARGETS:-}
     volumes:
       - ${APP_RUNTIME_PATH:?required}/data:/data
       - ${APP_RUNTIME_PATH:?required}/storage:/app/storage
@@ -70,6 +71,9 @@ services:
       HOIKU_FACILITY_BUNREI_DB_PATH: /data/facility.sqlite
       HOIKU_NURSERY_REF: ${HOIKU_NURSERY_REF:?required}
       HOIKUICT_STORAGE_ROOT: /app/storage
+      HOIKUICT_BACKUP_CONTROL_DIR: /data/backup-control
+      HOIKUICT_BACKUP_RECOVERY_KIT_REF: ${BACKUP_RECOVERY_KIT_REF:-}
+      HOIKUICT_BACKUP_BASELINE_REF: ${BACKUP_BASELINE_REF:-}
     volumes:
       - ${APP_RUNTIME_PATH:?required}/data:/data
       - ${APP_RUNTIME_PATH:?required}/storage:/app/storage
@@ -98,6 +102,8 @@ services:
       HOIKUICT_BACKUP_APP_IMAGE: ${BACKUP_APP_IMAGE:?required}
       HOIKUICT_BACKUP_COMPOSE_SHA256: ${BACKUP_COMPOSE_SHA256:?required}
       HOIKUICT_BACKUP_CLOUDFLARED_IMAGE: ${CLOUDFLARED_IMAGE:?required}
+      HOIKUICT_BACKUP_RECOVERY_KIT_REF: ${BACKUP_RECOVERY_KIT_REF:-}
+      HOIKUICT_BACKUP_BASELINE_REF: ${BACKUP_BASELINE_REF:-}
     volumes:
       - ${APP_RUNTIME_PATH:?required}/data:/data
       - ${APP_RUNTIME_PATH:?required}/storage:/app/storage

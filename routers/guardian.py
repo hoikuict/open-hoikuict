@@ -18,6 +18,7 @@ from models import AttendanceRecord, AttendanceVerification, AttendanceVerificat
 from time_utils import local_naive_now, local_today, utc_now
 from pickup_plan_service import pickup_revision, save_pickup_plan
 from guardian_terminal import GuardianRoute, TERMINAL_START, is_terminal, remember_terminal, render_guardian
+from guardian_hours import closing_time, kiosk_is_closed
 from guardian_arrival import issue_arrival_draft, read_arrival_draft
 from kiosk_security import (
     KIOSK_DEVICE_COOKIE,
@@ -100,7 +101,7 @@ def _is_truthy(raw: Optional[str]) -> bool:
     return (raw or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _validate_pickup_inputs(raw_time: str, raw_person: str) -> tuple[str, str]:
+def _validate_pickup_inputs(raw_time: str, raw_person: str, session: Session) -> tuple[str, str]:
     planned_pickup_time = _normalize_pickup_time(raw_time)
     pickup_person = (raw_person or "").strip()
 
@@ -109,10 +110,14 @@ def _validate_pickup_inputs(raw_time: str, raw_person: str) -> tuple[str, str]:
     if not pickup_person:
         raise HTTPException(status_code=400, detail="お迎え予定者を入力してください")
 
+    if planned_pickup_time >= closing_time(session):
+        raise HTTPException(400, f"閉園時刻（{closing_time(session)}）より前のお迎え予定時刻を選んでください。")
     return planned_pickup_time, pickup_person
 
 
 def _load_valid_child(session: Session, child_id: int, class_id: Optional[int]) -> Child:
+    if kiosk_is_closed(session, local_naive_now()):
+        raise HTTPException(400, "閉園時間になりました。職員にお知らせください。")
     child = session.get(Child, child_id)
     if not child:
         raise HTTPException(status_code=404, detail="園児が見つかりません")
@@ -139,7 +144,7 @@ def _visually_present(session: Session, child_id: int, day: date) -> bool:
     )).first() is not None
 
 
-def _pickup_step(request, child, day, record, *, arrival_token="", values=None, confirm=False):
+def _pickup_step(request, child, day, record, session, *, arrival_token="", values=None, confirm=False):
     arrival_at = None
     revision = pickup_revision(record)
     if arrival_token:
@@ -151,8 +156,10 @@ def _pickup_step(request, child, day, record, *, arrival_token="", values=None, 
         "pickup_person": record.pickup_person or "" if record else "",
         "snack_required": ("1" if record.snack_required else "0") if record and record.pickup_snack_confirmed else "",
     }
+    if values["planned_pickup_time"] and values["planned_pickup_time"] >= closing_time(session):
+        confirm = False
     return render_guardian(request, "guardian/pickup_confirm.html" if confirm else "guardian/pickup_form.html", {
-        "request": request, "selected_child": child,
+        "request": request, "selected_child": child, "closing_time": closing_time(session),
         "selected_classroom": child.classroom, "target_date_value": day.isoformat(),
         "pickup_revision": revision, "arrival_token": arrival_token, "arrival_at": arrival_at,
         "pickup_values": values, "pickup_person_options": PICKUP_PERSON_OPTIONS,
@@ -201,6 +208,19 @@ def guardian_kiosk(
     if selected_classroom and selected_child and selected_child.classroom_id != selected_classroom.id:
         raise HTTPException(status_code=400, detail="選択されたクラスに園児が存在しません")
 
+    child_ids = [child.id for child in children]
+    records = {item.child_id: item for item in session.exec(select(AttendanceRecord).where(
+        AttendanceRecord.attendance_date == day, AttendanceRecord.child_id.in_(child_ids))).all()} if child_ids else {}
+    verifications = {item.child_id: item.status for item in session.exec(select(AttendanceVerification).where(
+        AttendanceVerification.target_date == day, AttendanceVerification.child_id.in_(child_ids))).all()} if child_ids else {}
+    child_states = {}
+    for item in children:
+        record = records.get(item.id)
+        status = verifications.get(item.id)
+        child_states[item.id] = ("降園" if record and record.check_out_at else
+                                "お休み" if status in {AttendanceVerificationStatus.private_absent, AttendanceVerificationStatus.sick_absent} else
+                                "在園" if (record and record.check_in_at) or status == AttendanceVerificationStatus.present else "未登園")
+
     selected_record = None
     if selected_child:
         selected_record = _load_attendance_record(session, selected_child.id, day)
@@ -232,7 +252,8 @@ def guardian_kiosk(
             "target_date_value": day.isoformat(),
             "classrooms": classrooms,
             "selected_classroom": selected_classroom,
-            "children": children,
+            "children": children, "child_states": child_states,
+            "closing_time": closing_time(session), "kiosk_closed": kiosk_is_closed(session, local_naive_now()),
             "selected_child": selected_child,
             "selected_record": selected_record,
             "can_depart": bool(selected_record and selected_record.check_in_at) or bool(selected_child and _visually_present(session, selected_child.id, day)),
@@ -269,7 +290,7 @@ def guardian_check_in(
         return RedirectResponse(_redirect_url(day, child.classroom_id, child_id), status_code=303)
     token = issue_arrival_draft(request, child, day, local_naive_now(), pickup_revision(record))
     complete = bool(record and record.planned_pickup_time and record.pickup_person and record.pickup_snack_confirmed)
-    return _pickup_step(request, child, day, record, arrival_token=token, confirm=complete)
+    return _pickup_step(request, child, day, record, session, arrival_token=token, confirm=complete)
 
 
 @router.post("/child/{child_id}/arrival/edit", dependencies=[Depends(require_kiosk_access)])
@@ -280,7 +301,7 @@ def guardian_arrival_edit(request: Request, child_id: int, target_date: str = Fo
     child = _load_valid_child(session, child_id, class_id)
     day = _parse_target_date(target_date, request)
     record = _load_attendance_record(session, child_id, day)
-    return _pickup_step(request, child, day, record, arrival_token=arrival_token, values={
+    return _pickup_step(request, child, day, record, session, arrival_token=arrival_token, values={
         "planned_pickup_time": planned_pickup_time, "pickup_person": pickup_person, "snack_required": snack_required,
     })
 
@@ -306,10 +327,10 @@ def guardian_pickup_confirm(
     if revision != pickup_revision(record):
         raise HTTPException(409, "予定が変更されています。画面を開き直してください")
 
-    normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
+    normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person, session)
     if arrival_token and snack_required not in {"0", "1"}:
         raise HTTPException(400, "補食の必要・不要を選んでください。")
-    return _pickup_step(request, child, day, record, arrival_token=arrival_token, confirm=True, values={
+    return _pickup_step(request, child, day, record, session, arrival_token=arrival_token, confirm=True, values={
         "planned_pickup_time": normalized_time, "pickup_person": normalized_person,
         "snack_required": "1" if _is_truthy(snack_required) else "0",
     })
@@ -330,7 +351,7 @@ def guardian_pickup_commit(
 ):
     child = _load_valid_child(session, child_id, class_id)
     day = _parse_target_date(target_date, request)
-    normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person)
+    normalized_time, normalized_person = _validate_pickup_inputs(planned_pickup_time, pickup_person, session)
     arrival_at = None
     if arrival_token:
         arrival_at, expected_revision = read_arrival_draft(arrival_token, request, child, day)
@@ -493,7 +514,8 @@ def guardian_terminal_status(request: Request, session: Session = Depends(get_se
             session.commit()
         except IntegrityError:
             session.rollback()
-    result = {"kiosk": True, "today": local_today().isoformat(), "server_time": utc_now().isoformat()}
+    result = {"kiosk": True, "today": local_today().isoformat(), "server_time": utc_now().isoformat(), "closing_time": closing_time(session),
+              "closed": kiosk_is_closed(session, local_naive_now())}
     if kiosk_device_cookie_is_valid(cookie):
         result.update(registration_number=terminal.registration_number, label=terminal.label)
     return result

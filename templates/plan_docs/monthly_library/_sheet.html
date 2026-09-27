@@ -1,0 +1,34 @@
+<link rel="stylesheet" href="{{ static_asset_url('css/monthly-library.css') }}">
+<div id="drive-monthly-plan" lang="ja" aria-label="月案の帳票編集">
+  {% if request.app.state.monthly_library_fixture is defined %}<p role="note" style="padding:12px;background:#fff5d6;color:#624600">検証用：園児・文例・履歴はすべて架空データです。本番の記録には保存されません。</p>{% endif %}
+  <header><strong>月案</strong><span id="document-status"></span><a id="document-link" hidden>承認・文書情報</a></header>
+  <div class="toolbar">
+    <div><h2>帳票から月案をつくる</h2><div class="pickers">
+      <label>クラス <select id="classroom" {% if detail_mode %}disabled{% endif %}>
+        {% for classroom in classrooms %}<option value="{{ classroom.id }}">{{ classroom.name }}</option>{% endfor %}
+        {% if detail_mode %}<option value="{{ boot.classroom_id }}">{{ boot.classroom_name }}</option>{% endif %}
+      </select></label>
+      <label>対象月 <input id="month" type="month" min="1900-01" max="2199-12" {% if detail_mode %}disabled{% endif %}></label>
+      <label>年齢クラス <select id="age" {% if detail_mode %}disabled{% endif %}>{% for age in range(6) %}<option value="{{ age }}">{{ age }}歳児</option>{% endfor %}</select></label>
+      <strong id="scope"></strong>
+    </div></div>
+    <div class="actions"><button type="button" id="print-monthly">印刷用PDF</button><button type="button" id="excel-monthly">Excel出力</button><button type="button" id="undo" disabled>ひとつ戻す</button><button type="button" id="save" class="primary">下書きを保存</button>
+      <small class="export-note">対象の月・年齢の全園児を出力。{% if detail_mode or not boot.editable %}保存済みの内容を出力します。{% else %}保存前の入力も含みます。{% endif %}</small>
+    </div>
+  </div>
+  <div class="context"><label id="child-wrap">入力する園児 <select id="child"></select></label><label id="page-wrap">帳票ページ <select id="page"></select></label><button type="button" id="history-toggle" aria-expanded="false" aria-controls="past-plans">過去3か月を表示</button><span id="count"></span></div>
+  <div class="workspace">
+    <div class="paper" aria-label="原本に合わせた月案の帳票"><div class="sheet-scroll"><div id="form"></div></div><footer><a id="template" target="_blank" rel="noopener noreferrer"></a><span id="save-state"></span><button type="button" id="revert" class="text-button">保存した内容に戻す</button></footer></div>
+    <aside class="library" aria-label="選択したセルの文例候補">
+      <div class="target"><small id="target"></small><strong id="field-label"></strong></div>
+      <div class="modes"><button type="button" data-mode="original" aria-pressed="true">過去の原文</button><button type="button" data-mode="ai" aria-pressed="false">AIの提案</button></div>
+      <div class="keyword-box"><input id="keyword" type="search" aria-label="候補のキーワード検索" placeholder="文例をキーワードで検索" autocomplete="off" maxlength="200"><small id="candidate-count" role="status" aria-live="polite"></small></div>
+      <div id="ai-controls" hidden><p id="ai-info"></p><button type="button" id="generate">候補を生成</button><p id="ai-progress" role="status" aria-live="polite"></p></div>
+      <div id="candidates"></div><button type="button" id="more" hidden>続きを表示</button>
+      <div class="sources"><details><summary>候補の出典・原文</summary><div id="candidate-source-list"></div></details><details id="origins" hidden><summary>このセルで使った文例</summary><div id="origin-list"></div></details></div>
+    </aside>
+  </div>
+  <div id="message" role="status" aria-live="polite"></div>
+</div>
+<script id="monthly-library-boot" type="application/json">{{ boot | tojson }}</script>
+<script src="{{ static_asset_url('js/monthly-library.js') }}" defer></script>

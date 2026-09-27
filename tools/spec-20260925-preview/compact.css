@@ -1,0 +1,103 @@
+/* Compact review chrome and staff lists. Kiosk touch controls keep their size. */
+.review-bar{padding:6px 16px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 16px}
+.review-intro{gap:12px;flex:1;font-size:11px}
+.review-intro strong{font-size:12px}
+.review-intro button{min-height:28px;padding:4px 8px;font-size:11px}
+.review-settings{font-size:11px}
+.review-settings summary{min-height:28px;font-size:11px;color:#e2e8f0;font-weight:500}
+.review-settings[open]{flex-basis:100%}
+.review-settings[open] summary{margin:0}
+.review-settings .review-controls{margin:4px 0 6px}
+.app-header{padding:9px 16px;min-height:43px}
+.brand{font-size:17px}
+.brand small{font-size:11px}
+.app-nav{padding:0 16px;gap:23px}
+.app-nav a{padding:9px 0 7px;font-size:12px}
+main{padding:14px 16px 28px}
+.app-footer{padding:10px 16px}
+main[data-page=roster] .page-head,main[data-page=contacts] .page-head,main[data-page=history] .page-head{margin-bottom:10px;gap:8px}
+main[data-page=roster] h1,main[data-page=checks] h1,main[data-page=contacts] h1,main[data-page=history] h1{font-size:22px;line-height:1.4}
+main[data-page=roster] .page-head p,main[data-page=contacts] .page-head p{font-size:12px;margin-top:2px}
+main[data-page=roster] .page-head a{font-size:12px}
+main[data-page=roster] .toolbar,main[data-page=checks] .toolbar,main[data-page=contacts] .toolbar{padding:8px 10px;gap:8px 12px;margin-bottom:8px;border-radius:7px}
+main[data-page=roster] .toolbar label,main[data-page=checks] .toolbar label,main[data-page=contacts] .toolbar label{font-size:11px;gap:3px}
+main[data-page=roster] .toolbar input,main[data-page=roster] .toolbar select,main[data-page=checks] .toolbar input,main[data-page=checks] .toolbar select,main[data-page=contacts] .toolbar input,main[data-page=contacts] .toolbar select{font-size:12px;min-height:32px;padding:5px 8px;border-radius:5px}
+main[data-page=roster] .toolbar button,main[data-page=checks] .toolbar button{font-size:12px;min-height:32px;padding:5px 10px}
+main[data-page=roster] .summary-line,main[data-page=checks] .summary-line{font-size:11px;line-height:1.6;margin:6px 0 9px}
+
+/* All four categories remain visible in every class. Time details open by name. */
+.class-section{margin-bottom:12px}
+.class-heading{margin-bottom:5px;gap:8px}
+.class-heading h2{font-size:15px;line-height:1.4}
+.class-heading small{font-size:11px;margin-left:8px}
+.class-heading a{font-size:11px}
+.roster-columns{grid-template-columns:2.2fr 1.2fr 1fr .85fr;gap:6px;align-items:stretch}
+.roster-column{border-radius:6px}
+.column-title{padding:4px 8px;font-size:12px;line-height:1.5}
+.column-title b{font-size:12px}
+.roster-column .name-list,.roster-column.in .name-list{display:flex;flex-wrap:wrap;align-content:flex-start;gap:1px 3px;padding:4px}
+.name-button{font-size:13px;min-height:28px;padding:3px 5px;line-height:1.4;flex:0 1 auto;font-weight:600;max-width:100%;overflow-wrap:anywhere}
+.name-button .alarm-dot{font-size:9px;margin-left:3px}
+.roster-column .empty{padding:4px 6px;font-size:12px;min-height:28px}
+
+/* One child per row on a desktop, with all states and direct confirmation. */
+.check-hero{padding:10px 12px;margin-bottom:10px;border-radius:7px}
+.check-hero .small{font-size:11px}
+.check-columns,.check-summary{display:grid;grid-template-columns:minmax(112px,1.25fr) 56px 102px minmax(98px,1fr) 214px 48px;gap:8px;align-items:center}
+.check-columns{padding:5px 8px;background:#f1f5f9;font-size:11px;color:#64748b;border:1px solid #e2e8f0;border-radius:5px 5px 0 0;position:sticky;top:0;z-index:2}
+.check-class-heading{font-size:13px;line-height:1.5;padding:5px 8px;background:#e8edf4;border:1px solid #dbe3ec;margin:9px 0 0}
+.check-class-heading small{font-size:11px;font-weight:400;color:#64748b;margin-left:10px}
+.check-row{padding:5px 8px;margin:0;border:1px solid #e2e8f0;border-top:0;border-radius:0}
+.check-row.alarm{border-color:#e2e8f0;background:#fff5f6;box-shadow:inset 3px 0 #fb7185}
+.check-row:has(+.check-class-heading){border-radius:0 0 5px 5px}
+.check-name{min-width:0;line-height:1.4;font-size:13px}
+.check-name strong{font-weight:650}
+.check-name small{display:block;font-size:10px;font-weight:400;color:#64748b}
+.check-name .alarm-dot{font-size:9px;color:#be123c;margin-left:4px}
+.check-category .badge{font-size:10px;padding:2px 6px}
+.check-times{font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.check-parent{font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.check-row .check-status{gap:4px;margin:0;padding:0;border:0;flex-wrap:nowrap}
+.check-row .check-status button{min-height:32px;min-width:0;flex:1 1 auto;padding:4px 7px;border-radius:5px;font-size:12px;white-space:nowrap}
+.check-row .check-open{min-height:32px;padding:4px 6px;border-radius:5px;font-size:11px}
+.check-detail{margin-top:8px;padding:14px;border-radius:6px}
+.check-detail .field-grid{gap:14px}
+.check-detail .mt{margin-top:10px}
+.check-detail .mb{margin-bottom:10px}
+.check-detail .separator{margin:16px 0}
+.check-detail .actions{margin-top:12px}
+main[data-page=contacts] th,main[data-page=contacts] td,main[data-page=history] th,main[data-page=history] td{padding:7px 10px;font-size:12px}
+main[data-page=contacts] .badge,main[data-page=history] .badge{padding:3px 7px}
+
+@container(max-width:1000px){
+  .brand small{display:inline;margin:0 0 0 12px}
+  .roster-columns{grid-template-columns:2.2fr 1.2fr 1fr .85fr}
+}
+@container(max-width:780px){
+  .check-columns{display:none}
+  .check-summary{grid-template-columns:minmax(108px,1fr) 60px minmax(92px,1fr) 48px;gap:4px 6px}
+  .check-name{grid-column:1;grid-row:1}
+  .check-category{grid-column:2;grid-row:1}
+  .check-times{grid-column:3;grid-row:1}
+  .check-open{grid-column:4;grid-row:1}
+  .check-parent{grid-column:1;grid-row:2}
+  .check-parent::before{content:'連絡：';color:#64748b}
+  .check-status{grid-column:2 / 5;grid-row:2}
+}
+@container(max-width:600px){
+  .app-header{padding:8px 10px}.brand{font-size:15px}.brand small{display:block;margin:2px 0 0;font-size:10px}
+  .app-nav{padding:0 10px;gap:18px}.app-nav a{font-size:11px}
+  main{padding:12px 10px 24px}
+  main[data-page=checks] .toolbar label,main[data-page=roster] .toolbar label,main[data-page=contacts] .toolbar label{min-width:110px}
+  main[data-page=checks] .toolbar,main[data-page=roster] .toolbar,main[data-page=contacts] .toolbar{gap:6px 8px}
+  .roster-columns{grid-template-columns:1fr 1fr;gap:5px}
+  .class-heading small{display:inline;margin:0 0 0 8px}.class-heading h2{font-size:14px}
+  .name-button{min-height:32px}.class-heading a{font-size:10px}
+  .check-summary{grid-template-columns:minmax(93px,1fr) 49px 89px 42px;gap:4px}
+  .check-row{padding:5px}.check-name{font-size:12px}.check-category .badge{font-size:10px;padding:2px 4px}
+  .check-times{font-size:11px}.check-row .check-status button{font-size:11px;padding:4px 5px;min-width:0;flex:1}
+  .check-parent{font-size:10px}.check-detail{padding:10px}
+  .check-hero{padding:8px}.check-hero .small{font-size:10px}
+}
+@media(pointer:coarse){.name-button,.check-row .check-status button,.check-row .check-open{min-height:40px}}
+@media(max-width:650px){.review-bar{padding:5px 10px;gap:2px}.review-intro{gap:6px}.review-intro strong{font-size:11px}.review-intro>span{font-size:10px}.review-settings{flex-basis:100%}.review-settings summary{min-height:24px}}

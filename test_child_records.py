@@ -259,11 +259,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
             f"/children/{other_child_id}/records",
             follow_redirects=False,
         )
-        self.assertEqual(denied.status_code, 303)
-        self.assertEqual(
-            denied.headers["location"],
-            f"/children/{other_child_id}?child_records_denied=1",
-        )
+        self.assertEqual(denied.status_code, 200)
 
         visible_progress = self.client.get(
             f"/children/{other_child_id}/progress-records",
@@ -288,6 +284,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
             data={
                 "observed_on": "2026-08-09",
                 "child_state": "水を別の容器へ移し、量の違いを何度も確かめていた。",
+                "visibility": "shared",
                 "reflection": "試しながら比べる姿が見られた。",
                 "categories": ["興味・遊び"],
                 "sensitivity": "normal",
@@ -410,7 +407,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
         )
         self.assertEqual(record_list.status_code, 200)
         self.assertIn("閲覧のみ", record_list.text)
-        self.assertNotIn(
+        self.assertIn(
             f'/children/{other_child_id}/records',
             record_list.text,
         )
@@ -441,7 +438,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
             f"/children/{other_child_id}/records",
             follow_redirects=False,
         )
-        self.assertEqual(observation.status_code, 303)
+        self.assertEqual(observation.status_code, 200)
 
     def test_assigned_class_scope_can_restrict_progress_record_viewing(self):
         config = default_config()

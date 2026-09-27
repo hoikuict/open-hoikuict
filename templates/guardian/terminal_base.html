@@ -22,7 +22,7 @@
   </style>
   {% block head %}{% endblock %}
 </head>
-<body id="guardian-terminal" data-today="{{ terminal_today }}" data-server-now="{{ terminal_server_now }}" data-idle-seconds="{{ terminal_idle_seconds }}"
+<body id="guardian-terminal" data-closing-time="{{ closing_time or '' }}" data-today="{{ terminal_today }}" data-server-now="{{ terminal_server_now }}" data-idle-seconds="{{ terminal_idle_seconds }}"
       data-active="{{ '1' if selected_child or selected_classroom else '0' }}" data-ready="{{ '1' if terminal_ready else '0' }}">
   <header class="bg-indigo-700 px-6 py-4 text-white">
     <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
@@ -32,7 +32,6 @@
       <time id="terminal-clock" aria-label="現在時刻（日本時間）" class="text-5xl font-bold tabular-nums">--:--:--</time>
       <div class="flex flex-wrap items-center gap-3">
         <span id="terminal-connection" class="text-sm" role="status">{{ '接続済み' if terminal_ready else '端末の準備' }}</span>
-        <button id="terminal-fullscreen" type="button" class="rounded-lg border border-indigo-300 px-4 py-2">全画面</button>
         {% if terminal_ready %}<a href="{{ terminal_start }}" class="rounded-lg bg-white px-4 py-3 font-semibold text-indigo-700">最初に戻る</a>{% endif %}
       </div>
     </div>
@@ -45,9 +44,11 @@
     <span id="terminal-idle-message"></span>
     <button id="terminal-continue" type="button" class="ml-3 rounded-lg border border-indigo-500 px-4 py-2">操作を続ける</button>
   </div>
+<p id="terminal-closed" {% if not kiosk_closed %}hidden{% endif %} class="bg-amber-100 px-6 py-4 text-amber-950" role="alert">閉園時間になりました。職員にお知らせください。</p>
   <main>{% block content %}{% endblock %}</main>
   {% if terminal_ready %}<footer class="px-6 pb-6 text-center text-sm text-slate-500">操作がない状態が{{ terminal_idle_seconds }}秒続くと、最初の画面に戻ります。</footer>{% endif %}
   {% if terminal_registration_number %}<p class="px-6 pb-4 text-center text-xs text-slate-500">登録番号 <span id="terminal-registration-number">{{ terminal_registration_number }}</span></p>{% endif %}
-  {% block body_end %}<script src="/guardian/assets/terminal.js" defer></script>{% endblock %}
+<div class="px-6 pb-4 text-right"><button id="terminal-fullscreen" type="button" style="min-height:32px;font-size:12px" class="rounded border border-slate-300 px-3 py-1 text-slate-500">全画面</button></div>
+  {% block body_end %}<script src="/guardian/assets/terminal.js?v=20260924" defer></script>{% endblock %}
 </body>
 </html>

@@ -18,6 +18,11 @@ from routers import guardian
 
 class GuardianTerminalTests(unittest.TestCase):
     def setUp(self):
+        from unittest.mock import patch
+        from datetime import datetime
+        clock = patch.object(guardian, "local_naive_now", return_value=datetime.combine(guardian.local_today(), datetime.min.time()).replace(hour=8))
+        clock.start()
+        self.addCleanup(clock.stop)
         self.environment = patch.dict(os.environ, {
             "HOIKUICT_ENV": "development", "HOIKUICT_KIOSK_ACCESS_MODE": "token",
             "HOIKUICT_KIOSK_TOKEN": "synthetic-terminal-token", "HOIKUICT_SECRET_KEY": "s" * 32,

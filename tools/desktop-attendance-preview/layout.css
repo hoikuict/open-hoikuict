@@ -1,0 +1,12 @@
+.desktop-review{margin:0 0 16px;padding:10px 12px;border:1px solid #c7d2fe;border-radius:7px;background:#eef2ff;color:#334155;font-size:12px}
+.desktop-review>div:first-child{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:8px}
+.desktop-review strong{color:#3730a3}.desktop-review span{font-size:11px}
+.review-options{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.review-options label{display:flex;gap:6px;align-items:center;font-size:11px}
+.review-options select{min-height:30px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;font-size:12px}
+.review-error{white-space:nowrap}.desktop-review #preview-layout-note{color:#475569}
+/* Match the existing tablet layout; only cap excessive desktop width. */
+body[data-arrangement=compact] .attendance-compact{max-width:1000px}
+body[data-arrangement=compact] [id^=attendance-check-detail]>.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:639px){body[data-arrangement=compact] [id^=attendance-check-detail]>.grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:639px){.desktop-review{padding:8px}.review-options{gap:8px}.desktop-review>div:first-child{gap:4px 10px}}

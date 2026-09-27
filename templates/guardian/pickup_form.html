@@ -11,7 +11,7 @@
     <input type="hidden" name="class_id" value="{{ selected_classroom.id if selected_classroom else '' }}">
     <input type="hidden" name="revision" value="{{ pickup_revision }}">
     <input type="hidden" name="arrival_token" value="{{ arrival_token }}">
-    {{ pickup_fields(pickup_values, required=true, kiosk=true) }}
+    {{ pickup_fields(pickup_values, required=true, kiosk=true, closing_time=closing_time) }}
     <div class="flex flex-wrap gap-3"><a href="/guardian?date={{ target_date_value }}" class="flex min-h-16 flex-1 items-center justify-center rounded-lg border px-5 py-4 text-xl">取り消し</a><button type="submit" class="min-h-16 flex-1 rounded-lg bg-indigo-600 px-5 py-4 text-xl text-white">確認へ</button></div>
   </form>
 </section>

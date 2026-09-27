@@ -2,7 +2,8 @@
 {% block title %}保護者連絡詳細 | open-hoikuict{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-4xl">
+<link rel="stylesheet" href="/static/css/daily-contact-reply.css?v=20260924-2">
+<div class="daily-contact-detail">
   <div class="mb-5 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-gray-800">{{ child.full_name }} の保護者連絡</h1>
@@ -11,10 +12,18 @@
     <a href="{{ list_url }}" class="text-sm text-indigo-600 hover:underline">一覧へ戻る</a>
   </div>
 
+  <nav class="reply-date-nav" aria-label="同じ子どもの日付移動">
+    {% if previous_url %}<a href="{{ previous_url }}">← 前日</a>{% endif %}
+    <form method="get"><label>日付 <input type="date" name="date" value="{{ target_date_value }}" required></label><input type="hidden" name="classroom_id" value="{{ selected_classroom_id or '' }}"><input type="hidden" name="sort" value="{{ selected_sort }}"><button>移動</button></form>
+    {% if next_url %}<a href="{{ next_url }}">翌日 →</a>{% endif %}<a href="{{ history_url }}">この子の履歴一覧</a>
+  </nav>
+  {% if error %}<p role="alert" class="rounded border border-rose-300 bg-rose-50 p-3 text-rose-800">{{ error }}</p>{% endif %}
   {% if notice %}
   <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ notice }}</div>
   {% endif %}
 
+  <div class="contact-workspace">
+  <section class="parent-contact"><h2 class="mb-3 font-bold">家庭からの連絡</h2>
   {% if entry %}
   <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
@@ -59,8 +68,10 @@
   <div class="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-gray-500">保護者からの連絡は未提出です。園から先に連絡を公開できます。</div>
   {% endif %}
 
-  {% if current_user.can_edit %}
-  <form method="post" action="/daily-contacts/{{ child.id }}/reply" class="mt-6 space-y-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+  </section>
+  {% if current_user.can_edit and child.status.value == "enrolled" %}
+  <form id="daily-reply-form" method="post" action="/daily-contacts/{{ child.id }}/reply" class="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <input type="hidden" name="revision" value="{{ reply_revision }}">
     <input type="hidden" name="date" value="{{ target_date_value }}">
     <input type="hidden" name="sort" value="{{ selected_sort }}">
     <input type="hidden" name="classroom_id" value="{{ selected_classroom_id or '' }}">
@@ -71,47 +82,56 @@
       </div>
       {% if reply %}
       <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500">
-        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ reply.status.label }}</span>
+        <span id="reply-state" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ "未送信の変更あり" if reply.pending_draft is not none else "公開済み" if reply.status.value == "published" else "未送信" }}</span>
         {% if reply.staff_name %}
-        <span>更新者: {{ reply.staff_name }}</span>
+        <span>更新者: {{ reply.pending_draft.get("staff_name") if reply.pending_draft is not none else reply.staff_name }}</span>
         {% endif %}
         {% if reply.published_at %}
         <span>公開: {{ reply.published_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</span>
         {% endif %}
       </div>
-      {% endif %}
+      {% else %}<span id="reply-state" class="text-sm text-amber-800">未送信（未入力）</span>{% endif %}
     </div>
 
+    <p id="reply-edit-state" class="text-sm text-amber-800" role="status"></p>
+    <p id="reply-save-error" class="text-sm text-rose-800" role="alert"></p>
+    {% if reply and reply.status.value == 'published' %}<p class="text-xs text-slate-600">公開済みの内容は、変更を再び公開するまで保護者に表示されます。</p>{% endif %}
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       {% for field in reply_fields %}
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-600">{{ field.label }}</label>
+        <label for="reply-{{ field.key }}" class="mb-1 block text-sm font-medium text-gray-600">{{ field.label }}</label>
         {% if field.input_type == "select" %}
-        <select name="reply_{{ field.key }}" class="w-full rounded border border-gray-300 px-3 py-2">
+        <select id="reply-{{ field.key }}" name="reply_{{ field.key }}" class="w-full rounded border border-gray-300 px-3 py-2">
           <option value="">未選択</option>
           {% for option in field.options %}
           <option value="{{ option }}" {% if reply_form_values.get(field.key) == option %}selected{% endif %}>{{ option }}</option>
           {% endfor %}
         </select>
+        <div class="reply-choices" role="group" aria-label="{{ field.label }}" data-choice-group="reply_{{ field.key }}" hidden>{% for option in field.options %}<button type="button" data-reply-choice="{{ option }}">{{ option }}</button>{% endfor %}<button type="button" data-reply-choice="">クリア</button></div>
         {% else %}
-        <input type="text" name="reply_{{ field.key }}" value="{{ reply_form_values.get(field.key, '') }}" placeholder="{{ field.placeholder }}" class="w-full rounded border border-gray-300 px-3 py-2">
+        <input id="reply-{{ field.key }}" type="text" {% if field.key == "temperature" %}inputmode="decimal"{% endif %} name="reply_{{ field.key }}" value="{{ reply_form_values.get(field.key, '') }}" placeholder="{{ field.placeholder }}" class="w-full rounded border border-gray-300 px-3 py-2">
+        {% if field.key == 'temperature' %}<div class="reply-temperature" hidden><div class="reply-choices" aria-label="体温の整数">{% for number in range(35,41) %}<button type="button" data-temperature-whole="{{ number }}">{{ number }}</button>{% endfor %}</div><div class="reply-choices" aria-label="体温の小数">{% for number in range(10) %}<button type="button" data-temperature-fraction="{{ number }}">.{{ number }}</button>{% endfor %}<button type="button" data-temperature-clear>クリア</button></div></div>{% endif %}
         {% endif %}
       </div>
       {% endfor %}
     </div>
 
     <div>
-      <label class="mb-1 block text-sm font-medium text-gray-600">連絡メモ</label>
-      <textarea name="reply_message" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ reply.message if reply and reply.message else "" }}</textarea>
+      <label for="reply-message" class="mb-1 block text-sm font-medium text-gray-600">連絡メモ</label>
+      <textarea id="reply-message" name="reply_message" rows="4" class="w-full rounded border border-gray-300 px-3 py-2">{{ reply_message_value }}</textarea>
     </div>
 
     <div class="flex flex-wrap gap-3">
       <button type="submit" name="action" value="draft" class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">下書き保存</button>
       <button type="submit" name="action" value="publish" class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">保護者に公開</button>
+      <button type="button" id="reply-reset" class="rounded border px-4 py-2 text-sm" hidden>変更を取り消す</button>
     </div>
   </form>
   {% elif reply %}
-  <section class="mt-6 rounded-xl border bg-white p-6"><h2 class="font-semibold">園からの連絡（{{ reply.status.label }}）</h2>{% for item in reply_items %}<p>{{ item.label }}: {{ item.value }}</p>{% endfor %}<p class="whitespace-pre-wrap">{{ reply.message or '' }}</p></section>
+  <section class="mt-6 rounded-xl border bg-white p-6"><h2 class="font-semibold">園からの連絡（{{ "未送信の変更あり" if reply.pending_draft is not none else "公開済み" if reply.status.value == "published" else "未送信" }}）</h2>{% for item in reply_items %}<p>{{ item.label }}: {{ item.value }}</p>{% endfor %}<p class="whitespace-pre-wrap">{{ reply_message_value }}</p></section>
   {% endif %}
-</div>
+</div></div>
+<dialog id="reply-leave-dialog" class="reply-dialog"><h2>入力中の変更があります</h2><p>保存してから移動しますか？</p><p data-dialog-error role="alert"></p><div class="reply-dialog-actions"><button type="button" data-leave="stay">入力を続ける</button><button type="button" data-leave="discard">保存せずに移動</button><button type="button" data-leave="save">下書き保存して移動</button></div></dialog>
+<dialog id="reply-publish-dialog" class="reply-dialog"><h2>この内容を保護者に公開しますか</h2><p>{{ child.full_name }} / {{ target_date_value }}</p><dl id="reply-publish-preview"></dl><p data-dialog-error role="alert"></p><div class="reply-dialog-actions"><button type="button" data-publish="back">修正に戻る</button><button type="button" data-publish="confirm">公開する</button></div></dialog>
+<script src="/static/js/daily-contact-reply.js?v=20260924" defer></script>
 {% endblock %}

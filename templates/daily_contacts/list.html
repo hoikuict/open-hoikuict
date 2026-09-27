@@ -33,18 +33,18 @@
   </form>
 </div>
 
-<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+<div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
   <table class="min-w-full divide-y divide-gray-200 text-sm">
     <thead class="bg-gray-50 text-left text-gray-600">
       <tr>
-        <th class="px-4 py-3 font-semibold">園児</th>
-        <th class="px-4 py-3 font-semibold">クラス</th>
-        <th class="px-4 py-3 font-semibold">提出状況</th>
-        <th class="px-4 py-3 font-semibold">園返信</th>
-        <th class="px-4 py-3 font-semibold">連絡内容</th>
-        <th class="px-4 py-3 font-semibold">提出者</th>
-        <th class="px-4 py-3 font-semibold">更新日時</th>
-        <th class="px-4 py-3 font-semibold">操作</th>
+        <th class="px-3 py-2 font-semibold">園児</th>
+        <th class="px-3 py-2 font-semibold">クラス</th>
+        <th class="px-3 py-2 font-semibold">提出状況</th>
+        <th class="px-3 py-2 font-semibold">園返信</th>
+        <th class="px-3 py-2 font-semibold">連絡内容</th>
+        <th class="px-3 py-2 font-semibold">提出者</th>
+        <th class="px-3 py-2 font-semibold">更新日時</th>
+        <th class="px-3 py-2 font-semibold">操作</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
@@ -52,33 +52,32 @@
       {% set entry = entry_by_child_id.get(child.id) %}
       {% set reply = reply_by_child_id.get(child.id) %}
       <tr>
-        <td class="px-4 py-3 font-medium text-gray-800">{{ child.full_name }}</td>
-        <td class="px-4 py-3 text-gray-700">{{ child.classroom.name if child.classroom else '-' }}</td>
-        <td class="px-4 py-3">
+        <td class="px-3 py-2 font-medium text-gray-800">{{ child.full_name }}</td>
+        <td class="px-3 py-2 text-gray-700">{{ child.classroom.name if child.classroom else '-' }}</td>
+        <td class="px-3 py-2">
           {% if entry %}
           <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">提出済み</span>
           {% else %}
           <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未提出</span>
           {% endif %}
         </td>
-        <td class="px-4 py-3">
-          {% if reply and reply.status == published_reply_status %}
+        <td class="px-3 py-2">
+          {% if reply and reply.pending_draft is not none %}<span class="text-xs text-amber-800">未送信の変更あり</span>
+          {% elif reply and reply.status == published_reply_status %}
           <span class="rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700">返信済み</span>
           {% elif reply %}
-          <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">下書き</span>
-          {% elif entry %}
-          <span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">未返信</span>
+          <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">未送信</span>
           {% else %}
-          <span class="text-gray-400">-</span>
+          <span class="text-xs text-amber-800">未送信（未入力）</span>
           {% endif %}
           {% if reply and reply.staff_name %}
           <div class="mt-1 text-xs text-gray-500">返信者: {{ reply.staff_name }}</div>
           {% endif %}
         </td>
-        <td class="px-4 py-3 text-gray-700">{{ entry.contact_type.label if entry else '-' }}</td>
-        <td class="px-4 py-3 text-gray-700">{{ entry.parent_account.display_name if entry and entry.parent_account else '-' }}</td>
-        <td class="px-4 py-3 text-gray-700">{{ (entry.updated_at|jst_datetime("%Y-%m-%d %H:%M") ~ " JST") if entry else '-' }}</td>
-        <td class="px-4 py-3">
+        <td class="px-3 py-2 text-gray-700">{{ entry.contact_type.label if entry else '-' }}</td>
+        <td class="px-3 py-2 text-gray-700">{{ entry.parent_account.display_name if entry and entry.parent_account else '-' }}</td>
+        <td class="px-3 py-2 text-gray-700">{{ (entry.updated_at|jst_datetime("%Y-%m-%d %H:%M") ~ " JST") if entry else '-' }}</td>
+        <td class="px-3 py-2">
           <a href="/daily-contacts/{{ child.id }}?{{ detail_query_string }}" class="text-indigo-600 hover:underline">詳細</a>
         </td>
       </tr>

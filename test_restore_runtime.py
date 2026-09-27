@@ -13,7 +13,7 @@ from sqlmodel import SQLModel, Session, create_engine
 from local_auth import hash_password
 from models import AuthSession, Child, PasswordCredential, User
 import restore_control as control
-from restore_data import RestorePaths, apply_copy, inspect_backup, prepare_copy
+from restore_data import RestorePaths, apply_copy, inspect_backup, list_backups, prepare_copy
 from scripts.backup_runtime import BackupConfig, create_backup
 from scripts.restore_worker import RestoreExecutor
 from time_utils import utc_now
@@ -29,6 +29,8 @@ class RestoreFixture(unittest.TestCase):
         cls.password_hash = hash_password(PASSWORD)
 
     def setUp(self):
+        import child_records.models  # noqa: F401
+        import plan_docs.db_models  # noqa: F401
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name).resolve()
         self.data, self.storage = self.root / "data", self.root / "storage"
@@ -48,8 +50,11 @@ class RestoreFixture(unittest.TestCase):
             "HOIKUICT_RESTORE_STAGING_ROOT": str(self.paths.staging),
             "HOIKUICT_RESTORE_SIGNING_KEY_FILE": str(self.key),
             "HOIKUICT_RESTORE_COMPATIBLE_GIT_SHAS": SOURCE_SHA + "," + CURRENT_SHA,
-            "HOIKUICT_BACKUP_GIT_SHA": CURRENT_SHA, "HOIKUICT_BACKUP_APP_IMAGE": "test-image",
+            "HOIKUICT_BACKUP_GIT_SHA": CURRENT_SHA, "HOIKUICT_BACKUP_APP_IMAGE": "sha256:" + "e" * 64,
             "HOIKUICT_BACKUP_COMPOSE_SHA256": "c" * 64, "HOIKU_NURSERY_REF": "synthetic",
+            "HOIKUICT_BACKUP_CLOUDFLARED_IMAGE": "sha256:" + "f" * 64,
+            "HOIKUICT_BACKUP_RECOVERY_KIT_REF": "test-kit",
+            "HOIKUICT_BACKUP_BASELINE_REF": "test-baseline",
             "HOIKUICT_COOKIE_SECURE": "false", "HOIKUICT_STAFF_AUTH_MODE": "local_password",
         })
         self.environment.start()
@@ -75,14 +80,23 @@ class RestoreFixture(unittest.TestCase):
             session.commit()
         self.engine.dispose()
         with closing(sqlite3.connect(self.data / "facility.sqlite")) as db:
-            db.execute("CREATE TABLE bunrei_facility (id TEXT PRIMARY KEY,text TEXT NOT NULL)")
-            db.execute("INSERT INTO bunrei_facility VALUES ('example','架空文例')")
+            from plan_docs.services.bunrei import _ensure_facility_table
+            _ensure_facility_table(db)
             db.commit()
+        (self.data / "backup-control").mkdir()
+        control.atomic_json(self.data / "backup-control/schedule.json", {
+            "schema_version": 1, "enabled": True, "frequency": "weekly", "run_time": "03:25", "weekday": 4,
+        })
         backup = create_backup(BackupConfig(output_root=self.paths.backups, database_url=os.environ["HOIKUICT_DATABASE_URL"],
                                            facility_db=self.data / "facility.sqlite", storage_root=self.storage,
-                                           git_sha=SOURCE_SHA, app_image="test-image", compose_sha256="c" * 64,
+                                           git_sha=SOURCE_SHA, app_image="sha256:" + "e" * 64, compose_sha256="c" * 64,
+                                           cloudflared_image="sha256:" + "f" * 64, recovery_kit_ref="test-kit",
+                                           actor_ref="test-operator", baseline_ref="test-baseline",
                                            facility_ref="synthetic", quiesced=True))
         self.backup_id = backup.name
+        control.atomic_json(self.data / "backup-control/schedule.json", {
+            "schema_version": 1, "enabled": True, "frequency": "daily", "run_time": "05:00", "weekday": 0,
+        })
         with closing(sqlite3.connect(self.data / "hoikuict.db")) as db:
             db.execute("UPDATE users SET display_name='変更後の管理者'")
             db.commit()
@@ -128,8 +142,21 @@ class RestoreDataTests(RestoreFixture):
         self.assertEqual((self.storage / "example.txt").read_text(), "saved attachment")
         with closing(sqlite3.connect(self.data / "hoikuict.db")) as db:
             self.assertEqual(db.execute("SELECT revoke_reason FROM auth_sessions").fetchone()[0], "backup_restore")
-        self.assertFalse(control.read_json(self.data / "backup-control/schedule.json")["enabled"])
+        schedule = control.read_json(self.data / "backup-control/schedule.json")
+        self.assertFalse(schedule["enabled"])
+        self.assertEqual((schedule["frequency"], schedule["run_time"], schedule["weekday"]), ("weekly", "03:25", 4))
         self.assertEqual(original, (self.paths.backups / self.backup_id / "db/hoikuict.db").read_bytes())
+
+    def test_legacy_backup_remains_eligible_and_restorable(self):
+        from test_backup_v2 import legacy
+        legacy(self.paths.backups / self.backup_id)
+        self.assertTrue(list_backups(self.paths)[0]["eligible"])
+        inspect_backup(self.paths, self.backup_id, str(self.actor_id))
+        job, _, request = self.queued()
+        InProcessExecutor(self.paths).execute(request)
+        self.assertEqual(control.read_job(job["job_id"])["state"], "succeeded")
+        self.assertEqual(self.display_name(), "架空の管理者")
+        self.assertFalse(control.read_json(self.data / "backup-control/schedule.json")["enabled"])
 
     def test_corrupted_payload_rejected_without_live_change(self):
         (self.paths.backups / self.backup_id / "storage/example.txt").write_text("corrupt")
@@ -204,6 +231,10 @@ class RestoreExecutorTests(RestoreFixture):
         self.assertIsNone(control.active_job())
         self.assertEqual(self.display_name(), "架空の管理者")
         self.assertTrue((self.paths.backups / saved["rollback_backup"] / "COMPLETE").is_file())
+        manifest = control.read_json(self.paths.backups / saved["rollback_backup"] / "manifest.json")
+        self.assertEqual(manifest["format_version"], 2)
+        self.assertEqual(manifest["actor_ref"], job["job_id"])
+        self.assertEqual(manifest["retention_class"], "change")
 
     def test_failure_after_partial_replacement_rolls_back(self):
         job, _, request = self.queued()

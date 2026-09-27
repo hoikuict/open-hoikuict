@@ -63,12 +63,19 @@
         <input type="text" name="workplace_address" value="{{ account.workplace_address if account and account.workplace_address else '' }}" class="w-full rounded border border-slate-300 px-3 py-2">
       </div>
       <div>
+        {% if parent_enrollment_enabled() %}
+        <p class="mb-1 block text-sm font-medium text-slate-600">利用状態</p>
+        <p class="font-semibold text-slate-800">{{ lifecycle.label if lifecycle else '未登録' }}</p>
+        {% if account and account.id and current_user.is_admin %}<a href="/parent-accounts/{{ account.id }}/authentication" class="text-sm text-indigo-700 underline">利用停止・再開は認証管理へ</a>
+        {% else %}<p class="text-sm text-slate-500">利用停止・再開は管理者が認証管理で行います。</p>{% endif %}
+        {% else %}
         <label class="mb-1 block text-sm font-medium text-slate-600">状態</label>
         <select name="status" class="w-full rounded border border-slate-300 px-3 py-2">
           {% for option in status_options %}
           <option value="{{ option.value }}" {% if (account and account.status.value == option.value) or (not account and option.value == 'active') %}selected{% endif %}>{{ option.label }}</option>
           {% endfor %}
         </select>
+        {% endif %}
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-600">所属家族</label>

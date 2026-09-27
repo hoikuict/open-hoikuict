@@ -40,10 +40,13 @@ def main():
             "HOIKUICT_RESTORE_STAGING_ROOT": str(root / "staging"), "HOIKUICT_RESTORE_BACKUP_ROOT": str(root / "backups"),
             "HOIKUICT_RESTORE_SIGNING_KEY_FILE": str(root / "key"),
             "HOIKUICT_RESTORE_COMPATIBLE_GIT_SHAS": "a" * 40 + "," + "b" * 40,
-            "HOIKUICT_BACKUP_GIT_SHA": "b" * 40, "HOIKUICT_BACKUP_APP_IMAGE": "synthetic-drill",
+            "HOIKUICT_BACKUP_GIT_SHA": "b" * 40, "HOIKUICT_BACKUP_APP_IMAGE": "sha256:" + "e" * 64,
             "HOIKUICT_BACKUP_COMPOSE_SHA256": "c" * 64, "HOIKU_NURSERY_REF": "synthetic-drill",
             "HOIKUICT_BACKUP_CONTROL_DIR": str(root / "data/backup-control"),
             "HOIKUICT_BACKUP_OUTPUT_ROOT": str(root / "backups"),
+            "HOIKUICT_BACKUP_CLOUDFLARED_IMAGE": "sha256:" + "f" * 64,
+            "HOIKUICT_BACKUP_RECOVERY_KIT_REF": "synthetic-kit",
+            "HOIKUICT_BACKUP_BASELINE_REF": "synthetic-baseline",
             "HOIKUICT_COOKIE_SECURE": "0", "HOIKUICT_CSRF_ENFORCE": "1",
             "HOIKUICT_STAFF_AUTH_MODE": "local_password", "HOIKUICT_PARENT_AUTH_MODE": "local_password",
             "HOIKUICT_ENABLE_MOCK_AUTH": "0", "HOIKUICT_ENABLE_MOCK_ROLE_OVERRIDE": "0",
@@ -84,7 +87,9 @@ def main():
         (root / "storage/example.txt").write_text("saved synthetic attachment")
         backup = create_backup(BackupConfig(output_root=root / "backups", database_url=os.environ["HOIKUICT_DATABASE_URL"],
                                            facility_db=root / "data/facility.sqlite", storage_root=root / "storage",
-                                           git_sha="a" * 40, app_image="synthetic-drill", compose_sha256="c" * 64,
+                                           git_sha="a" * 40, app_image="sha256:" + "e" * 64, compose_sha256="c" * 64,
+                                           cloudflared_image="sha256:" + "f" * 64, recovery_kit_ref="synthetic-kit",
+                                           actor_ref="synthetic-operator", baseline_ref="synthetic-baseline",
                                            facility_ref="synthetic-drill", quiesced=True))
         (root / "storage/after.txt").write_text("created after backup")
         with closing(sqlite3.connect(root / "data/hoikuict.db")) as db:
@@ -119,7 +124,8 @@ def main():
                     assert "架空データでの検証" in client.get("/settings/backups/restore", params={"ticket_id": ticket_id}).text
                     assert post("/settings/backups/restore/execute", ticket_id=ticket_id, password=password).status_code == 400
                     assert post("/settings/backups/restore/confirm", ticket_id=ticket_id).status_code == 400
-                    assert post("/settings/backups/restore/confirm", ticket_id=ticket_id, acknowledged="yes").status_code == 200
+                    confirmed = post("/settings/backups/restore/confirm", ticket_id=ticket_id, acknowledged="yes")
+                    assert confirmed.status_code == 200, confirmed.text
                     assert post("/settings/backups/restore/execute", ticket_id=ticket_id, password="wrong-synthetic").status_code == 400
                     response = post("/settings/backups/restore/execute", ticket_id=ticket_id, password=password)
                     assert response.status_code == 303, response.text[:200]

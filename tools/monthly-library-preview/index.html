@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; img-src 'self' data:">
+  <title>月案ライブラリ・確認用モック</title>
+  <link rel="stylesheet" href="baseline.css"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="review-bar" aria-label="確認用の操作">
+    <strong>確認用モック</strong><span>全て架空データ・AI提案は見本・保存はこのタブ内のみ</span>
+    <label>状態 <select id="scenario"><option value="empty">未入力</option><option value="partial">一部入力</option><option value="filled">入力済み</option><option value="error">エラー</option><option value="none">候補なし</option></select></label>
+    <a href="baseline.html">現行画面を見る</a>
+  </aside>
+  <header class="app-header"><strong>open-hoikuict</strong><span>指導計画 / 月案を文例から作成</span><span class="staff">担任（架空）</span></header>
+  <main class="plan-docs-content">
+    <div id="flash" role="status" aria-live="polite" hidden></div>
+    <section id="picker">
+      <div class="form-header"><div><p class="eyebrow">月案ライブラリ</p><h1>過去の月案から、今月のヒントを。</h1><p class="lead">年齢・月・カテゴリで探し、原文またはAIの提案を選んで修正します。</p></div><button class="button button--secondary" id="add-example">自作文例を追加</button></div>
+      <div class="source-banner"><span class="source-icon" aria-hidden="true">▤</span><div><strong>Google Driveの月案を資料にする予定です</strong><p>接続待ち・ファイル未読込。この画面の文章・ファイル名・出典位置は全て架空です。</p></div><button id="import-info" class="text-button">取込の流れ</button></div>
+      <form id="filters" class="form-panel" novalidate>
+        <div class="section-heading"><h2>1. 候補の条件</h2><span class="muted">条件を選ぶと候補が切り替わります</span></div>
+        <div class="filter-grid">
+          <label><span>年齢</span><select id="age" name="age_class"><option value="">選択してください</option><option value="0">0歳児</option><option value="1">1歳児</option><option value="2">2歳児</option><option value="3">3歳児</option><option value="4">4歳児</option><option value="5">5歳児</option></select></label>
+          <label><span>月</span><select id="month" name="month"><option value="">選択してください</option></select></label>
+          <label><span>カテゴリ</span><select id="category"><option value="all">すべてのカテゴリ</option></select></label>
+        </div>
+        <div class="keyword-row"><label><span>探したい言葉（任意）</span><input id="keyword" type="search" placeholder="例：落ち葉、散歩、友だち"></label><button class="button button--secondary" type="submit">候補を表示</button></div>
+        <p class="field-note">年齢・月は一致する資料だけを表示。カテゴリや検索語を変えても選択を保持します。</p>
+      </form>
+      <section class="form-panel" id="basic-panel"><h2>2. 基本情報</h2><div class="field-grid">
+        <label><span>対象月</span><input id="target-month" name="target_month" type="month" value=""></label>
+        <label><span>クラス</span><select id="classroom" name="classroom_ref"><option value="">選択してください</option><option>そら組（架空）</option><option>にじ組（架空）</option></select></label>
+        <label><span>作成者</span><input id="owner" name="owner_name" type="text" value=""></label>
+      </div><p class="field-note">対象月の初期値は2026年の検索月です。必要に応じて年を変更できます。</p></section>
+      <div class="workspace">
+        <section class="form-panel results-panel"><h2>3. 文例候補</h2>
+          <div class="mode-switch" role="group" aria-label="候補の種類"><button id="original-mode" aria-pressed="true" type="button">過去の原文</button><button id="ai-mode" aria-pressed="false" type="button">AIの提案 <span>見本</span></button></div>
+          <section id="ai-controls" hidden><label><span>今の子どもの姿・取り入れたいこと（任意）</span><textarea id="ai-context" rows="3" placeholder="例：見つけた落ち葉を友だちに見せ合っている"></textarea></label><div class="ai-action"><button id="generate" class="button button--primary">提案の見本を表示</button><span class="muted">架空の原文をもとにした固定の見本です。入力に応じたAI生成は行いません。</span></div></section>
+          <p id="result-summary" class="result-summary" aria-live="polite"></p><div id="results"></div>
+        </section>
+        <aside class="basket form-panel" aria-label="選んだ候補"><div class="section-heading"><h2>選んだ候補</h2><strong id="basket-count">0件</strong></div><p class="field-note">異なるカテゴリから追加できます。</p><div id="basket-list"></div><button id="clear-selection" class="text-button" hidden>選択をすべて解除</button><button id="to-edit" class="button button--primary" disabled>選んだ文例で作成して修正へ</button><p class="field-note">押すとタブ内に下書きを作成。原文と出典は残ります。</p></aside>
+      </div>
+      <button id="back-home" class="button button--ghost">戻る</button>
+    </section>
+    <section id="editor" hidden>
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">月案</p>
+      <h1>帳票を修正</h1>
+      <p class="lead">園: 見本の園 / クラス: 架空クラス / 下書き</p>
+      
+    </div>
+  </section>
+
+  <form class="form-layout" method="post" action="#">
+    <input name="lock_version" type="hidden" value="0">
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>タイトル</span>
+          <input name="title" type="text" value="">
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="">
+        </label>
+      </div>
+      <label>
+        <span>確認が必要な入力</span>
+        <textarea name="confirmation_items" rows="3"></textarea>
+      </label>
+    </section>
+
+    <section class="form-panel">
+      <h2>セクション本文</h2>
+      <div class="edit-section-list">
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>今月のねらい</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_goal" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_goal" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_goal" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>子どもの姿の捉え</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_children_snapshot" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_children_snapshot" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_children_snapshot" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>環境構成</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_environment" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_environment" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_environment" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>援助</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_support" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_support" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_support" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>健康・安全への配慮</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_health_safety" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_health_safety" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_health_safety" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>食育</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_food_education" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_food_education" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_food_education" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>行事</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_events" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_events" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_events" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>10の姿</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_10_perspectives" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_10_perspectives" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_10_perspectives" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>家庭連携</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_family_collaboration" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_family_collaboration" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_family_collaboration" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+          
+          <div class="edit-section">
+            <div class="report-section__heading">
+              <h3>月末の振り返り観点</h3>
+            </div>
+            <label>
+              <span>本文</span>
+              <textarea name="body_monthly_reflection_viewpoint" rows="6"></textarea>
+            </label>
+            <label>
+              <span>編集メモ</span>
+              <input name="editor_note_monthly_reflection_viewpoint" type="text" value="">
+            </label>
+            
+              <label class="check-row">
+                <input name="confirmed_monthly_reflection_viewpoint" type="checkbox" value="yes">
+                <span>このセクションを確認済みにする</span>
+              </label>
+            
+          </div>
+          
+        
+      </div>
+    </section>
+
+    
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="/plans/documents/preview">戻る</a>
+      <button class="button button--primary" type="submit">修正を保存</button>
+    </div>
+  </form>
+</section>
+    <section id="saved" hidden></section>
+  </main>
+  <dialog id="source-dialog"><div class="dialog-heading"><h2>出典と原文</h2><button id="close-source" aria-label="出典を閉じる">×</button></div><div id="source-body"></div><p class="field-note">架空の資料見本です。Google Driveの実ファイルは開きません。</p></dialog>
+  <dialog id="info-dialog"><div class="dialog-heading"><h2>月案を候補にするまで（提案）</h2><button id="close-info" aria-label="取込の流れを閉じる">×</button></div><ol><li>指定フォルダの月案を読み込む</li><li>年齢・月・カテゴリごとに文章を整理する</li><li>元ファイルと位置を付け、分類や個人名を確認する</li><li>確認した文章を候補として検索する</li><li>必要に応じて、その文章を参考にAIが提案する</li></ol><p>現在は接続待ちです。ファイル形式・実際の見出し・子フォルダの範囲を確認して取込方法を決めます。</p></dialog>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">入力内容の確認</h2><p id="confirm-message"></p><div class="confirm-actions"><button id="confirm-no">変更せず戻る</button><button id="confirm-yes">変更する</button></div></dialog>
+  <script>window.PREVIEW_SECTIONS = [{"key": "monthly_goal", "title": "今月のねらい", "items": ["教育のねらい", "養護のねらい"]}, {"key": "children_snapshot", "title": "子どもの姿の捉え", "items": ["前月末の子どもの姿"]}, {"key": "monthly_environment", "title": "環境構成", "items": ["環境構成・保育者の援助"]}, {"key": "monthly_support", "title": "援助", "items": ["活動内容"]}, {"key": "monthly_health_safety", "title": "健康・安全への配慮", "items": ["健康・安全への配慮"]}, {"key": "monthly_food_education", "title": "食育", "items": ["食育"]}, {"key": "monthly_events", "title": "行事", "items": ["行事"]}, {"key": "monthly_10_perspectives", "title": "10の姿", "items": ["10の姿のねらい"]}, {"key": "monthly_family_collaboration", "title": "家庭連携", "items": ["家庭との連携"]}, {"key": "monthly_reflection_viewpoint", "title": "月末の振り返り観点", "items": ["評価・反省"]}];</script><script src="app.js"></script>
+</body>
+</html>

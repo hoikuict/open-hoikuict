@@ -2,7 +2,7 @@
 
 - 文書バージョン: 0.2（実装反映）
 - 作成日: 2026-08-11
-- 現況再確認: 2026-08-11
+- 現況再確認: 2026-09-13
 - ステータス: 実装済み
 - 対象: open-hoikuict
 - 想定利用者: 保育施設の管理者、事務職員、一般職員
@@ -103,11 +103,15 @@
 
 ```text
 can_manage_billing_accounts_effective
-  = user.staff_role == "admin"
-    OR user.can_manage_billing_accounts == true
+  = user.is_active
+    AND (user.staff_role == "admin"
+         OR (user.staff_role == "can_edit"
+             AND user.can_manage_billing_accounts == true))
 ```
 
 管理者の権限は暗黙に有効とする。管理者のチェックボックスは権限設定画面でチェック済みかつ変更不可として表示し、「管理者には常に付与」と注記する。
+
+実行時は `staff_permissions.py` でDBの有効な職員レコードを再取得する。無効職員や、フラグだけが残っている閲覧専用職員には口座管理を許可しない。
 
 `view_only` の職員に業務別管理権限を付与することは認めない。基本ロールが `view_only` に変更された場合、保存済みの業務別権限は無効化する。再び `can_edit` に変更しても自動復元せず、管理者が明示的に再付与する。
 

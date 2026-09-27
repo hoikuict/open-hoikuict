@@ -19,6 +19,7 @@ from demo_runtime import get_demo_session_manager, reset_demo_runtime_cache
 from models import (
     CareTimeCategory,
     Child,
+    Classroom,
     Family,
     FamilyArchiveLog,
     ChildCareCertification,
@@ -252,6 +253,43 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                 self.assertIsNotNone(child)
                 self.assertNotEqual(child.last_name, "SessionOne")
 
+    def test_monthly_sheets_keep_visitor_data_separate_and_load_versioned_assets(self):
+        from csrf import CSRF_COOKIE_NAME
+
+        with TestClient(main.app, base_url="https://testserver") as client:
+            first_id = self._login_admin(client)
+            manager = get_demo_session_manager()
+            with Session(manager.get_engine(first_id)) as session:
+                classroom = session.exec(select(Classroom).order_by(Classroom.id)).first()
+                classroom_id = classroom.id
+            params = {"classroom_id": classroom_id, "target_month": "2026-10", "age": 3}
+            response = client.get("/plans/monthly-library/context", params=params)
+            self.assertEqual(response.status_code, 200, response.text)
+            context = response.json()
+            payload = {key: context[key] for key in (
+                "document_id", "lock_version", "classroom_id", "target_month", "age", "owner_name")}
+            payload["fields"] = {"group:food": {"body": "最初の利用者だけの架空月案"}}
+            saved = client.post("/plans/monthly-library/save", json=payload,
+                                headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
+            self.assertEqual(saved.status_code, 200, saved.text)
+            document_id = saved.json()["document_id"]
+            page = client.get("/plans/monthly-library", params={"document_id": document_id})
+            self.assertEqual(page.status_code, 200)
+            asset = re.search(r'src="(/static/js/monthly-library\.js\?v=[a-f0-9]{16})"', page.text)
+            self.assertIsNotNone(asset)
+            self.assertIn("主任印", client.get(asset.group(1)).text)
+            client.cookies.clear()
+            second_id = self._login_admin(client)
+            self.assertNotEqual(first_id, second_id)
+            context = client.get("/plans/monthly-library/context", params=params).json()
+            self.assertIsNone(context["document_id"])
+            self.assertEqual(context["sheet"]["fields"], {})
+            self.assertEqual(client.get("/plans/monthly-library", params={
+                "document_id": document_id}).status_code, 404)
+            with Session(manager.get_engine(first_id)) as session:
+                self.assertEqual(session.get(PlanDocumentRow, document_id).monthly_sheet["fields"]
+                                 ["group:food"]["body"], "最初の利用者だけの架空月案")
+
     def test_staff_login_renders_from_upgraded_demo_snapshot(self):
         with TestClient(main.app) as client:
             response = client.get("/staff/login?redirect=/")
@@ -359,6 +397,8 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                     self.assertTrue({column.name for column in table.columns} <= actual)
             self.assertEqual(snapshot.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(snapshot.execute("PRAGMA foreign_key_check").fetchall(), [])
+            indexes = {row[1]: row[2] for row in snapshot.execute("PRAGMA index_list(plan_documents)")}
+            self.assertEqual(indexes["uq_monthly_sheet_key"], 1)
 
     def test_packaged_demo_database_is_migrated_for_review_outcomes(self):
         main.initialize_application()

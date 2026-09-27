@@ -1,0 +1,13 @@
+{
+  "commit": "c907275b94cabcb613b4cf2a8edf778c05ade8dd",
+  "source": "C:\\python\\open-hoikuict\\.local-dev\\truenas-desktop-20260925\\source",
+  "sha256": {
+    "templates/base.html": "275f7d523dd54bb28aa9f65b3b6da2e386e438b5034a1fe559dbcc2fceedf75c",
+    "templates/plan_docs/bunrei/monthly.html": "4d7554d04951026dd497f9149017952ac43badadeeb33f73dbec3808537fb67c",
+    "templates/plan_docs/bunrei/_candidate_groups.html": "57d2c0872a84bb2f4c0245f791cc71f6ebbafb407b558f761d4ac889942f6397",
+    "templates/plan_docs/documents/edit.html": "6cb9d7a51ed9a083fc2588c0d8405a0b08851c75730c90fe31f83670f17a5ed5",
+    "plan_docs/services/bunrei.py": "8c6751a656b7f87aa312ec57142a01177838ce30312c3cb79e7f5a840c01c344",
+    "plan_docs/routers/bunrei.py": "c7857e876b2e8d0fe8d6d0766ec886ff6e5e699a3e1c2083677c6007af2bc3a2"
+  },
+  "note": "2026-09-27 latest completed deployment record; no live production connection"
+}

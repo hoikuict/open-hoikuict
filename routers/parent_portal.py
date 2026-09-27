@@ -525,7 +525,9 @@ def parent_logout(
     return response
 
 
-def _load_parent_updates(session: Session, parent_account: ParentAccount) -> list[dict]:
+def _load_parent_updates(
+    session: Session, parent_account: ParentAccount, *, include_surveys: bool = True
+) -> list[dict]:
     notices = _load_visible_notices(session, parent_account)
     read_notice_ids = _read_notice_ids(parent_account, notices)
     parent_notifications = session.exec(
@@ -533,10 +535,11 @@ def _load_parent_updates(session: Session, parent_account: ParentAccount) -> lis
         .where(ParentNotification.parent_account_id == parent_account.id)
         .order_by(ParentNotification.created_at.desc(), ParentNotification.id.desc())
     ).all()
-    unanswered_surveys = _load_unanswered_parent_surveys(session, parent_account)
+    unanswered_surveys = _load_unanswered_parent_surveys(session, parent_account) if include_surveys else []
     latest_updates = [
         {
             "kind": "notice",
+            "notice": item,
             "title": item.title,
             "url": f"/parent-portal/notices/{item.id}",
             "published_at": item.publish_start_at or item.created_at,
@@ -577,6 +580,7 @@ def _load_parent_updates(session: Session, parent_account: ParentAccount) -> lis
     latest_updates.extend(
         {
             "kind": "parent_notification",
+            "notification": notification,
             "title": notification.title,
             "url": f"/parent-portal/notifications/{notification.id}",
             "published_at": notification.created_at,
@@ -590,7 +594,7 @@ def _load_parent_updates(session: Session, parent_account: ParentAccount) -> lis
         }
         for notification in parent_notifications
     )
-    latest_updates.sort(key=lambda item: item["sort_at"], reverse=True)
+    latest_updates.sort(key=lambda item: (item["is_unread"], item["sort_at"]), reverse=True)
 
     return latest_updates
 
@@ -1736,13 +1740,7 @@ def parent_notice_list(
     if not current_parent_user:
         return RedirectResponse(url="/parent-portal/login", status_code=303)
 
-    notices = _load_visible_notices(session, current_parent_user)
-    read_notice_ids = _read_notice_ids(current_parent_user, notices)
-    parent_notifications = session.exec(
-        select(ParentNotification)
-        .where(ParentNotification.parent_account_id == current_parent_user.id)
-        .order_by(ParentNotification.created_at.desc(), ParentNotification.id.desc())
-    ).all()
+    updates = _load_parent_updates(session, current_parent_user, include_surveys=False)
 
     return templates.TemplateResponse(
         request,
@@ -1751,9 +1749,7 @@ def parent_notice_list(
             "request": request,
             "current_parent_user": current_parent_user,
             "parent_portal_mode": True,
-            "notices": notices,
-            "read_notice_ids": read_notice_ids,
-            "parent_notifications": parent_notifications,
+            "updates": updates,
         },
     )
 

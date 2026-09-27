@@ -1,0 +1,62 @@
+# ドキュメントの更新
+
+このサイトは `docs/` のMarkdownを **MkDocs + Material for MkDocs** でビルドします。設定は `mkdocs.yml`、追加スタイルは `docs/stylesheets/extra.css` です。依存ライブラリは `requirements.txt` に含まれます。
+
+## ローカルプレビュー
+
+[開発環境](development.md)を用意し、リポジトリ直下で実行します。アプリとは別のポートを使います。
+
+```bash
+python -m mkdocs serve --dev-addr 127.0.0.1:8008
+```
+
+ブラウザーで `http://127.0.0.1:8008/` を開くと、Markdownの保存が反映されます。アプリの起動やDB接続は不要です。
+
+## ビルドと検査
+
+```bash
+python -m mkdocs build --strict
+git diff --check
+```
+
+生成先はGit管理外の `site/` です。別の作業結果を残したいときは `--site-dir tmp/mkdocs-review` を指定します。
+
+追加スタイルは `hooks/docs_assets.py` が内容に応じたファイル名（`extra.<ハッシュ>.css`）で出力し、各ページから参照します。CSSの更新時にURLも変わるため、ブラウザーや配信先に残った以前のCSSによる表示崩れを防ぎます。編集するのは引き続き `docs/stylesheets/extra.css` です。公開時はHTMLとCSSを含む `site/` 全体を反映してください。
+
+ナビゲーション漏れ、存在しないページ、未解決リンク、存在しない見出しアンカーを警告として検査し、strictビルドでは失敗にします。外部URLの到達性はこの検査の対象外です。現行設定の `exclude_docs` とリンク検査はMkDocs 1.6系を前提とし、今回の改訂は1.6.1で確認しています。
+
+トップページ、長い表、コードブロックをブラウザーで確認し、狭い画面とダークモードでも読めることを確認します。
+
+## どこを更新するか
+
+トップの `index.md` は保育士や園で働く方に向けた、デモを最初に案内するやさしいページです。日常の場面を短い言葉で説明し、設定値・仕様表・技術的な変更履歴は `technical-guide.md` の「詳しい資料」から案内します。詳しい資料の既存ページは、その入口の下にまとめます。
+
+| 変更内容 | 一緒に確認する文書 |
+| --- | --- |
+| 利用者向けの機能 | `features.md`、関連する使い方、`specifications.md` |
+| URL・画面の導線 | `screen-transition-list.md` |
+| 認証・権限・通知 | `accounts.md`、`notifications.md`、関連仕様 |
+| 環境変数・起動条件 | `environment-profiles.md`、`security.md`、導入ガイド |
+| DB・添付・worker | `architecture.md`、バックアップ仕様、運用手順 |
+| 新しい公開ページ | `mkdocs.yml` のnav、入口となるページ |
+| 日付付きの実装・配備記録 | `history.md`。確認日・対象版・未確認範囲も記載 |
+
+## 現行仕様と過去の資料を分ける
+
+「実装あり」「一部実装」「計画」「履歴」を区別します。過去の設計を残す場合は冒頭に現在との差と現行ガイドへのリンクを置き、古い「未実装」や当時のコマンドを現在の運用条件として読ませないようにします。
+
+`exclude_docs` に列挙したローカルのレビュー・検討メモは公開ビルドと検索から外しています。公開するときは内容・リンクを確認してnavへ追加し、除外を解除します。navに載せないだけではファイルの公開除外になりません。
+
+## リンクと公開する情報
+
+同じサイトのページは `[表示名](page.md)` 形式にし、長い見出しへの参照には `{#maintenance}` のような明示アンカーを使います。`docs/` の外にあるコード・ツールはGitHubの対象ファイルへリンクし、生成物に対して `../tools/...` のような存在しない相対リンクを作りません。
+
+実データ、接続先、秘密値、個人名入りの操作履歴、未確認のPDFを公開資産へコピーしないでください。生成した `site/` は直接編集しません。
+
+## 公開
+
+このリポジトリのCIにはドキュメントのstrictビルドを含めます。公開サイト `open.hoikuict.net` はCloudflare Pagesの `open-hoikuict` プロジェクトから配信しています。`main` に公開対象をプッシュすると、Cloudflare Pagesがビルド・配備します（2026年9月23日確認）。ローカルの編集・ビルドだけでは公開サイトは更新されません。
+
+公開時は対象ファイルを限定し、`python -m mkdocs build --strict` と差分を確認してからプッシュします。GitHubの対象コミットの **Cloudflare Pages** チェックが成功した後、公開URLを開き、本文・リンク・CSSの反映を確認します。CIの `test` とCloudflare Pagesの配備結果は別のチェックです。
+
+Windows導入アプリへのボタンは、公式GitHub Releasesの `releases/latest/download/OpenHoikuICT.exe` を参照します。配布版を更新するときは、公開するReleaseに同名の実行ファイルがあることと、[ダウンロードページ](download.md)の対応環境・版・サイズの説明を確認してください。

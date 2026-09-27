@@ -1,0 +1,42 @@
+<style>
+  #search-preview {margin:16px 0;padding:18px 22px;border:1px solid #d5bd75;border-radius:8px;background:#fff9e9;color:#413922;font-size:14px;line-height:1.65;}
+  #search-preview h2 {margin:0 0 4px;font-size:20px;}
+  #search-preview p {margin:4px 0 10px;}
+  #search-preview .preview-controls {display:flex;gap:12px 24px;flex-wrap:wrap;align-items:center;}
+  #search-preview select {padding:7px;border:1px solid #b7ae95;border-radius:4px;background:white;max-width:100%;}
+  #search-preview small {display:block;margin-top:8px;color:#746b56;}
+  #search-preview .preview-examples {display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+  #search-preview button {padding:5px 12px;border:1px solid #c1b18a;border-radius:18px;background:white;color:#413922;cursor:pointer;}
+  #search-preview button:hover {background:#f0e7cc;}
+  #search-match-note {font-size:12px;color:#556b61;line-height:1.6;}
+  @media print {#search-preview {display:none;}}
+</style>
+<section id="search-preview" aria-label="検索の操作見本">
+  <h2>検索・文例追加・印刷の操作見本 <small style="display:inline;font-size:13px">架空データ・本番未反映</small></h2>
+  <p>「まね」「マネ」「真似」で同じ文例を探します。候補欄の「文例を追加」から、園内で共有する文例を登録できます。</p>
+  <p>「印刷用PDF」でA4横の帳票を確認・印刷できます。「Excel出力」は、文章をセルで編集できる帳票をダウンロードします。</p>
+  <div class="preview-controls">
+    <label>検索の比較 <select id="preview-match">
+      <option value="spelling">表記ゆれをまとめる（今回の案）</option>
+      <option value="related">「模倣」も含める（追加案）</option>
+      <option value="current">現在と同じ検索</option>
+    </select></label>
+    <label>帳票の状態 <select id="preview-state">
+      <option value="empty">未入力</option><option value="custom" disabled>編集中</option><option value="partial">一部入力</option>
+      <option value="filled">入力済み</option><option value="error">検索エラー（入力を保持）</option>
+    </select></label>
+    <button id="preview-retry" type="button" hidden>検索エラーを解除</button>
+    <label><input type="checkbox" id="preview-phrase-error"> 次の文例登録でエラーを試す</label>
+  </div>
+  <div class="preview-examples"><span>試す：</span>
+    <button type="button" data-preview-query="まね">まね</button>
+    <button type="button" data-preview-query="マネ">マネ</button>
+    <button type="button" data-preview-query="真似">真似</button>
+    <button type="button" data-preview-query="模倣">模倣</button>
+    <button type="button" data-preview-query="友達 真似">友達 真似</button>
+    <button type="button" data-preview-query="ぼーる">ぼーる</button>
+    <button type="button" data-preview-query="見つからない語">該当なし</button>
+    <button type="button" data-preview-query="">すべて表示</button>
+  </div>
+  <small>この見本の同義語は「真似・まね」と、追加案の「模倣」のみ。空白区切りはすべての語を含む検索です。保存先は見本専用の一時データです。</small>
+</section>

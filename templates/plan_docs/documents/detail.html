@@ -72,10 +72,15 @@
       {% if can_edit_document and document.can_edit_body %}
         <a class="button button--primary" href="/plans/documents/{{ document.id }}/edit">修正</a>
       {% endif %}
-      <button class="button button--secondary" type="button" onclick="window.print()">印刷</button>
+      <button class="button button--secondary" type="button" {% if monthly_boot %}data-monthly-print{% else %}onclick="window.print()"{% endif %}>印刷</button>
     </div>
   </section>
 
+  {% if monthly_boot %}
+    {% with boot=monthly_boot, classrooms=[], detail_mode=true %}
+      {% include "plan_docs/monthly_library/_sheet.html" %}
+    {% endwith %}
+  {% endif %}
   {% if document.confirmation_items %}
     <section class="notice">
       <strong>確認が必要な入力</strong>

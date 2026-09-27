@@ -870,13 +870,23 @@ def save_pickup(request: Request, child_id: int, date: str = Form(...),
     return RedirectResponse(_build_redirect_url(day, return_query) + "&notice=pickup_updated", status_code=303)
 
 
-def _correction_page(request, session, current_user, child, record, return_query, error="", reason="", status_code=200):
+def _correction_return_url(day, query, return_to):
+    if return_to == "checks":
+        from urllib.parse import parse_qs
+        values = parse_qs(query or "")
+        params = {key: values[key][0] for key in ("layout", "filter", "classroom_id") if key in values}
+        params["date"] = day.isoformat()
+        return "/attendance-checks/?" + urlencode(params)
+    return _build_redirect_url(day, query)
+
+
+def _correction_page(request, session, current_user, child, record, return_query, error="", reason="", status_code=200, return_to=""):
     history = session.exec(select(AttendanceCorrection).where(AttendanceCorrection.attendance_record_id == record.id)
         .order_by(AttendanceCorrection.id.desc())).all()
     return templates.TemplateResponse(request, "attendance_correction.html", {
         "current_user": current_user, "child": child, "record": record, "history": history,
         "revision": correction_revision(record), "return_query": return_query,
-        "return_url": _build_redirect_url(record.attendance_date, return_query), "error": error, "reason": reason,
+        "return_url": _correction_return_url(record.attendance_date, return_query, return_to), "return_to": return_to, "error": error, "reason": reason,
     }, status_code=status_code)
 
 
@@ -890,16 +900,16 @@ def _correction_record(session, child_id, day):
 
 
 @router.get("/{child_id}/correction", response_class=HTMLResponse)
-def correction_page(request: Request, child_id: int, date: str, return_query: str = "",
+def correction_page(request: Request, child_id: int, date: str, return_query: str = "", return_to: str = "",
                     session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
     require_can_edit(current_user)
     child, record = _correction_record(session, child_id, _parse_target_date(date))
-    return _correction_page(request, session, current_user, child, record, return_query)
+    return _correction_page(request, session, current_user, child, record, return_query, return_to=return_to)
 
 
 @router.post("/{child_id}/correction", response_class=HTMLResponse)
 def correction_save(request: Request, child_id: int, date: str = Form(...), operation: str = Form(...),
-                    reason: str = Form(""), revision: str = Form(...), return_query: str = Form(""),
+                    reason: str = Form(""), revision: str = Form(...), return_query: str = Form(""), return_to: str = Form(""),
                     session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
     require_can_edit(current_user)
     child, record = _correction_record(session, child_id, _parse_target_date(date))
@@ -908,8 +918,8 @@ def correction_save(request: Request, child_id: int, date: str = Form(...), oper
     except ValueError as exc:
         session.rollback()
         session.refresh(record)
-        return _correction_page(request, session, current_user, child, record, return_query, str(exc), reason, 409)
-    return RedirectResponse(_build_redirect_url(record.attendance_date, return_query) + "&notice=punch_cancelled", status_code=303)
+        return _correction_page(request, session, current_user, child, record, return_query, str(exc), reason, 409, return_to)
+    return RedirectResponse(_correction_return_url(record.attendance_date, return_query, return_to) + "&notice=punch_cancelled", status_code=303)
 
 
 @router.post("/{child_id}/check-in")

@@ -52,7 +52,28 @@ def has_assigned_child_access(session: Session, user: Any, child: Child) -> bool
 
 
 def can_view_observation_records(session: Session, user: Any, child: Child) -> bool:
-    return has_assigned_child_access(session, user, child)
+    return bool(getattr(user, "user_id", None))
+
+
+def can_view_observation_log(session: Session, user: Any, child: Child, log: Any) -> bool:
+    actor = str(getattr(user, "user_id", None) or "")
+    if not actor:
+        return False
+    if log.visibility is None:
+        return has_assigned_child_access(session, user, child) and (
+            log.sensitivity == "normal" or bool(getattr(user, "is_admin", False))
+        )
+    if log.visibility == "private":
+        return log.created_by == actor
+    if log.visibility != "shared":
+        return False
+    if log.sensitivity == "normal":
+        return True
+    return log.sensitivity == "restricted" and (
+        log.created_by == actor
+        or bool(getattr(user, "is_admin", False))
+        or actor in (log.shared_staff_ids or [])
+    )
 
 
 def can_view_progress_records(

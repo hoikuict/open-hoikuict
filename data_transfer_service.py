@@ -866,6 +866,11 @@ def _plan_parent_accounts(
         account = _resolve_parent_account_for_import(session, row, row_number, result)
         family = _resolve_family_reference(session, row, row_number, result)
         status = _parse_parent_status(row["状態"], row_number, result, required=False)
+        if account is not None and status is not None and status != account.status:
+            result.errors.append(TransferMessage(
+                row_number, "状態", row["状態"],
+                "既存アカウントの利用停止・再開は認証管理で行ってください。CSVでは状態を変更できません。",
+            ))
         verification_name, verification_name_type = _parse_registration_name_fields(
             row, row_number, result
         )
@@ -925,8 +930,6 @@ def _plan_parent_accounts(
                 _set_if_present(account, "workplace_phone", row["勤務先電話番号"])
                 if row["家庭ID"] or row["家庭名"]:
                     account.family_id = family.id if family else None
-                if status is not None:
-                    account.status = status
                 account.updated_at = utc_now()
                 session.add(account)
                 session.flush()

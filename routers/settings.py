@@ -4,13 +4,48 @@ from sqlmodel import Session, select
 
 from auth import get_current_staff_user
 from database import get_session
-from models import StaffSessionPolicyAudit
+from models import GuardianHoursAudit, GuardianHoursSetting, StaffSessionPolicyAudit
+from guardian_hours import closing_time, parse_closing_time
+from time_utils import utc_now
 from staff_permissions import require_live_admin
 from staff_session_settings import get_staff_session_policy, parse_session_policy, save_staff_session_policy
 from template_utils import create_templates
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 templates = create_templates()
+
+
+@router.get("/guardian-hours", response_class=HTMLResponse)
+def guardian_hours(request: Request, saved: bool = False, session: Session = Depends(get_session),
+                   current_user=Depends(get_current_staff_user)):
+    require_live_admin(session, current_user)
+    return _hours_page(request, session, current_user, saved=saved)
+
+
+def _hours_page(request, session, current_user, *, value=None, error="", saved=False):
+    return templates.TemplateResponse(request, "settings/guardian_hours.html", {
+        "current_user": current_user, "closing_time": value if value is not None else closing_time(session),
+        "error": error, "saved": saved,
+        "history": session.exec(select(GuardianHoursAudit).order_by(GuardianHoursAudit.id.desc()).limit(10)).all(),
+    }, status_code=400 if error else 200, headers={"Cache-Control": "private, no-store"})
+
+
+@router.post("/guardian-hours", response_class=HTMLResponse)
+def save_guardian_hours(request: Request, closing: str = Form("", alias="closing_time"),
+                        session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    actor = require_live_admin(session, current_user)
+    try:
+        value = parse_closing_time(closing)
+    except ValueError as exc:
+        return _hours_page(request, session, current_user, value=closing, error=str(exc))
+    previous = closing_time(session)
+    setting = session.get(GuardianHoursSetting, 1) or GuardianHoursSetting()
+    setting.closing_time, setting.updated_by_name, setting.updated_at = value, actor.display_name, utc_now()
+    session.add(setting)
+    session.add(GuardianHoursAudit(previous_closing_time=previous, closing_time=value,
+                                  changed_by_name=actor.display_name, changed_by_user_id=actor.id))
+    session.commit()
+    return RedirectResponse("/settings/guardian-hours?saved=true", status_code=303)
 
 
 @router.get("", response_class=HTMLResponse)

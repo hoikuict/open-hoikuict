@@ -3,14 +3,17 @@
 - 文書ステータス: 一部実装
 - 初版作成日: 2026-08-13
 - 認証方式: Argon2idによるローカルパスワード認証
-- 初期実装範囲: 職員・保護者認証、ローカルセッション、資格情報ライフサイクル、管理者MFA
+- 現在の実装範囲: 職員・保護者認証、ローカルセッション、初期設定・再設定、管理者メール復旧。MFAは後続設計
 - 関連文書: [オンプレ保護者認証](parent-local-authentication-spec.md)、[セキュリティ最低ライン](security.md)、[職員ポータル仕様](staff-personal-portal-spec.md)、[連携契約](integration-contract.md)、[運用責任](operations.md)
 
-2026年8月23日時点で、職員のArgon2id資格情報、opaque session、login throttle、認証監査、初期有効化、管理者発行のパスワード再設定コード、初期管理者CLIまでを実装した。保護者ローカル認証、認証済み職員本人によるパスワード変更、TOTP MFAと回復コードは後続実装であり、本仕様全体の受入完了には含めない。保護者固有の画面、ライフサイクル、園児認可境界、β導入順序は[オンプレ保護者認証](parent-local-authentication-spec.md)を優先する。
+!!! info "2026年9月13日時点の実装"
+    職員・保護者のArgon2id資格情報、opaque session、試行制限、認証監査、初期設定・再設定、初期管理者CLIを実装しています。保護者本人のパスワード変更と管理者のメール復旧も実装済みです。認証済み職員の通常パスワード変更、TOTP MFA・回復コードは後続計画です。
+
+    本文のMFA必須方針などは将来の設計を含みます。現在の操作とコード期限は[アカウントガイド](accounts.md)、productionの起動条件は[セキュリティ設定](security.md)を優先してください。
 
 ## 1. 目的
 
-現在の職員・保護者ログインは、開発・デモ用の利用者選択Cookieを使うモック認証である。本仕様では、インターネット上のIdentity ProviderやSaaSへ依存せず、オンプレミスまたは閉域ネットワーク内で完結する本番認証を導入する。
+本仕様の策定時点では、職員・保護者ログインは開発・デモ用のモック認証だった。現在は環境設定でモックとローカルパスワード認証を切り替える。本仕様では、インターネット上のIdentity ProviderやSaaSへ依存せず、オンプレミスまたは閉域ネットワーク内で完結する本番認証を導入する。
 
 open-hoikuict自身が次を担当する。
 
@@ -56,7 +59,7 @@ open-hoikuict自身が次を担当する。
 | 資格情報 | staff principal | parent principal |
 | session Cookie | 職員専用 | 保護者専用 |
 | rate limit bucket | 職員専用 | 保護者専用 |
-| MFA方針 | 管理者必須 | 初期実装では任意・後続で必須化を検討 |
+| MFAの将来方針（未実装） | 管理者必須を計画 | 任意登録・必須化を後続で検討 |
 
 同じログイン識別子が両方に存在しても、入口とprincipal種別が違うため相互ログインできない。
 
@@ -86,7 +89,7 @@ open-hoikuict自身が次を担当する。
 
 ## 3. 対象範囲
 
-### 3.1 初期実装に含む
+### 3.1 当初の初期実装目標（未完了項目を含む）
 
 - 職員・保護者それぞれのログインフォームとArgon2id検証
 - 職員・保護者で分離したDB管理のopaque session
@@ -293,7 +296,7 @@ login成功・失敗、logout、session失効、資格情報作成・無効化�
 
 日時、結果、理由コード、principal種別、ローカル利用者ID、資格情報ID、request IDを含める。パスワード、hash全文、action token、session token、TOTP secret、回復コードを含めない。
 
-## 7. TOTP MFA
+## 7. TOTP MFA（未実装の設計）
 
 ### 7.1 対象
 
@@ -444,7 +447,7 @@ auth-user bootstrap-admin
 
 CLIは氏名、login ID、連絡先、実行理由を受け取り、`User`、`PasswordCredential`、30分有効な6文字のactivation codeを作る。passwordやcodeをcommand line引数・環境変数で受け取らない。activation codeは端末へ一度だけ表示し、DBにはhashだけを保存する。
 
-管理者は `/staff/activate` でcodeを確認後、表示されたlogin IDを確認・必要に応じて修正し、新しいpasswordと確認passwordを入力する。その後TOTPを登録し、TOTP登録まで通常管理画面へ進めない。
+管理者は `/staff/activate` でcodeを確認後、表示されたlogin IDを確認・必要に応じて修正し、新しいpasswordと確認passwordを入力する。現在はここまでが実装範囲である。その後TOTPを登録させ、登録完了まで管理画面を制限する仕組みは後続設計であり、現行の起動・利用条件ではない。
 
 ### 11.2 職員追加
 

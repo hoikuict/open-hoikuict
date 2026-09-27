@@ -1,0 +1,26 @@
+<style>
+  #monthly-print-root {display:none;}
+  #drive-monthly-plan .export-note {font-size:11px;color:var(--p-muted);flex-basis:100%;text-align:right;}
+  @page {size:A4 landscape;margin:10mm;}
+  @media print {
+    html,body {margin:0!important;padding:0!important;background:white!important;min-width:0!important;}
+    body > :not(#monthly-print-root) {display:none!important;}
+    #monthly-print-root {display:block!important;width:100%;color:#111;font:9.5pt/1.4 Meiryo,sans-serif;}
+    #monthly-print-root .print-sheet {break-after:page;}
+    #monthly-print-root .print-sheet:last-child {break-after:auto;}
+    #monthly-print-root table {width:100%;table-layout:fixed;border-collapse:collapse;}
+    #monthly-print-root th,#monthly-print-root td {border:.4pt solid #657068;padding:3pt;vertical-align:top;font-weight:normal;}
+    #monthly-print-root th {text-align:center;background:#f1f3f1;}
+    #monthly-print-root thead {display:table-header-group;}
+    #monthly-print-root tr {break-inside:avoid;}
+    #monthly-print-root .print-text {white-space:pre-wrap;overflow-wrap:anywhere;min-height:24pt;}
+    #monthly-print-root .head {margin-bottom:0;}
+    #monthly-print-root .title {font-size:13pt;text-align:center;}
+    #monthly-print-root small {display:block;font-size:8pt;}
+    #monthly-print-root .group-layout {display:grid;grid-template-columns:4fr 1fr;}
+    #monthly-print-root .calendar {font-size:8pt;}
+    #monthly-print-root .calendar .print-text {min-height:10pt;}
+    #monthly-print-root button {border:0;background:white;font:inherit;color:#111;}
+    #monthly-print-root .print-footer {font-size:8pt;margin:5pt 0;}
+  }
+</style>

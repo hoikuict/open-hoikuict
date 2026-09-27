@@ -72,11 +72,22 @@ class AttendanceCheckRow:
     verification_updated_by_name: Optional[str]
     has_check_in: bool
     check_in_at: Optional[datetime]
+    check_out_at: Optional[datetime]
     alarm_is_active: bool
     alarm_reasons: list[str]
     history_items: list[AttendanceVerificationHistory]
     contact_history: list[AttendanceContactConfirmation]
     contact_confirmation: Optional[AttendanceContactConfirmation]
+
+    @property
+    def attendance_state(self) -> str:
+        if self.check_out_at:
+            return "departed"
+        if self.verification_key in {"private_absent", "sick_absent"}:
+            return "absent"
+        if self.has_check_in or self.verification_key == "present":
+            return "present"
+        return "pending"
 
 
 def _parse_target_date(raw: Optional[str]) -> date:
@@ -244,6 +255,7 @@ def _load_rows(
                 verification_updated_by_name=verification.updated_by_name if verification else None,
                 has_check_in=bool(record and record.check_in_at is not None),
                 check_in_at=record.check_in_at if record else None,
+                check_out_at=record.check_out_at if record else None,
                 alarm_is_active=bool(alarm_state and alarm_state.is_active),
                 alarm_reasons=alarm_reason_labels(alarm_state.reasons if alarm_state else None),
                 history_items=histories_by_child_id.get(child_id, []),
@@ -343,10 +355,13 @@ def _build_page_context(
         "verification_options": VERIFICATION_OPTIONS,
         "classrooms": classrooms,
         "counts": _build_counts(scope_rows),
+        "return_query": urlencode({"date": target_day.isoformat(), "layout": selected_layout,
+                                   "filter": selected_filter, "classroom_id": selected_classroom_id or ""}),
         "rows": display_rows,
         "grouped_rows": _group_rows(display_rows) if selected_layout == "classroom" else [],
         "action_message": {
             "contact_received": "電話・口頭連絡を記録し、アラームを再確認しました。",
+            "punch_cancelled": "誤打刻を取り消し、理由と訂正者を記録しました。",
             "contact_revoked": "連絡受付を取り消し、アラームを再確認しました。",
             "parent_notified": "園児に紐づく保護者へ出欠確認の通知を送りました。",
             "parent_not_found": "通知先となる有効な保護者アカウントが見つかりませんでした。",
@@ -381,6 +396,23 @@ def attendance_checks_list(
     )
     template_name = "attendance_checks/_board.html" if _is_hx_request(request) else "attendance_checks/list.html"
     return templates.TemplateResponse(request, template_name, context)
+
+
+@router.get("/roster", response_class=HTMLResponse)
+def attendance_roster(request: Request, target_date: Optional[str] = Query(None, alias="date"),
+                      classroom_id: Optional[str] = Query(None), session: Session = Depends(get_session),
+                      current_user=Depends(get_current_staff_user)):
+    day = _parse_target_date(target_date)
+    selected = _parse_optional_int(classroom_id)
+    rows = _load_rows(session, target_day=day, selected_classroom_id=selected)
+    states = [("present", "在園"), ("departed", "降園"), ("absent", "お休み"), ("pending", "未登園")]
+    return templates.TemplateResponse(request, "attendance_checks/roster.html", {
+        "current_user": current_user, "target_date_value": day.isoformat(),
+        "classrooms": session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all(),
+        "selected_classroom_id": selected, "groups": _group_rows(rows), "states": states,
+        "totals": {key: sum(row.attendance_state == key for row in rows) for key, _ in states},
+        "child_count": len(rows),
+    }, headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("/{child_id}/contact-confirmation", response_class=HTMLResponse)
@@ -447,6 +479,7 @@ def update_attendance_verification(
     status_filter: str = Form(default="all", alias="filter"),
     classroom_id: str = Form(default=""),
     notify_parent: bool = Form(default=False),
+    reason: str = Form(default=""),
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
@@ -471,6 +504,28 @@ def update_attendance_verification(
             AttendanceVerification.target_date == target_day,
         )
     ).first()
+    def result(notice=None):
+        if _is_hx_request(request):
+            context = _build_page_context(
+                request=request, session=session, current_user=current_user,
+                target_day=target_day, selected_layout=selected_layout,
+                selected_filter=selected_filter, selected_classroom_id=selected_classroom_id,
+                notice=notice,
+            )
+            return templates.TemplateResponse(request, "attendance_checks/_board.html", context)
+        return RedirectResponse(url=_build_redirect_url(
+            target_day=target_day, selected_layout=selected_layout,
+            selected_filter=selected_filter, selected_classroom_id=selected_classroom_id,
+            notice=notice,
+        ), status_code=303)
+
+    previous_status = verification.status.value if verification else None
+    if verification and verification.status == next_status:
+        return result()
+    if verification and not reason.strip():
+        raise HTTPException(400, "訂正理由を入力してください。")
+    if len(reason.strip()) > 500:
+        raise HTTPException(400, "訂正理由は500文字以内で入力してください。")
     if not verification:
         verification = AttendanceVerification(
             child_id=child_id,
@@ -491,13 +546,16 @@ def update_attendance_verification(
         target_date=target_day,
         status=next_status,
         updated_by_name=current_user.name,
+        reason=reason.strip() or None,
+        previous_status=previous_status,
+        actor_user_id=getattr(current_user, "user_id", None),
         created_at=now,
     )
     session.add(history)
     session.flush()
 
     notice = None
-    if next_status == AttendanceVerificationStatus.unknown and notify_parent:
+    if previous_status is not None and next_status == AttendanceVerificationStatus.unknown and notify_parent:
         notifications = notify_attendance_confirmation_needed(
             session,
             child=child,
@@ -516,26 +574,4 @@ def update_attendance_verification(
     )
     session.commit()
 
-    if _is_hx_request(request):
-        context = _build_page_context(
-            request=request,
-            session=session,
-            current_user=current_user,
-            target_day=target_day,
-            selected_layout=selected_layout,
-            selected_filter=selected_filter,
-            selected_classroom_id=selected_classroom_id,
-            notice=notice,
-        )
-        return templates.TemplateResponse(request, "attendance_checks/_board.html", context)
-
-    return RedirectResponse(
-        url=_build_redirect_url(
-            target_day=target_day,
-            selected_layout=selected_layout,
-            selected_filter=selected_filter,
-            selected_classroom_id=selected_classroom_id,
-            notice=notice,
-        ),
-        status_code=303,
-    )
+    return result(notice)

@@ -1,0 +1,54 @@
+<style>
+  #drive-monthly-plan .phrase-toolbar {padding:10px 12px;border-bottom:1px solid var(--p-line);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  #drive-monthly-plan .phrase-toolbar button {padding:8px 12px;border-radius:5px;border:1px solid #286b54;background:#fff;color:#19573f;cursor:pointer;font-weight:600;}
+  #drive-monthly-plan .phrase-toolbar small {font-size:11px;color:#68796e;}
+  #drive-monthly-plan .facility-tag {display:block;font-size:11px;color:#286b54;margin-bottom:3px;font-weight:600;}
+  #drive-monthly-plan .facility-action {padding:0 12px 8px;text-align:right;border-bottom:1px solid var(--p-line);}
+  #drive-monthly-plan .facility-action button {font-size:12px;color:#286b54;text-decoration:underline;background:transparent;border:0;cursor:pointer;}
+  #phrase-dialog {width:min(660px,calc(100vw - 28px));max-height:calc(100vh - 36px);padding:0;border:1px solid #d6e0d9;border-radius:12px;background:white;color:#273a30;box-shadow:0 20px 70px #10241a40;}
+  #phrase-dialog::backdrop {background:#10241a66;}
+  #phrase-dialog form {padding:24px;}
+  #phrase-dialog h2 {margin:0 0 6px;font-size:22px;font-weight:700;}
+  #phrase-dialog p {font-size:14px;line-height:1.6;margin:6px 0 16px;}
+  #phrase-dialog .phrase-fields {display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  #phrase-dialog label {display:grid;gap:5px;font-size:14px;}
+  #phrase-dialog .phrase-wide {grid-column:1/-1;}
+  #phrase-dialog input,#phrase-dialog select,#phrase-dialog textarea {width:100%;padding:9px 10px;border:1px solid #bfcfc4;border-radius:5px;background:white;color:#273a30;box-sizing:border-box;font-size:15px;}
+  #phrase-dialog textarea {min-height:125px;resize:vertical;line-height:1.7;}
+  #phrase-dialog .phrase-help {color:#66766b;font-size:12px;margin:6px 0;}
+  #phrase-dialog .phrase-actions {display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px;}
+  #phrase-dialog button {padding:9px 15px;border:1px solid #bfcfc4;border-radius:5px;background:white;cursor:pointer;}
+  #phrase-dialog .phrase-primary {background:#236c50;color:white;border-color:#236c50;}
+  #phrase-dialog .phrase-danger {color:#9b3434;margin-right:auto;}
+  #phrase-dialog button:disabled {opacity:.5;cursor:default;}
+  #phrase-dialog #phrase-error {color:#a32f2f;background:#fff1ee;padding:10px;border-radius:5px;margin-top:12px;}
+  #phrase-dialog #phrase-delete-confirm {background:#fff6ee;border:1px solid #e6cab3;border-radius:6px;padding:12px;margin-top:16px;}
+  #phrase-dialog .phrase-preview-only {padding:7px 10px;background:#fff7df;border-radius:4px;margin-bottom:14px;}
+  @media(max-width:500px) {#phrase-dialog form{padding:16px;}#phrase-dialog .phrase-fields{grid-template-columns:1fr;}#phrase-dialog .phrase-wide{grid-column:auto;}}
+</style>
+<dialog id="phrase-dialog" aria-labelledby="phrase-title">
+  <form id="phrase-form" novalidate>
+    <h2 id="phrase-title">文例を追加</h2>
+    <p>同じ園の職員が文例候補として使えます。登録しただけでは帳票には入りません。</p>
+    <p class="phrase-help phrase-preview-only">操作見本：架空の文例を入力してください。この見本の中だけに保存されます。</p>
+    <div class="phrase-fields">
+      <label>年齢<select id="phrase-age" aria-label="文例の年齢"></select></label>
+      <label>月<select id="phrase-month" aria-label="文例の月"><option value="0">すべての月</option></select></label>
+      <label class="phrase-wide">項目<select id="phrase-field" aria-label="文例の項目"></select></label>
+      <label class="phrase-wide">本文 <span class="phrase-help">必須・2,000文字まで</span><textarea id="phrase-text" maxlength="2000" rows="4" placeholder="繰り返し使いたい文例を入力" aria-describedby="phrase-error" required></textarea></label>
+      <label class="phrase-wide">出所メモ（任意）<input id="phrase-note" maxlength="200" placeholder="例：園内で検討したあそびの文例"></label>
+    </div>
+    <p class="phrase-help">登録した文例は、選んだ年齢・月・項目の候補に表示します。</p>
+    <div id="phrase-error" role="alert" hidden></div>
+    <div id="phrase-delete-confirm" hidden>
+      <p>この文例を候補から削除します。すでに帳票に入れた文章と出典は残ります。</p>
+      <button type="button" id="phrase-delete-cancel">削除しない</button>
+      <button type="button" id="phrase-delete-execute" class="phrase-danger">候補から削除する</button>
+    </div>
+    <div class="phrase-actions">
+      <button type="button" id="phrase-delete" class="phrase-danger" hidden>削除</button>
+      <button type="button" id="phrase-cancel">キャンセル</button>
+      <button type="submit" id="phrase-submit" class="phrase-primary">園の文例として登録</button>
+    </div>
+  </form>
+</dialog>

@@ -1494,6 +1494,8 @@ class DailyContactReply(SQLModel, table=True):
     status: DailyContactReplyStatus = Field(default=DailyContactReplyStatus.draft, index=True)
     field_values: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     message: Optional[str] = None
+    # A saved edit must not replace the version already visible to parents.
+    pending_draft: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     staff_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     staff_name: Optional[str] = None
     published_at: Optional[datetime] = None
@@ -1501,6 +1503,24 @@ class DailyContactReply(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
     child: Optional[Child] = Relationship(back_populates="daily_contact_replies")
+
+
+class GuardianHoursSetting(SQLModel, table=True):
+    __tablename__ = "guardian_hours_settings"
+    id: int = Field(default=1, primary_key=True)
+    closing_time: str = Field(default="19:00")
+    updated_by_name: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class GuardianHoursAudit(SQLModel, table=True):
+    __tablename__ = "guardian_hours_audits"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    previous_closing_time: str
+    closing_time: str
+    changed_by_name: str
+    changed_by_user_id: uuid.UUID
+    changed_at: datetime = Field(default_factory=utc_now)
 
 
 class AttendanceVerification(SQLModel, table=True):
@@ -1524,6 +1544,9 @@ class AttendanceVerificationHistory(SQLModel, table=True):
     target_date: date = Field(index=True)
     status: AttendanceVerificationStatus = Field(default=AttendanceVerificationStatus.unknown)
     updated_by_name: Optional[str] = None
+    reason: Optional[str] = None
+    previous_status: Optional[str] = None
+    actor_user_id: Optional[uuid.UUID] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now)
 
 

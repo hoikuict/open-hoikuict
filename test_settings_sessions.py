@@ -79,7 +79,7 @@ def login(session, actor):
     return authenticate_staff(session, login_id="settings", password=PASSWORD, request=request)
 
 
-@pytest.mark.parametrize("role,count", [(Role.ADMIN, 9), (Role.CAN_EDIT, 2), (Role.VIEW_ONLY, 2)])
+@pytest.mark.parametrize("role,count", [(Role.ADMIN, 10), (Role.CAN_EDIT, 2), (Role.VIEW_ONLY, 2)])
 def test_hub_respects_roles_and_opening_does_not_save(setup, role, count):
     app, client, session, actor, principal = setup
     principal.role = role
@@ -97,7 +97,7 @@ def test_hub_respects_roles_and_opening_does_not_save(setup, role, count):
 def test_disabled_parent_registration_link_hidden(setup, monkeypatch):
     monkeypatch.setenv("HOIKUICT_PARENT_AUTH_MODE", "disabled")
     response = setup[1].get("/settings")
-    assert response.text.count('class="settings-item ') == 8
+    assert response.text.count('class="settings-item ') == 9
     assert 'href="/parent-accounts/registration-qr"' not in response.text
 
 

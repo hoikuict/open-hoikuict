@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ layout.title }}の印刷確認</title>
+<style>
+@font-face{font-family:MonthlyExport;src:url('/static/fonts/NotoSansJP-Regular.ttf') format('truetype');font-weight:400}
+*{box-sizing:border-box}body{margin:0;background:#e9eeec;color:#21352f;font-family:Meiryo,sans-serif}
+header{padding:18px 24px;background:white;border-bottom:1px solid #ced8d2}h1{font-size:22px;margin:0 0 10px}
+button,a{display:inline-block;border:0;border-radius:5px;padding:10px 18px;background:#13776a;color:white;font-size:15px;text-decoration:none;cursor:pointer}button:disabled{opacity:.5;cursor:wait}a{margin-left:10px}p{font-size:14px;margin:10px 0 0}
+main{padding:24px}.page{max-width:1123px;margin:0 auto 24px;box-shadow:0 2px 10px #b3bdb7;background:white}svg{display:block;width:100%;height:auto;font-family:MonthlyExport,sans-serif}
+@page{size:A4 landscape;margin:0}@media print{body,main{margin:0;padding:0;background:white}header{display:none}.page{margin:0;box-shadow:none;width:297mm;max-width:none;height:210mm;break-after:page;overflow:hidden}.page:last-child{break-after:auto}svg{width:297mm;height:210mm}}
+</style></head><body>
+<header><h1>月案の印刷確認</h1><button id="print" disabled onclick="window.print()">この帳票を印刷</button>
+<form method="post" action="/plans/monthly-library/export-file" target="_blank" style="display:inline">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="snapshot" value="{{ download_snapshot }}"><input type="hidden" name="download_pdf" value="true">
+<button type="submit">PDFをダウンロード</button></form>
+<p>A4横・{{ layout.pages|length }}ページ。{% if mode=='current' %}保存前の入力を含みます。{% else %}保存済みの内容です。{% endif %}{% if fixture %}架空データの操作見本です。{% endif %}</p><p id="font-status" role="status">日本語フォントを読み込んでいます…</p></header>
+<main>{% for page in layout.pages %}<section class="page" aria-label="{{ loop.index }} / {{ layout.pages|length }}ページ">
+<svg viewBox="0 0 841.89 595.28" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="月案 {{ loop.index }} / {{ layout.pages|length }}ページ">
+<rect width="841.89" height="595.28" fill="white"/>
+{% for cell in page.cells %}
+{% set x=28.35+cell.col*layout.width/72 %}{% set top=28.35+cell.row*6 %}{% set w=cell.span*layout.width/72 %}
+<rect x="{{ x }}" y="{{ top }}" width="{{ w }}" height="{{ cell.height*6 }}" fill="{{ '#f0f2f0' if cell.style=='label' else 'white' }}" stroke="{{ 'none' if cell.style=='title' else '#59665e' }}" stroke-width=".6"/>
+{% for line in cell.lines %}<text x="{{ x+w/2 if cell.style in ['label','name'] else x+4 }}" y="{{ top+cell.font_size+(2 if cell.style=='calendar' else 3)+loop.index0*cell.leading }}" font-size="{{ cell.font_size }}" text-anchor="{{ 'middle' if cell.style in ['label','name'] else 'start' }}" fill="#18221c" xml:space="preserve">{{ line }}</text>{% endfor %}
+{% endfor %}
+<text x="28.35" y="578.28" font-size="8">{% if fixture %}操作見本（架空データ）　{% endif %}{{ page.caption }}</text>
+<text x="813.55" y="578.28" font-size="8" text-anchor="end">{{ loop.index }} / {{ layout.pages|length }}</text>
+</svg></section>{% endfor %}</main>
+<script>document.fonts.load('9.5pt MonthlyExport').then(()=>document.fonts.ready).then(()=>{document.getElementById('print').disabled=false;document.getElementById('font-status').textContent='';}).catch(()=>{document.getElementById('font-status').textContent='日本語フォントを読み込めませんでした。PDFをダウンロードして印刷してください。';});</script>
+</body></html>

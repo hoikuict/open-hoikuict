@@ -348,34 +348,19 @@ class LocalParentAuthenticationTests(unittest.TestCase):
                     reason="本人確認済み",
                 )
 
-    def test_disabled_parent_can_be_reactivated_only_with_activation_code(self):
+    def test_disabled_parent_can_resume_with_existing_password(self):
         self._complete_initial_registration()
-        new_password = "Maple!5831Green"
+        from parent_account_lifecycle import change_parent_lifecycle, parent_lifecycle_state
         with Session(self.engine) as session:
             account = session.get(ParentAccount, self.account_id)
             actor = session.get(User, self.actor_id)
             disable_parent_authentication(session, account, actor, "利用停止")
-            activation_code = issue_parent_password_code(
-                session,
-                account=account,
-                actor_user=actor,
-                reason="再開時の本人確認済み",
-                action="parent_activate",
-            )
-            activation_state = exchange_parent_action_code(
-                session, activation_code, "parent_activate"
-            )
-            complete_parent_action_password(
-                session,
-                raw_state=activation_state,
-                purpose="parent_activate",
-                password=new_password,
-                password_confirmation=new_password,
-            )
+            change_parent_lifecycle(session, account, actor, action="resume", reason="再開時の本人確認済み",
+                                    revision=parent_lifecycle_state(session, account)["revision"])
             login = authenticate_parent(
                 session,
                 login_id="parent@example.com",
-                password=new_password,
+                password=self.PASSWORD,
             )
             self.assertEqual(login.account.id, self.account_id)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from datetime import date, timedelta
 from typing import Any
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -18,7 +19,7 @@ from auth import (
     require_can_edit,
 )
 from database import get_session
-from models import Child, ChildStatus
+from models import Child, ChildStatus, User
 from template_utils import create_templates
 from time_utils import local_today, utc_now
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
@@ -41,6 +42,7 @@ from .access import (
     PROGRESS_VIEW_ASSIGNED_CLASS,
     can_create_progress_record,
     can_view_observation_records,
+    can_view_observation_log,
     can_view_progress_records,
 )
 from .settings import (
@@ -101,10 +103,11 @@ def _actor_id(user: StaffUser) -> str | None:
 
 
 def _can_correct(user: StaffUser, log: ChildObservationLog) -> bool:
+    author = _actor_id(user) is not None and log.created_by == _actor_id(user)
     return (
-        user.is_admin
-        or user.can_manage_child_records
-        or (_actor_id(user) is not None and log.created_by == _actor_id(user))
+        user.can_edit
+        and not log.voided_at
+        and (author or (user.is_admin and log.visibility != "private"))
     )
 
 
@@ -288,8 +291,26 @@ def _log_snapshot(log: ChildObservationLog) -> dict[str, Any]:
         "perspective_tags": list(log.perspective_tags or []),
         "custom_values": dict(log.custom_values or {}),
         "sensitivity": log.sensitivity,
+        "visibility": log.visibility,
+        "shared_staff_ids": list(log.shared_staff_ids or []),
         "updated_at": log.updated_at.isoformat(),
     }
+
+
+def _save_log_revision(
+    session: Session, log: ChildObservationLog, user: StaffUser, reason: str,
+    *, action: str = "correct",
+) -> None:
+    latest = session.exec(
+        select(func.max(ChildObservationLogRevision.revision_no)).where(
+            ChildObservationLogRevision.log_id == log.id
+        )
+    ).one()
+    session.add(ChildObservationLogRevision(
+        log_id=log.id, revision_no=int(latest or 0) + 1,
+        snapshot={**_log_snapshot(log), "action": action}, reason=reason,
+        created_by=_actor_id(user), created_by_name=user.name,
+    ))
 
 
 def _log_form_context(
@@ -300,7 +321,33 @@ def _log_form_context(
     config: dict[str, Any],
     log: ChildObservationLog | None = None,
     error: str = "",
+    form: Any = None,
+    session: Session,
 ):
+    values = _log_snapshot(log) if log else {
+        "observed_on": local_today().isoformat(),
+        "visibility": "private", "sensitivity": "normal",
+    }
+    values.setdefault("custom_values", {})
+    values.setdefault("categories", [])
+    values.setdefault("perspective_tags", [])
+    values.setdefault("shared_staff_ids", [])
+    if form is not None:
+        for key in (
+            "observed_on", "child_state", "caregiver_support", "reflection",
+            "next_focus", "family_note", "sensitivity", "visibility", "correction_reason",
+        ):
+            if key in form:
+                values[key] = str(form.get(key) or "")
+        for key in ("categories", "perspective_tags", "shared_staff_ids"):
+            values[key] = form.getlist(key)
+        values["custom_values"] = {
+            key: str(form.get("custom_" + key.removeprefix("custom.")) or "")
+            for key in field_map(config) if key.startswith("custom.")
+        }
+    staff_options = session.exec(
+        select(User).where(User.is_active == True).order_by(User.staff_sort_order, User.display_name)
+    ).all() if current_user.is_admin else []
     return templates.TemplateResponse(
         request,
         "child_records/log_form.html",
@@ -309,6 +356,8 @@ def _log_form_context(
             "current_user": current_user,
             "child": child,
             "log": log,
+            "values": values,
+            "staff_options": staff_options,
             "error": error,
             "fields": enabled_fields(config),
             "field_map": field_map(config),
@@ -326,6 +375,8 @@ def child_record_timeline(
     request: Request,
     child_id: int,
     category: str = Query(default=""),
+    sharing: str = Query(default="all"),
+    include_voided: bool = Query(default=False),
     session: Session = Depends(get_session),
     current_user: StaffUser = Depends(get_current_staff_user),
 ):
@@ -337,18 +388,38 @@ def child_record_timeline(
         )
     statement = select(ChildObservationLog).where(
         ChildObservationLog.child_id == child_id,
-        ChildObservationLog.voided_at.is_(None),
     )
-    if not current_user.is_admin:
-        statement = statement.where(ChildObservationLog.sensitivity == "normal")
+    if not include_voided:
+        statement = statement.where(ChildObservationLog.voided_at.is_(None))
     logs = session.exec(
         statement.order_by(
             ChildObservationLog.observed_on.desc(),
             ChildObservationLog.created_at.desc(),
         )
     ).all()
+    logs = [log for log in logs if can_view_observation_log(session, current_user, child, log)]
+    if sharing in {"private", "shared"}:
+        logs = [log for log in logs if log.visibility == sharing]
     if category:
         logs = [log for log in logs if category in (log.categories or [])]
+    revisions_by_log_id = {}
+    for log in logs:
+        revisions = session.exec(
+            select(ChildObservationLogRevision).where(
+                ChildObservationLogRevision.log_id == log.id
+            ).order_by(ChildObservationLogRevision.revision_no.desc())
+        ).all()
+        # Sharing a current record does not publish its earlier private content.
+        revisions_by_log_id[log.id] = [
+            revision for revision in revisions if can_view_observation_log(
+                session, current_user, child, SimpleNamespace(
+                    visibility=revision.snapshot.get("visibility"),
+                    sensitivity=revision.snapshot.get("sensitivity", "restricted"),
+                    created_by=log.created_by,
+                    shared_staff_ids=revision.snapshot.get("shared_staff_ids", []),
+                ),
+            )
+        ]
     config, _ = effective_config(session)
     setting_ids = {log.setting_version_id for log in logs if log.setting_version_id}
     settings_by_id = {
@@ -377,6 +448,10 @@ def child_record_timeline(
             "child": child,
             "logs": logs,
             "category": category,
+            "sharing": sharing,
+            "include_voided": include_voided,
+            "correctable_ids": {log.id for log in logs if _can_correct(current_user, log)},
+            "revisions_by_log_id": revisions_by_log_id,
             "categories": config.get("categories") or list(CATEGORY_OPTIONS),
             "can_add": current_user.can_edit,
             "can_view_restricted": current_user.is_admin,
@@ -402,22 +477,42 @@ def new_child_record_form(
     config, _ = effective_config(session)
     return _log_form_context(
         request,
+        session=session,
         child=child,
         current_user=current_user,
         config=config,
     )
 
 
-def _values_from_form(form: Any, config: dict[str, Any], user: StaffUser) -> dict[str, Any]:
-    observed_on = _parse_date(str(form.get("observed_on") or ""), field_label="観察日")
+def _values_from_form(form: Any, config: dict[str, Any], user: StaffUser, session: Session, log: ChildObservationLog | None = None) -> dict[str, Any]:
+    try:
+        observed_on = date.fromisoformat(str(form.get("observed_on") or ""))
+    except ValueError as exc:
+        raise ValueError("観察日を正しく入力してください") from exc
     child_state = _clean_text(form.get("child_state"))
     if not child_state:
         raise ValueError("子どもの姿を入力してください")
-    sensitivity = str(form.get("sensitivity") or "normal")
+    sensitivity = str(form.get("sensitivity") or (log.sensitivity if log else "normal"))
     if sensitivity not in {"normal", "restricted"}:
-        sensitivity = "normal"
+        raise ValueError("取扱区分を選択してください")
     if not user.is_admin:
-        sensitivity = "normal"
+        sensitivity = log.sensitivity if log else "normal"
+    visibility = str(form.get("visibility") or ((log.visibility or "legacy") if log else "private"))
+    if visibility == "legacy" and log and log.visibility is None:
+        visibility = None
+    elif visibility not in {"private", "shared"}:
+        raise ValueError("共有範囲を選択してください")
+    # Only the author may turn an existing shared record into a personal memo.
+    if log and visibility == "private" and log.created_by != _actor_id(user):
+        raise ValueError("自分だけに変更できるのは記録した本人です")
+    shared_staff_ids = list(log.shared_staff_ids or []) if log else []
+    if user.is_admin:
+        shared_staff_ids = sorted(set(str(value) for value in form.getlist("shared_staff_ids")))
+        active_ids = {str(item.id) for item in session.exec(select(User).where(User.is_active == True)).all()}
+        if not set(shared_staff_ids) <= active_ids:
+            raise ValueError("共有先の職員を選び直してください")
+    if visibility != "shared" or sensitivity != "restricted":
+        shared_staff_ids = []
     configured_fields = field_map(config)
     custom_values: dict[str, str] = {}
     for item in enabled_fields(config):
@@ -462,6 +557,8 @@ def _values_from_form(form: Any, config: dict[str, Any], user: StaffUser) -> dic
         ] if configured_fields.get("perspective_tags", {}).get("enabled") else [],
         "custom_values": custom_values,
         "sensitivity": sensitivity,
+        "visibility": visibility,
+        "shared_staff_ids": shared_staff_ids,
     }
     for key, item in configured_fields.items():
         if not item.get("enabled") or not item.get("required") or key in {"observed_on", "child_state"}:
@@ -547,14 +644,18 @@ def _progress_logs(
         ChildObservationLog.observed_on <= period_end,
         ChildObservationLog.voided_at.is_(None),
     )
-    if not current_user.is_admin:
-        statement = statement.where(ChildObservationLog.sensitivity == "normal")
-    return session.exec(
+    statement = statement.where(
+        ChildObservationLog.sensitivity == "normal",
+        (ChildObservationLog.visibility == "shared") | ChildObservationLog.visibility.is_(None),
+    )
+    child = _load_child(session, child_id)
+    logs = session.exec(
         statement.order_by(
             ChildObservationLog.observed_on.desc(),
             ChildObservationLog.created_at.desc(),
         )
     ).all()
+    return [log for log in logs if can_view_observation_log(session, current_user, child, log)]
 
 
 @router.post("/{child_id}/records")
@@ -571,15 +672,19 @@ async def create_child_record(
     config = setting.config
     form = await request.form()
     try:
-        values = _values_from_form(form, config, current_user)
+        values = _values_from_form(form, config, current_user, session)
         _validate_observation_period(child, values["observed_on"])
-    except ValueError as exc:
+    except (ValueError, HTTPException) as exc:
+        if isinstance(exc, HTTPException) and exc.status_code != 422:
+            raise
         return _log_form_context(
             request,
+            session=session,
             child=child,
             current_user=current_user,
             config=config,
-            error=str(exc),
+            error=str(exc.detail) if isinstance(exc, HTTPException) else str(exc),
+            form=form,
         )
     log = ChildObservationLog(
         child_id=child_id,
@@ -619,7 +724,7 @@ def correct_child_record_form(
     child = _load_child(session, child_id)
     _require_child_access(session, current_user, child)
     log = _load_log(session, child_id, log_id)
-    if log.sensitivity == "restricted" and not current_user.is_admin:
+    if not can_view_observation_log(session, current_user, child, log):
         raise HTTPException(status_code=403, detail="この記録を閲覧できません")
     if not _can_correct(current_user, log):
         raise HTTPException(status_code=403, detail="この記録を訂正できません")
@@ -630,6 +735,7 @@ def correct_child_record_form(
     )
     return _log_form_context(
         request,
+        session=session,
         child=child,
         current_user=current_user,
         config=config,
@@ -649,50 +755,35 @@ async def correct_child_record(
     child = _load_child(session, child_id)
     _require_child_access(session, current_user, child)
     log = _load_log(session, child_id, log_id)
-    if log.sensitivity == "restricted" and not current_user.is_admin:
+    if not can_view_observation_log(session, current_user, child, log):
         raise HTTPException(status_code=403, detail="この記録を閲覧できません")
     if not _can_correct(current_user, log):
         raise HTTPException(status_code=403, detail="この記録を訂正できません")
     setting = session.get(ChildRecordSettingVersion, log.setting_version_id) if log.setting_version_id else None
     config = setting.config if setting else effective_config(session)[0]
     form = await request.form()
-    reason = _clean_text(form.get("correction_reason"), max_length=500)
-    if not reason:
-        return _log_form_context(
-            request,
-            child=child,
-            current_user=current_user,
-            config=config,
-            log=log,
-            error="訂正理由を入力してください",
-        )
     try:
-        values = _values_from_form(form, config, current_user)
+        reason = _clean_text(form.get("correction_reason"), max_length=500)
+        if not reason:
+            raise ValueError("訂正理由を入力してください")
+        if form.get("expected_updated_at") and form["expected_updated_at"] != log.updated_at.isoformat():
+            raise ValueError("別の操作で更新されています。入力内容を控えて記録を開き直してください")
+        values = _values_from_form(form, config, current_user, session, log)
         _validate_observation_period(child, values["observed_on"])
-    except ValueError as exc:
+    except (ValueError, HTTPException) as exc:
+        if isinstance(exc, HTTPException) and exc.status_code != 422:
+            raise
         return _log_form_context(
             request,
+            session=session,
             child=child,
             current_user=current_user,
             config=config,
             log=log,
-            error=str(exc),
+            error=str(exc.detail) if isinstance(exc, HTTPException) else str(exc),
+            form=form,
         )
-    latest_revision = session.exec(
-        select(func.max(ChildObservationLogRevision.revision_no)).where(
-            ChildObservationLogRevision.log_id == log_id
-        )
-    ).one()
-    session.add(
-        ChildObservationLogRevision(
-            log_id=log_id,
-            revision_no=int(latest_revision or 0) + 1,
-            snapshot=_log_snapshot(log),
-            reason=reason,
-            created_by=_actor_id(current_user),
-            created_by_name=current_user.name,
-        )
-    )
+    _save_log_revision(session, log, current_user, reason)
     for key, value in values.items():
         setattr(log, key, value)
     log.updated_at = utc_now()
@@ -713,7 +804,7 @@ async def void_child_record(
     child = _load_child(session, child_id)
     _require_child_access(session, current_user, child)
     log = _load_log(session, child_id, log_id)
-    if log.sensitivity == "restricted" and not current_user.is_admin:
+    if not can_view_observation_log(session, current_user, child, log):
         raise HTTPException(status_code=403, detail="この記録を閲覧できません")
     if not _can_correct(current_user, log):
         raise HTTPException(status_code=403, detail="この記録を無効化できません")
@@ -722,6 +813,7 @@ async def void_child_record(
     if not reason:
         raise HTTPException(status_code=422, detail="無効化理由を入力してください")
     if log.voided_at is None:
+        _save_log_revision(session, log, current_user, reason, action="void")
         log.voided_at = utc_now()
         log.voided_by = _actor_id(current_user)
         log.void_reason = reason

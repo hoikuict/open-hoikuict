@@ -89,6 +89,8 @@ def _can_view_document(
     user: StaffUser,
     repository: SqlModelDocumentRepository,
 ) -> bool:
+    if document.monthly_sheet is not None and not user.actor_ref:
+        return False
     if document.nursery_ref != user.nursery_ref:
         return False
     if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
@@ -256,6 +258,12 @@ def document_detail(
 ):
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
+    monthly_boot = None
+    if document.monthly_sheet is not None:
+        from .monthly_library import _context
+        monthly_boot = _context(user, repository, document.monthly_sheet["classroom_id"],
+                                document.target_month, document.monthly_sheet["age"], document.id)
+        monthly_boot["editable"] = False
     reflection = (
         reflection_for_document(repository.session, document_id)
         if document.document_type == DocumentType.DAILY_PLAN
@@ -266,6 +274,7 @@ def document_detail(
         "documents/detail.html",
         user=user,
         document=document,
+        monthly_boot=monthly_boot,
         status_options=list(DocumentStatus),
         lock_version=head.lock_version if head else 0,
         revisions=repository.revisions(document_id),
@@ -345,6 +354,8 @@ def edit_document_form(
     _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
+    if document.monthly_sheet is not None:
+        return RedirectResponse(f"/plans/monthly-library?document_id={document.id}", status_code=303)
     return render_template(
         request,
         "documents/edit.html",
@@ -363,6 +374,8 @@ async def update_document(
     repository: DocumentRepositoryDep,
 ):
     document = _visible_document(document_id, user, repository)
+    if document.monthly_sheet is not None:
+        raise HTTPException(status_code=409, detail="帳票の月案編集画面から保存してください")
     _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")

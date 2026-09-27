@@ -149,6 +149,12 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
             "actor_id": "TEXT",
         },
         "plan_document_actions": {"actor_name": "VARCHAR"},
+        "daily_contact_replies": {"pending_draft": "JSON"},
+        "attendance_verification_histories": {
+            "reason": "VARCHAR", "previous_status": "VARCHAR", "actor_user_id": "CHAR(32)",
+        },
+        "child_observation_logs": {"visibility": "VARCHAR", "shared_staff_ids": "JSON"},
+        "plan_documents": {"monthly_sheet": "JSON", "monthly_sheet_key": "VARCHAR"},
     }
     for table_name, additions in workflow_columns.items():
         columns = {
@@ -163,6 +169,10 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
                     connection.execute("UPDATE attendance_records SET pickup_snack_confirmed = 1")
     connection.execute(
         "CREATE INDEX IF NOT EXISTS ix_families_archived_at ON families(archived_at)"
+    )
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_sheet_key "
+        "ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL"
     )
     identity_columns = {
         "children": {
@@ -453,6 +463,8 @@ def create_db_and_tables() -> None:
     _migrate_guardian_confirmation_columns()
     _migrate_pickup_history_columns()
     _migrate_add_daily_contact_columns()
+    _migrate_spec_20260924_columns()
+    _migrate_observation_sharing_columns()
     _migrate_add_parent_account_columns()
     _migrate_add_guardian_columns()
     _migrate_parent_mail_delivery_columns()
@@ -465,6 +477,7 @@ def create_db_and_tables() -> None:
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
+    _migrate_monthly_sheet_columns()
     _migrate_plan_document_action_columns()
     _migrate_plan_review_notification_columns()
     _migrate_parent_push_delivery_columns()
@@ -473,6 +486,32 @@ def create_db_and_tables() -> None:
     _migrate_care_certification_and_extended_care_columns()
     _migrate_extended_care_billing_transfer()
     _validate_sqlite_foreign_keys()
+
+
+def _migrate_observation_sharing_columns() -> None:
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(child_observation_logs)")}
+        if columns:
+            for name, kind in {"visibility": "VARCHAR", "shared_staff_ids": "JSON"}.items():
+                if name not in columns:
+                    conn.exec_driver_sql(f"ALTER TABLE child_observation_logs ADD COLUMN {name} {kind}")
+
+
+def _migrate_spec_20260924_columns() -> None:
+    additions = {
+        "daily_contact_replies": {"pending_draft": "JSON"},
+        "attendance_verification_histories": {
+            "reason": "VARCHAR", "previous_status": "VARCHAR", "actor_user_id": "CHAR(32)",
+        },
+    }
+    with engine.begin() as conn:
+        for table, fields in additions.items():
+            columns = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            if not columns:
+                continue
+            for name, kind in fields.items():
+                if name not in columns:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
 
 
 def _migrate_family_archive() -> None:
@@ -904,6 +943,21 @@ def _migrate_survey_tables() -> None:
     # New survey tables are created by SQLModel.metadata.create_all().
     # Keep this hook explicit for future additive indexes or backfills.
     return
+
+
+def _migrate_monthly_sheet_columns() -> None:
+    # Additive migration: existing monthly/individual plans remain untouched.
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(plan_documents)")}
+        if not columns:
+            return
+        for name, kind in (("monthly_sheet", "JSON"), ("monthly_sheet_key", "VARCHAR")):
+            if name not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_sheet_key "
+            "ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL"
+        )
 
 
 def _migrate_plan_document_child_record_columns() -> None:

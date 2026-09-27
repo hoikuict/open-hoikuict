@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}子どもの名前一覧 | open-hoikuict{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/attendance-compact.css?v=20260924-2">
+<div class="attendance-compact">
+  <header class="compact-head"><div><h1>子どもの名前一覧</h1><p>クラスごとに全園児の状態を表示。名前を押すと詳しい内容を表示します。</p></div><a href="/attendance-checks/?date={{ target_date_value }}">出欠確認へ</a></header>
+  <form class="compact-toolbar compact-filters" method="get">
+    <div><label for="roster-date" class="block">日付</label><input id="roster-date" type="date" name="date" value="{{ target_date_value }}" class="border rounded"></div>
+    <div><label for="roster-class" class="block">クラス</label><select id="roster-class" name="classroom_id" class="border rounded"><option value="">すべて</option>{% for classroom in classrooms %}<option value="{{ classroom.id }}" {% if classroom.id == selected_classroom_id %}selected{% endif %}>{{ classroom.name }}</option>{% endfor %}</select></div>
+    <button class="rounded bg-slate-900 text-white">表示</button>
+  </form>
+  <p class="summary-line">全 {{ child_count }}人　{% for key,label in states %}{{ label }} <b>{{ totals[key] }}</b>人　{% endfor %}</p>
+  {% for group in groups %}
+  <section class="class-section"><header class="class-heading"><h2>{{ group.classroom_name }}<small>{{ group.rows|length }}人</small></h2></header>
+    <div class="roster-columns">{% for key,label in states %}{% set members = group.rows|selectattr('attendance_state','equalto',key)|list %}
+      <section class="roster-column"><h3 class="column-title state-{{ key }}">{{ label }}<b>{{ members|length }}</b></h3><div class="name-list">
+        {% for row in members %}<a class="name-button" href="/attendance-checks/?date={{ target_date_value }}#attendance-check-row-{{ row.child.id }}"
+          data-child-id="{{ row.child.id }}" data-name="{{ row.child.full_name }}" data-classroom="{{ row.classroom_name }}" data-state="{{ label }}"
+          data-arrival="{{ row.check_in_at.strftime('%H:%M') if row.check_in_at else '未打刻' }}" data-departure="{{ row.check_out_at.strftime('%H:%M') if row.check_out_at else '未打刻' }}"
+          data-verification="{{ row.verification_label }}" data-contact="{{ row.entry.contact_type.label if row.entry else '未提出' }}"
+          data-alarm="{{ row.alarm_reasons|join(' / ') if row.alarm_is_active else 'なし' }}" data-contact-url="/daily-contacts/{{ row.child.id }}?date={{ target_date_value }}">{{ row.child.full_name }}{% if row.alarm_is_active %}<span class="alarm-dot" title="アラームあり">●<span class="sr-only">アラームあり</span></span>{% endif %}</a>{% else %}<span class="empty">―</span>{% endfor %}
+      </div></section>{% endfor %}
+    </div>
+  </section>{% else %}<p>表示できる園児がいません。</p>{% endfor %}
+</div>
+<dialog id="roster-detail" class="w-[min(92vw,32rem)] space-y-4 rounded-xl p-5 shadow-xl backdrop:bg-slate-900/40" aria-labelledby="roster-detail-name">
+  <div class="flex items-center justify-between gap-3"><h2 id="roster-detail-name" class="text-xl font-bold"></h2><button type="button" class="rounded border px-3 py-2" onclick="this.closest('dialog').close()">閉じる</button></div>
+  <p><span data-detail="classroom"></span> / {{ target_date_value }} / <strong data-detail="state"></strong></p>
+  <dl class="grid grid-cols-2 gap-3 rounded bg-slate-50 p-3 text-sm"><div><dt>登園</dt><dd data-detail="arrival"></dd></div><div><dt>降園</dt><dd data-detail="departure"></dd></div><div><dt>目視確認</dt><dd data-detail="verification"></dd></div><div><dt>家庭からの連絡</dt><dd data-detail="contact"></dd></div></dl>
+  <p class="text-sm">アラーム: <span data-detail="alarm"></span></p>
+  <div class="flex flex-wrap gap-4 text-sm text-indigo-700">{% if current_user.can_edit %}<a data-detail-link="memo" class="underline">メモを書く</a>{% endif %}<a data-detail-link="records" class="underline">記録を見る</a><a data-detail-link="checks" class="underline">出欠確認へ</a><a data-detail-link="contact" class="underline">保護者連絡の詳細へ</a></div>
+</dialog>
+<script src="/static/js/attendance-roster.js?v=20260925-1" defer></script>
+{% endblock %}

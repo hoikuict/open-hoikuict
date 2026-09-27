@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お知らせの並び順・確認用モック</title>
+  
+  
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { font-size: 11px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 4px 8px; }
+      thead { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+  
+  
+  
+  <meta name="csrf-token" content="">
+
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="review.css">
+<script src="data.js" defer></script><script src="preview.js" defer></script>
+</head>
+
+
+
+
+
+
+
+<body class="bg-slate-50 text-slate-800">
+<aside class="review" aria-label="確認用モックの設定">
+  <div class="review-title"><strong>お知らせの並び順・確認用モック</strong><span>架空データ ／ 本番未反映</span></div>
+  <div class="review-controls">
+    <label>画面<select id="page"><option value="notices">お知らせ一覧</option><option value="home">保護者ホーム</option></select></label>
+    <label>並び順<select id="order"><option value="proposal">変更案</option><option value="current">現行配備版</option></select></label>
+    <label>先に表示する状態<select id="priority" disabled><option value="unread">未読を上にする（確認済み）</option></select></label>
+    <label>お知らせの状態<select id="state"><option value="partial">一部既読</option><option value="empty">すべて未読</option><option value="filled">すべて既読</option><option value="none">お知らせなし</option></select></label>
+    <label>日次連絡の状態<select id="contact"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="filled">入力済み</option></select></label>
+    <label class="review-check"><input type="checkbox" id="error">次に開くとエラー</label>
+    <button id="reset">初期状態に戻す</button>
+  </div>
+  <p id="order-note" aria-live="polite"></p>
+  <details><summary>今回の確認範囲</summary><p>未読を先に表示し、未読・既読それぞれの中で、出欠確認と通常のお知らせを新しい日時順にまとめます。重要マークは残します。未読優先はユーザー確認済みです。ホーム・一覧の両画面で変更案を試せます。</p><p>詳細を開くとこのモック内だけで既読になり、戻った際に並べ直します。日付の変更も試せます。ほかの業務画面・アンケートの回答は今回のモックの対象外です。再読み込みで初期化します。</p><p>基準：2026年9月27日の配備記録 c907275b94ca。ホームの入力・連絡状況・返信・メニューは配備テンプレートから再現しています。</p></details>
+</aside>
+
+  
+  <div class="min-h-screen">
+    <nav class="no-print bg-indigo-700 px-4 py-3 text-white shadow sm:px-6">
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
+        <span class="text-lg font-bold">open-hoikuict</span>
+        <a href="/parent-portal/" class="text-sm hover:underline">保護者ホーム</a>
+        <details class="relative ml-auto">
+          <summary class="cursor-pointer rounded border border-indigo-300 px-4 py-2 text-sm">メニュー</summary>
+          <div class="absolute right-0 z-50 mt-2 flex w-64 flex-col gap-4 rounded-xl bg-indigo-800 p-5 shadow-lg">
+        
+        <a href="/parent-portal/children/profile" class="text-sm hover:underline">子ども情報変更申請</a>
+        
+        <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
+        <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
+        <a href="/parent-portal/surveys" class="text-sm hover:underline">アンケート</a>
+        <a href="/parent-portal/profile" class="text-sm hover:underline">登録情報</a>
+        <a href="/parent-portal/push-settings" class="text-sm hover:underline">通知設定</a>
+        <a href="/parent-portal/account/password" class="text-sm hover:underline">パスワード変更</a>
+          </div>
+        </details>
+        <div class="flex items-center gap-3 text-sm">
+          
+          <span class="text-indigo-100">青葉 保護者（架空）</span>
+          <form method="post" action="/parent-portal/logout">
+            <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログアウト</button>
+          </form>
+          
+        </div>
+      </div>
+    </nav>
+
+    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6" id="screen"></main>
+  </div>
+  
+
+  
+  
+  
+<div id="feedback" role="status" hidden></div></body>
+</html>

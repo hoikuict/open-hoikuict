@@ -89,6 +89,8 @@ def document_to_dict(document: PlanDocument) -> dict[str, object]:
         payload["related_document_ids"] = document.related_document_ids
     if document.schedule is not None:
         payload["schedule"] = schedule_to_dict(document.schedule)
+    if document.monthly_sheet is not None:
+        payload["monthly_sheet"] = document.monthly_sheet
     return payload
 
 

@@ -99,7 +99,7 @@ class AttendanceChecksTests(unittest.TestCase):
 
     def test_oral_contact_resolves_only_missing_contact_and_can_be_revoked(self):
         path = f'/attendance-checks/{self.child_id}'
-        data = {'date': self.day.isoformat()}
+        data = {'date': self.day.isoformat(), 'reason': '連絡を確認して訂正'}
         self.client.post(path + '/verification', data={**data, 'status': 'private_absent'})
         with Session(self.engine) as session:
             self.assertEqual(session.exec(select(AttendanceAlarmState)).one().reasons, ['no_contact_and_not_present'])
@@ -126,7 +126,7 @@ class AttendanceChecksTests(unittest.TestCase):
 
     def test_oral_contact_keeps_other_alarms_and_is_scoped_to_day_and_status(self):
         path = f'/attendance-checks/{self.child_id}'
-        data = {'date': self.day.isoformat()}
+        data = {'date': self.day.isoformat(), 'reason': '連絡を確認して訂正'}
         with Session(self.engine) as session:
             session.add(AttendanceRecord(child_id=self.child_id, attendance_date=self.day, check_in_at=datetime(2026, 3, 22, 8)))
             session.commit()
@@ -159,6 +159,7 @@ class AttendanceChecksTests(unittest.TestCase):
             f"/attendance-checks/{self.child_id}/verification",
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "present",
                 "layout": "flat",
                 "filter": "all",
@@ -183,6 +184,7 @@ class AttendanceChecksTests(unittest.TestCase):
             headers={"HX-Request": "true"},
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "present",
                 "layout": "flat",
                 "filter": "all",
@@ -194,6 +196,7 @@ class AttendanceChecksTests(unittest.TestCase):
             headers={"HX-Request": "true"},
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "present",
                 "layout": "flat",
                 "filter": "all",
@@ -215,7 +218,7 @@ class AttendanceChecksTests(unittest.TestCase):
 
         self.assertIsNotNone(verification)
         self.assertEqual(verification.updated_by_name, "確認担当")
-        self.assertEqual(len(histories), 2)
+        self.assertEqual(len(histories), 1)
         self.assertTrue(all(history.updated_by_name == "確認担当" for history in histories))
 
     def test_list_shows_compact_summary_row_and_detail_toggle(self):
@@ -236,7 +239,7 @@ class AttendanceChecksTests(unittest.TestCase):
         response = self.client.get(f"/attendance-checks/?date={self.day.isoformat()}")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("詳細表示", response.text)
+        self.assertIn("check-summary", response.text)
         self.assertIn(f'aria-controls="attendance-check-detail-{self.child_id}"', response.text)
         self.assertIn('data-status-key="present"', response.text)
         self.assertIn('data-status-key="private_absent"', response.text)
@@ -253,6 +256,7 @@ class AttendanceChecksTests(unittest.TestCase):
             f"/attendance-checks/{self.child_id}/verification",
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "unknown",
                 "layout": "flat",
                 "filter": "all",
@@ -270,10 +274,16 @@ class AttendanceChecksTests(unittest.TestCase):
         )
 
     def test_unknown_queues_in_app_and_push_delivery_for_linked_parent(self):
+        self.client.post(
+            f"/attendance-checks/{self.child_id}/verification",
+            data={"date": self.day.isoformat(), "status": "present"},
+            follow_redirects=False,
+        )
         response = self.client.post(
             f"/attendance-checks/{self.child_id}/verification",
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "unknown",
                 "notify_parent": "true",
             },
@@ -328,6 +338,7 @@ class AttendanceChecksTests(unittest.TestCase):
             f"/attendance-checks/{self.child_id}/verification",
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "unknown",
                 "notify_parent": "false",
             },
@@ -356,6 +367,7 @@ class AttendanceChecksTests(unittest.TestCase):
             f"/attendance-checks/{self.child_id}/verification",
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "present",
                 "layout": "flat",
                 "filter": "all",
@@ -372,6 +384,7 @@ class AttendanceChecksTests(unittest.TestCase):
                 f"/attendance-checks/{self.child_id}/verification",
                 data={
                     "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                     "status": status,
                     "layout": "flat",
                     "filter": "all",
@@ -418,6 +431,7 @@ class AttendanceChecksTests(unittest.TestCase):
             f"/attendance-checks/{self.child_id}/verification",
             data={
                 "date": self.day.isoformat(),
+                "reason": "連絡を確認して訂正",
                 "status": "private_absent",
                 "layout": "flat",
                 "filter": "all",

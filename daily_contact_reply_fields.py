@@ -41,7 +41,8 @@ def reply_values_from_mapping(form_data: Mapping[str, Any]) -> dict[str, str]:
 
 
 def reply_values_for_form(reply) -> dict[str, str]:
-    stored_values = reply.field_values if reply and reply.field_values else {}
+    stored_values = (reply.pending_draft.get("field_values", {}) if reply and reply.pending_draft is not None
+                     else reply.field_values if reply and reply.field_values else {})
     return {
         field.key: _clean_value(stored_values.get(field.key))
         for field in DEFAULT_DAILY_CONTACT_REPLY_FIELDS

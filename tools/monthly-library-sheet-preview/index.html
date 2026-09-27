@@ -1,0 +1,2401 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Monthly Plan Drive Sheet</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe id="codex-visualization" sandbox="allow-scripts" referrerpolicy="no-referrer" title="Monthly Plan Drive Sheet" data-srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Monthly Plan Drive Sheet&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+.cursor-interaction {
+  cursor: var(--cursor-interaction, pointer);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: var(--cursor-interaction, pointer);
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+.widget {
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  box-shadow: 0 0 0 0.5px var(--border-strong, var(--border));
+  color: var(--foreground);
+  background: var(--background);
+}
+
+#widget &gt; :not(.card, .widget, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: var(--cursor-interaction, pointer);
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+/* Shared preview chrome; product styles stay inside each variant. */
+.viz-dotted-background {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--foreground) 14%, transparent) 0.8px,
+    transparent 0.8px
+  );
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+.viz-carousel {
+  position: relative;
+  min-width: 0;
+}
+
+.viz-carousel:has(&gt; .viz-carousel-controls) {
+  min-height: calc(60px + var(--viz-carousel-picker-height, 0px));
+  padding-bottom: 60px;
+}
+
+.viz-carousel &gt; [data-variant][hidden] {
+  display: none !important;
+}
+
+.viz-carousel &gt; [data-variant] {
+  isolation: isolate;
+}
+
+.viz-carousel-controls {
+  --viz-carousel-hover: light-dark(
+    color-mix(in srgb, var(--foreground) 5.4%, transparent),
+    color-mix(in srgb, var(--foreground) 7.8%, transparent)
+  );
+  position: absolute;
+  z-index: 2;
+  bottom: 8px;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  /* Leave room for the host&#x27;s design-controls launcher at the trailing edge. */
+  max-width: calc(100% - 96px);
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  /* Match the settings dropdown chrome independently of the content font size. */
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+  line-height: 18px;
+  transform: translateX(-50%);
+  user-select: none;
+}
+
+.viz-carousel-controls button,
+.viz-carousel-picker &gt; summary {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  -webkit-app-region: no-drag;
+  border: 0;
+  border-radius: 14px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.viz-carousel-controls &gt; button,
+.viz-carousel-picker &gt; summary {
+  position: relative;
+  isolation: isolate;
+}
+
+.viz-carousel-controls &gt; button {
+  --icon-size: 16px;
+  width: 30px;
+  padding: 0;
+}
+
+.viz-carousel-picker &gt; summary {
+  padding-inline: 12px;
+}
+
+.viz-carousel-controls .viz-carousel-caret {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin: 0;
+  color: inherit;
+  transform: rotate(180deg);
+}
+
+.viz-carousel-controls &gt; button &gt; svg,
+.viz-carousel-controls .viz-carousel-caret,
+.viz-carousel-count {
+  opacity: 0.5;
+}
+
+.viz-carousel-controls &gt; button::before,
+.viz-carousel-picker &gt; summary::before {
+  position: absolute;
+  z-index: -1;
+  inset: 3px;
+  border-radius: 12px;
+  content: &quot;&quot;;
+  pointer-events: none;
+}
+
+.viz-carousel-controls &gt; button:hover::before,
+.viz-carousel-picker &gt; summary:hover::before {
+  background: var(--viz-carousel-hover);
+}
+
+.viz-carousel-controls &gt; button,
+.viz-carousel-controls [data-lucide],
+.viz-carousel-controls .lucide {
+  flex-shrink: 0;
+}
+
+.viz-carousel-picker {
+  min-width: 0;
+}
+
+.viz-carousel-picker &gt; summary {
+  min-width: 0;
+  list-style: none;
+}
+
+.viz-carousel-picker &gt; summary::-webkit-details-marker {
+  display: none;
+}
+
+.viz-carousel-count {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.viz-carousel-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viz-carousel-options {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  max-height: 240px;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+  box-shadow: 0 4px 12px light-dark(rgb(0 0 0 / 6%), rgb(0 0 0 / 25%));
+}
+
+.viz-carousel-options &gt; button {
+  width: 100%;
+  min-height: 28px;
+  justify-content: flex-start;
+  padding: 4px 8px;
+  font-size: var(--font-size-small);
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.viz-carousel-options &gt; [aria-current=&quot;true&quot;],
+.viz-carousel-options &gt; button:hover {
+  background: var(--viz-carousel-hover);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible,
+.viz-carousel-controls :is(button, summary):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .viz-carousel:has(&gt; .viz-carousel-controls) {
+    min-height: calc(76px + var(--viz-carousel-picker-height, 0px));
+    padding-bottom: 76px;
+  }
+
+  .btn,
+  .nav-link,
+  .viz-carousel-controls button,
+  .viz-carousel-picker &gt; summary,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;script type=&quot;application/json&quot; id=&quot;codex-visualization-widget-state&quot;&gt;__CODEX_VISUALIZATION_WIDGET_STATE__&lt;/script&gt;
+&lt;script&gt;(() =&gt; {
+  const root = document.documentElement;
+  const mediaQuery = globalThis.matchMedia(&quot;(prefers-color-scheme: dark)&quot;);
+  const apply = Reflect.apply;
+  const isArray = Array.isArray;
+  const hasOwn = Object.hasOwn;
+  const parentWindow = globalThis.parent;
+  const stringify = JSON.stringify;
+  const parse = JSON.parse;
+  const encode = TextEncoder.prototype.encode.bind(new TextEncoder());
+  const initialStateElement = document.getElementById(
+    &quot;codex-visualization-widget-state&quot;,
+  );
+  const initialGlobals = parse(initialStateElement?.textContent ?? &quot;{}&quot;);
+  initialStateElement?.remove();
+  /** @type {Record&lt;string, unknown&gt; | null} */
+  let state = initialGlobals.widgetState ?? null;
+  const statePersistence = initialGlobals.statePersistence ?? &quot;none&quot;;
+  let nextStateRequestId = 0;
+  /** @type {Map&lt;number, { resolve: () =&gt; void; reject: (error: Error) =&gt; void; timeout: ReturnType&lt;typeof globalThis.setTimeout&gt;; serializedState: string }&gt;} */
+  const pendingStateWrites = new Map();
+  const persistenceError = () =&gt;
+    Object.assign(
+      new Error(&quot;The host could not persist the widget state update&quot;),
+      {
+        code: -32000,
+        data: { code: &quot;widget_state_persistence_failed&quot;, retryable: false },
+      },
+    );
+  /**
+   * @param {object} prototype
+   * @param {string} property
+   */
+  const getPrototypeGetter = (prototype, property) =&gt; {
+    // oxlint-disable-next-line typescript/unbound-method -- invoked through captured Reflect.apply
+    const getter = Object.getOwnPropertyDescriptor(prototype, property)?.get;
+    if (getter == null) {
+      throw new Error(`Missing ${property} getter`);
+    }
+    return getter;
+  };
+  const getMessageData = getPrototypeGetter(MessageEvent.prototype, &quot;data&quot;);
+  const getMessagePorts = getPrototypeGetter(MessageEvent.prototype, &quot;ports&quot;);
+  const getMessageSource = getPrototypeGetter(MessageEvent.prototype, &quot;source&quot;);
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const addHostMessageListener = MessagePort.prototype.addEventListener;
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const postHostMessage = MessagePort.prototype.postMessage;
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const startHostPort = MessagePort.prototype.start;
+  // oxlint-disable-next-line typescript/unbound-method -- captured before the untrusted fragment runs
+  const stopMessagePropagation = Event.prototype.stopImmediatePropagation;
+  /** @type {MessagePort | null} */
+  let hostPort = null;
+  const postToHost = (type, payload) =&gt; {
+    if (hostPort != null) {
+      apply(postHostMessage, hostPort, [{ type, ...payload }]);
+    }
+  };
+  const openExternal = ({ href }) =&gt; {
+    if (globalThis.navigator.userActivation?.isActive === true) {
+      postToHost(&quot;open-external&quot;, { href });
+    }
+  };
+  const sendFollowUpMessage = ({ context, prompt, title }) =&gt; {
+    if (globalThis.navigator.userActivation?.isActive === true) {
+      postToHost(&quot;follow-up&quot;, { context, prompt, title });
+    }
+    return Promise.resolve();
+  };
+  /**
+   * @param {Record&lt;string, unknown&gt; | ((previous: Record&lt;string, unknown&gt; | null) =&gt; Record&lt;string, unknown&gt;)} next
+   * @returns {Promise&lt;void&gt;}
+   */
+  const setWidgetState = async (next) =&gt; {
+    const nextState = typeof next === &quot;function&quot; ? next(state) : next;
+    if (
+      nextState == null ||
+      typeof nextState !== &quot;object&quot; ||
+      isArray(nextState)
+    ) {
+      throw new TypeError(&quot;Widget state must be a JSON object&quot;);
+    }
+    const inputState = stringify(
+      nextState,
+      (_key, /** @type {unknown} */ value) =&gt; {
+        if (
+          typeof value === &quot;undefined&quot; ||
+          typeof value === &quot;function&quot; ||
+          typeof value === &quot;symbol&quot; ||
+          (typeof value === &quot;number&quot; &amp;&amp; !Number.isFinite(value))
+        ) {
+          throw new TypeError(&quot;Widget state must be a JSON object&quot;);
+        }
+        return value;
+      },
+    );
+    const parsedState = parse(inputState);
+    if (
+      parsedState == null ||
+      typeof parsedState !== &quot;object&quot; ||
+      isArray(parsedState)
+    ) {
+      throw new TypeError(&quot;Widget state must be a JSON object&quot;);
+    }
+    const storedState = {
+      modelContent: null,
+      privateContent: null,
+      ...parsedState,
+    };
+    const serializedState = stringify(storedState);
+    if (encode(serializedState).length &gt; 16 * 1024) {
+      throw new TypeError(
+        &quot;Widget state must be a JSON object of at most 16 KiB&quot;,
+      );
+    }
+    if (
+      hasOwn(storedState, &quot;imageIds&quot;) &amp;&amp;
+      (!isArray(storedState.imageIds) ||
+        storedState.imageIds.some(
+          (/** @type {unknown} */ id) =&gt; typeof id !== &quot;string&quot;,
+        ))
+    ) {
+      throw new TypeError(&quot;Widget state imageIds must be an array of strings&quot;);
+    }
+    if (storedState.imageIds?.length &gt; 0) {
+      throw Object.assign(
+        new TypeError(&quot;Visualization state does not support image attachments&quot;),
+        { code: -32602, data: { code: &quot;images_unsupported&quot; } },
+      );
+    }
+    state = storedState;
+    globalThis.openai.widgetState = state;
+    globalThis.dispatchEvent(
+      new CustomEvent(&quot;openai:set_globals&quot;, {
+        detail: { globals: { widgetState: state } },
+      }),
+    );
+    if (statePersistence === &quot;none&quot;) {
+      throw persistenceError();
+    }
+    const id = ++nextStateRequestId;
+    return new Promise((resolve, reject) =&gt; {
+      const timeout = globalThis.setTimeout(() =&gt; {
+        pendingStateWrites.delete(id);
+        reject(persistenceError());
+      }, 30_000);
+      pendingStateWrites.set(id, { resolve, reject, timeout, serializedState });
+      postToHost(&quot;widget-state-write&quot;, { id, state: serializedState });
+    });
+  };
+  const syncTheme = () =&gt; {
+    const theme = mediaQuery.matches ? &quot;dark&quot; : &quot;light&quot;;
+    root.dataset.theme = theme;
+    globalThis.openai = {
+      ...globalThis.openai,
+      openExternal,
+      sendFollowUpMessage,
+      setWidgetState,
+      theme,
+      visualizationStyleVariables: {},
+      visualizationTheme: theme,
+      widgetState: state,
+      statePersistence,
+      stateModelContext: &quot;none&quot;,
+    };
+    globalThis.dispatchEvent(
+      new CustomEvent(&quot;openai:set_globals&quot;, {
+        detail: { globals: globalThis.openai },
+      }),
+    );
+  };
+  const sendHeight = () =&gt; {
+    postToHost(&quot;height&quot;, {
+      height: Math.ceil(
+        Math.max(
+          document.body.scrollHeight,
+          document.body.getBoundingClientRect().height,
+        ),
+      ),
+    });
+  };
+
+  globalThis.addEventListener(
+    &quot;message&quot;,
+    (event) =&gt; {
+      const data = apply(getMessageData, event, []);
+      const ports = apply(getMessagePorts, event, []);
+      const source = apply(getMessageSource, event, []);
+      if (
+        hostPort != null ||
+        source !== parentWindow ||
+        typeof data !== &quot;object&quot; ||
+        data?.type !== &quot;codex-visualization-initialize&quot; ||
+        !isArray(ports) ||
+        ports.length !== 1
+      ) {
+        return;
+      }
+      apply(stopMessagePropagation, event, []);
+      const nextHostPort = ports[0];
+      try {
+        apply(addHostMessageListener, nextHostPort, [
+          &quot;message&quot;,
+          (event) =&gt; {
+            const data = apply(getMessageData, event, []);
+            if (typeof data === &quot;object&quot; &amp;&amp; data?.type === &quot;measure&quot;) {
+              sendHeight();
+            } else if (
+              typeof data === &quot;object&quot; &amp;&amp;
+              data?.type === &quot;widget-state-result&quot;
+            ) {
+              /** @type {unknown} */
+              const id = data.id;
+              if (typeof id !== &quot;number&quot;) {
+                return;
+              }
+              const pending = pendingStateWrites.get(id);
+              if (pending != null) {
+                pendingStateWrites.delete(id);
+                globalThis.clearTimeout(pending.timeout);
+                if (data.ok === true) {
+                  pending.resolve();
+                } else {
+                  pending.reject(persistenceError());
+                }
+              }
+            }
+          },
+        ]);
+        apply(startHostPort, nextHostPort, []);
+      } catch {
+        return;
+      }
+      hostPort = nextHostPort;
+      for (const [id, { serializedState }] of pendingStateWrites) {
+        postToHost(&quot;widget-state-write&quot;, { id, state: serializedState });
+      }
+      sendHeight();
+    },
+    { capture: true },
+  );
+  document.currentScript?.remove();
+  mediaQuery.addEventListener(&quot;change&quot;, syncTheme);
+  globalThis.addEventListener(&quot;click&quot;, (event) =&gt; {
+    if (event.defaultPrevented) {
+      return;
+    }
+    let element = null;
+    if (event.target instanceof globalThis.Element) {
+      element = event.target;
+    } else if (event.target instanceof globalThis.Node) {
+      element = event.target.parentElement;
+    }
+    const link = element?.closest(&quot;a[href]&quot;);
+    const href = link?.getAttribute(&quot;href&quot;);
+    if (href == null) {
+      return;
+    }
+    if (href.startsWith(&quot;#&quot;)) {
+      let id;
+      try {
+        id = decodeURIComponent(href.slice(1));
+      } catch {
+        return;
+      }
+      const target = id.length === 0 ? root : document.getElementById(id);
+      if (
+        target == null ||
+        globalThis.navigator.userActivation?.isActive !== true
+      ) {
+        return;
+      }
+      event.preventDefault();
+      postToHost(&quot;scroll-to&quot;, {
+        top: target.getBoundingClientRect().top + globalThis.scrollY,
+      });
+      return;
+    }
+    event.preventDefault();
+    openExternal({ href });
+  });
+  new ResizeObserver(sendHeight).observe(document.body);
+  syncTheme();
+})();
+&lt;/script&gt;
+&lt;div id=&quot;drive-monthly-plan&quot; lang=&quot;ja&quot; aria-label=&quot;Driveの帳票で月案をつくる画面案&quot;&gt;
+ &lt;header&gt;&lt;strong&gt;hoiku-plan-docs&lt;/strong&gt;&lt;span&gt;指導計画 / 月案&lt;/span&gt;&lt;small&gt;操作見本・園児と文例は架空&lt;/small&gt;&lt;/header&gt;
+ &lt;div class=&quot;toolbar&quot;&gt;&lt;div&gt;&lt;h2&gt;月案をつくる&lt;/h2&gt;&lt;div class=&quot;pickers&quot;&gt;&lt;label&gt;年齢クラス &lt;select id=&quot;age&quot;&gt;&lt;option value=&quot;0&quot;&gt;0歳児&lt;/option&gt;&lt;option value=&quot;1&quot;&gt;1歳児&lt;/option&gt;&lt;option value=&quot;2&quot; selected&gt;2歳児&lt;/option&gt;&lt;option value=&quot;3&quot;&gt;3歳児&lt;/option&gt;&lt;option value=&quot;4&quot;&gt;4歳児&lt;/option&gt;&lt;option value=&quot;5&quot;&gt;5歳児&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;span&gt;2026年10月&lt;/span&gt;&lt;strong id=&quot;scope&quot;&gt;&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;actions&quot;&gt;&lt;button id=&quot;undo&quot; disabled&gt;ひとつ戻す&lt;/button&gt;&lt;button id=&quot;save&quot; class=&quot;primary&quot;&gt;下書きを保存（見本）&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+ &lt;div class=&quot;context&quot;&gt;&lt;label id=&quot;child-wrap&quot;&gt;入力する園児 &lt;select id=&quot;child&quot;&gt;&lt;/select&gt;&lt;/label&gt;&lt;label id=&quot;page-wrap&quot;&gt;帳票ページ &lt;select id=&quot;page&quot;&gt;&lt;/select&gt;&lt;/label&gt;&lt;button id=&quot;history-toggle&quot; aria-expanded=&quot;false&quot; aria-controls=&quot;past-plans&quot;&gt;過去3か月を表示&lt;/button&gt;&lt;span id=&quot;count&quot;&gt;&lt;/span&gt;&lt;/div&gt;
+ &lt;div class=&quot;workspace&quot;&gt;&lt;main class=&quot;paper&quot; aria-label=&quot;原本に合わせた月案の帳票&quot;&gt;&lt;div class=&quot;sheet-scroll&quot;&gt;&lt;div id=&quot;form&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;footer&gt;&lt;a id=&quot;template&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;&lt;/a&gt;&lt;span id=&quot;save-state&quot;&gt;未保存&lt;/span&gt;&lt;button id=&quot;revert&quot; class=&quot;text-button&quot; hidden&gt;保存した内容に戻す&lt;/button&gt;&lt;/footer&gt;&lt;/main&gt;
+ &lt;aside class=&quot;library&quot; aria-label=&quot;選択したセルの文例候補&quot;&gt;&lt;div class=&quot;target&quot;&gt;&lt;small id=&quot;target&quot;&gt;&lt;/small&gt;&lt;strong id=&quot;field-label&quot;&gt;&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;modes&quot;&gt;&lt;button data-mode=&quot;original&quot; aria-pressed=&quot;true&quot;&gt;過去の原文（見本）&lt;/button&gt;&lt;button data-mode=&quot;ai&quot; aria-pressed=&quot;false&quot;&gt;AIの提案（見本）&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;keyword-box&quot;&gt;&lt;input id=&quot;keyword&quot; type=&quot;search&quot; aria-label=&quot;候補のキーワード検索&quot; placeholder=&quot;文例をキーワードで検索&quot; autocomplete=&quot;off&quot;&gt;&lt;small id=&quot;candidate-count&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&lt;/small&gt;&lt;/div&gt;&lt;div id=&quot;candidates&quot;&gt;&lt;/div&gt;&lt;div class=&quot;sources&quot;&gt;&lt;details id=&quot;candidate-sources&quot;&gt;&lt;summary class=&quot;cursor-interaction&quot;&gt;候補の出典・参考原文&lt;/summary&gt;&lt;div id=&quot;candidate-source-list&quot;&gt;&lt;/div&gt;&lt;/details&gt;&lt;details id=&quot;origins&quot; hidden&gt;&lt;summary class=&quot;cursor-interaction&quot;&gt;このセルで使った文例&lt;/summary&gt;&lt;div id=&quot;origin-list&quot;&gt;&lt;/div&gt;&lt;/details&gt;&lt;/div&gt;&lt;div id=&quot;message&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;候補を選択 → セルに反映・セル内で編集&lt;/div&gt;&lt;/aside&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;style&gt;
+ #drive-monthly-plan{--p-bg:light-dark(#f1f5f2,#18251e);--p-paper:light-dark(#fff,#23332a);--p-ink:light-dark(#263f32,#e7eee8);--p-muted:light-dark(#627568,#afc0b4);--p-line:light-dark(#b6c3ba,#617868);--p-soft:light-dark(#eef3ef,#2c4032);--p-active:light-dark(#e5f5ea,#31563e);--p-accent:light-dark(#176846,#a0dfb3);--p-on:light-dark(#fff,#193d26);font:14px/1.55 -apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,&quot;Yu Gothic UI&quot;,Meiryo,sans-serif;color:var(--p-ink);background:var(--p-bg);border:1px solid var(--p-line);border-radius:9px;box-sizing:border-box;width:100%;}
+ #drive-monthly-plan *{box-sizing:border-box;min-width:0;}#drive-monthly-plan [hidden]{display:none!important;}#drive-monthly-plan button,#drive-monthly-plan input,#drive-monthly-plan select,#drive-monthly-plan textarea{font:inherit;color:inherit;}
+ #drive-monthly-plan header{padding:12px 18px;border-bottom:1px solid var(--p-line);background:var(--p-paper);border-radius:8px 8px 0 0;display:flex;gap:18px;align-items:center;flex-wrap:wrap;}#drive-monthly-plan header span{font-size:12px;color:var(--p-muted);}#drive-monthly-plan small{font-size:11px;color:var(--p-muted);}#drive-monthly-plan header small{margin-left:auto;background:var(--p-soft);padding:3px 7px;border-radius:4px;}
+ #drive-monthly-plan h2{font-size:20px;line-height:1.4;margin:0 0 8px;font-weight:600;}#drive-monthly-plan strong{font-weight:600;}#drive-monthly-plan .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 18px 10px;flex-wrap:wrap;}#drive-monthly-plan .pickers,#drive-monthly-plan .actions,#drive-monthly-plan .context{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}#drive-monthly-plan .pickers,#drive-monthly-plan .context{font-size:12px;}#drive-monthly-plan .context{padding:0 18px 14px;}#drive-monthly-plan #count{margin-left:auto;color:var(--p-muted);}#drive-monthly-plan #scope{background:var(--p-soft);padding:4px 8px;border-radius:4px;}
+ #drive-monthly-plan select{background:var(--p-paper);border:1px solid var(--p-line);border-radius:4px;padding:6px;max-width:100%;}#drive-monthly-plan button{background:var(--p-paper);border:1px solid var(--p-line);border-radius:5px;padding:7px 10px;touch-action:manipulation;}#drive-monthly-plan .primary{background:var(--p-accent);color:var(--p-on);border-color:var(--p-accent);}#drive-monthly-plan button:disabled{opacity:.45;cursor:default;}#drive-monthly-plan .text-button{border:0;background:transparent;color:var(--p-accent);padding:0;font-size:11px;}
+ #drive-monthly-plan .workspace{display:grid;grid-template-columns:minmax(0,1fr) 252px;gap:14px;align-items:start;padding:0 18px 18px;}#drive-monthly-plan .paper{padding:16px 12px 12px;background:var(--p-paper);border:1px solid var(--p-line);}#drive-monthly-plan table{border-collapse:collapse;table-layout:fixed;width:100%;font-size:12px;}#drive-monthly-plan td,#drive-monthly-plan th{border:1px solid var(--p-line);padding:0;vertical-align:top;font-weight:400;}#drive-monthly-plan th{padding:4px 3px;background:var(--p-soft);text-align:center;}#drive-monthly-plan .head th{font-size:11px;padding:2px;}#drive-monthly-plan .head td{vertical-align:middle;text-align:center;}#drive-monthly-plan .title{font-size:16px;font-weight:600;padding:8px 3px;}#drive-monthly-plan .title small{display:block;font-weight:400;margin-bottom:4px;}#drive-monthly-plan .meta{border:0;background:transparent;width:100%;padding:5px 2px;text-align:center;font-size:12px;}#drive-monthly-plan .common,#drive-monthly-plan .roster{margin-top:-1px;}
+ #drive-monthly-plan textarea.cell{display:block;width:100%;min-height:58px;height:auto;border:0;border-radius:0;background:transparent;padding:7px;margin:0;text-align:left;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;resize:vertical;overflow:hidden;}#drive-monthly-plan .cell[data-active=&quot;true&quot;]{background:var(--p-active);box-shadow:inset 0 0 0 2px var(--p-accent);}#drive-monthly-plan .cell:hover{background:var(--p-active);}#drive-monthly-plan .roster .cell{min-height:76px;}#drive-monthly-plan .roster thead th{font-size:11px;}#drive-monthly-plan .roster small{display:block;}#drive-monthly-plan .name{vertical-align:middle;background:var(--p-paper);}#drive-monthly-plan .name button{background:transparent;border:0;border-radius:0;padding:5px 2px;width:100%;font-size:12px;}#drive-monthly-plan .name button[aria-pressed=&quot;true&quot;]{color:var(--p-accent);font-weight:600;}
+ #drive-monthly-plan .group-layout{display:grid;grid-template-columns:minmax(0,4fr) minmax(102px,1fr);}#drive-monthly-plan .group-main table+table{margin-top:-1px;}#drive-monthly-plan .group-main .title{font-size:13px;}#drive-monthly-plan .group-grid th{font-size:11px;vertical-align:middle;overflow-wrap:anywhere;}#drive-monthly-plan .group-grid .cell{min-height:72px;}#drive-monthly-plan .calendar{margin-left:-1px;width:calc(100% + 1px);}#drive-monthly-plan .calendar th{font-size:11px;padding:3px 0;}#drive-monthly-plan .calendar td{font-size:11px;text-align:center;vertical-align:middle;}#drive-monthly-plan .calendar .cell{min-height:22px;padding:2px 3px;font-size:11px;}#drive-monthly-plan .weekend{background:var(--p-soft);color:var(--p-muted);}
+ #drive-monthly-plan footer{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:11px;color:var(--p-muted);}#drive-monthly-plan footer a{color:var(--p-accent);margin-right:auto;overflow-wrap:anywhere;}#drive-monthly-plan .library{background:var(--p-paper);border:1px solid var(--p-line);border-radius:7px;}#drive-monthly-plan .target{padding:11px 12px;display:grid;gap:3px;}
+ #drive-monthly-plan details{font-size:11px;overflow-wrap:anywhere;}#drive-monthly-plan summary{color:var(--p-accent);}#drive-monthly-plan details p{font-size:11px;color:var(--p-muted);margin:6px 0 10px;}#drive-monthly-plan .sources{padding:8px 12px;border-top:1px solid var(--p-line);}#drive-monthly-plan .sources details+details{margin-top:8px;}#drive-monthly-plan .modes{display:flex;border-top:1px solid var(--p-line);border-bottom:1px solid var(--p-line);}#drive-monthly-plan .modes button{width:50%;border:0;border-bottom:3px solid transparent;border-radius:0;padding:8px 2px;font-size:11px;background:transparent;}#drive-monthly-plan .modes button[aria-pressed=&quot;true&quot;]{border-bottom-color:var(--p-accent);color:var(--p-accent);font-weight:600;}
+ #drive-monthly-plan .candidate{display:block;width:100%;padding:10px 12px;border:0;border-radius:0;text-align:left;background:transparent;font-size:13px;line-height:1.6;overflow-wrap:anywhere;}#drive-monthly-plan .candidate+.candidate{border-top:1px solid var(--p-line);}#drive-monthly-plan .candidate:hover{background:var(--p-active);}#drive-monthly-plan .candidate.is-added{background:var(--p-soft);color:var(--p-muted);}#drive-monthly-plan .candidate .used{display:block;color:var(--p-accent);font-size:11px;margin-top:3px;}#drive-monthly-plan #message{padding:9px 12px;font-size:11px;color:var(--p-muted);background:var(--p-soft);border-radius:0 0 6px 6px;}
+ #drive-monthly-plan .keyword-box{display:grid;gap:5px;padding:10px 12px;border-bottom:1px solid var(--p-line);}#drive-monthly-plan #keyword{width:100%;padding:6px 8px;border:1px solid var(--p-line);border-radius:4px;background:var(--p-paper);font-size:13px;}#drive-monthly-plan .no-results{margin:0;padding:14px 12px;font-size:12px;color:var(--p-muted);}
+ #drive-monthly-plan .sheet-scroll{max-width:100%;overflow-x:auto;}#drive-monthly-plan #form{min-width:600px;}#drive-monthly-plan #history-toggle[aria-expanded=&quot;true&quot;]{background:var(--p-active);color:var(--p-accent);border-color:var(--p-accent);}#drive-monthly-plan .past-plans{margin:14px 0 12px;font-size:12px;}#drive-monthly-plan .past-heading{display:flex;gap:4px 12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap;margin-bottom:7px;}#drive-monthly-plan .past-heading h3{font-size:13px;margin:0;font-weight:600;}#drive-monthly-plan .past-table thead th{font-size:11px;}#drive-monthly-plan .past-table small{display:block;}#drive-monthly-plan .past-table tbody th{vertical-align:middle;}#drive-monthly-plan .past-table td[data-active=&quot;true&quot;]{background:var(--p-active);}#drive-monthly-plan .past-body{padding:7px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;}#drive-monthly-plan .past-empty{color:var(--p-muted);margin:0;padding:12px 7px;}#drive-monthly-plan .current-month{font-size:12px;font-weight:600;margin:0 0 6px;}#drive-monthly-plan[data-history=&quot;true&quot;] .roster .cell{min-height:100px;}
+ @media(pointer:coarse){#drive-monthly-plan #history-toggle{min-height:44px;}}
+ #drive-monthly-plan[data-wide=&quot;true&quot;] .workspace{grid-template-columns:1fr;}#drive-monthly-plan[data-wide=&quot;true&quot;] #candidates{display:grid;grid-template-columns:1fr 1fr;}#drive-monthly-plan[data-wide=&quot;true&quot;] .candidate+.candidate{border-top:0;border-left:1px solid var(--p-line);}
+ @media(max-width:800px){#drive-monthly-plan .workspace{grid-template-columns:1fr;}#drive-monthly-plan #candidates{display:grid;grid-template-columns:1fr 1fr;}#drive-monthly-plan .candidate+.candidate{border-top:0;border-left:1px solid var(--p-line);}}
+ @media(max-width:540px){#drive-monthly-plan header,#drive-monthly-plan .toolbar{padding:12px;}#drive-monthly-plan .context{padding:0 12px 12px;}#drive-monthly-plan .workspace{padding:0 8px 8px;gap:10px;}#drive-monthly-plan .paper{padding:10px 6px;}#drive-monthly-plan #count{width:100%;margin:0;}#drive-monthly-plan #candidates{grid-template-columns:1fr!important;}#drive-monthly-plan .candidate+.candidate{border-left:0!important;border-top:1px solid var(--p-line)!important;}#drive-monthly-plan .actions button{font-size:12px;}#drive-monthly-plan header{gap:10px;}}
+ @media(pointer:coarse){#drive-monthly-plan select,#drive-monthly-plan .actions button,#drive-monthly-plan .name button,#drive-monthly-plan .text-button,#drive-monthly-plan .modes button,#drive-monthly-plan .candidate button{min-height:44px;}#drive-monthly-plan .calendar .cell{min-height:44px;}#drive-monthly-plan textarea,#drive-monthly-plan input{font-size:16px;}}
+ @media(pointer:coarse){#drive-monthly-plan textarea.cell,#drive-monthly-plan .meta,#drive-monthly-plan #keyword{font-size:16px;}#drive-monthly-plan .candidate{min-height:44px;}}
+&lt;/style&gt;
+&lt;script&gt;
+(()=&gt;{
+const root=document.getElementById(&#x27;drive-monthly-plan&#x27;),q=s=&gt;root.querySelector(s),all=s=&gt;[...root.querySelectorAll(s)],clone=x=&gt;JSON.parse(JSON.stringify(x));
+const esc=s=&gt;String(s??&#x27;&#x27;).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g,c=&gt;({&#x27;&amp;&#x27;:&#x27;&amp;amp;&#x27;,&#x27;&lt;&#x27;:&#x27;&amp;lt;&#x27;,&#x27;&gt;&#x27;:&#x27;&amp;gt;&#x27;,&#x27;&quot;&#x27;:&#x27;&amp;quot;&#x27;,&quot;&#x27;&quot;:&#x27;&amp;#39;&#x27;}[c]));
+const templates=[[&#x27;原案 月案（0歳児).xls&#x27;,&#x27;1ynTjwavMis4xHihKq0phLq8rgqcsn49s&#x27;],[&#x27;新 月案（1歳児）.xls&#x27;,&#x27;1DGbgBkene3rOun0SS12OJmT3SxR_AKDt&#x27;],[&#x27;月案（２歳児） 新.xls&#x27;,&#x27;1V5isie1zxemNMbmW-1BkNul-JCbeeKFe&#x27;],[&#x27;月案原本（幼児）.xls&#x27;,&#x27;1tsMSt2gVgkM72EOmm2ms0tBpwVIIxLkn&#x27;]];
+const personal=[[&#x27;life&#x27;,&#x27;生活・健康&#x27;],[&#x27;play&#x27;,&#x27;あそび&#x27;],[&#x27;help&#x27;,&#x27;環境構成・援助活動&#x27;],[&#x27;review&#x27;,&#x27;評価・反省&#x27;]],cols=[[&#x27;goal&#x27;,&#x27;ねらい&#x27;],[&#x27;environment&#x27;,&#x27;環境設定&#x27;],[&#x27;expected&#x27;,&#x27;予想される子どもの姿&#x27;],[&#x27;support&#x27;,&#x27;配慮事項&#x27;]],domains=[[&#x27;care&#x27;,&#x27;生命・情緒&#x27;],[&#x27;health&#x27;,&#x27;健康&#x27;],[&#x27;relations&#x27;,&#x27;人間関係&#x27;],[&#x27;nature&#x27;,&#x27;環境&#x27;],[&#x27;language&#x27;,&#x27;言葉&#x27;],[&#x27;expression&#x27;,&#x27;表現&#x27;],[&#x27;food&#x27;,&#x27;食育&#x27;]],pages=[[6],[7,8],[7,8,7]];
+const initial={version:5,age:2,child:0,page:0,key:&#x27;child:0:life&#x27;,mode:&#x27;original&#x27;,keyword:&#x27;&#x27;,drafts:{},wide:false,showHistory:false};
+// 操作見本専用。実在する園児の記録・Driveから取得した履歴ではない。
+const pastRecords={
+ 0:{
+  0:[
+   [&#x27;安心して食事や睡眠のリズムを整える。&#x27;,&#x27;握りやすい玩具に手を伸ばして遊ぶ。&#x27;,&#x27;眠くなるしぐさを受け止め、落ち着ける場所を整える。&#x27;,&#x27;声をかけると表情が和らいだ。眠る前の関わりを引き続き大切にする。&#x27;],
+   [&#x27;食べたい気持ちをしぐさで伝えながら食事を楽しむ。&#x27;,&#x27;音の鳴る玩具を振り、音や動きを楽しむ。&#x27;,&#x27;手を伸ばして届く位置に玩具を置く。&#x27;,&#x27;自分から玩具を握って振る姿が増えた。十分に休める時間も確保する。&#x27;],
+   [&#x27;一人ひとりのペースで食べ、心地よく休む。&#x27;,&#x27;気になる玩具へ体を動かして近づく。&#x27;,&#x27;安全に体を動かせる場所を広げ、そばで見守る。&#x27;,&#x27;玩具を目で追い、近づこうとする姿が見られた。動きたい気持ちを支えたい。&#x27;]
+  ],
+  1:[
+   [&#x27;抱かれて安心し、ゆったりと授乳や睡眠をとる。&#x27;,&#x27;保育者の声や表情に親しむ。&#x27;,&#x27;静かな場所で目を合わせ、応答的に関わる。&#x27;,&#x27;語りかけに声を出して応じる姿が見られた。&#x27;],
+   null,
+   [&#x27;心地よい関わりの中で食事の時間に慣れる。&#x27;,&#x27;布や柔らかな玩具の感触を味わう。&#x27;,&#x27;好きな感触を確かめ、無理なく手に取れるようにする。&#x27;,&#x27;柔らかな布を握ることを楽しんだ。体調に合わせて遊ぶ時間を調整する。&#x27;]
+  ]
+ },
+ 1:{
+  0:[
+   [&#x27;保育者に見守られながらスプーンを持って食べる。&#x27;,&#x27;水や砂の感触を楽しむ。&#x27;,&#x27;握りやすい食具を用意し、食べようとする気持ちを支える。&#x27;,&#x27;自分で食べようとする姿が増えた。すくいにくいときは手を添えた。&#x27;],
+   [&#x27;スプーンを使い、自分のペースで食事を楽しむ。&#x27;,&#x27;容器に水を入れたり移したりして遊ぶ。&#x27;,&#x27;容器を選べるようにし、繰り返し試す時間を確保する。&#x27;,&#x27;水を移す遊びを繰り返した。食事では食具を持ち替えて試す姿があった。&#x27;],
+   [&#x27;身の回りのことを自分でやってみようとする。&#x27;,&#x27;保育者や友だちと簡単な見立て遊びを楽しむ。&#x27;,&#x27;取り組みやすい衣服を用意し、できたことを一緒に喜ぶ。&#x27;,&#x27;ズボンを上げようとする姿が見られた。急がせずに待つ関わりを続けたい。&#x27;]
+  ],
+  1:[
+   [&#x27;安心して休息し、生活のリズムを整える。&#x27;,&#x27;保育者と好きな絵本を楽しむ。&#x27;,&#x27;落ち着ける場所で気持ちを受け止め、ゆったり関わる。&#x27;,&#x27;好きな絵本を持ってきて、一緒に見ることを求める姿があった。&#x27;],
+   null,
+   [&#x27;手洗いの流れを知り、保育者と一緒にやってみる。&#x27;,&#x27;身近なものを指さし、声や言葉で伝える。&#x27;,&#x27;分かりやすい言葉を添え、伝えたい気持ちに応える。&#x27;,&#x27;指さしと一語で知らせる姿が増えた。応答する時間を十分にとりたい。&#x27;]
+  ]
+ },
+ 2:{
+  0:[
+   [&#x27;保育者と一緒に身支度を進める。&#x27;,&#x27;友だちの遊びに関心をもち、同じ場で遊ぶ。&#x27;,&#x27;身支度の手順を短い言葉で伝え、取り組みを見守る。&#x27;,&#x27;タオルを自分で片付ける姿が増えた。次の動きは個別の声かけが必要だった。&#x27;],
+   [&#x27;必要なときに手伝いを求めながら着替える。&#x27;,&#x27;友だちと道具を使い、見立て遊びを楽しむ。&#x27;,&#x27;使いたい思いを受け止め、交代のやりとりを仲立ちする。&#x27;,&#x27;「かして」と伝える姿があった。思いが重なる場面では丁寧に仲立ちした。&#x27;],
+   [&#x27;身支度の流れを知り、自分でできることを進める。&#x27;,&#x27;簡単な役を共有し、友だちとのやりとりを楽しむ。&#x27;,&#x27;やりとりが続くように言葉を添え、使う道具を整える。&#x27;,&#x27;店屋さん遊びで役のやりとりが続いた。身支度は見通しをもてると進めやすかった。&#x27;]
+  ],
+  1:[
+   [&#x27;体を動かした後に水分をとり、ゆっくり休む。&#x27;,&#x27;好きな素材でつくったり描いたりする。&#x27;,&#x27;素材を選べるようにし、表したい思いを受け止める。&#x27;,&#x27;描いたものを言葉で説明する姿が見られた。水分補給は声かけが必要だった。&#x27;],
+   null,
+   [&#x27;自分の持ち物が分かり、片付けをやってみる。&#x27;,&#x27;散歩で見つけたものを保育者や友だちに伝える。&#x27;,&#x27;持ち物の場所を分かりやすくし、発見に共感する。&#x27;,&#x27;持ち物を自分の場所に戻す姿が増えた。自然物への関心も広がっている。&#x27;]
+  ]
+ }
+};
+function normalize(raw){
+ const restored=[3,4,5].includes(raw?.version)&amp;&amp;Number.isInteger(raw.age)&amp;&amp;raw.age&gt;=0&amp;&amp;raw.age&lt;=5?{...clone(initial),...clone(raw),version:5}:clone(initial);
+ const oldKeys=cols.map(([key])=&gt;&#x27;group:food:&#x27;+key);
+ for(const age of [3,4,5]){const fields=restored.drafts[age]?.fields;if(!fields||!oldKeys.some(key=&gt;fields[key]))continue;const entries=[fields[&#x27;group:food&#x27;],...oldKeys.map(key=&gt;fields[key])].filter(Boolean),body=entries.map(entry=&gt;entry.body||&#x27;&#x27;).filter(text=&gt;text.trim()).join(&#x27;\n&#x27;);const origins=[...new Map(entries.flatMap(entry=&gt;entry.origins||[]).map(origin=&gt;[JSON.stringify(origin),origin])).values()];if(body||origins.length)fields[&#x27;group:food&#x27;]={body,origins};oldKeys.forEach(key=&gt;delete fields[key]);}
+ if(oldKeys.includes(restored.key))restored.key=&#x27;group:food&#x27;;
+ return restored;
+}
+let state=normalize(window.openai?.widgetState?.privateContent?.draft),saved=null,history=[],before=null,persistTimer=null;
+const sentSnapshots=new Set();
+const individual=()=&gt;state.age&lt;=2,draft=()=&gt;state.drafts[state.age]||(state.drafts[state.age]={classroom:&#x27;&#x27;,author:&#x27;&#x27;,fields:{}}),value=k=&gt;draft().fields[k]?.body||&#x27;&#x27;,isChild=k=&gt;k.startsWith(&#x27;child:&#x27;),childName=i=&gt;&#x27;園児&#x27;+String.fromCharCode(65+i)+&#x27;（見本）&#x27;;
+function fields(){const common=[[&#x27;common:goal&#x27;,individual()?&#x27;ねらい&#x27;:&#x27;今月のねらい&#x27;],[&#x27;common:home&#x27;,&#x27;家庭との連携&#x27;],[&#x27;common:review&#x27;,&#x27;評価・反省&#x27;]];return individual()?[...common,[&#x27;common:events&#x27;,&#x27;行事&#x27;],...personal.map(([k,l])=&gt;[&#x27;child:&#x27;+state.child+&#x27;:&#x27;+k,l])]:[...common,...domains.flatMap(([d,l])=&gt;d===&#x27;food&#x27;?[[&#x27;group:food&#x27;,&#x27;食育&#x27;]]:cols.map(([c,t])=&gt;[&#x27;group:&#x27;+d+&#x27;:&#x27;+c,l+&#x27; / &#x27;+t])),...Array.from({length:31},(_,i)=&gt;[&#x27;event:&#x27;+(i+1),&#x27;10月&#x27;+(i+1)+&#x27;日 / 行事・活動&#x27;])];}
+function label(k){return isChild(k)?personal.find(x=&gt;x[0]===k.split(&#x27;:&#x27;)[2])?.[1]||&#x27;&#x27;:fields().find(x=&gt;x[0]===k)?.[1]||&#x27;&#x27;;}
+const target=k=&gt;isChild(k)?childName(Number(k.split(&#x27;:&#x27;)[1])):state.age+&#x27;歳児・クラス共通&#x27;;
+function announce(s){q(&#x27;#message&#x27;).textContent=s;}
+function remember(snapshot=state){history.push(clone(snapshot));if(history.length&gt;15)history.shift();}
+function persist(){const data={modelContent:{ageClass:state.age,scope:individual()?&#x27;individual&#x27;:&#x27;group&#x27;,target:target(state.key),field:label(state.key),keyword:state.keyword,template:templates[Math.min(3,state.age)][0]},privateContent:{draft:clone(state)}};if(new TextEncoder().encode(JSON.stringify(data)).length&lt;15800){sentSnapshots.add(JSON.stringify(state));if(sentSnapshots.size&gt;30)sentSnapshots.delete(sentSnapshots.values().next().value);window.openai?.setWidgetState?.(data).catch(()=&gt;{});}else announce(&#x27;この見本の保存容量を超えました。現在の画面には文章を保持しています。&#x27;);}
+function status(){const n=Object.values(draft().fields).filter(x=&gt;x.body?.trim()).length;q(&#x27;#count&#x27;).textContent=n?n+&#x27;欄に入力済み&#x27;:&#x27;本文は空白です&#x27;;q(&#x27;#undo&#x27;).disabled=!history.length;q(&#x27;#save-state&#x27;).textContent=saved&amp;&amp;JSON.stringify(saved)===JSON.stringify(state.drafts)?&#x27;この画面で保存済み&#x27;:&#x27;未保存&#x27;;q(&#x27;#revert&#x27;).hidden=!saved;}
+function cell(k,l=label(k)){return `&lt;textarea rows=&quot;1&quot; class=&quot;cell&quot; data-cell=&quot;${esc(k)}&quot; aria-label=&quot;${esc(target(k)+&#x27; / &#x27;+l)}&quot; data-active=&quot;${k===state.key}&quot; spellcheck=&quot;false&quot;&gt;${esc(value(k))}&lt;/textarea&gt;`;}
+function autosize(el){el.style.height=&#x27;auto&#x27;;el.style.height=Math.max(el.scrollHeight,parseFloat(getComputedStyle(el).minHeight)||0)+&#x27;px&#x27;;}
+function selectedCell(){return all(&#x27;[data-cell]&#x27;).find(el=&gt;el.dataset.cell===state.key);}
+function highlight(){all(&#x27;[data-cell]&#x27;).forEach(el=&gt;el.dataset.active=String(el.dataset.cell===state.key));all(&#x27;[data-child]&#x27;).forEach(el=&gt;el.setAttribute(&#x27;aria-pressed&#x27;,String(Number(el.dataset.child)===state.child)));}
+function commitEdit(){if(before&amp;&amp;JSON.stringify(before.drafts)!==JSON.stringify(state.drafts))remember(before);before=null;clearTimeout(persistTimer);persist();status();}
+function common(keys){return `&lt;table class=&quot;common&quot; aria-label=&quot;クラス共通欄&quot;&gt;&lt;thead&gt;&lt;tr&gt;${keys.map(k=&gt;&#x27;&lt;th scope=&quot;col&quot;&gt;&#x27;+label(k)+&#x27;&lt;/th&gt;&#x27;).join(&#x27;&#x27;)}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;${keys.map(k=&gt;`&lt;td data-label=&quot;${label(k)}&quot;&gt;${cell(k)}&lt;/td&gt;`).join(&#x27;&#x27;)}&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;`;}
+const meta=(k,l)=&gt;`&lt;input class=&quot;meta&quot; data-meta=&quot;${k}&quot; aria-label=&quot;${l}&quot; placeholder=&quot;${l}&quot; maxlength=&quot;30&quot; value=&quot;${esc(draft()[k])}&quot;&gt;`;
+function head(){const chief=state.age===1;return `&lt;table class=&quot;head&quot; aria-label=&quot;乳児指導計画の基本情報&quot;&gt;&lt;colgroup&gt;&lt;col style=&quot;width:29%&quot;&gt;&lt;col style=&quot;width:12%&quot;&gt;&lt;col style=&quot;width:${chief?20:27}%&quot;&gt;&lt;col style=&quot;width:9%&quot;&gt;${chief?&#x27;&lt;col style=&quot;width:8%&quot;&gt;&#x27;:&#x27;&#x27;}&lt;col&gt;&lt;/colgroup&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td rowspan=&quot;2&quot; class=&quot;title&quot;&gt;&lt;small&gt;令和8年度 《10月》&lt;/small&gt;乳児指導計画&lt;/td&gt;&lt;th&gt;クラス&lt;/th&gt;&lt;th&gt;担任&lt;/th&gt;&lt;th&gt;園長印&lt;/th&gt;${chief?&#x27;&lt;th&gt;主任&lt;/th&gt;&#x27;:&#x27;&#x27;}&lt;th&gt;行事&lt;/th&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;${meta(&#x27;classroom&#x27;,&#x27;クラス名&#x27;)}&lt;/td&gt;&lt;td&gt;${meta(&#x27;author&#x27;,&#x27;担任名&#x27;)}&lt;/td&gt;&lt;td&gt;&lt;/td&gt;${chief?&#x27;&lt;td&gt;&lt;/td&gt;&#x27;:&#x27;&#x27;}&lt;td&gt;${cell(&#x27;common:events&#x27;)}&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;`;}
+function personalTableHead(first){return `&lt;colgroup&gt;&lt;col style=&quot;width:12%&quot;&gt;&lt;col style=&quot;width:23%&quot;&gt;&lt;col style=&quot;width:21%&quot;&gt;&lt;col style=&quot;width:22%&quot;&gt;&lt;col style=&quot;width:22%&quot;&gt;&lt;/colgroup&gt;&lt;thead&gt;&lt;tr&gt;&lt;th rowspan=&quot;2&quot;&gt;${first}&lt;/th&gt;&lt;th colspan=&quot;2&quot;&gt;個人別保育計画&lt;/th&gt;&lt;th rowspan=&quot;2&quot;&gt;環境構成・&lt;br&gt;援助活動&lt;/th&gt;&lt;th rowspan=&quot;2&quot;&gt;評価・反省&lt;/th&gt;&lt;/tr&gt;&lt;tr&gt;&lt;th&gt;生活・健康&lt;small&gt;食事・睡眠・排泄・清潔&lt;/small&gt;&lt;/th&gt;&lt;th&gt;あそび&lt;small&gt;あそび・ことば&lt;/small&gt;&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;`;}
+function roster(){const offset=pages[state.age].slice(0,state.page).reduce((a,b)=&gt;a+b,0);return `&lt;table class=&quot;roster&quot; aria-label=&quot;個人別保育計画&quot;&gt;${personalTableHead(&#x27;名前&#x27;)}&lt;tbody&gt;${Array.from({length:pages[state.age][state.page]},(_,j)=&gt;{const i=j+offset;return `&lt;tr data-child-row=&quot;${i}&quot;&gt;&lt;th scope=&quot;row&quot; class=&quot;name&quot;&gt;&lt;button data-child=&quot;${i}&quot; aria-pressed=&quot;${state.child===i}&quot;&gt;園児${String.fromCharCode(65+i)}&lt;small&gt;見本&lt;/small&gt;&lt;small&gt;（歳 ヶ月）&lt;/small&gt;&lt;/button&gt;&lt;/th&gt;${personal.map(([k,l])=&gt;`&lt;td data-label=&quot;${l}&quot;&gt;${cell(&#x27;child:&#x27;+i+&#x27;:&#x27;+k,l)}&lt;/td&gt;`).join(&#x27;&#x27;)}&lt;/tr&gt;`;}).join(&#x27;&#x27;)}&lt;/tbody&gt;&lt;/table&gt;`;}
+function renderPastPlans(){
+ const visible=individual()&amp;&amp;state.showHistory,button=q(&#x27;#history-toggle&#x27;),section=q(&#x27;#past-plans&#x27;);
+ root.dataset.history=String(visible);button.hidden=!individual();button.setAttribute(&#x27;aria-expanded&#x27;,String(visible));button.textContent=visible?&#x27;過去3か月を閉じる&#x27;:&#x27;過去3か月を表示&#x27;;
+ q(&#x27;#page-wrap&#x27;).hidden=!individual()||visible||pages[state.age].length===1;
+ all(&#x27;[data-child-row]&#x27;).forEach(row=&gt;row.hidden=visible&amp;&amp;Number(row.dataset.childRow)!==state.child);
+ if(!section)return;section.hidden=!visible;q(&#x27;#current-month&#x27;).hidden=!visible;if(!visible)return;
+ q(&#x27;#current-month&#x27;).textContent=&#x27;10月の入力 · &#x27;+childName(state.child);
+ const field=isChild(state.key)?state.key.split(&#x27;:&#x27;)[2]:&#x27;&#x27;,signature=[state.age,state.child].join(&#x27;:&#x27;);
+ if(section.dataset.signature!==signature){
+  section.dataset.signature=signature;const records=pastRecords[state.age]?.[state.child]||[];
+  section.innerHTML=`&lt;div class=&quot;past-heading&quot;&gt;&lt;h3 id=&quot;past-title&quot;&gt;${esc(childName(state.child))} · 過去3か月&lt;/h3&gt;&lt;small&gt;2026年7〜9月 · 閲覧用・架空の履歴見本&lt;/small&gt;&lt;/div&gt;&lt;table class=&quot;past-table&quot; aria-label=&quot;過去3か月の個人計画と反省&quot;&gt;${personalTableHead(&#x27;月&#x27;)}&lt;tbody&gt;${[7,8,9].map((month,index)=&gt;{const record=records[index];return `&lt;tr class=&quot;past-month&quot;&gt;&lt;th scope=&quot;row&quot;&gt;${month}月&lt;/th&gt;${record?personal.map(([key],i)=&gt;`&lt;td data-past-field=&quot;${key}&quot;&gt;&lt;p class=&quot;past-body&quot;&gt;${esc(record[i])}&lt;/p&gt;&lt;/td&gt;`).join(&#x27;&#x27;):&#x27;&lt;td colspan=&quot;4&quot;&gt;&lt;p class=&quot;past-empty&quot;&gt;この月の記録はありません&lt;/p&gt;&lt;/td&gt;&#x27;}&lt;/tr&gt;`;}).join(&#x27;&#x27;)}&lt;/tbody&gt;&lt;/table&gt;`;
+ }
+ all(&#x27;[data-past-field]&#x27;).forEach(el=&gt;el.dataset.active=String(el.dataset.pastField===field));
+}
+function group(){return `&lt;div class=&quot;group-layout&quot;&gt;&lt;div class=&quot;group-main&quot;&gt;&lt;table class=&quot;head&quot; aria-label=&quot;幼児月指導計画の基本情報&quot;&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td rowspan=&quot;2&quot; class=&quot;title&quot; style=&quot;width:40%&quot;&gt;&lt;small&gt;令和8年度 10月&lt;/small&gt;月 指導計画&lt;/td&gt;&lt;th&gt;クラス&lt;/th&gt;&lt;th&gt;担任名&lt;/th&gt;&lt;th style=&quot;width:10%&quot;&gt;園長印&lt;/th&gt;&lt;th style=&quot;width:8%&quot;&gt;主任&lt;/th&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;${meta(&#x27;classroom&#x27;,&#x27;クラス名&#x27;)}&lt;/td&gt;&lt;td&gt;${meta(&#x27;author&#x27;,&#x27;担任名&#x27;)}&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;${common([&#x27;common:goal&#x27;,&#x27;common:home&#x27;])}&lt;table class=&quot;group-grid&quot; aria-label=&quot;集団の養護・教育・食育&quot;&gt;&lt;colgroup&gt;&lt;col style=&quot;width:5%&quot;&gt;&lt;col style=&quot;width:9%&quot;&gt;${cols.map(()=&gt;&#x27;&lt;col style=&quot;width:21.5%&quot;&gt;&#x27;).join(&#x27;&#x27;)}&lt;/colgroup&gt;&lt;thead&gt;&lt;tr&gt;&lt;th colspan=&quot;2&quot;&gt;&lt;/th&gt;${cols.map(x=&gt;&#x27;&lt;th scope=&quot;col&quot;&gt;&#x27;+x[1]+&#x27;&lt;/th&gt;&#x27;).join(&#x27;&#x27;)}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;${domains.map(([d,l],i)=&gt;`&lt;tr&gt;${i===0?&#x27;&lt;th&gt;養護&lt;/th&gt;&#x27;:i===1?&#x27;&lt;th rowspan=&quot;5&quot;&gt;教育&lt;/th&gt;&#x27;:&#x27;&#x27;}&lt;th ${i===6?&#x27;colspan=&quot;2&quot;&#x27;:&#x27;&#x27;} scope=&quot;row&quot;&gt;${l}&lt;/th&gt;${d===&#x27;food&#x27;?&#x27;&lt;td colspan=&quot;4&quot;&gt;&#x27;+cell(&#x27;group:food&#x27;,&#x27;食育&#x27;)+&#x27;&lt;/td&gt;&#x27;:cols.map(([c,t])=&gt;&#x27;&lt;td&gt;&#x27;+cell(&#x27;group:&#x27;+d+&#x27;:&#x27;+c,l+&#x27; / &#x27;+t)+&#x27;&lt;/td&gt;&#x27;).join(&#x27;&#x27;)}&lt;/tr&gt;`).join(&#x27;&#x27;)}&lt;/tbody&gt;&lt;/table&gt;${common([&#x27;common:review&#x27;])}&lt;/div&gt;&lt;table class=&quot;calendar&quot; aria-label=&quot;10月の行事・活動&quot;&gt;&lt;colgroup&gt;&lt;col style=&quot;width:20px&quot;&gt;&lt;col style=&quot;width:20px&quot;&gt;&lt;col&gt;&lt;/colgroup&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;日&lt;/th&gt;&lt;th&gt;曜日&lt;/th&gt;&lt;th&gt;行事・活動&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;${Array.from({length:31},(_,i)=&gt;{const d=i+1,w=new Date(2026,9,d).getDay();return `&lt;tr&gt;&lt;td class=&quot;${w===0||w===6?&#x27;weekend&#x27;:&#x27;&#x27;}&quot;&gt;${d}&lt;/td&gt;&lt;td&gt;${&#x27;日月火水木金土&#x27;[w]}&lt;/td&gt;&lt;td&gt;${cell(&#x27;event:&#x27;+d,d+&#x27;日 行事・活動&#x27;)}&lt;/td&gt;&lt;/tr&gt;`;}).join(&#x27;&#x27;)}&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;`;}
+function paper(){q(&#x27;#form&#x27;).innerHTML=individual()?head()+common([&#x27;common:goal&#x27;,&#x27;common:home&#x27;,&#x27;common:review&#x27;])+&#x27;&lt;section id=&quot;past-plans&quot; class=&quot;past-plans&quot; aria-labelledby=&quot;past-title&quot; hidden&gt;&lt;/section&gt;&lt;div id=&quot;current-month&quot; class=&quot;current-month&quot; hidden&gt;&lt;/div&gt;&#x27;+roster():group();const t=templates[Math.min(3,state.age)];q(&#x27;#template&#x27;).textContent=&#x27;様式：&#x27;+t[0];q(&#x27;#template&#x27;).href=&#x27;https://docs.google.com/spreadsheets/d/&#x27;+t[1]+&#x27;/edit&#x27;;all(&#x27;button,select,summary&#x27;).forEach(e=&gt;e.classList.add(&#x27;cursor-interaction&#x27;));all(&#x27;textarea.cell&#x27;).forEach(autosize);status();}
+function pickers(){q(&#x27;#age&#x27;).value=String(state.age);q(&#x27;#scope&#x27;).textContent=individual()?&#x27;個人別の様式&#x27;:&#x27;集団の様式&#x27;;q(&#x27;#child-wrap&#x27;).hidden=!individual();q(&#x27;#page-wrap&#x27;).hidden=!individual()||pages[state.age].length===1;if(individual()){const n=pages[state.age].reduce((a,b)=&gt;a+b,0);q(&#x27;#child&#x27;).innerHTML=Array.from({length:n},(_,i)=&gt;`&lt;option value=&quot;${i}&quot;&gt;${childName(i)}&lt;/option&gt;`).join(&#x27;&#x27;);q(&#x27;#child&#x27;).value=String(state.child);q(&#x27;#page&#x27;).innerHTML=pages[state.age].map((n,i)=&gt;`&lt;option value=&quot;${i}&quot;&gt;${i+1} / ${pages[state.age].length}ページ&lt;/option&gt;`).join(&#x27;&#x27;);q(&#x27;#page&#x27;).value=String(state.page);}}
+const life=[&#x27;一人ひとりの眠くなる時間に合わせ、安心できる場所で休息をとる。&#x27;,&#x27;食具を使って自分で食べようとする気持ちを受け止める。&#x27;,&#x27;衣服の着脱や手洗いを自分でやってみようとする。&#x27;],play=[&#x27;保育者と目を合わせ、声や身近な玩具の動きを楽しむ。&#x27;,&#x27;保育者と一緒に秋の葉に触れ、感触や音を楽しむ。&#x27;,&#x27;見つけた木の実や葉を使って見立て遊びを楽しむ。&#x27;];
+function samples(){const k=state.key,a=state.age,f=k.split(&#x27;:&#x27;).at(-1),d=k.split(&#x27;:&#x27;)[1];if(f===&#x27;review&#x27;)return [&#x27;取り組みを振り返り、子どもの姿と次月に引き継ぐ配慮を記録する。&#x27;,&#x27;できたことや難しかった場面を具体的に記録し、次の援助を検討する。&#x27;];if(k===&#x27;common:home&#x27;)return [&#x27;家庭での生活リズムや体調を伝え合い、日々の保育に生かす。&#x27;,&#x27;衣服の調節や休息について家庭と共有し、季節の変わり目を心地よく過ごせるようにする。&#x27;];if(k.startsWith(&#x27;event:&#x27;)||f===&#x27;events&#x27;)return [&#x27;秋の自然に親しむ散歩&#x27;,&#x27;身近な自然を見つける散歩&#x27;];if(k===&#x27;common:goal&#x27;)return a&lt;=2?[play[a],&#x27;一人ひとりの興味を受け止め、安心できる保育者とのやりとりを楽しむ。&#x27;]:[&#x27;友だちと一緒に体を動かし、秋の自然に親しむ。&#x27;,&#x27;秋の自然に触れながら、友だちと発見やイメージを共有して遊ぶ。&#x27;];if(f===&#x27;life&#x27;)return [life[a],&#x27;一人ひとりのペースを大切にし、&#x27;+life[a]];if(f===&#x27;play&#x27;)return [play[a],&#x27;好きな遊びを繰り返し楽しめるようにし、&#x27;+play[a]];if(f===&#x27;help&#x27;)return [&#x27;興味のある素材を手の届く場所に用意し、表情やしぐさに合わせて関わる。&#x27;,&#x27;安心できる保育者がそばで見守り、子どもの働きかけにゆったりと応える。&#x27;];const theme={care:[&#x27;安心して思いを表し、心地よく過ごす。&#x27;,&#x27;落ち着いて過ごせる場所を整え、気持ちを受け止める。&#x27;],health:[&#x27;戸外で十分に体を動かして遊ぶ。&#x27;,&#x27;安全に体を動かせる広さと道具を用意する。&#x27;],relations:[&#x27;友だちと思いを伝え合って遊ぶ。&#x27;,&#x27;少人数で関わり合える遊びの場を設ける。&#x27;],nature:[&#x27;身近な秋の自然の変化に気づく。&#x27;,&#x27;木の実や葉を観察し、比べられる場所を用意する。&#x27;],language:[&#x27;経験したことを自分の言葉で伝える。&#x27;,&#x27;ゆっくり話せる時間を設け、絵本や言葉のやりとりを楽しむ。&#x27;],expression:[&#x27;感じたことを動きや造形で表す。&#x27;,&#x27;さまざまな素材や音に触れられる環境を整える。&#x27;],food:[&#x27;食材に興味をもち、楽しく食事をする。&#x27;,&#x27;秋の食材を見たり触れたりする機会をつくる。&#x27;]}[d];if(f===&#x27;goal&#x27;)return [theme[0],theme[0]+&#x27;一人ひとりの興味を友だちとの遊びへつなげる。&#x27;];if(f===&#x27;environment&#x27;)return [theme[1],theme[1]+&#x27;自分で選べる配置を工夫する。&#x27;];if(f===&#x27;expected&#x27;)return [&#x27;興味をもったことを繰り返し試し、友だちに伝えようとする。&#x27;,&#x27;気になることを自分なりに試し、友だちのやり方にも関心を向ける。&#x27;];return [&#x27;一人ひとりの思いを受け止め、必要に応じて言葉を添える。&#x27;,&#x27;試す過程を大切にして見守り、困ったときに一緒に考える。&#x27;];}
+function candidateRows(){const s=state.key===&#x27;group:food&#x27;?[&#x27;食材に興味をもち、楽しく食事をする。&#x27;,&#x27;秋の食材を見たり触れたりする機会をつくる。&#x27;]:samples();return s.map((t,i)=&gt;({text:state.mode===&#x27;ai&#x27;?s[1-i]:t,reference:t}));}
+function candidateMarks(){const rows=candidateRows();all(&#x27;[data-candidate]&#x27;).forEach(b=&gt;{const added=value(state.key).includes(rows[Number(b.dataset.candidate)].text);b.classList.toggle(&#x27;is-added&#x27;,added);b.setAttribute(&#x27;aria-disabled&#x27;,String(added));b.querySelector(&#x27;.used&#x27;).hidden=!added;});}
+function candidates(){const rows=candidateRows(),words=String(state.keyword||&#x27;&#x27;).normalize(&#x27;NFKC&#x27;).toLowerCase().trim().split(/\s+/).filter(Boolean),filtered=rows.map((row,index)=&gt;({row,index})).filter(({row})=&gt;words.every(word=&gt;row.text.normalize(&#x27;NFKC&#x27;).toLowerCase().includes(word)));q(&#x27;#candidates&#x27;).innerHTML=filtered.map(({row:r,index:i})=&gt;`&lt;button type=&quot;button&quot; class=&quot;candidate cursor-interaction&quot; data-candidate=&quot;${i}&quot; aria-label=&quot;${esc(r.text)}&quot;&gt;${esc(r.text)}&lt;span class=&quot;used&quot; hidden&gt;✓ 反映済み&lt;/span&gt;&lt;/button&gt;`).join(&#x27;&#x27;)||&#x27;&lt;p class=&quot;no-results&quot;&gt;該当する候補がありません。キーワードを変えてください。&lt;/p&gt;&#x27;;q(&#x27;#candidate-count&#x27;).textContent=filtered.length+&#x27; / &#x27;+rows.length+&#x27;件&#x27;;q(&#x27;#candidate-source-list&#x27;).innerHTML=`&lt;p&gt;${state.age}歳児・10月 / ${esc(label(state.key))}&lt;br&gt;操作確認用の架空資料。Driveの実際の記録ではありません。&lt;/p&gt;`+filtered.map(({row:r,index:i})=&gt;`&lt;p&gt;${i+1}. ${state.mode===&#x27;ai&#x27;?&#x27;提案の参考原文&#x27;:&#x27;原文見本&#x27;}&lt;br&gt;${esc(r.reference)}&lt;/p&gt;`).join(&#x27;&#x27;);all(&#x27;[data-mode]&#x27;).forEach(b=&gt;b.setAttribute(&#x27;aria-pressed&#x27;,String(b.dataset.mode===state.mode)));candidateMarks();}
+function origins(){const used=draft().fields[state.key]?.origins||[];q(&#x27;#origins&#x27;).hidden=!used.length;q(&#x27;#origin-list&#x27;).innerHTML=used.map(o=&gt;`&lt;p&gt;${esc(o.type===&#x27;ai&#x27;?&#x27;AI提案見本・参考原文&#x27;:&#x27;原文見本&#x27;)}&lt;br&gt;${esc(o.label)}&lt;br&gt;${esc(o.text)}&lt;/p&gt;`).join(&#x27;&#x27;);}
+function panel(){q(&#x27;#target&#x27;).textContent=target(state.key);q(&#x27;#field-label&#x27;).textContent=label(state.key);q(&#x27;#keyword&#x27;).value=state.keyword;origins();candidates();renderPastPlans();status();}
+function render(){root.dataset.wide=String(state.wide);pickers();paper();panel();}
+function pageFor(i){let n=0;for(let p=0;p&lt;pages[state.age].length;p++){n+=pages[state.age][p];if(i&lt;n)return p;}return 0;}
+function select(k){commitEdit();state.key=k;if(isChild(k)){state.child=Number(k.split(&#x27;:&#x27;)[1]);state.page=pageFor(state.child);}render();persist();selectedCell()?.focus({preventScroll:true});announce(target(k)+&#x27; / &#x27;+label(k)+&#x27; を選択&#x27;);}
+root.addEventListener(&#x27;click&#x27;,e=&gt;{
+ const b=e.target.closest(&#x27;button&#x27;);if(!b){if(e.target.tagName===&#x27;TD&#x27;)e.target.querySelector(&#x27;textarea&#x27;)?.focus();return;}
+ if(b.id===&#x27;history-toggle&#x27;){commitEdit();state.showHistory=!state.showHistory;renderPastPlans();all(&#x27;textarea.cell&#x27;).forEach(autosize);persist();announce(state.showHistory?&#x27;過去3か月の計画と反省を表示しました。下の10月のセルで入力できます。&#x27;:&#x27;過去の表示を閉じ、園児一覧に戻しました。&#x27;);return;}
+ if(b.dataset.child!==undefined){select(&#x27;child:&#x27;+b.dataset.child+&#x27;:life&#x27;);return;}
+ if(b.dataset.mode){state.mode=b.dataset.mode;candidates();persist();return;}
+ if(b.dataset.candidate!==undefined){commitEdit();const row=candidateRows()[Number(b.dataset.candidate)],old=draft().fields[state.key]||{body:&#x27;&#x27;,origins:[]};if(old.body.includes(row.text)){announce(&#x27;この文例は反映済みです。編集・削除はセル内でできます。&#x27;);return;}remember();const origin={type:state.mode,label:state.age+&#x27;歳児・10月 / &#x27;+label(state.key)+&#x27;（架空資料）&#x27;,text:row.reference};const body=old.body.trim()?old.body.replace(/\s+$/,&#x27;&#x27;)+&#x27;\n○&#x27;+row.text:&#x27;○&#x27;+row.text;draft().fields[state.key]={body,origins:[...(old.origins||[]).filter(o=&gt;JSON.stringify(o)!==JSON.stringify(origin)),origin]};const ta=selectedCell();ta.value=body;autosize(ta);origins();candidateMarks();status();persist();ta.focus({preventScroll:true});ta.setSelectionRange(body.length,body.length);announce(&#x27;セルに反映しました。そのまま入力・Backspaceで編集できます。&#x27;);return;}
+ if(b.id===&#x27;undo&#x27;&amp;&amp;history.length){commitEdit();state=history.pop();render();persist();announce(&#x27;直前の変更を戻しました。&#x27;);return;}
+ if(b.id===&#x27;save&#x27;){commitEdit();saved=clone(state.drafts);status();persist();announce(&#x27;下書きをこの画面内に保存しました（見本）。&#x27;);return;}
+ if(b.id===&#x27;revert&#x27;&amp;&amp;saved){commitEdit();remember();state.drafts=clone(saved);render();persist();announce(&#x27;この画面で保存した内容に戻しました。&#x27;);}
+});
+root.addEventListener(&#x27;change&#x27;,e=&gt;{const t=e.target;if(t.id===&#x27;age&#x27;){commitEdit();state.age=Number(t.value);state.child=0;state.page=0;state.key=individual()?&#x27;child:0:life&#x27;:&#x27;common:goal&#x27;;render();persist();announce(state.age+&#x27;歳児・&#x27;+(individual()?&#x27;個人別&#x27;:&#x27;集団&#x27;)+&#x27;の様式に切り替えました。&#x27;);}else if(t.id===&#x27;child&#x27;)select(&#x27;child:&#x27;+t.value+&#x27;:&#x27;+(isChild(state.key)?state.key.split(&#x27;:&#x27;)[2]:&#x27;life&#x27;));else if(t.id===&#x27;page&#x27;){state.page=Number(t.value);select(&#x27;child:&#x27;+pages[state.age].slice(0,state.page).reduce((a,b)=&gt;a+b,0)+&#x27;:life&#x27;);}});
+root.addEventListener(&#x27;focusin&#x27;,e=&gt;{const t=e.target;if(t.dataset.cell){state.key=t.dataset.cell;if(isChild(state.key)){state.child=Number(state.key.split(&#x27;:&#x27;)[1]);q(&#x27;#child&#x27;).value=String(state.child);}highlight();panel();before=clone(state);persist();}else if(t.dataset.meta)before=clone(state);});
+root.addEventListener(&#x27;input&#x27;,e=&gt;{const t=e.target;if(t.id===&#x27;keyword&#x27;){state.keyword=t.value;candidates();}else if(t.dataset.cell){const k=t.dataset.cell,old=draft().fields[k]||{origins:[]};if(t.value)draft().fields[k]={...old,body:t.value};else delete draft().fields[k];autosize(t);candidateMarks();origins();status();}else if(t.dataset.meta){draft()[t.dataset.meta]=t.value;status();}else return;clearTimeout(persistTimer);persistTimer=setTimeout(persist,200);});
+root.addEventListener(&#x27;focusout&#x27;,e=&gt;{if(e.target.matches(&#x27;textarea,input&#x27;))commitEdit();});
+window.addEventListener(&#x27;openai:set_globals&#x27;,e=&gt;{const raw=e.detail?.globals?.widgetState?.privateContent?.draft;if(![3,4,5].includes(raw?.version))return;const incoming=normalize(raw),signature=JSON.stringify(incoming);if(signature===JSON.stringify(state)||sentSnapshots.has(signature))return;state=incoming;history=[];before=null;render();});
+render();let paperWidth=0;const resize=new ResizeObserver(entries=&gt;{const width=entries[0].contentRect.width;if(width!==paperWidth){paperWidth=width;all(&#x27;textarea.cell&#x27;).forEach(autosize);}});resize.observe(q(&#x27;.paper&#x27;));
+if(globalThis.Tweak){const design={widePaper:state.wide};const tweak=new Tweak({container:root,onChange:()=&gt;{state.wide=design.widePaper;root.dataset.wide=String(state.wide);persist();}});tweak.addToggle(design,&#x27;widePaper&#x27;,{label:&#x27;帳票を広く表示し、候補を下に置く&#x27;});}
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (event) =&gt; {
+    for (const target of event.composedPath()) {
+      if (target?.nodeType === Node.ELEMENT_NODE) {
+        const trigger = target.closest(&quot;[data-tooltip]&quot;);
+        if (trigger) return trigger;
+      }
+    }
+    return null;
+  };
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handlers = {
+    pointerover: handlePointerOpen,
+    pointerdown: handlePointer,
+    pointercancel: handlePointer,
+    click: handleTouchClick,
+    pointerout: handleLeave,
+    focusin: handleFocusIn,
+    focusout: handleLeave,
+    keydown: handleKeyDown,
+    contextmenu: handleContextMenu,
+  };
+  const roots = new Map();
+  const handledEvents = new WeakSet();
+  const handleEvent = (event) =&gt; {
+    if (handledEvents.has(event)) return;
+    handledEvents.add(event);
+    handlers[event.type](event);
+  };
+  const discoverRoots = (node) =&gt; {
+    if (node.shadowRoot) listen(node.shadowRoot);
+    for (const element of node.querySelectorAll(&quot;*&quot;)) {
+      if (element.shadowRoot) listen(element.shadowRoot);
+    }
+  };
+  const listen = (root) =&gt; {
+    if (roots.has(root)) return;
+    for (const type of Object.keys(handlers)) root.addEventListener(type, handleEvent);
+    const observer = new window.MutationObserver((records) =&gt; {
+      for (const { addedNodes } of records) {
+        for (const node of addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) discoverRoots(node);
+        }
+      }
+      for (const [root, cleanup] of roots) {
+        if (root.host &amp;&amp; !root.host.isConnected) {
+          cleanup();
+          roots.delete(root);
+        }
+      }
+      if (activeTrigger &amp;&amp; !activeTrigger.isConnected) closeTooltip(false);
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    roots.set(root, () =&gt; {
+      observer.disconnect();
+      for (const type of Object.keys(handlers)) root.removeEventListener(type, handleEvent);
+    });
+    discoverRoots(root);
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    for (const cleanup of roots.values()) cleanup();
+    roots.clear();
+    tooltip = null;
+  };
+
+  // Events between children of one shadow root never reach the document.
+  listen(document);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-carousel&quot;&gt;
+  (() =&gt; {
+    for (const root of document.querySelectorAll(&quot;.viz-carousel&quot;)) {
+      const panels = Array.from(
+        root.querySelectorAll(&quot;:scope &gt; [data-variant]&quot;),
+      );
+      if (panels.length === 0) {
+        continue;
+      }
+      root.setAttribute(&quot;role&quot;, &quot;group&quot;);
+      panels.forEach((panel, index) =&gt; {
+        panel.hidden = index !== 0;
+        panel.setAttribute(&quot;role&quot;, &quot;group&quot;);
+        if (!panel.hasAttribute(&quot;aria-label&quot;)) {
+          panel.setAttribute(&quot;aria-label&quot;, panel.dataset.variant);
+        }
+      });
+      root.dataset.activeVariant = panels[0].dataset.variant;
+      if (panels.length === 1) {
+        continue;
+      }
+
+      const controls = document.createElement(&quot;div&quot;);
+      controls.className = &quot;viz-carousel-controls&quot;;
+      // Portable copy of the settings dropdown&#x27;s legacy glyph; no 14px icon-package preset matches it.
+      // https://github.com/openai/openai/blob/master/codex/codex-apps/webview/src/icons/chevron.svg
+      controls.innerHTML = `
+      &lt;button type=&quot;button&quot; class=&quot;viz-carousel-previous cursor-interaction&quot;&gt;&lt;i data-lucide=&quot;chevron-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;
+      &lt;details class=&quot;viz-carousel-picker&quot;&gt;
+        &lt;summary class=&quot;cursor-interaction&quot;&gt;
+          &lt;span class=&quot;viz-carousel-count tabular-nums&quot;&gt;&lt;/span&gt;
+          &lt;span class=&quot;viz-carousel-name&quot;&gt;&lt;/span&gt;
+          &lt;svg class=&quot;viz-carousel-caret&quot; width=&quot;14&quot; height=&quot;14&quot; viewBox=&quot;0 0 20 21&quot; fill=&quot;none&quot; aria-hidden=&quot;true&quot; focusable=&quot;false&quot;&gt;
+            &lt;path d=&quot;M15.2793 7.71101C15.539 7.45131 15.961 7.45131 16.2207 7.71101C16.4804 7.97071 16.4804 8.39272 16.2207 8.65242L10.4707 14.4024C10.211 14.6621 9.78902 14.6621 9.52932 14.4024L3.77932 8.65242L3.69436 8.54792C3.52385 8.28979 3.55205 7.93828 3.77932 7.71101C4.00659 7.48374 4.3581 7.45554 4.61623 7.62605L4.72073 7.71101L10 12.9903L15.2793 7.71101Z&quot; fill=&quot;currentColor&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;0.6&quot; /&gt;
+          &lt;/svg&gt;
+        &lt;/summary&gt;
+        &lt;div class=&quot;viz-carousel-options&quot;&gt;&lt;/div&gt;
+      &lt;/details&gt;
+      &lt;button type=&quot;button&quot; class=&quot;viz-carousel-next cursor-interaction&quot;&gt;&lt;i data-lucide=&quot;chevron-right&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;`;
+      const previous = controls.querySelector(&quot;.viz-carousel-previous&quot;);
+      const next = controls.querySelector(&quot;.viz-carousel-next&quot;);
+      const picker = controls.querySelector(&quot;.viz-carousel-picker&quot;);
+      const summary = picker.querySelector(&quot;summary&quot;);
+      const count = controls.querySelector(&quot;.viz-carousel-count&quot;);
+      const name = controls.querySelector(&quot;.viz-carousel-name&quot;);
+      const options = controls.querySelector(&quot;.viz-carousel-options&quot;);
+      const status = document.createElement(&quot;span&quot;);
+      status.className = &quot;sr-only&quot;;
+      status.setAttribute(&quot;role&quot;, &quot;status&quot;);
+      status.setAttribute(&quot;aria-live&quot;, &quot;polite&quot;);
+      status.setAttribute(&quot;aria-atomic&quot;, &quot;true&quot;);
+      previous.setAttribute(
+        &quot;aria-label&quot;,
+        root.dataset.previousLabel ?? &quot;Previous variant&quot;,
+      );
+      next.setAttribute(&quot;aria-label&quot;, root.dataset.nextLabel ?? &quot;Next variant&quot;);
+
+      let active = 0;
+      const choices = panels.map((panel, index) =&gt; {
+        const choice = document.createElement(&quot;button&quot;);
+        choice.type = &quot;button&quot;;
+        choice.className = &quot;cursor-interaction&quot;;
+        choice.textContent = panel.dataset.variant;
+        choice.addEventListener(&quot;click&quot;, () =&gt; {
+          select(index);
+          summary.focus();
+        });
+        options.appendChild(choice);
+        return choice;
+      });
+      const select = (index) =&gt; {
+        const changed = active !== index;
+        active = index;
+        panels.forEach((panel, position) =&gt; {
+          panel.hidden = position !== active;
+          choices[position].setAttribute(
+            &quot;aria-current&quot;,
+            String(position === active),
+          );
+        });
+        root.dataset.activeVariant = panels[active].dataset.variant;
+        count.textContent = `${active + 1} / ${panels.length}`;
+        name.textContent = panels[active].dataset.variant;
+        picker.open = false;
+        if (changed) {
+          status.textContent = `${count.textContent}: ${name.textContent}`;
+        }
+      };
+      previous.addEventListener(&quot;click&quot;, () =&gt;
+        select((active + panels.length - 1) % panels.length),
+      );
+      next.addEventListener(&quot;click&quot;, () =&gt;
+        select((active + 1) % panels.length),
+      );
+      picker.addEventListener(&quot;keydown&quot;, (event) =&gt; {
+        if (event.key === &quot;Escape&quot; &amp;&amp; picker.open) {
+          event.preventDefault();
+          picker.open = false;
+          summary.focus();
+        }
+      });
+      const dismiss = (event) =&gt; {
+        if (!picker.contains(event.target)) {
+          picker.open = false;
+        }
+      };
+      const sizePicker = () =&gt; {
+        root.style.setProperty(
+          &quot;--viz-carousel-picker-height&quot;,
+          `${picker.open ? options.offsetHeight : 0}px`,
+        );
+      };
+      picker.addEventListener(&quot;toggle&quot;, sizePicker);
+      window.addEventListener(&quot;resize&quot;, sizePicker);
+      document.addEventListener(&quot;pointerdown&quot;, dismiss);
+      window.addEventListener(
+        &quot;pagehide&quot;,
+        () =&gt; {
+          document.removeEventListener(&quot;pointerdown&quot;, dismiss);
+          window.removeEventListener(&quot;resize&quot;, sizePicker);
+        },
+        { once: true },
+      );
+      root.append(controls, status);
+      select(0);
+    }
+  })();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+<script>(() => {
+  const frame = document.getElementById("codex-visualization");
+  if (!(frame instanceof HTMLIFrameElement)) {
+    return;
+  }
+  let viewportHeight = globalThis.innerHeight;
+  const storageKey = `codex:visualization-widget-state-v2:${JSON.stringify([
+    globalThis.location.pathname,
+    globalThis.location.search,
+  ])}`;
+  const parseState = (serializedState) => {
+    if (
+      typeof serializedState !== "string" ||
+      new TextEncoder().encode(serializedState).length > 16 * 1024
+    ) {
+      throw new TypeError(
+        "Widget state must be a JSON object of at most 16 KiB",
+      );
+    }
+    /** @type {unknown} */
+    const state = JSON.parse(serializedState);
+    if (
+      state == null ||
+      typeof state !== "object" ||
+      Array.isArray(state) ||
+      ("imageIds" in state &&
+        (!Array.isArray(state.imageIds) || state.imageIds.length > 0))
+    ) {
+      throw new TypeError("Widget state must be a JSON object");
+    }
+    const storedState = { modelContent: null, privateContent: null, ...state };
+    const canonicalState = JSON.stringify(
+      storedState,
+      (_key, /** @type {unknown} */ value) => {
+        if (typeof value === "number" && !Number.isFinite(value)) {
+          throw new TypeError("Widget state must contain finite numbers");
+        }
+        return value;
+      },
+    );
+    if (new TextEncoder().encode(canonicalState).length > 16 * 1024) {
+      throw new TypeError(
+        "Widget state must be a JSON object of at most 16 KiB",
+      );
+    }
+    return storedState;
+  };
+  let storage = null;
+  let state = null;
+  try {
+    const localStorage = globalThis.localStorage;
+    const probeKey = `${storageKey}:probe`;
+    localStorage.setItem(probeKey, "1");
+    localStorage.removeItem(probeKey);
+    storage = localStorage;
+    const savedState = storage.getItem(storageKey);
+    if (savedState != null) {
+      try {
+        state = parseState(savedState);
+      } catch {
+        // Invalid saved state does not disable future writes.
+      }
+    }
+  } catch {
+    storage = null;
+  }
+  const initialGlobals = {
+    widgetState: state,
+    statePersistence: storage == null ? "none" : "local",
+  };
+
+  const channel = new MessageChannel();
+  channel.port1.addEventListener("message", (event) => {
+    const data = event.data;
+    if (typeof data !== "object" || data == null) {
+      return;
+    }
+    if (data.type === "widget-state-write") {
+      if (!Number.isSafeInteger(data.id) || data.id <= 0) {
+        return;
+      }
+      let ok = false;
+      try {
+        if (storage != null) {
+          const state = parseState(data.state);
+          storage.setItem(storageKey, JSON.stringify(state));
+          ok = true;
+        }
+      } catch {
+        // Storage denial, quota limits, and invalid state return a failed receipt.
+      }
+      channel.port1.postMessage({
+        type: "widget-state-result",
+        id: data.id,
+        ok,
+      });
+      return;
+    }
+    if (data.type === "height") {
+      const height = data.height;
+      if (
+        typeof height === "number" &&
+        Number.isFinite(height) &&
+        height >= 0 &&
+        height <= 10_000
+      ) {
+        frame.style.height = Math.ceil(height) + "px";
+      }
+      return;
+    }
+    if (data.type === "scroll-to") {
+      const top = data.top;
+      if (
+        typeof top === "number" &&
+        Number.isFinite(top) &&
+        top >= 0 &&
+        globalThis.navigator.userActivation?.isActive === true
+      ) {
+        globalThis.scrollTo({
+          top: Math.ceil(
+            globalThis.scrollY + frame.getBoundingClientRect().top + top,
+          ),
+        });
+      }
+      return;
+    }
+    if (data.type === "open-external") {
+      const rawHref = data.href;
+      if (typeof rawHref !== "string") {
+        return;
+      }
+      let href;
+      try {
+        const url = new URL(rawHref, document.baseURI);
+        if (url.protocol !== "https:") {
+          return;
+        }
+        href = url.href;
+      } catch {
+        return;
+      }
+      if (globalThis.navigator.userActivation?.isActive === true) {
+        const anchor = document.createElement("a");
+        anchor.href = href;
+        anchor.rel = "noopener noreferrer";
+        anchor.target = "_blank";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+      return;
+    }
+    if (data.type === "follow-up") {
+      const prompt = data.prompt;
+      if (
+        typeof prompt !== "string" ||
+        globalThis.navigator.userActivation?.isActive !== true
+      ) {
+        return;
+      }
+      const title = data.title;
+      globalThis.prompt(typeof title === "string" ? title : prompt, prompt);
+    }
+  });
+  channel.port1.start();
+  const srcdoc = frame.dataset.srcdoc;
+  if (srcdoc == null) {
+    return;
+  }
+  globalThis.addEventListener("resize", () => {
+    const height = Number.parseFloat(frame.style.height);
+    if (!Number.isFinite(height) || height <= viewportHeight) {
+      frame.style.removeProperty("height");
+    }
+    viewportHeight = globalThis.innerHeight;
+    channel.port1.postMessage({ type: "measure" });
+  });
+  frame.addEventListener(
+    "load",
+    () => {
+      frame.contentWindow?.postMessage(
+        { type: "codex-visualization-initialize" },
+        "*",
+        [channel.port2],
+      );
+    },
+    { once: true },
+  );
+  // Match the trusted bootstrap element, not the same text in an authored title.
+  frame.srcdoc = srcdoc.replace(
+    '<script type="application/json" id="codex-visualization-widget-state">__CODEX_VISUALIZATION_WIDGET_STATE__<\/script>',
+    () =>
+      '<script type="application/json" id="codex-visualization-widget-state">' +
+      JSON.stringify(initialGlobals).replaceAll("<", "\\u003c") +
+      "<\/script>",
+  );
+  delete frame.dataset.srcdoc;
+})();
+</script>
+</body>
+</html>

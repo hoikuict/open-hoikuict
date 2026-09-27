@@ -2,61 +2,42 @@
 {% block title %}出欠確認 | open-hoikuict{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-  <div class="flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-sky-600 p-6 text-white shadow-sm md:flex-row md:items-end md:justify-between">
-    <div>
-      <h1 class="text-2xl font-bold">出欠確認</h1>
-      <p class="mt-2 text-sm text-emerald-50">
-        {{ target_date_value }} の出欠確認です。打刻、保護者連絡、アラームを同じ画面で確認できます。
-      </p>
-    </div>
-    <div class="text-sm">
-      {% if current_user %}
-      <div>{{ current_user.name }} / {{ current_user.role_label }}</div>
-      <div class="mt-1 text-emerald-100">
-        {% if current_user.can_manage_attendance_checks %}
-        更新できます
-        {% else %}
-        閲覧のみです
-        {% endif %}
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
+<link rel="stylesheet" href="/static/css/attendance-compact.css?v=20260925-2">
+<div class="attendance-compact attendance-checks-page">
+  <header class="compact-head"><div><h1>出欠確認</h1><p>全園児の打刻・連絡・目視確認</p></div><a data-roster-link href="/attendance-checks/roster?date={{ target_date_value }}">名前一覧へ</a></header>
   <form
     method="get"
     action="/attendance-checks/"
-    class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    class="compact-toolbar"
     hx-get="/attendance-checks/"
     hx-target="#attendance-checks-board"
     hx-swap="outerHTML"
     hx-push-url="true"
   >
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-4 xl:grid-cols-5">
+    <div class="compact-filters">
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-600">日付</label>
-        <input type="date" name="date" value="{{ target_date_value }}" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <label for="checks-date" class="mb-1 block text-sm font-medium text-slate-600">日付</label>
+        <input type="date" id="checks-date" name="date" value="{{ target_date_value }}" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-600">表示形態</label>
-        <select name="layout" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <label for="checks-layout" class="mb-1 block text-sm font-medium text-slate-600">表示形態</label>
+        <select id="checks-layout" name="layout" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
           {% for option in layout_options %}
           <option value="{{ option.value }}" {% if selected_layout == option.value %}selected{% endif %}>{{ option.label }}</option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-600">絞り込み</label>
-        <select name="filter" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <label for="checks-filter" class="mb-1 block text-sm font-medium text-slate-600">絞り込み</label>
+        <select id="checks-filter" name="filter" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
           {% for option in status_filter_options %}
           <option value="{{ option.value }}" {% if selected_filter == option.value %}selected{% endif %}>{{ option.label }}</option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-600">クラス</label>
-        <select name="classroom_id" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <label for="checks-classroom_id" class="mb-1 block text-sm font-medium text-slate-600">クラス</label>
+        <select id="checks-classroom_id" name="classroom_id" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
           <option value="">すべて</option>
           {% for classroom in classrooms %}
           <option value="{{ classroom.id }}" {% if selected_classroom_id == classroom.id %}selected{% endif %}>{{ classroom.name }}</option>
@@ -69,45 +50,20 @@
     </div>
   </form>
 
+  <p id="verification-inline-error" role="alert" class="text-sm text-rose-700"></p>
   {% include "attendance_checks/_board.html" %}
 </div>
 
-<dialog id="unknown-contact-dialog" class="w-[min(92vw,32rem)] rounded-2xl border-0 p-0 shadow-2xl backdrop:bg-slate-900/40">
-  <div class="space-y-5 p-6">
-    <div>
-      <h2 class="text-lg font-semibold text-slate-900">保護者に連絡を入れますか？</h2>
-      <p id="unknown-contact-child" class="mt-2 text-sm font-medium text-slate-700"></p>
-      <p class="mt-3 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-        本日の連絡をいただいておりません。出席か欠席かお知らせください。
-      </p>
-    </div>
-    <div class="flex justify-end gap-3">
-      <button type="button" class="rounded-lg border border-slate-300 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onclick="submitUnknownContact(false)">いいえ</button>
-      <button type="button" class="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-500" onclick="submitUnknownContact(true)">はい</button>
-    </div>
-  </div>
+<dialog id="verification-dialog" class="rounded-xl p-5 shadow-xl backdrop:bg-slate-900/40 w-[min(92vw,32rem)]">
+  <form id="verification-confirm" class="space-y-4">
+    <h2 id="verification-title" class="font-bold text-lg"></h2>
+    <div class="flex gap-2"><button type="button" data-reason-preset="誤入力" class="rounded border px-3 py-2">誤入力</button><button type="button" data-reason-preset="変更連絡あり" class="rounded border px-3 py-2">変更連絡あり</button></div>
+    <label class="block text-sm">理由 <span id="verification-required"></span><textarea id="verification-reason" rows="3" maxlength="500" class="mt-1 w-full rounded border p-2"></textarea></label>
+    <p class="text-sm text-slate-600">記録者: {{ current_user.name }}。日時・変更前後の内容とともに残ります。</p>
+    <label id="verification-notify-label" class="block text-sm" hidden><input type="checkbox" id="verification-notify"> 保護者に出欠確認の通知を送る</label>
+    <p id="verification-error" role="alert" class="text-sm text-rose-700"></p>
+    <div class="flex justify-end gap-3"><button type="button" onclick="document.getElementById('verification-dialog').close()" class="rounded border px-4 py-2">戻る</button><button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-white">記録する</button></div>
+  </form>
 </dialog>
-
-<script>
-  let pendingUnknownContactForm = null;
-
-  function openUnknownContactDialog(form, childName) {
-    pendingUnknownContactForm = form;
-    const childLabel = document.getElementById("unknown-contact-child");
-    if (childLabel) childLabel.textContent = `${childName}さん`;
-    const dialog = document.getElementById("unknown-contact-dialog");
-    if (dialog && typeof dialog.showModal === "function") dialog.showModal();
-  }
-
-  function submitUnknownContact(shouldNotify) {
-    const form = pendingUnknownContactForm;
-    pendingUnknownContactForm = null;
-    const dialog = document.getElementById("unknown-contact-dialog");
-    if (dialog && dialog.open) dialog.close();
-    if (!form) return;
-    const notifyInput = form.querySelector("[data-notify-parent]");
-    if (notifyInput) notifyInput.value = shouldNotify ? "true" : "false";
-    form.requestSubmit();
-  }
-</script>
+<script src="/static/js/attendance-checks.js?v=20260925-1" defer></script>
 {% endblock %}

@@ -69,7 +69,7 @@ PARENT_SESSION_ABSOLUTE = timedelta(days=7)
 MAX_VERIFICATION_ATTEMPTS = 5
 PARENT_MAIL_LEASE = timedelta(minutes=2)
 PARENT_MAIL_RETRY_BASE = timedelta(seconds=30)
-PARENT_CODE_MAIL_TYPES = ("parent_activate", "parent_reset")
+PARENT_CODE_MAIL_TYPES = ("parent_activate", "parent_reset", "parent_resume")
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,18 +206,22 @@ def _linked_children(session: Session, parent_account_id: int):
     ).all()
 
 
-def parent_invitation_requirements(session: Session, account: ParentAccount) -> list[str]:
+def parent_invitation_requirements(session: Session, account: ParentAccount, *, allow_initial_restart: bool = False) -> list[str]:
+    if account.email_removed:
+        return ["メールアドレスが削除されているため招待できません"]
     from parent_enrollment import latest_enrollment, prepare_enrollment
     enrollment = latest_enrollment(session, account.id)
     if enrollment and not enrollment.applied_at:
         try:
             prepare_enrollment(session, account, enrollment.child_name, enrollment.child_id,
-                               0 if (enrollment.source_snapshot or {}).get("adding_guardian") else enrollment.guardian_order)
+                               0 if (enrollment.source_snapshot or {}).get("adding_guardian") else enrollment.guardian_order,
+                               allow_stopped=allow_initial_restart)
         except ValueError as exc:
             return [str(exc)]
         return []
     missing = []
-    if account.status != ParentAccountStatus.active:
+    credential = _credential_for_parent(session, account.id) if allow_initial_restart else None
+    if account.status != ParentAccountStatus.active and (not allow_initial_restart or (credential and credential.password_hash)):
         missing.append("有効な保護者だけを招待できます")
     if (
         not account.registration_verification_name
@@ -283,6 +287,20 @@ def issue_parent_invitation(
 ) -> tuple[ParentRegistrationRequest, str]:
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
+    if account.email_removed:
+        raise ValueError("メールアドレスが削除されているため招待できません")
+    credential = ensure_parent_credential(session, account)
+    if account.status != ParentAccountStatus.active:
+        if credential.password_hash:
+            raise ValueError("登録済みの保護者は「利用停止・再開」から操作してください")
+        from parent_account_lifecycle import claim_parent_lifecycle
+        now = claim_parent_lifecycle(session, account)
+        account.status = ParentAccountStatus.active
+        credential.disabled_at = None
+        credential.disabled_reason = None
+        credential.credential_version += 1
+        credential.updated_at = now
+        session.add_all([account, credential])
     from parent_enrollment import latest_enrollment, prepare_enrollment
     previous_enrollment = enrollment or latest_enrollment(session, account.id)
     if previous_enrollment and not previous_enrollment.applied_at:
@@ -291,7 +309,6 @@ def issue_parent_invitation(
                                         0 if (previous_enrollment.source_snapshot or {}).get("adding_guardian") else previous_enrollment.guardian_order)
     else:
         _validate_invitation_ledger(session, account)
-    credential = ensure_parent_credential(session, account)
     now = utc_now()
     recent_deliveries = session.exec(
         select(ParentMailDelivery)
@@ -477,9 +494,13 @@ def _action_code_mail_is_current(session: Session, delivery: ParentMailDelivery)
     if (
         credential is None or credential.principal_type != PRINCIPAL_PARENT
         or credential.parent_account_id != delivery.parent_account_id
-        or account is None or account.status != ParentAccountStatus.active
+        or account is None or account.email_removed
         or normalize_login_id(account.email) != normalize_login_id(delivery.recipient)
     ):
+        return False
+    if token.action == "parent_resume":
+        return bool(credential.password_hash and credential.disabled_at and account.status == ParentAccountStatus.inactive)
+    if account.status != ParentAccountStatus.active:
         return False
     if token.action == "parent_reset":
         return bool(credential.password_hash and credential.disabled_at is None)
@@ -1173,18 +1194,37 @@ def issue_parent_password_code(
     reason: str,
     action: str = "parent_reset",
     send_email: bool = False,
+    commit: bool = True,
 ) -> str:
     if not reason.strip():
         raise ValueError("操作理由を入力してください")
+    credential = ensure_parent_credential(session, account)
+    if account.email_removed:
+        raise ValueError("メールアドレスが削除されているため設定できません")
     if action == "parent_activate":
+        if credential.password_hash:
+            raise ValueError("登録済みの保護者は認証管理の「利用停止・再開」から操作してください")
         from parent_enrollment import latest_enrollment
         enrollment = latest_enrollment(session, account.id)
         if enrollment and not enrollment.applied_at:
             raise ValueError("保護者の初回入力を確認して承認してください")
+        pending_review = session.exec(select(ParentRegistrationRequest.id).where(
+            ParentRegistrationRequest.parent_account_id == account.id,
+            ParentRegistrationRequest.status == "pending_review",
+        )).first()
+        if pending_review:
+            raise ValueError("登録申請を確認して承認してください")
+        # Initial setup is also administered here, never by editing the ledger status.
+        from parent_account_lifecycle import claim_parent_lifecycle
+        claim_parent_lifecycle(session, account)
+        account.status = ParentAccountStatus.active
+        session.add(account)
         _validate_invitation_ledger(session, account)
+    elif action == "parent_resume":
+        if not credential.password_hash or not credential.disabled_at or account.status != ParentAccountStatus.inactive:
+            raise ValueError("再設定を伴う利用再開の対象ではありません")
     elif action != "parent_reset":
         raise ValueError("未対応の保護者資格情報操作です")
-    credential = ensure_parent_credential(session, account)
     if action == "parent_reset":
         if not credential.password_hash:
             raise ValueError("この保護者は初期登録を完了していません")
@@ -1193,8 +1233,6 @@ def issue_parent_password_code(
             or account.status != ParentAccountStatus.active
         ):
             raise ValueError("停止中の保護者には再設定コードを発行できません")
-    elif credential.password_hash and credential.disabled_at is None:
-        raise ValueError("有効な保護者には初期設定コードを発行できません")
     if send_email:
         _validate_action_code_mail_request(session, account)
     raw_code = issue_credential_action_token(
@@ -1227,8 +1265,8 @@ def issue_parent_password_code(
     if send_email:
         session.flush()
         token = session.get(CredentialActionToken, token_hash(raw_code))
-        action_path = "activate" if action == "parent_activate" else "reset"
-        label = "初回パスワード設定・利用再開" if action == "parent_activate" else "パスワード再設定"
+        action_path = {"parent_activate": "activate", "parent_reset": "reset", "parent_resume": "resume"}[action]
+        label = {"parent_activate": "初回パスワード設定", "parent_reset": "パスワード再設定", "parent_resume": "パスワード再設定を伴う利用再開"}[action]
         base_url = _registration_base_url()
         session.add(ParentMailDelivery(
             parent_account_id=account.id, action_token_hash=token.token_hash,
@@ -1247,7 +1285,8 @@ def issue_parent_password_code(
                 "心当たりがない場合や期限が切れた場合は施設へご連絡ください。"
             ),
         ))
-    session.commit()
+    if commit:
+        session.commit()
     return raw_code
 
 
@@ -1318,7 +1357,7 @@ def complete_parent_action_password(
     password: str,
     password_confirmation: str,
 ) -> ParentAccount:
-    if purpose not in {"parent_reset", "parent_activate"}:
+    if purpose not in {"parent_reset", "parent_activate", "parent_resume"}:
         raise AuthenticationFailed("手続きを最初からやり直してください")
     state = _get_registration_session(session, raw_state, purpose, consume=True)
     account = session.get(ParentAccount, state.parent_account_id)
@@ -1329,7 +1368,9 @@ def complete_parent_action_password(
         or credential.parent_account_id != account.id
     ):
         raise AuthenticationFailed("手続きを最初からやり直してください")
-    if account.status != ParentAccountStatus.active:
+    if account.email_removed or (purpose != "parent_resume" and account.status != ParentAccountStatus.active):
+        raise AuthenticationFailed("手続きを最初からやり直してください")
+    if purpose == "parent_resume" and not (credential.password_hash and credential.disabled_at and account.status == ParentAccountStatus.inactive):
         raise AuthenticationFailed("手続きを最初からやり直してください")
     if purpose == "parent_reset" and credential.disabled_at is not None:
         raise AuthenticationFailed("手続きを最初からやり直してください")
@@ -1345,12 +1386,15 @@ def complete_parent_action_password(
         normalized.encode(), normalize_password(password_confirmation).encode()
     ):
         raise PasswordPolicyError("確認用パスワードが一致しません")
-    now = utc_now()
+    from parent_account_lifecycle import claim_parent_lifecycle
+    now = claim_parent_lifecycle(session, account)
     credential.password_hash = hash_password(normalized)
     credential.password_changed_at = now
-    if purpose == "parent_activate":
+    if purpose in {"parent_activate", "parent_resume"}:
         credential.disabled_at = None
         credential.disabled_reason = None
+        credential.must_change_password = False
+        account.status = ParentAccountStatus.active
     credential.credential_version += 1
     credential.updated_at = now
     account.updated_at = now
@@ -1358,6 +1402,7 @@ def complete_parent_action_password(
     session.add(account)
     revoke_parent_sessions(session, account.id, "password_reset", now)
     disable_parent_push_subscriptions(session, account.id, "password_reset", now)
+    revoke_parent_recovery_artifacts(session, account.id, now)
     _event(
         session,
         event_type="password_reset"
@@ -1566,33 +1611,9 @@ def change_parent_login_id_by_admin(
 def disable_parent_authentication(
     session: Session, account: ParentAccount, actor_user: User, reason: str
 ) -> None:
-    if not reason.strip():
-        raise ValueError("操作理由を入力してください")
-    now = utc_now()
-    credential = suspend_parent_authentication(
-        session,
-        account,
-        reason=reason.strip(),
-        now=now,
-    )
-    session.add(
-        ParentCredentialProvisioningAudit(
-            parent_account_id=account.id,
-            credential_id=credential.id if credential else None,
-            operation="disable",
-            actor_user_id=actor_user.id,
-            reason=reason.strip(),
-        )
-    )
-    _event(
-        session,
-        event_type="credential_disabled",
-        result="success",
-        reason_code="admin_disabled",
-        credential=credential,
-        parent_account_id=account.id,
-    )
-    session.commit()
+    from parent_account_lifecycle import change_parent_lifecycle, parent_lifecycle_state
+    change_parent_lifecycle(session, account, actor_user, action="stop", reason=reason,
+                            revision=parent_lifecycle_state(session, account)["revision"])
 
 
 def suspend_parent_authentication(
@@ -1603,6 +1624,9 @@ def suspend_parent_authentication(
     now: datetime | None = None,
 ) -> PasswordCredential | None:
     disabled_at = now or utc_now()
+    account.status = ParentAccountStatus.inactive
+    account.updated_at = disabled_at
+    session.add(account)
     credential = _credential_for_parent(session, account.id)
     if credential and not credential.disabled_at:
         credential.disabled_at = disabled_at
@@ -1646,3 +1670,11 @@ def revoke_parent_recovery_artifacts(
         state.consumed_at = revoked_at
         session.add(state)
     cancel_open_parent_registrations(session, parent_account_id, revoked_at)
+    for delivery in session.exec(select(ParentMailDelivery).where(
+        ParentMailDelivery.parent_account_id == parent_account_id,
+        ParentMailDelivery.message_type.in_(PARENT_CODE_MAIL_TYPES),
+        ParentMailDelivery.status.in_(["pending", "processing"]),
+    )).all():
+        delivery.status = "cancelled"
+        delivery.next_retry_at = None
+        session.add(delivery)

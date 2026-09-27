@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>かんたん導入の操作モック | オープン保育ICT</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="wizard.js" defer></script>
+</head>
+<body>
+  <aside class="review-tools" aria-label="確認用の操作">
+    <div><strong>操作モック</strong><span>インストール・保存・送信は行いません。架空の情報でお試しください。</span></div>
+    <div class="review-selects">
+      <label>OS表示<select id="os"><option value="windows">Windows 11</option><option value="linux">Ubuntu 24.04 LTS</option></select></label>
+      <label>試す状態<select id="scenario"><option value="empty">はじめから</option><option value="partial">一部入力</option><option value="filled">入力済み</option><option value="invalid">入力エラー</option><option value="failure">準備中のエラー</option><option value="existing">すでに導入済み</option></select></label>
+    </div>
+  </aside>
+  <header class="brand"><span class="brand-mark" aria-hidden="true">育</span><div>オープン保育ICT<small>かんたん導入</small></div><span class="beta-tag">β版・試用</span></header>
+  <main class="layout">
+    <aside class="guide"><p class="eyebrow">はじめる準備を、ひとつずつ。</p><h1>いつものPCで、<br>保育ICTを試す。</h1><p>コマンドや難しい設定は、<br>アプリに任せる形にします。</p><ol id="steps" aria-label="導入の手順"></ol><div class="guide-note">この画面の対象は、1台での試用です。<br>園の端末や保護者との接続は、試用後に設定する案です。</div></aside>
+    <section class="card" id="wizard" aria-label="導入ウィザード"></section>
+  </main>
+  <footer class="page-footer">確認用の画面です。実際の名前・メールアドレス・パスワードは入力しないでください。<br>上の「OS表示」「試す状態」は確認用で、導入アプリには表示しません。</footer>
+  <dialog id="cancel-dialog" aria-labelledby="cancel-title"><h2 id="cancel-title">いったん中断しますか？</h2><p id="cancel-text"></p><div class="buttons"><button type="button" id="keep-working" class="secondary">続ける</button><button type="button" id="confirm-cancel" class="primary">中断する</button></div></dialog>
+</body>
+</html>

@@ -29,6 +29,7 @@ def workbench(monkeypatch):
                        "HOIKUICT_KIOSK_ACCESS_MODE": "open", "HOIKUICT_PARENT_MAIL_TRANSPORT": "capture"}.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setattr(auth, "_parent_portal_auth_backend", auth.MockParentPortalAuthBackend())
+    monkeypatch.setattr(guardian, "local_naive_now", lambda: datetime.combine(local_today(), datetime.min.time()).replace(hour=8))
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     @event.listens_for(engine, "connect")
     def foreign_keys(connection, _record):

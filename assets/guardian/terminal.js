@@ -38,10 +38,14 @@
   function updateClock() {
     if (clock && Number.isFinite(serverEpoch)) {
       clock.textContent = clockFormatter.format(new Date(serverEpoch + performance.now() - syncTick));
+      const closed = !!root.dataset.closingTime && clock.textContent.slice(0, 5) >= root.dataset.closingTime;
+      const message = document.getElementById('terminal-closed');
+      if (message) message.hidden = !closed;
+      document.querySelectorAll('form[action*="/child/"] button[type="submit"]').forEach(button => { button.hidden = closed; });
     }
   }
   updateClock();
-  setInterval(updateClock, 250);
+  repeat(updateClock, 250);
 
   document.querySelectorAll('form[method="post" i]').forEach(form => {
     if (!form.querySelector('[name="csrf_token"]')) {
@@ -133,6 +137,11 @@
       if (submitting || disposed) return;
       if (!navigator.onLine) throw new Error('Connection was lost during the check');
       if (status.kiosk !== true) throw new Error('Unexpected response');
+      if (root.dataset.closingTime && status.closing_time !== root.dataset.closingTime) {
+        available = true;
+        reset();
+        return;
+      }
       const epoch = Date.parse(status.server_time);
       if (Number.isFinite(epoch)) { serverEpoch = epoch; syncTick = performance.now(); updateClock(); }
       const label = document.getElementById('terminal-label');
@@ -174,6 +183,7 @@
     if (url.origin !== location.origin || !/^\/guardian(?:\/|$)/.test(url.pathname)) return;
     event.preventDefault();
     if (!navigator.onLine || !available || submitting) return;
+    if (url.pathname.includes('/child/') && root.dataset.closingTime && clock.textContent.slice(0, 5) >= root.dataset.closingTime) return;
     const data = new FormData(form, event.submitter);
     if (form.method.toLowerCase() === 'post') navigate(url.href, { method: 'POST', body: data });
     else { url.search = new URLSearchParams(data).toString(); navigate(url.href); }

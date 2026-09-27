@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from pickup_plan_service import pickup_revision
 from datetime import date, datetime
 
@@ -15,6 +16,9 @@ from testing_helpers import configure_test_environment
 class GuardianKioskTests(unittest.TestCase):
     def setUp(self):
         configure_test_environment()
+        clock = patch.object(guardian_module, "local_naive_now", return_value=datetime(2026, 7, 5, 8, 30))
+        clock.start()
+        self.addCleanup(clock.stop)
         self.engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},
@@ -83,8 +87,8 @@ class GuardianKioskTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         html = response.text
         self.assertIn('data-pickup-hour="07"', html)
-        self.assertIn('data-pickup-hour="21"', html)
-        self.assertIn('data-pickup-hour="22"', html)
+        self.assertNotIn('data-pickup-hour="21"', html)
+        self.assertNotIn('data-pickup-hour="22"', html)
         self.assertIn('data-pickup-minute="15"', html)
         self.assertIn('data-pickup-person="母"', html)
         self.assertIn('data-pickup-person="ファミリーサポート"', html)

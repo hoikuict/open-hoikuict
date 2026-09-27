@@ -1,0 +1,60 @@
+/* Static review only. Production assets are not changed. */
+body{overflow-wrap:anywhere}
+.preview-shell{max-width:1360px}
+.review-controls input[type=checkbox]{min-height:auto;width:auto;accent-color:#4f46e5}
+.review-controls label:has(input[type=checkbox]){display:flex;align-items:center}
+.check-hero{background:none;color:#243448;padding:0;margin:0 0 10px}
+.check-row .check-status button:focus-visible{outline:3px solid #818cf8;outline-offset:2px}
+.check-row .check-status button[aria-pressed=true]{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.record-form{display:grid;gap:22px}
+.record-form .field-grid{gap:22px}
+.record-form textarea{font-size:15px;line-height:1.65}
+.record-form .span-two{grid-column:1/-1}
+.field-help{font-size:12px;color:#64748b;font-weight:400}
+.record-tags{display:flex;flex-wrap:wrap;gap:8px}
+.record-tags label{display:flex;gap:6px;align-items:center;border:1px solid #dce4ed;background:#f8fafc;border-radius:18px;padding:8px 12px;font-size:13px}
+.record-tags input,.sharing-radios input{width:18px;height:18px;min-height:18px;padding:0;accent-color:#4f46e5}
+.sharing-radios{display:flex;gap:12px;flex-wrap:wrap}
+.sharing-radios label{display:flex;gap:8px;align-items:center;padding:12px 18px;border:1px solid #cbd5e1;border-radius:8px;min-height:48px;cursor:pointer}
+.sharing-radios label:has(:checked){background:#eef2ff;border-color:#6366f1;color:#3730a3}
+.sharing-summary{font-size:14px;padding:12px;background:#f1f5f9;border-radius:7px;margin-top:12px}
+.record-head{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.record-body{white-space:pre-wrap;line-height:1.9;font-size:15px;margin:20px 0}
+.record-list{display:grid;gap:18px;margin-top:20px}
+.record-list .card{margin:0}
+.record-list dl{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:12px 0}
+.record-list dt{color:#64748b;font-size:13px}
+.record-list dd{white-space:pre-wrap;margin:6px 0 0;font-size:14px}
+.record-filter{display:flex;flex-wrap:wrap;gap:6px}
+.record-list .meta{margin:8px 0;font-size:12px;color:#64748b}
+.record-revision{padding-top:16px;border-top:1px solid #e2e8f0}
+.record-form .error:empty{display:none}
+.kiosk-review{background:#edf2fa;border:1px dashed #9faec4;padding:10px 14px;margin:0 0 14px;font-size:12px}
+.kiosk-review .row{gap:10px}
+.kiosk-review select{font-size:12px;padding:5px 8px;min-height:32px}
+.kiosk-review a{font-weight:600}
+.kiosk-frame{max-width:1280px;background:#f8fafc}
+.kiosk-top{border-radius:0;margin:0;padding:16px 24px;min-height:106px;flex-wrap:nowrap}
+.kiosk-top strong{font-size:20px}
+.kiosk-top time{font-size:40px}
+.kiosk-top button{min-height:56px;white-space:nowrap}
+.kiosk-content{padding:24px}
+.kiosk-content>h1{font-size:24px;margin:0 0 16px;color:#374151}
+.kiosk-content .card{border-radius:8px;padding:16px;margin:0 0 20px}
+.kiosk-content h2{font-size:14px;color:#4b5563;margin:0 0 12px}
+.kiosk-names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.kiosk-names button{font-size:26px;font-weight:650;min-height:68px;padding:10px 8px;line-height:1.3;border-radius:8px;overflow-wrap:anywhere}
+.kiosk-class-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.kiosk-class-grid button{min-height:112px;font-size:22px}
+.terminal-bottom{display:flex;gap:12px;justify-content:space-between;align-items:center;color:#64748b;padding:0 24px 16px;font-size:12px}
+.terminal-bottom .quiet-exit{margin:0;white-space:nowrap;min-height:32px;border:1px solid #cbd5e1;padding:4px 10px}
+.terminal-only .review-bar,.terminal-only .app-header,.terminal-only .app-nav,.terminal-only .app-footer,.terminal-only .kiosk-review{display:none}
+.terminal-only #app{padding:0;min-height:0}
+.terminal-only .preview-shell{width:100%;max-width:none;margin:0;box-shadow:none;border:0}
+.terminal-only .kiosk-frame{max-width:none;min-height:100vh}
+.terminal-only .kiosk-content{max-width:1280px;margin:auto}
+.reason-shortcuts{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.reason-shortcuts button{min-height:44px}
+#check-save-error:empty{display:none}
+@container(min-width:768px){.kiosk-names,.kiosk-class-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.kiosk-names button{font-size:clamp(22px,2.5cqw,32px);min-height:74px}}
+@container(max-width:600px){.kiosk-content{padding:16px}.kiosk-content .card{padding:12px}.kiosk-top{padding:12px 16px;gap:8px}.kiosk-top time{font-size:28px}.kiosk-top strong{font-size:17px}.kiosk-top button{padding:6px 10px;font-size:12px}.kiosk-names{gap:8px}.kiosk-names button{font-size:23px;min-height:64px}.terminal-bottom{padding:0 16px 14px}.record-list dl{grid-template-columns:1fr}.record-form .field-grid{grid-template-columns:1fr}.sharing-radios label{flex:1}.record-filter button{font-size:12px;padding:8px}.record-form{gap:16px}}

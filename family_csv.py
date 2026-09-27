@@ -119,8 +119,7 @@ def add_diff(result, row_number, entity, entity_id, before, after):
     for key in sorted(set(before) | set(after)):
         old, new = before.get(key), after.get(key)
         if key == "guardians_data":
-            # Older demo snapshots store guardian order as "1"/"2" in JSON.
-            # Compare the same slot without mixing string and integer sort keys.
+            # Existing JSON may store the guardian order as either a string or an integer.
             old_profiles = {str(p["order"]): p for p in old or []}
             new_profiles = {str(p["order"]): p for p in new or []}
             for order in sorted(set(old_profiles) | set(new_profiles)):

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}閉園時刻 | open-hoikuict{% endblock %}
+{% block content %}
+<div class="max-w-2xl space-y-5"><a href="/settings" class="text-indigo-700">設定に戻る</a><h1 class="text-2xl font-bold">キオスクの閉園時刻</h1>
+  <p class="text-sm text-slate-600">閉園時刻ちょうど以降のお迎え予定ボタンを隠します。また、現在時刻が閉園時刻に達するとキオスクからの登降園・予定変更を受け付けません。必要な訂正は職員の管理画面で行ってください。</p>
+  {% if error %}<p role="alert" class="text-rose-700">{{ error }}</p>{% endif %}{% if saved %}<p role="status" class="text-emerald-700">閉園時刻を保存しました。</p>{% endif %}
+  <form method="post" class="flex flex-wrap items-end gap-4 rounded-xl border bg-white p-5"><label>閉園時刻（日本時間）<input type="time" name="closing_time" value="{{ closing_time }}" required min="00:01" max="23:59" class="mt-2 block rounded border p-3"></label><button class="rounded bg-indigo-600 px-5 py-3 text-white">保存する</button></form>
+  <h2 class="font-bold">変更履歴</h2>{% for item in history %}<p class="rounded border bg-white p-3 text-sm">{{ item.previous_closing_time }} → {{ item.closing_time }} / {{ item.changed_by_name }} / {{ item.changed_at|jst_datetime }}</p>{% else %}<p class="text-sm text-slate-500">変更履歴はありません。初期値は19:00です。</p>{% endfor %}
+</div>
+{% endblock %}

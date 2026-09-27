@@ -18,6 +18,7 @@ from scripts.backup_runtime import (
     _sqlite_path_from_url, _table_counts, _verification_payload, create_backup,
     verify_backup_set,
 )
+from scripts.backup_validation import portable_schedule
 
 
 @dataclass(frozen=True)
@@ -125,7 +126,7 @@ def inspect_backup(paths: RestorePaths, backup_id: str, actor_id: str) -> dict:
         root = backup_path(paths, backup_id)
         result = verify_backup_set(root)
         manifest = read_json(root / "manifest.json")
-        if manifest.get("format_version") != 1:
+        if manifest.get("format_version") not in (1, 2):
             raise RestoreError("このバックアップ形式は現在の本番版に対応していません。")
         allowed = set(os.getenv("HOIKUICT_RESTORE_COMPATIBLE_GIT_SHAS", "").split(","))
         allowed.discard("")
@@ -164,7 +165,7 @@ def list_backups(paths: RestorePaths) -> list[dict]:
             manifest = read_json(root / "manifest.json")
             if manifest.get("facility_ref", "") != os.getenv("HOIKU_NURSERY_REF", ""):
                 continue
-            eligible = manifest.get("format_version") == 1 and manifest.get("provenance", {}).get("git_sha") in allowed
+            eligible = manifest.get("format_version") in (1, 2) and manifest.get("provenance", {}).get("git_sha") in allowed
             result.append({"backup_id": root.name, "date": as_jst(manifest["finished_at_jst"]),
                            "children": manifest.get("table_counts", {}).get("children", 0),
                            "eligible": eligible, "reason": "実行前に整合性を再検査します。" if eligible else "このアプリ版・形式には未対応です。"})
@@ -221,16 +222,24 @@ def prepare_copy(paths: RestorePaths, backup_id: str, job_id: str, *, suffix: st
     except ValueError as exc:
         raise RestoreError("データ構造が現在のアプリ版と異なるため、復元を中止しました。") from exc
     _copy_attachment_tree(root / "storage", destination / "storage")
+    if read_json(root / "manifest.json")["format_version"] == 2:
+        schedule = portable_schedule(read_json(root / "settings/backup-schedule.json"))
+        (data / "backup-control").mkdir(mode=0o700)
+        atomic_json(data / "backup-control/schedule.json", {**schedule, "enabled": False})
     invalidate(data / "hoikuict.db", job_id)
     verify_payload(data / "hoikuict.db", data / "facility.sqlite", destination / "storage")
     return destination
 
 
-def fresh_backup(paths: RestorePaths) -> str:
+def fresh_backup(paths: RestorePaths, *, actor_ref: str) -> str:
     config = BackupConfig(output_root=paths.backups, database_url="sqlite:///" + (paths.data / "hoikuict.db").as_posix(),
                           facility_db=paths.data / "facility.sqlite", storage_root=paths.storage,
                           git_sha=os.environ["HOIKUICT_BACKUP_GIT_SHA"], app_image=os.environ["HOIKUICT_BACKUP_APP_IMAGE"],
                           compose_sha256=os.environ["HOIKUICT_BACKUP_COMPOSE_SHA256"],
+                          cloudflared_image=os.getenv("HOIKUICT_BACKUP_CLOUDFLARED_IMAGE", ""),
+                          recovery_kit_ref=os.getenv("HOIKUICT_BACKUP_RECOVERY_KIT_REF", ""),
+                          baseline_ref=os.getenv("HOIKUICT_BACKUP_BASELINE_REF", ""),
+                          actor_ref=actor_ref, retention_class="change",
                           environment=os.getenv("HOIKUICT_ENV", "production"), facility_ref=os.getenv("HOIKU_NURSERY_REF", ""),
                           quiesced=True)
     result = create_backup(config)
@@ -294,9 +303,13 @@ def apply_copy(paths: RestorePaths, prepared: Path) -> None:
             target.rmdir()
     control = paths.data / "backup-control"
     control.mkdir(mode=0o700, exist_ok=True)
-    try:
-        schedule = load_backup_schedule(control)
-    except Exception:
-        schedule = default_backup_schedule()
+    saved_schedule = prepared / "data/backup-control/schedule.json"
+    if saved_schedule.is_file():
+        schedule = portable_schedule(read_json(saved_schedule))
+    else:
+        try:
+            schedule = load_backup_schedule(control)
+        except Exception:
+            schedule = default_backup_schedule()
     atomic_json(control / "schedule.json", {**schedule, "enabled": False})
     verify_payload(paths.data / "hoikuict.db", paths.data / "facility.sqlite", paths.storage)

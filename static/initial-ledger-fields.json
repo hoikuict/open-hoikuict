@@ -1,0 +1,317 @@
+[
+  {
+    "group": "園児と所属",
+    "key": "きょうだいグループ",
+    "required": false,
+    "help": "きょうだいだけ同じ文字を入力。例 A。空欄なら園児ごとに別家庭。整理番号と家庭名は読み込み後に自動設定します。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "クラス名",
+    "required": false,
+    "help": "同じクラス名は1クラスとして登録する案です。空欄はクラス未設定。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "クラス表示順",
+    "required": false,
+    "help": "1以上の整数。同じクラスでは同じ値。空欄はファイルの初出順。",
+    "type": "integer",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "姓",
+    "required": true,
+    "help": "園児の姓と名を別の列へ貼り付けます。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "名",
+    "required": true,
+    "help": "園児の姓と名を別の列へ貼り付けます。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "姓カナ",
+    "required": true,
+    "help": "園児の氏名をカタカナで入力。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "名カナ",
+    "required": true,
+    "help": "園児の氏名をカタカナで入力。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "生年月日",
+    "required": true,
+    "help": "西暦の日付。例 2022/04/10。",
+    "type": "date",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "入園日",
+    "required": true,
+    "help": "西暦の日付。例 2026/04/01。",
+    "type": "date",
+    "options": []
+  },
+  {
+    "group": "園児と所属",
+    "key": "在園状態",
+    "required": true,
+    "help": "在園・卒園・退園から選択。",
+    "type": "select",
+    "options": [
+      "在園",
+      "卒園",
+      "退園"
+    ]
+  },
+  {
+    "group": "園児と所属",
+    "key": "性別",
+    "required": false,
+    "help": "未設定・男・女から選択。空欄は未設定。",
+    "type": "select",
+    "options": [
+      "未設定",
+      "男",
+      "女"
+    ]
+  },
+  {
+    "group": "園児と所属",
+    "key": "退園日",
+    "required": false,
+    "help": "必要な場合に西暦の日付で入力。",
+    "type": "date",
+    "options": []
+  },
+  {
+    "group": "住所と連絡先",
+    "key": "家庭住所",
+    "required": false,
+    "help": "家庭共通の住所。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "住所と連絡先",
+    "key": "家庭電話番号",
+    "required": false,
+    "help": "文字列で入力。先頭の0を維持します。",
+    "type": "phone",
+    "options": []
+  },
+  {
+    "group": "住所と連絡先",
+    "key": "園児住所",
+    "required": false,
+    "help": "家庭と異なる場合だけ入力。空欄は家庭住所を利用する案です。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "住所と連絡先",
+    "key": "園児電話番号",
+    "required": false,
+    "help": "家庭と異なる場合だけ入力。空欄は家庭電話番号を利用する案です。",
+    "type": "phone",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①姓",
+    "required": false,
+    "help": "この保護者の情報を入力する場合は姓・名の両方が必要です。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①名",
+    "required": false,
+    "help": "この保護者の情報を入力する場合は姓・名の両方が必要です。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①姓カナ",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①名カナ",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①続柄",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①メールアドレス",
+    "required": false,
+    "help": "連絡先として保存する案です。アカウント作成・招待送信は行いません。共用メールも記入できます。",
+    "type": "email",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①電話番号",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "phone",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①勤務先",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①勤務先住所",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者①",
+    "key": "保護者①勤務先電話番号",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "phone",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②姓",
+    "required": false,
+    "help": "この保護者の情報を入力する場合は姓・名の両方が必要です。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②名",
+    "required": false,
+    "help": "この保護者の情報を入力する場合は姓・名の両方が必要です。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②姓カナ",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②名カナ",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②続柄",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②メールアドレス",
+    "required": false,
+    "help": "連絡先として保存する案です。アカウント作成・招待送信は行いません。共用メールも記入できます。",
+    "type": "email",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②電話番号",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "phone",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②勤務先",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②勤務先住所",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "保護者②",
+    "key": "保護者②勤務先電話番号",
+    "required": false,
+    "help": "任意。同じ家庭の兄弟姉妹では同じ保護者情報にします。",
+    "type": "phone",
+    "options": []
+  },
+  {
+    "group": "任意の照合情報",
+    "key": "照合用氏名",
+    "required": false,
+    "help": "保護者の利用開始時に照合する園児名。空欄は園児氏名カナを使う案です。",
+    "type": "text",
+    "options": []
+  },
+  {
+    "group": "任意の照合情報",
+    "key": "照合用氏名種別",
+    "required": false,
+    "help": "照合用氏名とセットで入力。カナ名は kana、英字名は latin。",
+    "type": "select",
+    "options": [
+      "kana",
+      "latin"
+    ]
+  }
+]
