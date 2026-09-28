@@ -54,6 +54,8 @@ class PlanDocumentRow(SQLModel, table=True):
     schedule: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     monthly_sheet: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     monthly_sheet_key: Optional[str] = Field(default=None, unique=True, index=True)
+    annual_sheet: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    annual_sheet_key: Optional[str] = Field(default=None, unique=True, index=True)
     confirmation_items: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)

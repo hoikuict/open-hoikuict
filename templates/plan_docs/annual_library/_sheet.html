@@ -1,0 +1,44 @@
+<link rel="stylesheet" href="{{ static_asset_url('css/annual-library.css') }}">
+<div id="annual-plan-sheet" lang="ja" data-detail="{{ 'true' if detail_mode else 'false' }}">
+  {% if request.app.state.annual_library_fixture is defined %}<p class="annual-preview-note no-print">実装検証用：保存先は独立した一時データベースです。取り込み元の本文を表示しています。</p>{% endif %}
+  <header class="rd-chrome"><strong>年間指導計画</strong><span class="annual-status"></span><a class="annual-document-link" hidden>承認・文書情報</a></header>
+  <main class="rd-main">
+    {% if not detail_mode %}
+    <div class="annual-pickers no-print">
+      <label>年度 <input id="annual-year" type="number" min="1900" max="2199" value="{{ boot.school_year }}"></label>
+      <label>クラス <select id="annual-classroom">{% for c in classrooms %}<option value="{{ c.id }}" {% if c.id == boot.classroom_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+      <span>1歳児の様式</span>
+    </div>
+    <div class="annual-origin no-print">
+      <label>引き継ぐ年案 <select id="annual-origin"></select></label>
+      <button id="annual-import" type="button">選択した年案を表示</button>
+      <p class="annual-source-warning"></p>
+    </div>
+    {% endif %}
+    <div class="annual-empty" hidden>取り込み元または前年の年案を選ぶと、本文と開始位置を確認できます。</div>
+    <section class="annual-editor" hidden>
+      <div class="rd-heading"><div><h2>年間指導計画</h2><div class="rd-context"></div></div>
+        <div class="annual-actions no-print"><button id="annual-undo" type="button" disabled>戻す</button>
+          <button id="annual-print" type="button">印刷</button>{% if not detail_mode %}<button class="rd-save" id="annual-save" type="button">下書きを保存</button>{% endif %}</div>
+      </div>
+      <div class="rd-source no-print"><a class="annual-source-link" target="_blank" rel="noopener noreferrer"></a><span class="annual-source-range"></span></div>
+      <div class="rd-import-status no-print"><span class="rd-coverage"></span><span class="rd-pending"></span></div>
+      <div class="rd-tools no-print">
+        <button data-action="diff" type="button" aria-pressed="true">引き継ぎ元との差分</button>
+        <button data-action="reference" type="button" aria-pressed="true">原文と照合</button>
+        <span class="rd-change-count"></span>
+      </div>
+      <div class="rd-reference no-print" aria-label="引き継ぎ元の原文と照合"></div>
+      <div class="rd-paper"><div class="rd-scroll"><div class="rd-sheet">
+        <table class="rd-meta" aria-label="年間計画の基本情報"><colgroup><col style="width:17%"><col style="width:12%"><col style="width:24%"><col style="width:7%"><col style="width:9%"><col></colgroup><tbody>
+          <tr><td rowspan="2" class="rd-sheet-title"></td><th>クラス</th><th>担任名</th><th>園長印</th><th rowspan="2">年間の<br>ねらい</th><td rowspan="2" class="rd-annual"></td></tr>
+          <tr><td class="annual-class-label"></td><td><textarea id="annual-owner" class="rd-edit" maxlength="200" aria-label="担任名"></textarea></td><td><small>文書の承認履歴参照</small></td></tr>
+        </tbody></table>
+        <div class="rd-development"></div><div class="rd-support"></div><div class="rd-terms"></div>
+      </div></div><div class="rd-legend">● 文章の開始位置 · 推定の時期は原本と照合して確認 · 文章の長さは期間を表しません</div></div>
+    </section>
+    <footer class="no-print"><span id="annual-message" role="status" aria-live="polite"></span><span>本文を直接編集 · BS/Deleteで削除</span></footer>
+  </main>
+</div>
+<script id="annual-library-boot" type="application/json">{{ boot | tojson }}</script>
+<script src="{{ static_asset_url('js/annual-library.js') }}" defer></script>

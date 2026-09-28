@@ -21,6 +21,11 @@ MONTHLY_INDEXES = {
     "uq_monthly_sheet_key": "CREATE UNIQUE INDEX uq_monthly_sheet_key ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL",
     "ix_plan_documents_monthly_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_monthly_sheet_key ON plan_documents (monthly_sheet_key)",
 }
+ANNUAL_COLUMNS = {"annual_sheet": "JSON", "annual_sheet_key": "VARCHAR"}
+ANNUAL_INDEXES = {
+    "uq_annual_sheet_key": "CREATE UNIQUE INDEX uq_annual_sheet_key ON plan_documents(annual_sheet_key) WHERE annual_sheet_key IS NOT NULL",
+    "ix_plan_documents_annual_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_annual_sheet_key ON plan_documents (annual_sheet_key)",
+}
 
 
 def _tokens(sql):
@@ -123,11 +128,15 @@ def _sharing_project(rows):
 
 
 def _monthly_project(rows):
+    return _sheet_project(rows, MONTHLY_COLUMNS, MONTHLY_INDEXES)
+
+
+def _sheet_project(rows, columns, approved_indexes):
     """Accept exactly the nullable sheet columns and approved uniqueness indexes."""
     normalized, found, indexes = [], set(), set()
     for row in rows:
-        if row[0] == "index" and row[1] in MONTHLY_INDEXES:
-            if row[2] != "plan_documents" or _tokens(row[3]) != _tokens(MONTHLY_INDEXES[row[1]]):
+        if row[0] == "index" and row[1] in approved_indexes:
+            if row[2] != "plan_documents" or _tokens(row[3]) != _tokens(approved_indexes[row[1]]):
                 return None
             indexes.add(row[1])
             continue
@@ -135,7 +144,7 @@ def _monthly_project(rows):
             normalized.append(row)
             continue
         tokens = _tokens(row[3])
-        for name, kind in MONTHLY_COLUMNS.items():
+        for name, kind in columns.items():
             if name not in tokens:
                 continue
             index = tokens.index(name)
@@ -151,12 +160,16 @@ def _monthly_project(rows):
             found.add(name)
         normalized.append((*row[:3], " ".join(tokens)))
     if found or indexes:
-        if found != set(MONTHLY_COLUMNS) or not indexes:
+        if found != set(columns) or not indexes:
             return None
     return normalized, bool(found)
 
 
 def _project(rows):
+    annual = _sheet_project(rows, ANNUAL_COLUMNS, ANNUAL_INDEXES)
+    if annual is None:
+        return None
+    rows, has_annual = annual
     monthly = _monthly_project(rows)
     if monthly is None:
         return None
@@ -200,7 +213,7 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set())
+    return archive[0], ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set())
 
 
 def compatible(source_rows, current_rows):
@@ -241,6 +254,12 @@ def upgrade_copy(database, current_rows):
                     connection.execute(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
                 for row in current_rows:
                     if row[0] == "index" and row[1] in MONTHLY_INDEXES:
+                        connection.execute(row[3])
+            if "annual28" in missing:
+                for name, kind in ANNUAL_COLUMNS.items():
+                    connection.execute(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+                for row in current_rows:
+                    if row[0] == "index" and row[1] in ANNUAL_INDEXES:
                         connection.execute(row[3])
             for row in sorted(current_rows, key=lambda row: row[0] != "table"):
                 if row[:3] in expected:

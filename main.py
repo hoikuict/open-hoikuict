@@ -76,6 +76,7 @@ from plan_docs.routers.documents import router as plan_docs_documents_router
 from plan_docs.routers.home import router as plan_docs_home_router
 from plan_docs.routers.plans import router as plan_docs_plans_router
 from plan_docs.routers.monthly_library import router as monthly_library_router
+from plan_docs.routers.annual_library import router as annual_library_router
 from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
 from parent_push_operations import apply_parent_push_retention
 from parent_auth import parent_mail_worker_loop
@@ -202,6 +203,7 @@ app.include_router(plan_docs_plans_router, prefix="/plans")
 app.include_router(plan_docs_documents_router, prefix="/plans")
 app.include_router(plan_docs_bunrei_router, prefix="/plans")
 app.include_router(monthly_library_router, prefix="/plans")
+app.include_router(annual_library_router, prefix="/plans")
 
 @app.get("/switch-role", dependencies=[Depends(require_mock_staff_auth)])
 def switch_role(redirect: str = "/"):

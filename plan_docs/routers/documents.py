@@ -90,7 +90,7 @@ def _can_view_document(
     user: StaffUser,
     repository: SqlModelDocumentRepository,
 ) -> bool:
-    if document.monthly_sheet is not None and not user.actor_ref:
+    if (document.monthly_sheet is not None or document.annual_sheet is not None) and not user.actor_ref:
         return False
     if document.nursery_ref != user.nursery_ref:
         return False
@@ -262,6 +262,12 @@ def document_detail(
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
     monthly_boot = None
+    annual_boot = None
+    if document.annual_sheet is not None:
+        from .annual_library import _context as annual_context
+        annual_boot = annual_context(user, repository, document.annual_sheet["classroom_id"],
+                                     document.school_year, document.id)
+        annual_boot["editable"] = False
     if document.monthly_sheet is not None:
         from .monthly_library import _context
         monthly_boot = _context(user, repository, document.monthly_sheet["classroom_id"],
@@ -280,6 +286,7 @@ def document_detail(
         user=user,
         document=document,
         monthly_boot=monthly_boot,
+        annual_boot=annual_boot,
         status_options=list(DocumentStatus),
         lock_version=head.lock_version if head else 0,
         revisions=repository.revisions(document_id),
@@ -361,6 +368,8 @@ def edit_document_form(
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
     if document.monthly_sheet is not None:
         return RedirectResponse(f"/plans/monthly-library?document_id={document.id}", status_code=303)
+    if document.annual_sheet is not None:
+        return RedirectResponse(f"/plans/annual-library?document_id={document.id}", status_code=303)
     return render_template(
         request,
         "documents/edit.html",
@@ -381,6 +390,8 @@ async def update_document(
     document = _visible_document(document_id, user, repository)
     if document.monthly_sheet is not None:
         raise HTTPException(status_code=409, detail="帳票の月案編集画面から保存してください")
+    if document.annual_sheet is not None:
+        raise HTTPException(status_code=409, detail="帳票の年案編集画面から保存してください")
     _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
