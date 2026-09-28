@@ -91,6 +91,7 @@ def _render_staff_home(
     approval_queue_errors = []
     schedule_remaining_count = 0
     survey_pending_count = 0
+    attendance_attention_count = 0
     plan_notifications = []
     pending_plan_documents = []
     pending_notices = []
@@ -130,6 +131,21 @@ def _render_staff_home(
         schedule_error = "予定を取得できませんでした。再読み込みしてください。"
 
     try:
+        # Personal attention always covers every assigned classroom, independent
+        # of the attendance cards' scope and three-card display limit.
+        attention_classrooms, _ = classroom_scope(
+            session,
+            staff_user,
+            target_date,
+            unassigned_admin_all=False,
+        )
+        attention_summaries = build_attendance_summaries(
+            session,
+            attention_classrooms,
+            target_date,
+            attention_limit=0,
+        )
+        attendance_attention_count = sum(item.attention_count for item in attention_summaries)
         _survey_items, survey_pending_count = build_unanswered_survey_items(
             session,
             staff_user,
@@ -344,9 +360,8 @@ def _render_staff_home(
                 "url": f"/document-reviews/{item.id}"})
     approval_queue_items.sort(key=lambda item: item["requested_at"], reverse=True)
 
-    attendance_attention_count = sum(item.attention_count for item in attendance_summaries)
     attention_count = attendance_attention_count + survey_pending_count
-    assignment_names = [item.classroom.name for item in assignment_views]
+    assignment_names = list(dict.fromkeys(item.classroom.name for item in assignment_views))
     display_assignment_names = assignment_names[:3]
     assignment_remaining_count = max(len(assignment_names) - len(display_assignment_names), 0)
     classroom_remaining_count = max(len(classrooms) - len(attendance_summaries), 0)
@@ -376,7 +391,7 @@ def _render_staff_home(
             "next_schedule": next_schedule_item(schedule_items),
             "attention_count": attention_count,
             "attention_error": attention_error,
-            "attention_url": "/staff/attention?scope=all" if show_all else "/staff/attention",
+            "attention_url": "/staff/attention",
             "timeline_messages": timeline_messages,
             "timeline_error": timeline_error,
             "plan_notifications": plan_notifications,
@@ -415,20 +430,13 @@ def _render_staff_attention(
     survey_items = []
 
     try:
-        classrooms, assignment_views = classroom_scope(
+        classrooms, _ = classroom_scope(
             session,
             staff_user,
             target_date,
             show_all=show_all,
+            unassigned_admin_all=False,
         )
-        if staff_user.staff_role == "admin" and not assignment_views:
-            show_all = True
-            classrooms, assignment_views = classroom_scope(
-                session,
-                staff_user,
-                target_date,
-                show_all=True,
-            )
         summaries = build_attendance_summaries(
             session,
             classrooms,

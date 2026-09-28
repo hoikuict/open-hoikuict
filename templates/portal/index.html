@@ -36,7 +36,7 @@
         {% endif %}
         <a href="{{ attention_url }}" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
           <span class="block text-xs text-slate-300">要確認</span>
-          <strong class="mt-1 block text-2xl">{{ attention_count }}件</strong>
+          <strong class="mt-1 block text-2xl">{% if attention_error %}取得不可{% else %}{{ attention_count }}件{% endif %}</strong>
         </a>
         <a href="#attendance" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
           <span class="block text-xs text-slate-300">在園中</span>
@@ -259,6 +259,7 @@
     <section id="attention" class="rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm lg:col-span-4 sm:p-6">
       <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-600">Attention</p>
       <h2 class="mt-1 text-xl font-bold text-slate-900">要確認</h2>
+      <p class="mt-2 text-xs text-slate-500">集計対象：担当する全クラスの出欠・本人宛ての未回答アンケート</p>
       {% if attention_error %}
       <p class="mt-5 text-sm text-rose-700">{{ attention_error }}</p>
       {% else %}
