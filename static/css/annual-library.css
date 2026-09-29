@@ -87,6 +87,15 @@
 #annual-plan-sheet [role="alert"]{color:var(--rd-warn);}
 #annual-plan-sheet textarea{box-shadow:none;}
 #annual-plan-sheet button,#annual-plan-sheet summary{cursor:pointer;}
+#annual-plan-sheet .rd-source-grid .rd-grid-text{white-space:pre-wrap;overflow-wrap:anywhere;padding:6px 4px;vertical-align:middle;}
+#annual-plan-sheet .rd-source-grid .rd-grid-text:empty{padding:0;}
+#annual-plan-sheet .annual-reflections{margin-top:24px;}
+#annual-plan-sheet .annual-reflections h3{font-size:17px;margin:0 0 6px;}
+#annual-plan-sheet .annual-reflections p{font-size:12px;color:var(--rd-muted);}
+#annual-plan-sheet .annual-reflections details{padding:12px;margin:12px 0;background:var(--rd-paper);border:1px solid var(--rd-line);}
+#annual-plan-sheet .annual-reflections summary{font-size:13px;overflow-wrap:anywhere;}
+#annual-plan-sheet .annual-reflections table{min-width:860px;margin-top:12px;}
+#annual-plan-sheet .annual-reflections .rd-grid-text{padding:10px;vertical-align:top;}
 @media print{
   @page{size:A3 landscape;margin:12mm;}
   #annual-plan-sheet{border:0;background:white;color:black;}
@@ -94,6 +103,8 @@
   #annual-plan-sheet .rd-main,#annual-plan-sheet .rd-paper{padding:0;border:0;}
   #annual-plan-sheet .rd-scroll{overflow:visible;}
   #annual-plan-sheet .rd-sheet{min-width:0;}
+  #annual-plan-sheet .annual-reflections table{min-width:0;}
+  #annual-plan-sheet .annual-reflections{break-before:page;}
   #annual-plan-sheet .rd-entry[data-selected="true"],#annual-plan-sheet .rd-field[data-selected="true"],
   #annual-plan-sheet[data-diff="true"] .rd-entry[data-changed="true"],#annual-plan-sheet[data-diff="true"] .rd-field[data-changed="true"]{background:transparent;box-shadow:none;}
   #annual-plan-sheet tr{break-inside:avoid;}

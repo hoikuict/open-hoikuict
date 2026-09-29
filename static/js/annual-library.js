@@ -18,7 +18,7 @@
   };
   const label = x => x.kind ? `${x.kind === 'development' ? '発達の過程' : '保育士の関わり'} / ${x.category} / ${x.id.split('-')[1]}` :
     x.label + (x.period !== undefined ? ' / ' + boot.sheet.periods[x.period].label : '');
-  const time = (x, n) => n === 'annual' ? '通年' : x.kind === 'development' ?
+  const time = (x, n) => n === 'annual' ? '通年' : x.kind === 'development' || x.axis === 'age' ?
     `${Math.floor(n / 12)}歳${n % 12}か月頃` : `${(n + 3) % 12 + 1}月頃`;
   const timing = x => `${cells[x.id].confirmed ? '確認済み：' : '推定：'}${time(x, cells[x.id].start)}${cells[x.id].start === 'annual' ? '' : 'から'}`;
   const changed = id => {
@@ -79,12 +79,22 @@
   }
   function sectionMarkup(s) {
     const groups = [...new Set(s.items.map(x => x.category))];
-    const ticks = s.kind === 'development' ? s.ticks.filter(t => [12,18,24,30,35].includes(t.value)) : s.ticks;
+    const ticks = s.axis === 'age' ? s.ticks.filter(t => [5,9,12,15,18,21,23].includes(t.value)) :
+      s.kind === 'development' ? s.ticks.filter(t => [12,18,24,30,35].includes(t.value)) : s.ticks;
     const ratio = t => (t.x - s.ticks[0].x) / (s.ticks.at(-1).x - s.ticks[0].x) * 100;
     const title = s.kind === 'development' ? '発達の過程' : '保育士の関わり';
     return `<div class="rd-section-title"><strong>${title}</strong><small>${s.items.length}文</small></div><table aria-label="${title}"><colgroup><col style="width:79px"><col></colgroup><tbody>
-      <tr><th>${s.kind === 'development' ? '月齢' : '年度内の月'}</th><td><div class="rd-axis">${ticks.map(t => `<span style="left:${ratio(t)}%">${time(s.items[0], t.value).replace('頃', '')}</span>`).join('')}</div></td></tr>
+      <tr><th>${s.kind === 'development' || s.axis === 'age' ? '月齢' : '年度内の月'}</th><td><div class="rd-axis">${ticks.map(t => `<span style="left:${ratio(t)}%">${time(s.items[0], t.value).replace('頃', '')}</span>`).join('')}</div></td></tr>
       ${groups.map(category => `<tr><th class="rd-category" scope="row">${esc(category)}</th><td><div class="rd-board"><div class="rd-grid" aria-hidden="true">${ticks.map(t => `<i style="left:${ratio(t)}%"></i>`).join('')}</div>${s.items.filter(x => x.category === category).map(x => entry(x, s)).join('')}</div></td></tr>`).join('')}</tbody></table>`;
+  }
+  function gridMarkup(grid, title) {
+    const total = grid.widths.reduce((a, b) => a + b, 0);
+    return `<table class="rd-source-grid" aria-label="${esc(title)}"><colgroup>${grid.widths.map(w => `<col style="width:${100 * w / total}%">`).join('')}</colgroup><tbody>${grid.rows.map(row => `<tr>${row.map(c => `<td rowspan="${c.rowspan}" colspan="${c.colspan}"${c.field ? '' : ' class="rd-grid-text"'}>${c.field ? field(defs.get(c.field)) : esc(c.text)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  }
+  function renderReferences() {
+    const refs = boot.references || [];
+    $('.annual-reflections').hidden = !refs.length;
+    $('.annual-reflections').innerHTML = refs.length ? `<h3>Driveから取り込んだ反省・参考資料</h3><p>原本の記入済みの文章を表示しています。未記入の期は空欄です。</p>${refs.map(r => `<details ${r.primary ? 'open' : ''}><summary>${esc(r.status)} · ${esc(r.source.title)} · ${esc(r.source.sheet)}</summary><div class="rd-source no-print"><a href="${esc(r.source.url)}" target="_blank" rel="noopener noreferrer">Driveの原本を開く</a><span>${esc(r.source.range)}</span></div><div class="rd-scroll">${gridMarkup(r.grid, r.status)}</div></details>`).join('')}` : '';
   }
   function pack() {
     root.querySelectorAll('.rd-board').forEach(board => {
@@ -117,17 +127,20 @@
   function renderSheet() {
     if (!boot.sheet) return;
     const source = boot.sheet.source;
-    $('.rd-context').textContent = `${boot.school_year}年度 · ${boot.classroom_name} · 1歳児`;
+    $('.rd-context').textContent = `${boot.school_year}年度 · ${boot.classroom_name} · ${boot.age}歳児`;
     $('.rd-sheet-title').textContent = `${boot.school_year}年度\n${boot.nursery_name}\n年間指導計画`;
-    $('.annual-class-label').textContent = boot.classroom_name + '\n（1歳児）';
+    $('.annual-class-label').textContent = boot.classroom_name + `\n（${boot.age}歳児）`;
     $('#annual-owner').value = owner;
-    $('.rd-annual').innerHTML = field(defs.get('annual'));
+    $('.rd-annual').innerHTML = (source.annualFields || ['annual']).map(id => field(defs.get(id))).join('');
+    $('.rd-development').innerHTML = ''; $('.rd-support').innerHTML = '';
     source.sections.forEach(s => { $('.rd-' + s.kind).innerHTML = sectionMarkup(s); });
-    $('.rd-terms').innerHTML = `<table aria-label="各期の年間指導計画"><colgroup><col style="width:79px"><col><col><col><col></colgroup><thead><tr><th>期</th>${boot.sheet.periods.map(p => `<th>${esc(p.label)}</th>`).join('')}</tr></thead><tbody>${['goal','content','care'].map(k => `<tr><th scope="row">${esc(defs.get(k + ':0').label)}</th>${[0,1,2,3].map(i => `<td>${field(defs.get(k + ':' + i))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    $('.rd-terms').innerHTML = source.grid ? gridMarkup(source.grid, '各期の年間指導計画') : `<table aria-label="各期の年間指導計画"><colgroup><col style="width:79px"><col><col><col><col></colgroup><thead><tr><th>期</th>${boot.sheet.periods.map(p => `<th>${esc(p.label)}</th>`).join('')}</tr></thead><tbody>${['goal','content','care'].map(k => `<tr><th scope="row">${esc(defs.get(k + ':0').label)}</th>${[0,1,2,3].map(i => `<td>${field(defs.get(k + ':' + i))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     $('.annual-source-link').textContent = source.source.title;
     $('.annual-source-link').href = source.source.url;
     $('.annual-source-range').textContent = source.source.sheet + ' · ' + source.source.range;
-    $('.rd-coverage').textContent = `本文13欄・発達と関わり${source.sections.reduce((n, s) => n + s.items.length, 0)}文を反映`;
+    $('.rd-coverage').textContent = `本文${source.fields.length}欄・発達と関わり${source.sections.reduce((n, s) => n + s.items.length, 0)}文を反映`;
+    $('.rd-legend').hidden = !source.sections.length;
+    renderReferences();
     reference(); status(); requestAnimationFrame(pack);
   }
   function adopt(data) {
@@ -137,6 +150,7 @@
     if (!defs.has(selected)) selected = defs.keys().next().value;
     saved = value();
     $('.annual-status').textContent = data.status + (data.editable ? '' : ' · 閲覧のみ');
+    if ($('.annual-age-label')) $('.annual-age-label').textContent = data.age === null ? '' : `${data.age}歳児の様式`;
     $('.annual-document-link').hidden = !data.document_id;
     $('.annual-document-link').href = '/plans/documents/' + data.document_id;
     $('.annual-editor').hidden = !data.sheet;

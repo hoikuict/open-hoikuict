@@ -12,8 +12,8 @@ from ..contracts import DocumentStatus, DocumentType
 from ..db_models import PlanDocumentRow, PlanRevisionRow
 from ..models import PlanDocument
 from ..services.annual_library import (
-    OriginInput, SaveInput, TEMPLATE_ID, confirmation_items, digest, import_sheet,
-    pending_count, source_choices, validate_fields,
+    OriginInput, SaveInput, TEMPLATE_IDS, confirmation_items, digest, import_sheet,
+    pending_count, source_choices, validate_fields, class_key, reference_choices,
 )
 from ..store import ConcurrentUpdateError, DocumentRepositoryDep
 from ..templating import render_template
@@ -34,7 +34,7 @@ def _document(user, repository, document_id):
             or document.nursery_ref != user.nursery_ref):
         raise HTTPException(404, "年案が見つかりません")
     require_classroom_access(user, document.classroom_ref)
-    if document.annual_sheet.get("template_id") != TEMPLATE_ID:
+    if document.annual_sheet.get("template_id") not in TEMPLATE_IDS:
         raise HTTPException(409, "この年案の様式には対応していません")
     return document
 
@@ -46,10 +46,21 @@ def _scope(user, repository, classroom_id, school_year, document_id=None):
     if not classroom:
         raise HTTPException(404, "クラスが見つかりません")
     require_classroom_access(user, classroom.name)
-    key = json.dumps([user.nursery_ref, classroom_id, school_year, 1], ensure_ascii=False)
-    row = repository.session.exec(select(PlanDocumentRow).where(
-        PlanDocumentRow.annual_sheet_key == key)).first() if not document_id else None
-    found_id = document_id or (row.id if row else None)
+    ages = range(6)
+    if not document_id:
+        try:
+            matched = {s["age"] for s in source_choices(user.nursery_ref)
+                       if class_key(s["class_name"]) == class_key(classroom.name)}
+            if len(matched) == 1:
+                ages = matched
+        except HTTPException:
+            pass  # Saved documents remain accessible when external sources are unavailable.
+    keys = [json.dumps([user.nursery_ref, classroom_id, school_year, age], ensure_ascii=False) for age in ages]
+    rows = repository.session.exec(select(PlanDocumentRow).where(
+        PlanDocumentRow.annual_sheet_key.in_(keys))).all() if not document_id else []
+    if len(rows) > 1:
+        raise HTTPException(409, "年案が複数あります。文書一覧から対象を選択してください")
+    found_id = document_id or (rows[0].id if rows else None)
     document = _document(user, repository, found_id) if found_id else None
     if document and (document.school_year != school_year
                      or document.annual_sheet["classroom_id"] != classroom_id):
@@ -70,7 +81,7 @@ def _new_sheet(user, repository, classroom_id, school_year, origin):
             or not revision.snapshot.get("annual_sheet")):
         raise HTTPException(422, "前年の年案を選択してください")
     sheet = deepcopy(revision.snapshot["annual_sheet"])
-    if sheet.get("template_id") != TEMPLATE_ID:
+    if sheet.get("template_id") not in TEMPLATE_IDS:
         raise HTTPException(422, "前年の帳票の様式が異なります")
     sheet["classroom_id"] = classroom_id
     sheet["baseline"] = deepcopy(sheet["fields"])
@@ -85,7 +96,7 @@ def _previous_choices(user, repository, school_year):
     result = []
     for document in repository.list(nursery_ref=user.nursery_ref, document_type=DocumentType.ANNUAL_PLAN):
         if (document.school_year != school_year - 1 or not document.annual_sheet
-                or document.annual_sheet.get("template_id") != TEMPLATE_ID
+                or document.annual_sheet.get("template_id") not in TEMPLATE_IDS
                 or not user.can_access_classroom(document.classroom_ref)):
             continue
         head = repository.head(document.id)
@@ -111,19 +122,27 @@ def _context(user, repository, classroom_id, school_year, document_id=None, orig
         lock = head.lock_version
     elif origin:
         sheet, owner = _new_sheet(user, repository, classroom_id, school_year, origin)
-    sources, source_error = [], None
+    sources, references, source_error = [], [], None
     try:
         sources = source_choices(user.nursery_ref)
+        matches = [s for s in sources if class_key(s["class_name"]) == class_key(classroom.name)]
+        if matches:
+            sources = matches
+        references = reference_choices(user.nursery_ref, classroom.name, school_year)
+        current = [s for s in matches if s["year"] == school_year]
+        if not sheet and not origin and len(current) == 1:
+            sheet, owner = _new_sheet(user, repository, classroom_id, school_year,
+                                     OriginInput(kind="source", key=current[0]["key"]))
     except HTTPException as exc:
         source_error = exc.detail
     return {
         "document_id": document.id if document else None, "lock_version": lock,
         "classroom_id": classroom_id, "classroom_name": classroom.name,
-        "school_year": school_year, "age": 1, "nursery_name": user.nursery_ref,
+        "school_year": school_year, "age": sheet["age"] if sheet else None, "nursery_name": user.nursery_ref,
         "owner_name": owner, "sheet": sheet,
         "editable": user.can_edit and (not document or document.can_edit_body),
         "status": document.status_label if document else "未保存",
-        "sources": sources, "source_error": source_error,
+        "sources": sources, "references": references, "source_error": source_error,
         "previous": _previous_choices(user, repository, school_year),
         "pending_timings": pending_count(sheet) if sheet else 0,
     }
@@ -183,7 +202,7 @@ def save(payload: SaveInput, request: Request, user: CurrentUser, repository: Do
     if payload.source_digest != sheet["source_digest"]:
         raise HTTPException(409, "取り込み元が変更されています。入力内容は保持されています")
     sheet["fields"] = validate_fields(payload, sheet)
-    title = f"{payload.school_year}年度 年間指導計画（{classroom.name}・1歳児）"
+    title = f"{payload.school_year}年度 年間指導計画（{classroom.name}・{sheet['age']}歳児）"
     try:
         if document:
             repository.update_document(document.id, title=title, owner_name=payload.owner_name,
@@ -193,7 +212,7 @@ def save(payload: SaveInput, request: Request, user: CurrentUser, repository: Do
             document = repository.create(PlanDocument(id=0, document_type=DocumentType.ANNUAL_PLAN,
                 title=title, status=DocumentStatus.DRAFT, nursery_ref=user.nursery_ref,
                 classroom_ref=classroom.name, actor_ref=user.actor_ref, owner_name=payload.owner_name,
-                sections=[], annual_sheet=sheet, school_year=payload.school_year, age_class="1歳児",
+                sections=[], annual_sheet=sheet, school_year=payload.school_year, age_class=f"{sheet['age']}歳児",
                 confirmation_items=confirmation_items(sheet)))
     except (ConcurrentUpdateError, IntegrityError) as exc:
         repository.session.rollback()

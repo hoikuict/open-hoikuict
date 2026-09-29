@@ -7,7 +7,7 @@
     <div class="annual-pickers no-print">
       <label>年度 <input id="annual-year" type="number" min="1900" max="2199" value="{{ boot.school_year }}"></label>
       <label>クラス <select id="annual-classroom">{% for c in classrooms %}<option value="{{ c.id }}" {% if c.id == boot.classroom_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
-      <span>1歳児の様式</span>
+      <span class="annual-age-label"></span>
     </div>
     <div class="annual-origin no-print">
       <label>引き継ぐ年案 <select id="annual-origin"></select></label>
@@ -36,6 +36,7 @@
         </tbody></table>
         <div class="rd-development"></div><div class="rd-support"></div><div class="rd-terms"></div>
       </div></div><div class="rd-legend">● 文章の開始位置 · 推定の時期は原本と照合して確認 · 文章の長さは期間を表しません</div></div>
+      <section class="annual-reflections" hidden aria-label="取り込んだ反省・参考資料"></section>
     </section>
     <footer class="no-print"><span id="annual-message" role="status" aria-live="polite"></span><span>本文を直接編集 · BS/Deleteで削除</span></footer>
   </main>
