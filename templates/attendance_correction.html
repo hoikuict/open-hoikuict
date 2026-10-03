@@ -2,7 +2,7 @@
 {% block title %}打刻の取消・履歴 | open-hoikuict{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-3xl space-y-5">
-  <a href="{{ return_url }}" class="text-indigo-700 underline">{{ "出欠確認に戻る" if return_to == "checks" else "登降園管理に戻る" }}</a>
+  <a href="{{ return_url }}" class="text-indigo-700 underline">{{ "園児別・月間修正に戻る" if return_to == "monthly" else "出欠確認に戻る" if return_to == "checks" else "登降園管理に戻る" }}</a>
   <h1 class="text-2xl font-bold">打刻の取消・履歴</h1>
   <p class="text-xl font-semibold">{{ child.full_name }} / {{ record.attendance_date }}</p>
   <p>登園 {{ record.check_in_at.strftime('%H:%M') if record.check_in_at else '未打刻' }} ・ 降園 {{ record.check_out_at.strftime('%H:%M') if record.check_out_at else '未打刻' }}</p>
@@ -17,7 +17,7 @@
     <button class="rounded bg-rose-700 px-5 py-3 font-semibold text-white">確認した打刻を取り消す</button>
   </form>
   {% endif %}
-  <h2 class="text-lg font-bold">取消履歴</h2>
-  {% for item in history %}<article class="rounded border bg-white p-4"><p>{{ item.changed_at|jst_datetime }} / {{ item.changed_by_name }} / {{ '降園のみ' if item.operation == 'check_out' else '登園・降園' }}</p><p class="mt-2 whitespace-pre-wrap">{{ item.reason }}</p><p class="mt-2 text-sm text-slate-600">取消前の登園: {{ item.previous_values.get('check_in_at') or 'なし' }} ・ 降園: {{ item.previous_values.get('check_out_at') or 'なし' }}{% if item.previous_values.get('actual_pickup_person') %} ・ 実際にお迎えに来た人: {{ item.previous_values.get('actual_pickup_person') }}{% endif %}{% if item.previous_charge %} ・ 取消前の延長料金: {{ item.previous_charge.get('final_amount') }}円{% endif %}</p></article>{% else %}<p>取消履歴はありません。</p>{% endfor %}
+  <h2 class="text-lg font-bold">補記・修正・取消履歴</h2>
+  {% for item in history %}<article class="rounded border bg-white p-4"><p>{{ item.changed_at|jst_datetime }} / {{ item.changed_by_name }} / {{ correction_labels.get(item.operation, item.operation) }}</p><p class="mt-2 whitespace-pre-wrap">{{ item.reason }}</p><p class="mt-2 text-sm text-slate-600">変更前の登園: {{ item.previous_values.get('check_in_at') or 'なし' }} ・ 降園: {{ item.previous_values.get('check_out_at') or 'なし' }}{% if item.previous_values.get('actual_pickup_person') %} ・ 実際にお迎えに来た人: {{ item.previous_values.get('actual_pickup_person') }}{% endif %}{% if item.previous_charge %} ・ 変更前の延長料金: {{ item.previous_charge.get('final_amount') }}円{% endif %}</p>{% set after = item.previous_values.get("_time_correction", {}).get("after") %}{% if after %}<p class="mt-2 text-sm text-slate-600">変更後の登園: {{ after.get("check_in_at") or "なし" }} ・ 降園: {{ after.get("check_out_at") or "なし" }}</p>{% endif %}</article>{% else %}<p>補記・修正・取消履歴はありません。</p>{% endfor %}
 </div>
 {% endblock %}
