@@ -66,6 +66,7 @@
       {% endif %}
     </div>
 
+    {% if child.family_id and current_user.can_manage_child_records %}<p class="mb-4"><a href="/families/{{ child.family_id }}/care-certifications" class="text-indigo-700 underline">家族共通・園児個別の保育認定を設定</a></p>{% endif %}
     {% if care_message %}<div class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ care_message }}</div>{% endif %}
     {% if care_error %}<div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ care_error }}</div>{% endif %}
 

@@ -37,6 +37,7 @@ _GROUPS = (
     ("surveys", "アンケート回答", "件", ("survey_answers",)),
     ("photos", "家族に結びつく写真", "件", ("profile_photos",)),
     ("archive", "アーカイブ・復帰の履歴", "件", ("family_archive_logs",)),
+    ("care", "家族共通の保育認定・変更履歴", "件", ("family_care_certifications", "family_care_child_settings", "family_care_audits")),
 )
 
 

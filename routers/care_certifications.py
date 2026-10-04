@@ -15,6 +15,7 @@ from child_care_certification_service import (
     validate_certification,
 )
 from database import get_session
+from family_care_service import require_individual_mode
 from models import (
     CareNeedReason,
     CareTimeCategory,
@@ -41,6 +42,7 @@ def create_child_care_certification(
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
+    require_individual_mode(session, child_id)
     child = session.exec(
         select(Child).options(selectinload(Child.family)).where(Child.id == child_id)
     ).first()
@@ -98,6 +100,7 @@ def deactivate_child_care_certification(
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
+    require_individual_mode(session, child_id)
     certification = session.exec(
         select(ChildCareCertification)
         .options(selectinload(ChildCareCertification.reasons))

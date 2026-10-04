@@ -34,6 +34,7 @@ from routers.calendar import router as calendar_router
 from calendar_import import router as calendar_import_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.care_certifications import router as care_certifications_router
+from routers.family_care import router as family_care_router
 from routers.children import router as children_router
 from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
@@ -155,6 +156,7 @@ app.include_router(initial_ledger_router)
 app.include_router(families_router)
 app.include_router(children_router)
 app.include_router(care_certifications_router)
+app.include_router(family_care_router)
 app.include_router(child_records_router)
 app.include_router(child_health_router)
 app.include_router(child_change_requests_router)

@@ -200,7 +200,33 @@ def _fee_project(rows):
     return normalized, bool(found)
 
 
+def _family_care_schema():
+    from family_care_service import TABLES
+    with closing(sqlite3.connect(":memory:")) as connection:
+        for model in TABLES:
+            table = model.__table__
+            connection.execute(str(CreateTable(table).compile(dialect=dialect())))
+            for index in table.indexes:
+                connection.execute(str(CreateIndex(index).compile(dialect=dialect())))
+        rows = connection.execute(
+            "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+    return {row[:3]: _tokens(row[3]) for row in rows}
+
+
+def _family_care_project(rows):
+    expected = _family_care_schema()
+    found = {row[:3]: _tokens(row[3]) for row in rows if row[:3] in expected}
+    if found and found != expected:
+        return None
+    return [row for row in rows if row[:3] not in expected], bool(found)
+
+
 def _project(rows):
+    care = _family_care_project(rows)
+    if care is None:
+        return None
+    rows, has_care = care
     fee = _fee_project(rows)
     if fee is None:
         return None
@@ -252,7 +278,7 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
+    return archive[0], ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
 
 
 def compatible(source_rows, current_rows):
@@ -276,6 +302,8 @@ def upgrade_copy(database, current_rows):
         with connection:
             connection.execute("BEGIN")
             expected = {}
+            if "family_care" in missing:
+                expected.update(_family_care_schema())
             if "archive" in missing:
                 connection.execute("ALTER TABLE families ADD COLUMN archived_at DATETIME")
                 expected.update(_archive_schema())

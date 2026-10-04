@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}家族共通の保育認定 | open-hoikuict{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset_url('css/family-care.css') }}">{% endblock %}
+{% block content %}<div class="family-care" id="family-care" data-state="{{ care_state|tojson|forceescape }}" data-csrf="{{ request.state.csrf_token|default('') }}">
+{% if family_care_preview|default(false) %}<p class="note">実装画面の操作検証用です。すべて架空データで、本番には接続していません。</p>{% endif %}
+<main id="top"><nav class="breadcrumb"><a class="text-button" href="/families/">家族一覧</a><span>／</span><span>{{ family.identity_label }}</span><span>／</span><strong>保育認定</strong></nav>
+<div class="heading"><div><p class="eyebrow">家族・きょうだいの管理</p><h1>家族共通の保育認定</h1><p>家族で一度入力して、きょうだいに反映します。</p></div><span class="badge neutral">施設職員のみ</span></div>
+<section class="family-summary"><div><h2>{{ family.family_name }} <small>{{ family.display_code }}</small></h2><p>{% for guardian in care_state.guardians %}{{ guardian.name }}（{{ guardian.relationship }}）{% if not loop.last %}・{% endif %}{% endfor %}</p></div><div><strong>基本は家族共通</strong><p>違う認定が必要な園児だけ、個別設定を使います。</p></div></section>
+<div id="saved-message" role="status" hidden></div>
+<form id="cert-form" novalidate>
+<div id="errors" class="error" role="alert" tabindex="-1" hidden></div>
+<section class="card"><header class="card-heading"><div><span class="step">1</span><h2>家族共通の内容</h2></div><span id="common-state" class="badge"></span></header>
+<div class="card-body"><div id="current-common" class="current"></div><div class="operation"><label>登録方法<select id="operation"><option value="new">新しい適用期間を登録</option><option value="correct">登録済みの期間を訂正</option></select></label><p id="operation-help"></p></div><div id="common-fields"></div><label id="correction-row" hidden>訂正理由 <span class="required">必須</span><input id="correction-reason" maxlength="500" placeholder="例：認定通知の転記誤りを訂正"></label></div></section>
+<section class="card"><header class="card-heading"><div><span class="step">2</span><h2>園児への反映</h2></div><span id="counts" class="badge neutral"></span></header><div class="card-body"><p class="muted">家族共通を使う園児には、共通設定の変更も反映します。個別設定は園児ごとの内容を優先します。</p><div id="children"></div><div class="note"><strong>入園日以降に適用します</strong><p>入園予定の園児は入園日から反映。適用期間に在籍しない園児は対象外です。新しく家族に登録する園児も共通設定を引き継ぎます。既存園児の家族変更は変更日以降に反映します。</p></div></div></section>
+<section class="card impact"><header class="card-heading"><div><span class="step">3</span><h2>保存するとどう変わる？</h2></div><span class="badge neutral">入力内容に合わせて更新</span></header><div class="card-body"><div id="impact"></div><p class="muted">開始日より前の認定履歴を残します。過去の延長料金は、この保存では再計算しません。</p></div></section>
+<footer class="savebar"><p id="dirty-state"></p><div><button type="button" id="reset-draft">入力を元に戻す</button><button type="submit" class="primary">反映内容を確認する</button></div></footer>
+</form>
+<section class="card history"><header class="card-heading"><div><h2>登録・変更の履歴</h2><p>家族共通と園児ごとの設定を区別して残します。</p></div></header><div id="history" class="card-body"></div></section>
+<p class="footnote">認定の可否を判断する画面ではありません。決定された認定内容を施設で登録します。保護者画面には表示しません。</p></main>
+<dialog id="confirm"><header><h2>家族への反映内容</h2><button type="button" data-close="confirm" aria-label="確認を閉じる">×</button></header><div class="dialog-body"><p class="note">内容を確認してから、まとめて保存します。</p><div id="confirm-summary"></div><div id="confirm-impact"></div><div id="save-error" class="error" role="alert" hidden></div></div><footer><button type="button" data-close="confirm">入力に戻る</button><button type="button" id="save" class="primary">この内容を保存</button></footer></dialog>
+<dialog id="discard"><header><h2>未保存の入力を戻しますか？</h2></header><div class="dialog-body"><p>家族共通と園児ごとの入力を、最後に保存した状態へ戻します。</p></div><footer><button type="button" data-close="discard">戻さず続ける</button><button type="button" id="discard-yes">入力を元に戻す</button></footer></dialog>
+<dialog id="deactivate"><header><h2>家族共通の認定を無効化</h2></header><div class="dialog-body"><p id="deactivate-impact"></p><p class="note">これは誤登録の取消です。共通を使う園児はこの期間の認定が未登録となり、個別設定の園児は維持されます。</p><label>無効化理由 <span class="required">必須</span><input id="deactivate-reason" maxlength="500"></label><p id="deactivate-error" class="error" role="alert" hidden>無効化理由を入力してください。</p></div><footer><button type="button" data-close="deactivate">閉じる</button><button type="button" id="deactivate-yes" class="danger">無効化する</button></footer></dialog>
+</div><script src="{{ static_asset_url('js/family-care.js') }}" defer></script>{% endblock %}
