@@ -63,11 +63,25 @@ def latest_child(session, child_id):
     return next((r for r in list_certifications(session, child_id) if r.is_active), None)
 
 
+def child_care_context(session, child):
+    """Read-only detail context; sources describe snapshots, not today's family."""
+    certs = list_certifications(session, child.id)
+    setting = session.get(FamilyCareChildSetting, child.id)
+    sources = {}
+    for cert in certs:
+        link = session.get(FamilyCareCertificationLink, cert.id)
+        source = session.get(FamilyCareCertification, link.family_certification_id) if link else None
+        sources[cert.id] = ("家族共通" if source.family_id == child.family_id else "以前の家族共通") if source else "園児個別設定"
+    return dict(care_sources=sources,
+        care_mode_label="家族共通を使用中" if setting and setting.family_id == child.family_id and setting.mode == "inherit" else "園児個別設定" if certs else "未設定",
+        care_edit_url=f"/families/{child.family_id}/care-certifications#child-{child.id}" if child.family_id else f"/children/{child.id}/care-certifications")
+
+
 def bootstrap(session, family):
     members = list(session.exec(select(Child).where(Child.family_id == family.id).order_by(Child.id)).all())
     records = family_records(session, family.id)
     common = latest_common(session, family.id)
-    state = dict(common=deepcopy(common.data) if common else None, children={}, history=[])
+    state = dict(common=deepcopy(common.data) if common else None, children={}, history=[], childHistory={})
     children, revisions = [], []
     for child in members:
         setting = session.get(FamilyCareChildSetting, child.id)
@@ -77,6 +91,11 @@ def bootstrap(session, family):
         cert = next((r for r in certs if r.is_active), None)
         mode = setting.mode if setting else ("individual" if cert else "inherit")
         state["children"][str(child.id)] = dict(mode=mode, cert=child_plan(cert))
+        sources = child_care_context(session, child)["care_sources"]
+        state["childHistory"][str(child.id)] = [dict(id=r.id, cert=child_plan(r), active=r.is_active,
+            source=sources[r.id], reasons=[dict(name=x.guardian_name_snapshot,
+                relationship=x.relationship_snapshot, label=x.reason.label, other=x.other_reason_detail or "") for x in r.reasons],
+            canDeactivate=bool(r.is_active and mode == "individual" and not session.get(FamilyCareCertificationLink, r.id))) for r in certs]
         excluded = bool(child.withdrawal_date and child.withdrawal_date < local_today())
         children.append(dict(id=str(child.id), name=child.full_name,
             classroom=child.classroom.name if child.classroom else "クラス未設定",
@@ -211,6 +230,9 @@ def save_family(session, family, payload, actor):
         raise ValueError("新しい期間は登録済み期間の開始日より後にしてください。")
     # Validate every child's payload before modifying any record.
     normalized = {}
+    individual_reasons = payload.get("individualReasons") or {}
+    if not isinstance(individual_reasons, dict) or any(not isinstance(v, str) or len(v) > 500 for v in individual_reasons.values()):
+        raise ValueError("園児個別の訂正理由は500文字以内にしてください。")
     for item in before["children"]:
         entry = draft["children"][item["id"]]
         if not isinstance(entry, dict) or entry.get("mode") not in ("inherit", "individual"):
@@ -218,7 +240,7 @@ def save_family(session, family, payload, actor):
         if item["excluded"]:
             continue
         old_entry = before["store"]["children"][item["id"]]
-        unchanged_individual = entry["mode"] == old_entry["mode"] == "individual" and entry.get("cert") == old_entry["cert"]
+        unchanged_individual = entry["mode"] == old_entry["mode"] == "individual" and (entry.get("cert") or blank()) == (old_entry["cert"] or blank())
         normalized[item["id"]] = dict(mode=entry["mode"], cert=deepcopy(old_entry["cert"]) if unchanged_individual else normalize(entry.get("cert"),
             before["guardians"], item["name"]) if entry["mode"] == "individual" else None)
     if operation == "new":
@@ -257,7 +279,7 @@ def save_family(session, family, payload, actor):
                 if cert.is_active and source_record and source_record.family_id == family.id and (cert.effective_to is None or cert.effective_to >= boundary):
                     _end_record(session, cert, boundary - timedelta(days=1), actor, reason or "家族共通認定の期間切替")
         materialize(session, child, entry["cert"] if entry["mode"] == "individual" else plan,
-            before["guardians"], actor, reason or "家族認定画面から登録・切替",
+            before["guardians"], actor, (individual_reasons.get(item["id"], "").strip() if entry["mode"] == "individual" else "") or reason or "家族認定画面から登録・切替",
             source=common if entry["mode"] == "inherit" else None, floor=setting.joined_on)
     session.flush()
     after = bootstrap(session, family)
@@ -299,3 +321,66 @@ def require_individual_mode(session, child_id):
     setting = session.get(FamilyCareChildSetting, child_id)
     if setting and setting.mode == "inherit":
         raise HTTPException(409, "家族共通の保育認定画面から変更してください。園児だけ変える場合は個別設定を選びます。")
+
+
+def update_individual(session, family, payload, actor, *, deactivate=False):
+    """Save one child without creating/changing a common period or sibling."""
+    before = bootstrap(session, family)
+    if payload.get("revision") != before["revision"]:
+        raise HTTPException(409, "設定が更新されています。入力を控えて再読み込みしてください。")
+    child_id = str(payload.get("childId", ""))
+    if child_id not in before["store"]["children"]:
+        raise HTTPException(404, "この家族の園児が見つかりません。")
+    child = session.get(Child, int(child_id))
+    reason = str(payload.get("reason") or "").strip()
+    if len(reason) > 500:
+        raise ValueError("理由は500文字以内にしてください。")
+    old = before["store"]["children"][child_id]
+    if deactivate:
+        require_individual_mode(session, child.id)
+        record = next((r for r in list_certifications(session, child.id) if str(r.id) == str(payload.get("certificationId"))), None)
+        if not record or not record.is_active:
+            raise ValueError("無効化できる認定がありません。")
+        if session.get(FamilyCareCertificationLink, record.id):
+            raise ValueError("家族共通から反映した認定は、家族共通の操作から変更してください。")
+        deactivate_certification(session, record, reason=reason,
+            actor_user_id=actor.user_id, actor_name=actor.name)
+    else:
+        plan = normalize(payload.get("cert"), before["guardians"], child.full_name)
+        start = date.fromisoformat(plan["from"])
+        end = date.fromisoformat(plan["to"]) if plan["to"] else None
+        member = next(i for i in before["children"] if i["id"] == child_id)
+        floor = max(child.enrollment_date, date.fromisoformat(member["joined"]))
+        effective_start = max(start, floor)
+        ends = [d for d in (end, child.withdrawal_date) if d]
+        effective_end = min(ends) if ends else None
+        if effective_end and effective_start > effective_end:
+            raise ValueError("在籍している期間を指定してください。")
+        records = [r for r in list_certifications(session, child.id) if r.is_active]
+        overlaps = [r for r in records if max(start, floor) <= (r.effective_to or date.max) and r.effective_from <= (end or date.max)]
+        if overlaps and old["mode"] == "individual" and plan != old["cert"] and start <= max(r.effective_from for r in overlaps) and not reason:
+            raise ValueError("登録済みの認定を訂正する場合は訂正理由を入力してください。")
+        if any(r.effective_from > max(start, floor) for r in records):
+            # Preserve the old editor's ability to fill an earlier, non-overlapping period.
+            if overlaps or old["mode"] != "individual":
+                raise ValueError("後の期間に登録済みの認定があります。重複しない適用期間を指定してください。")
+            rows = [dict(guardian_order=i, guardian_name_snapshot=before["guardians"][i-1]["name"] if i <= len(before["guardians"]) else f"保護者{i}",
+                relationship_snapshot=before["guardians"][i-1]["relationship"] if i <= len(before["guardians"]) else "",
+                reason=CareNeedReason(plan[f"reason{i}"]), other_reason_detail=plan[f"other{i}"]) for i in (1, 2) if plan[f"reason{i}"]]
+            create_certification(session, child=child, care_time_category=CareTimeCategory(plan["category"]),
+                effective_from=effective_start, effective_to=effective_end,
+                internal_note=plan["note"], guardian_reasons=rows, actor_user_id=actor.user_id, actor_name=actor.name)
+        else:
+            materialize(session, child, plan, before["guardians"], actor,
+                reason or "園児個別の認定を登録", floor=floor)
+    setting = session.get(FamilyCareChildSetting, child.id)
+    if setting is None:
+        setting = FamilyCareChildSetting(child_id=child.id, family_id=family.id, joined_on=child.enrollment_date)
+    setting.mode = "individual"
+    session.add(setting)
+    session.flush()
+    after = bootstrap(session, family)
+    session.add(FamilyCareAudit(family_id=family.id, action="individual_deactivated" if deactivate else "individual_saved",
+        before_snapshot=before["store"], after_snapshot=after["store"], reason=reason,
+        actor_name=actor.name, actor_user_id=actor.user_id))
+    return after

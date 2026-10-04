@@ -985,6 +985,8 @@ def child_detail(
     guardian_profiles = child.family.guardian_profiles() if child.family else []
     care_certifications = list_certifications(session, child.id)
     active_care_certification = current_certification(session, child.id)
+    from family_care_service import child_care_context
+    care_context = child_care_context(session, child)
     config, _ = effective_config(session)
 
     return templates.TemplateResponse(
@@ -997,6 +999,7 @@ def child_detail(
             "guardian_profiles": guardian_profiles,
             "care_certifications": care_certifications,
             "active_care_certification": active_care_certification,
+            **care_context,
             "care_time_categories": list(CareTimeCategory),
             "care_need_reasons": list(CareNeedReason),
             "care_message": care_message,

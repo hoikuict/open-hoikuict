@@ -13,6 +13,8 @@ from test_care_certifications import CareCertificationTests
 if __name__ == '__main__':
     case=CareCertificationTests();case.setUp();case.current_user.role=Role.ADMIN
     case.app.include_router(router)
+    from routers.children import router as children_router
+    case.app.include_router(children_router)
     templates.env.globals['family_care_preview']=True
     with Session(case.engine) as session:
         first=session.get(Child,case.child_id);family_id=first.family_id
@@ -22,6 +24,9 @@ if __name__ == '__main__':
             session.add(child);session.flush()
             if name=='個別設定': individual_id=child.id
         session.commit()
+        orphan=Child(last_name='架空',first_name='家族未登録',last_name_kana='カクウ',first_name_kana='ミトウロク',
+            birth_date=date(2023,4,1),enrollment_date=date(2024,4,1))
+        session.add(orphan);session.commit()
     case.client.post(f'/children/{individual_id}/care-certifications',data=dict(
         care_time_category='short',effective_from='2026-04-01',guardian_reason_1='employment',guardian_reason_2='childcare_leave_continuation'))
     case.app.mount('/static',StaticFiles(directory=Path(__file__).resolve().parents[1]/'static'),name='static')
