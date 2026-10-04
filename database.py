@@ -855,6 +855,7 @@ def _migrate_care_certification_and_extended_care_columns() -> None:
         charge_cols = _table_columns("extended_care_charges")
 
         rule_additions = {
+            "fee_bands_json": "TEXT",
             "care_time_category": "VARCHAR(32)",
             "normal_start_time": "VARCHAR",
             "normal_end_time": "VARCHAR",
@@ -872,6 +873,7 @@ def _migrate_care_certification_and_extended_care_columns() -> None:
                 conn.execute(text(f"ALTER TABLE extended_care_fee_rules ADD COLUMN {column_name} {column_sql}"))
 
         charge_additions = {
+            "fee_breakdown_json": "TEXT",
             "certification_id": "INTEGER REFERENCES child_care_certifications(id)",
             "care_time_category_snapshot": "VARCHAR(32)",
             "calculation_version": "VARCHAR(32) DEFAULT 'legacy_v1' NOT NULL",
