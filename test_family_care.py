@@ -239,3 +239,23 @@ def test_readonly_verifier(case):
     from tools import verify_family_care_readonly
     with patch.object(verify_family_care_readonly,'engine',case.engine):
         assert verify_family_care_readonly.verify()['records_written']==0
+
+
+def test_cancelled_period_can_be_registered_again(case):
+    save(case);s=state(case)
+    assert case.client.post(case.endpoint+'/deactivate',json=dict(revision=s['revision'],reason='誤登録')).status_code==200
+    save(case,payload(case,'2026-10-01'))
+    with Session(case.engine) as session:
+        assert effective_certification(session,case.child_id,date(2026,10,1)) is not None
+
+
+def test_unchanged_legacy_individual_does_not_require_missing_reasons(case):
+    from models import ChildCareNeedReason
+    with Session(case.engine) as s:
+        cert=s.exec(select(ChildCareCertification).where(ChildCareCertification.child_id==case.individual_id)).one()
+        reason=s.exec(select(ChildCareNeedReason).where(ChildCareNeedReason.certification_id==cert.id,ChildCareNeedReason.guardian_order==2)).one()
+        s.delete(reason);s.commit()
+    save(case)
+    with Session(case.engine) as s:
+        cert=effective_certification(s,case.individual_id,date(2026,10,1))
+        assert len(cert.reasons)==1 and cert.care_time_category.value=='short'

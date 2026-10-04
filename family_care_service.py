@@ -207,7 +207,7 @@ def save_family(session, family, payload, actor):
     if operation == "correct":
         if not common or not reason or start != common.effective_from:
             raise ValueError("訂正理由を入力してください。登録済み期間の開始日は変更できません。")
-    elif records and start <= records[0].effective_from:
+    elif records and (start < records[0].effective_from or (common and start == common.effective_from)):
         raise ValueError("新しい期間は登録済み期間の開始日より後にしてください。")
     # Validate every child's payload before modifying any record.
     normalized = {}
@@ -217,7 +217,9 @@ def save_family(session, family, payload, actor):
             raise ValueError("園児の設定方法が不正です。")
         if item["excluded"]:
             continue
-        normalized[item["id"]] = dict(mode=entry["mode"], cert=normalize(entry.get("cert"),
+        old_entry = before["store"]["children"][item["id"]]
+        unchanged_individual = entry["mode"] == old_entry["mode"] == "individual" and entry.get("cert") == old_entry["cert"]
+        normalized[item["id"]] = dict(mode=entry["mode"], cert=deepcopy(old_entry["cert"]) if unchanged_individual else normalize(entry.get("cert"),
             before["guardians"], item["name"]) if entry["mode"] == "individual" else None)
     if operation == "new":
         if common and (common.effective_to is None or common.effective_to >= start):

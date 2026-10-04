@@ -36,10 +36,11 @@
   function current(c){
     const item=store.children[c.id],p=item.cert;
     if(!p)return null;
-    return {...p,from:[p.from,c.enrolled,c.joined].sort().at(-1),to:[p.to,c.left].filter(Boolean).sort()[0]||''};
+    return {...p};
   }
   function resolved(c,source=draft){
     const item=source.children[c.id],p=item.mode==='individual'?item.cert:source.common;
+    if(item.mode==='individual'&&same(item,store.children[c.id])&&p?.from)return {p,from:p.from,to:p.to,eligible:true,label:period(p)};
     if(!p?.from)return {p,from:'',to:'',eligible:!c.excluded,label:'適用開始日を入力してください'};
     const from=[p.from,c.enrolled,c.joined].sort().at(-1),to=[p.to,c.left].filter(Boolean).sort()[0]||'';
     return {p,from,to,eligible:!to||from<=to,label:`${from} 〜 ${to||'終了日なし'}`};
@@ -87,7 +88,7 @@
     check(draft.common,'common','家族共通');
     if(operation==='new'&&store.common&&draft.common.from<=store.common.from)errors.push({scope:'common',field:'from',message:'新しい期間は登録済み期間の開始日より後にしてください。同じ期間の修正は「登録済みの期間を訂正」を選びます。'});
     if(operation==='correct'&&!editReason.trim())errors.push({message:'訂正理由を入力してください。'});
-    children.filter(c=>!c.excluded&&draft.children[c.id].mode==='individual').forEach(c=>check(draft.children[c.id].cert,c.id,c.name));
+    children.filter(c=>!c.excluded&&draft.children[c.id].mode==='individual'&&!same(draft.children[c.id],store.children[c.id])).forEach(c=>check(draft.children[c.id].cert,c.id,c.name));
     return errors;
   }
   function renderErrors(){
