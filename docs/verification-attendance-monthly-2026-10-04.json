@@ -1,0 +1,79 @@
+{
+  "verified": true,
+  "completed_at_jst": "2026-10-04T07:55:04.808110+09:00",
+  "commit": "744d05fc95afedfffc79c4f93739b08cb38b396e",
+  "application_tests": {
+    "passed": 350,
+    "failed": 0,
+    "skipped": 0,
+    "collection_errors": 0,
+    "pytest": "8.4.2",
+    "verified": true
+  },
+  "production_attendance": {
+    "verified": true,
+    "read_only": true,
+    "records_written": 0,
+    "months": 2,
+    "child_months": 197,
+    "pages": 591,
+    "roles_verified": true,
+    "asset_sha256": {
+      "css/attendance-monthly.css": "297be95c292e95d04ef07db8b549b5a78ff542b780c8aa773edc68f56a0a1adc",
+      "js/attendance-monthly.js": "549c7f2b331fb7c2c8f1f2b4bcf21abce4edd828df125f2e39eea32d93d389ed"
+    }
+  },
+  "public_health": {
+    "verified": true,
+    "health": "ok",
+    "annual_login_required": true,
+    "attendance_login_required": true,
+    "rendered_asset_urls_checked": true,
+    "assets": {
+      "js/annual-library.js": {
+        "url": "/static/js/annual-library.js?v=a249d40618fe28ef",
+        "sha256": "a249d40618fe28ef94eb05848b7eab428f5d4255c30ca89e36475a6f55db1b24"
+      },
+      "css/annual-library.css": {
+        "url": "/static/css/annual-library.css?v=5284541921f1b6ed",
+        "sha256": "5284541921f1b6ed823a23badb6bf80ff4ba75cd349c448ddcdbdbabb02c59ea"
+      },
+      "js/monthly-library.js": {
+        "url": "/static/js/monthly-library.js?v=cb44a40ca1358949",
+        "sha256": "cb44a40ca13589499b55f16ad4f603dc2f432d7acf6987c3804a1d9e37fb7f26"
+      },
+      "css/monthly-library.css": {
+        "url": "/static/css/monthly-library.css?v=fbe5f1da3d3ff4b8",
+        "sha256": "fbe5f1da3d3ff4b880b2ea175c83ce8a7bc20dd3af320ba7154178d0496c7be2"
+      },
+      "js/daily-contact-list.js": {
+        "url": "/static/js/daily-contact-list.js?v=475cfe4f772c203b",
+        "sha256": "475cfe4f772c203b930e01f9ba3ace716a0808aae891ee77b19440408b31b691"
+      },
+      "css/daily-contact-list.css": {
+        "url": "/static/css/daily-contact-list.css?v=1ed3d256ac2f299b",
+        "sha256": "1ed3d256ac2f299b06c5b5cf76745e5273b9f3157163b14d5d2ddfcbca873be3"
+      },
+      "css/daily-contact-reply.css": {
+        "url": "/static/css/daily-contact-reply.css?v=67fa94d9f2dda576",
+        "sha256": "67fa94d9f2dda5760a9b8ffe0ecdda081faff074d05a38f52677946c4f3427e9"
+      },
+      "css/attendance-monthly.css": {
+        "url": "/static/css/attendance-monthly.css?v=20261004",
+        "sha256": "297be95c292e95d04ef07db8b549b5a78ff542b780c8aa773edc68f56a0a1adc"
+      },
+      "js/attendance-monthly.js": {
+        "url": "/static/js/attendance-monthly.js?v=20261004",
+        "sha256": "549c7f2b331fb7c2c8f1f2b4bcf21abce4edd828df125f2e39eea32d93d389ed"
+      }
+    },
+    "checked_at": "2026-10-03T22:56:11.527651+00:00",
+    "commit": "744d05fc95afedfffc79c4f93739b08cb38b396e"
+  },
+  "existing_backups_verified": 10,
+  "existing_attachments_preserved": 13,
+  "production_records_written_by_verification": 0,
+  "browser_operation_verification": "Local fictional-data UI verified; authenticated Chrome/Edge unavailable to this session.",
+  "backup": "/mnt/main/open-hoikuict-pilot/backups/before-attendance-monthly-20261003T224800Z",
+  "snapshot": "main/open-hoikuict-pilot/runtime@before-attendance-monthly-20261003T224800Z"
+}
