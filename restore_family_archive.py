@@ -1,4 +1,4 @@
-"""Recognize the approved additive archive and September 24/25 migrations."""
+"""Recognize the approved additive archive, plan and fee migrations."""
 
 from contextlib import closing
 import re
@@ -25,6 +25,10 @@ ANNUAL_COLUMNS = {"annual_sheet": "JSON", "annual_sheet_key": "VARCHAR"}
 ANNUAL_INDEXES = {
     "uq_annual_sheet_key": "CREATE UNIQUE INDEX uq_annual_sheet_key ON plan_documents(annual_sheet_key) WHERE annual_sheet_key IS NOT NULL",
     "ix_plan_documents_annual_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_annual_sheet_key ON plan_documents (annual_sheet_key)",
+}
+FEE_COLUMNS = {
+    "extended_care_fee_rules": {"fee_bands_json": "TEXT"},
+    "extended_care_charges": {"fee_breakdown_json": "TEXT"},
 }
 
 
@@ -165,7 +169,42 @@ def _sheet_project(rows, columns, approved_indexes):
     return normalized, bool(found)
 
 
+def _fee_project(rows):
+    """Recognize exactly both nullable fields; preserve all unrelated schema."""
+    normalized, found = [], set()
+    for row in rows:
+        if row[0] != "table" or row[1] not in FEE_COLUMNS:
+            normalized.append(row)
+            continue
+        tokens = _tokens(row[3])
+        for name in FEE_COLUMNS[row[1]]:
+            if name not in tokens:
+                continue
+            index = tokens.index(name)
+            end = index + 2
+            # SQLModel creates VARCHAR, while the production migration adds TEXT.
+            # Defaults, constraints, length limits and other types stay unsupported.
+            if tokens.count(name) != 1 or end >= len(tokens) or tokens[index + 1] not in {"TEXT", "VARCHAR"}:
+                return None
+            if tokens[end] == ",":
+                del tokens[index:end + 1]
+            elif tokens[end] == ")" and tokens[index - 1] == ",":
+                del tokens[index - 1:end]
+            else:
+                return None
+            found.add((row[1], name))
+        normalized.append((*row[:3], " ".join(tokens)))
+    expected = {(table, name) for table, fields in FEE_COLUMNS.items() for name in fields}
+    if found and found != expected:
+        return None
+    return normalized, bool(found)
+
+
 def _project(rows):
+    fee = _fee_project(rows)
+    if fee is None:
+        return None
+    rows, has_fee = fee
     annual = _sheet_project(rows, ANNUAL_COLUMNS, ANNUAL_INDEXES)
     if annual is None:
         return None
@@ -213,7 +252,7 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set())
+    return archive[0], ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
 
 
 def compatible(source_rows, current_rows):
@@ -261,6 +300,10 @@ def upgrade_copy(database, current_rows):
                 for row in current_rows:
                     if row[0] == "index" and row[1] in ANNUAL_INDEXES:
                         connection.execute(row[3])
+            if "fee_bands" in missing:
+                for table, fields in FEE_COLUMNS.items():
+                    for name, kind in fields.items():
+                        connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
             for row in sorted(current_rows, key=lambda row: row[0] != "table"):
                 if row[:3] in expected:
                     connection.execute(row[3])
