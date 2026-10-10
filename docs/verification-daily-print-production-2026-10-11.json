@@ -1,0 +1,72 @@
+{
+  "status": "production_deployed_and_verified",
+  "date": "2026-10-11",
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-10-10T23:50:52.605532+00:00",
+    "app_commit": "0291f13ca33771e7d03bf533f396590645b00b8f",
+    "image_id": "sha256:a0247d07f1c711d339e230611fedd093fffbe502661cfb7a03022ca0f4c75817",
+    "image_changes": [
+      "templates/plan_docs/documents/detail.html",
+      "static/css/daily-plan-print.css",
+      "static/js/daily-plan-print.js"
+    ],
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-daily-print-20261011-0291f13",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/daily-print-0291f13ca337",
+    "tests": {
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "pytest": "8.4.2",
+      "verified": true
+    },
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "6439dad39df628b991d7e79dd1635a38e43f25e773f5dbf7a0fff16155bc22cc",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "print_template": true,
+      "daily_only_assets": true,
+      "reflection_escaped_and_complete": true,
+      "editable_and_readonly": true,
+      "a4_portrait": true,
+      "internal_table_borders": false,
+      "existing_search_verified": true,
+      "business_records_written": 0
+    }
+  },
+  "independent_ssh_record_verification": true,
+  "deployment_guard_tests_passed": 8,
+  "public": {
+    "http_status": 200,
+    "document_id": 17,
+    "table_rows": 23,
+    "asset_hashes": {
+      "static/css/daily-plan-print.css": "20cb0a78a4831683e6a3e478618dd5431b82db4b93c580ff6893e8f509708739",
+      "static/js/daily-plan-print.js": "6fceabf2620bd415f6c5e154b01244279031474242967d68789ac01f3dc58468"
+    },
+    "internal_table_borders": false,
+    "print_reflection_visible": true,
+    "screen_reflection_unchanged": true,
+    "print_background_white": true,
+    "unfiltered_search_count": 30,
+    "browser_errors": [],
+    "business_write_requests": [],
+    "health": "ok"
+  },
+  "public_pdf": {
+    "document_id": 17,
+    "pages": 1,
+    "a4_portrait": true,
+    "all_table_content_preserved": true,
+    "reflection_preserved": true,
+    "visually_verified": true
+  },
+  "business_records_written_by_verification": 0
+}
