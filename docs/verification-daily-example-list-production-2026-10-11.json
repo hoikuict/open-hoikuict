@@ -1,0 +1,63 @@
+{
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-10-11T07:16:26.58192+09:00",
+    "app_commit": "ae885472c82c48e343d8eceeaecac1375c29b928",
+    "image_id": "sha256:8c6f28efa21d7b6e99b11a3329076b28b734479f96e6793bfffcdbe24d424ecc",
+    "image_changes": [
+      "templates/plan_docs/daily_plans/form.html",
+      "static/css/daily-example-list.css"
+    ],
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-daily-example-list-20261011-ae88547",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/daily-example-list-ae885472c82c",
+    "tests": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "pytest": "8.4.2",
+      "verified": true
+    },
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "6439dad39df628b991d7e79dd1635a38e43f25e773f5dbf7a0fff16155bc22cc",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "candidates": 10,
+      "initially_open": 0,
+      "summaries": 10,
+      "table_columns": 4,
+      "aims_content": true,
+      "business_records_written": 0
+    }
+  },
+  "public_browser": {
+    "url": "https://hikarinomori.hoikuict.net/plans/daily-plans/new?age_class=0%E6%AD%B3%E5%85%90&month=10",
+    "http_status": 200,
+    "candidates": 10,
+    "initially_closed": true,
+    "keyboard_toggle": true,
+    "multiple_details": true,
+    "open_close_preserves_draft": true,
+    "aims_content": true,
+    "columns": 4,
+    "copy_get_verified": true,
+    "copied_rows": 15,
+    "anonymous_save_disabled": true,
+    "viewport_widths": [
+      1440,
+      760,
+      390
+    ],
+    "browser_errors": [],
+    "business_write_requests": [],
+    "cloudflare_telemetry_requests": 2,
+    "css_sha256": "432f9fa28e8c77e560e1788aa27dfd3451f32335d5a35330aa9789b7fa981283",
+    "health": "ok"
+  }
+}
