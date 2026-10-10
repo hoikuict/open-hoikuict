@@ -29,6 +29,7 @@
     {% if corpus_error %}
       <div class="notice"><strong>文例DBを読み込めません</strong><span>{{ corpus_error }}</span></div>
     {% endif %}
+    <p class="field-note">年齢・月は、それぞれ「すべて」で絞り込みを外せます。</p>
     <form method="get" action="/plans/daily-plans/new" class="form-layout compact">
       <input name="target_date" type="hidden" value="{{ form_values.get('target_date', '') }}">
       <input name="classroom_ref" type="hidden" value="{{ form_values.get('classroom_ref', default_classroom_ref) }}">
@@ -36,15 +37,16 @@
         <label>
           <span>年齢</span>
           <select name="age_class">
-            <option value="">すべて</option>
+            <option value="" {% if not selected_age_class %}selected{% endif %}>すべて</option>
             {% for option in age_class_options %}
-              <option value="{{ option }}" {% if form_values.get('age_class') == option %}selected{% endif %}>{{ option }}</option>
+              <option value="{{ option }}" {% if selected_age_class == option %}selected{% endif %}>{{ option }}</option>
             {% endfor %}
           </select>
         </label>
         <label>
           <span>月</span>
           <select name="month">
+            <option value="" {% if selected_month is none %}selected{% endif %}>すべて</option>
             {% for value in range(1, 13) %}
               <option value="{{ value }}" {% if selected_month == value %}selected{% endif %}>{{ value }}月</option>
             {% endfor %}
@@ -92,13 +94,16 @@
                 </table>
               </div>
               <div class="daily-example-actions">
-                <a class="button button--secondary" href="/plans/daily-plans/new?age_class={{ example.age_class|urlencode }}&month={{ selected_month }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
+                <a class="button button--secondary daily-example-copy" href="/plans/daily-plans/new?age_class={{ selected_age_class|urlencode }}&month={{ selected_month if selected_month is not none else '' }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
                 <button class="button button--ghost close-daily-example" type="button">詳細を閉じる</button>
               </div>
             </div>
           </details>
         {% endfor %}
       </div>
+      {% if examples|length == 30 %}
+        <p class="field-note">候補は最大30件まで表示しています。必要に応じて年齢・月・キーワードで絞り込んでください。</p>
+      {% endif %}
       {% if corpus_info %}
         <p class="field-note">コーパス版: {{ corpus_info.get("corpus_version", corpus_info.get("generated_at", "不明")) }} / スキーマ: {{ corpus_info.get("schema_version", "不明") }}</p>
       {% endif %}
@@ -107,9 +112,13 @@
     {% endif %}
   </section>
 
+  <div class="notice" id="daily-example-feedback" role="status" hidden></div>
   <form class="form-layout" method="post" action="/plans/daily-plans" id="daily-draft">
     <input name="example_id" type="hidden" value="{{ form_values.get('example_id', '') }}">
     <input name="example_source_ref" type="hidden" value="{{ form_values.get('example_source_ref', '') }}">
+    <input name="search_age_class" type="hidden" value="{{ selected_age_class }}">
+    <input name="search_month" type="hidden" value="{{ selected_month if selected_month is not none else '' }}">
+    <input name="search_query" type="hidden" value="{{ search_query }}">
 
     <section class="form-panel">
       <h2>下書きの基本情報</h2>
@@ -217,7 +226,7 @@
   </template>
   <script>
     (() => {
-      document.querySelector(".daily-example-list")?.addEventListener("click", (event) => {
+      document.querySelector(".daily-example-panel")?.addEventListener("click", (event) => {
         const closeButton = event.target.closest(".close-daily-example");
         if (!closeButton) return;
         const card = closeButton.closest(".daily-example-card");
@@ -254,4 +263,5 @@
       });
     })();
   </script>
+  <script src="/static/js/daily-example-search.js"></script>
 {% endblock %}
