@@ -1,0 +1,58 @@
+/* Loaded only on daily-plan detail pages. Screen editing keeps its existing layout. */
+.daily-print-reflection,.daily-print-submitted-at{display:none}
+
+@page{size:A4 portrait;margin:8mm}
+@media print{
+body{margin:0;font-family:"Yu Gothic",Meiryo,sans-serif;font-size:10pt;line-height:1.3;color:#111!important;background:white!important}
+.no-print,.daily-print-empty{display:none!important}
+.plan-docs-content{padding:0!important;margin:0!important;min-width:0;background:white}
+.plan-docs-content .document-header{display:block;padding:0 0 5pt;margin:0}
+.plan-docs-content .document-header .eyebrow{display:none}
+.plan-docs-content h1{font-size:15pt;line-height:1.25;margin:0 0 3pt;color:#111}
+.plan-docs-content .lead{color:#333;font-size:9pt;margin:0;line-height:1.35}
+.plan-docs-content .report-sheet,.plan-docs-content .form-panel{border:0;border-radius:0;box-shadow:none;background:white;overflow:visible;margin:0;padding:0}
+.plan-docs-content .report-sheet__meta{display:flex;flex-wrap:wrap;gap:4pt 18pt;background:white;border-block:1px solid #777;font-size:9pt}
+.plan-docs-content .report-sheet__meta>span{padding:3pt 0;background:white}
+.plan-docs-content .report-sheet__meta>span:first-child{display:none}
+.plan-docs-content .report-sheet__approval{display:flex;gap:10pt;align-items:baseline}
+.plan-docs-content .report-sheet__approval small{font-size:8pt;color:#333}
+.plan-docs-content .report-section{padding:4pt 0;border-bottom:1px solid #bbb}
+.plan-docs-content .report-section__heading{gap:6pt;margin:0}
+.plan-docs-content h2{font-size:10.5pt;line-height:1.3;margin:0 0 3pt;color:#111}
+.plan-docs-content h3{font-size:10pt;line-height:1.3;margin:0 0 2pt}
+.plan-docs-content .report-section p{margin:0;line-height:1.35;white-space:pre-wrap}
+.plan-docs-content .report-sheet>.daily-print-purpose{display:grid;grid-template-columns:70pt 1fr;gap:6pt;align-items:baseline}
+.plan-docs-content .report-sheet>.daily-print-purpose h2{margin:0}
+.plan-docs-content .schedule-scroll{overflow:visible}
+.plan-docs-content .schedule-table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;border:.5pt solid #8a9991;font-size:10pt;line-height:1.2}
+.plan-docs-content .schedule-table th,.plan-docs-content .schedule-table td{border:0;padding:1.2pt 4pt;vertical-align:top;white-space:normal;overflow-wrap:anywhere}
+.plan-docs-content .schedule-table thead th{background:#eef3f0;font-size:9.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.plan-docs-content .schedule-table thead th:first-child{width:10%}
+.plan-docs-content .schedule-table thead th:nth-child(2){width:28%}
+.plan-docs-content .schedule-table thead th:nth-child(3){width:31%}
+.plan-docs-content .schedule-table thead th:nth-child(4){width:31%}
+.plan-docs-content .schedule-table tbody th span{display:block;white-space:pre-wrap}
+.plan-docs-content .daily-print-cell-body{white-space:pre-wrap}
+.plan-docs-content .schedule-table tr{break-inside:avoid}
+.plan-docs-content .schedule-table thead{display:table-header-group;border-bottom:.5pt solid #8a9991}
+.plan-docs-content .report-section__footer{font-size:8pt}
+.plan-docs-content .daily-reflection-panel{padding:5pt 0;border-bottom:1px solid #aaa;break-inside:auto}
+.plan-docs-content .daily-reflection-panel .eyebrow,.plan-docs-content .daily-reflection-panel .field-note,.plan-docs-content .daily-reflection-panel label{display:none}
+.plan-docs-content .daily-reflection-panel .form-layout{display:none}
+.plan-docs-content .reflection-status{font-size:8.5pt;font-weight:500;color:#333;background:none;padding:0;border:0}
+.plan-docs-content .execution-change-panel{padding:5pt 0;break-inside:auto}
+.plan-docs-content .execution-change-panel>.lead{display:none}
+.plan-docs-content .execution-change-panel p{font-size:9pt;margin:0 0 2pt;line-height:1.35;white-space:pre-wrap}
+.plan-docs-content .execution-change-panel .edit-section>p{white-space:normal}
+.plan-docs-content .execution-change-panel .edit-section-list{display:block}
+.plan-docs-content .execution-change-panel .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10pt;margin:3pt 0}
+.plan-docs-content .status{font-size:8pt;min-width:0;background:none;border:0;padding:0}
+body > .min-h-screen{display:block!important;min-height:0!important}
+.plan-docs-content .daily-print-purpose>.report-section__footer,.plan-docs-content .daily-print-purpose>.inline-note{grid-column:2}
+.plan-docs-content .daily-reflection-screen{display:none}
+.plan-docs-content .daily-print-reflection{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;line-height:1.35;orphans:2;widows:2}
+.plan-docs-content .daily-print-submitted-at{display:block;font-size:8pt;margin-top:2pt;color:#444}
+.plan-docs-content .execution-change-panel .edit-section{break-inside:avoid}
+.plan-docs-content .notice{padding:4pt 0;margin:4pt 0;border-radius:0;box-shadow:none;background:white;font-size:9pt}
+.plan-docs-content .report-section__heading{break-after:avoid}
+}
