@@ -1,0 +1,56 @@
+.plan-docs-content .daily-example-list-heading,
+.plan-docs-content .daily-example-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 105px 94px;
+  gap: 16px;
+  align-items: center;
+}
+.plan-docs-content .daily-example-list-heading {
+  margin-top: 20px;
+  padding: 9px 16px;
+  color: var(--plan-muted);
+  font-size: 13px;
+  border-bottom: 1px solid var(--plan-line);
+}
+.plan-docs-content .daily-example-list-heading span:last-child { text-align: right; }
+.plan-docs-content .daily-example-list {
+  border: 1px solid var(--plan-line);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+.plan-docs-content .daily-example-card + .daily-example-card { border-top: 1px solid var(--plan-line); }
+.plan-docs-content .daily-example-summary { padding: 13px 16px; list-style: none; background: white; cursor: pointer; }
+.plan-docs-content .daily-example-summary::-webkit-details-marker { display: none; }
+.plan-docs-content .daily-example-summary:hover { background: #f4faf8; }
+.plan-docs-content .daily-example-summary:focus-visible { outline: 3px solid #68a99e; outline-offset: -3px; }
+.plan-docs-content .daily-example-activity { font-size: 15px; font-weight: 700; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.plan-docs-content .daily-example-age-month { color: var(--plan-muted); font-size: 13px; white-space: nowrap; }
+.plan-docs-content .daily-example-toggle { text-align: right; color: var(--plan-primary-strong); font-size: 13px; white-space: nowrap; }
+.plan-docs-content .daily-example-toggle::before { content: '詳細を開く'; }
+.plan-docs-content .daily-example-toggle::after { content: ' ＋'; }
+.plan-docs-content .daily-example-card[open] > .daily-example-summary { background: #eef5f3; }
+.plan-docs-content .daily-example-card[open] .daily-example-toggle::before { content: '閉じる'; }
+.plan-docs-content .daily-example-card[open] .daily-example-toggle::after { content: ' −'; }
+.plan-docs-content .daily-example-detail { padding: 20px; border-top: 1px solid var(--plan-line); }
+.plan-docs-content .daily-example-detail-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; color: var(--plan-muted); font-size: 13px; overflow-wrap: anywhere; }
+.plan-docs-content .daily-example-purpose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.plan-docs-content .daily-example-purpose h3 { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
+.plan-docs-content .daily-example-purpose p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; background: #f8faf9; padding: 12px; border-radius: 6px; }
+.plan-docs-content .daily-example-actions { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.plan-docs-content .daily-example-detail .daily-plan-grid-preview { max-height: none; }
+.plan-docs-content #daily-draft,
+.plan-docs-content .daily-example-panel .form-layout { grid-template-columns: minmax(0, 1fr); }
+.plan-docs-content #daily-draft .form-panel,
+.plan-docs-content #daily-draft .daily-plan-grid-scroll { min-width: 0; max-width: 100%; }
+.plan-docs-content #daily-draft .daily-plan-grid-scroll { contain: inline-size paint; }
+.plan-docs-content #daily-draft { scroll-margin-top: 20px; }
+@media (max-width: 780px) {
+  .plan-docs-content .daily-example-summary,
+  .plan-docs-content .daily-example-list-heading { grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
+  .plan-docs-content .daily-example-list-heading span:nth-child(2) { display: none; }
+  .plan-docs-content .daily-example-age-month { grid-column: 1; grid-row: 2; }
+  .plan-docs-content .daily-example-toggle { grid-column: 2; grid-row: 1 / 3; }
+  .plan-docs-content .daily-example-purpose { grid-template-columns: 1fr; }
+  .plan-docs-content .daily-example-detail { padding: 14px; }
+}
