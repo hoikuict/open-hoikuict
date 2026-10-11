@@ -103,14 +103,16 @@ def _context(user, repository, classroom_id, target_month, age, document_id=None
 
 @router.get("")
 def page(request: Request, user: CurrentUser, repository: DocumentRepositoryDep,
-         document_id: int | None = None):
+         document_id: int | None = None, classroom_id: int | None = None,
+         target_month: str | None = None, age: int = Query(default=0, ge=0, le=5)):
     require_actor(user, request)
     classrooms = [c for c in repository.session.exec(
         select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
         if user.can_access_classroom(c.name)]
     if not classrooms:
         raise HTTPException(403, "参照できるクラスがありません")
-    classroom_id, target_month, age = classrooms[0].id, local_today().strftime("%Y-%m"), 0
+    classroom_id = classroom_id or classrooms[0].id
+    target_month = target_month or local_today().strftime("%Y-%m")
     if document_id:
         document = repository.get(document_id)
         if not document or not document.monthly_sheet or document.nursery_ref != user.nursery_ref:

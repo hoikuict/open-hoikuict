@@ -2,6 +2,7 @@
 {% block title %}{{ document.title }} | hoiku-plan-docs{% endblock %}
 {% block head %}
   {{ super() }}
+  {% if document.weekly_sheet %}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endif %}
   {% if document.document_type.value == "daily_plan" %}
     <link rel="stylesheet" href="/static/css/daily-plan-print.css">
   {% endif %}
@@ -133,7 +134,8 @@
     </form>
   </section>
 
-  <article class="report-sheet" {% if annual_boot %}hidden{% endif %}>
+  {% if document.weekly_sheet %}{% include "plan_docs/weekly_library/_report.html" %}{% endif %}
+  <article class="report-sheet" {% if annual_boot or document.weekly_sheet %}hidden{% endif %}>
     <header class="report-sheet__meta">
       <span>{{ document.document_type_label }}</span>
       <span>

@@ -16,6 +16,11 @@ SPEC_COLUMNS = {
     },
 }
 SHARING_COLUMNS = {"child_observation_logs": {"visibility": "VARCHAR", "shared_staff_ids": "JSON"}}
+WEEKLY_COLUMNS = {"weekly_sheet": "JSON", "weekly_sheet_key": "VARCHAR"}
+WEEKLY_INDEXES = {
+    "uq_weekly_sheet_key": "CREATE UNIQUE INDEX uq_weekly_sheet_key ON plan_documents(weekly_sheet_key) WHERE weekly_sheet_key IS NOT NULL",
+    "ix_plan_documents_weekly_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_weekly_sheet_key ON plan_documents (weekly_sheet_key)",
+}
 MONTHLY_COLUMNS = {"monthly_sheet": "JSON", "monthly_sheet_key": "VARCHAR"}
 MONTHLY_INDEXES = {
     "uq_monthly_sheet_key": "CREATE UNIQUE INDEX uq_monthly_sheet_key ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL",
@@ -236,6 +241,10 @@ def _project(rows):
     if fee is None:
         return None
     rows, has_fee = fee
+    weekly = _sheet_project(rows, WEEKLY_COLUMNS, WEEKLY_INDEXES)
+    if weekly is None:
+        return None
+    rows, has_weekly = weekly
     annual = _sheet_project(rows, ANNUAL_COLUMNS, ANNUAL_INDEXES)
     if annual is None:
         return None
@@ -283,7 +292,7 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"reflections"} if reflection_rows else set()) | ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
+    return archive[0], ({"weekly11"} if has_weekly else set()) | ({"reflections"} if reflection_rows else set()) | ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
 
 
 def _reflection_schema():
@@ -340,6 +349,12 @@ def upgrade_copy(database, current_rows):
                     connection.execute(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
                 for row in current_rows:
                     if row[0] == "index" and row[1] in MONTHLY_INDEXES:
+                        connection.execute(row[3])
+            if "weekly11" in missing:
+                for name, kind in WEEKLY_COLUMNS.items():
+                    connection.execute(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+                for row in current_rows:
+                    if row[0] == "index" and row[1] in WEEKLY_INDEXES:
                         connection.execute(row[3])
             if "annual28" in missing:
                 for name, kind in ANNUAL_COLUMNS.items():

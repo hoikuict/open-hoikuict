@@ -90,7 +90,7 @@ def _can_view_document(
     user: StaffUser,
     repository: SqlModelDocumentRepository,
 ) -> bool:
-    if (document.monthly_sheet is not None or document.annual_sheet is not None) and not user.actor_ref:
+    if (document.monthly_sheet is not None or document.annual_sheet is not None or document.weekly_sheet is not None) and not user.actor_ref:
         return False
     if document.nursery_ref != user.nursery_ref:
         return False
@@ -368,6 +368,8 @@ def edit_document_form(
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
     if document.monthly_sheet is not None:
         return RedirectResponse(f"/plans/monthly-library?document_id={document.id}", status_code=303)
+    if document.weekly_sheet is not None:
+        return RedirectResponse(f"/plans/weekly-library?document_id={document.id}", status_code=303)
     if document.annual_sheet is not None:
         return RedirectResponse(f"/plans/annual-library?document_id={document.id}", status_code=303)
     return render_template(
@@ -390,6 +392,8 @@ async def update_document(
     document = _visible_document(document_id, user, repository)
     if document.monthly_sheet is not None:
         raise HTTPException(status_code=409, detail="帳票の月案編集画面から保存してください")
+    if document.weekly_sheet is not None:
+        raise HTTPException(status_code=409, detail="帳票の週案編集画面から保存してください")
     if document.annual_sheet is not None:
         raise HTTPException(status_code=409, detail="帳票の年案編集画面から保存してください")
     _require_document_edit_access(document, user, repository, request)
