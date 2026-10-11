@@ -27,5 +27,7 @@
   "production_tests_passed": 71,
   "development_tests_passed": 44,
   "final_teacher_display_and_layout": true,
-  "deployed": false
+  "deployed": true,
+  "deployed_app_commit": "a9706b69137f1c14e2177be14f5806e7eae79a6a",
+  "production_deployment_report": "verification-plan-reflection-review-production-2026-10-11.json"
 }
