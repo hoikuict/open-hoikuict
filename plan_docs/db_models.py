@@ -117,6 +117,53 @@ class PlanDailyReflectionRow(SQLModel, table=True):
     submitted_at: Optional[datetime] = Field(default=None, index=True)
 
 
+class PlanReflectionDraftRow(SQLModel, table=True):
+    __tablename__ = "plan_reflection_drafts"
+    __table_args__ = (UniqueConstraint("document_id", "period", name="uq_reflection_document_period"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="plan_documents.id", index=True)
+    period: int  # -1: daily reflection; 0..3: annual periods
+    values: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    version: int = Field(default=1)
+    status: str = Field(default="draft")
+    updated_by: str
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class PlanReflectionReviewRow(SQLModel, table=True):
+    __tablename__ = "plan_reflection_reviews"
+    __table_args__ = (UniqueConstraint("draft_id", "draft_version", name="uq_reflection_review_version"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    draft_id: int = Field(foreign_key="plan_reflection_drafts.id", index=True)
+    document_id: int = Field(foreign_key="plan_documents.id", index=True)
+    nursery_ref: str = Field(index=True)
+    draft_version: int
+    snapshot: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    status: str = Field(default="pending", index=True)
+    requested_by: str
+    requested_by_name: str
+    created_at: datetime = Field(default_factory=utc_now)
+    decided_by: Optional[str] = None
+    decided_by_name: Optional[str] = None
+    decision_comment: Optional[str] = None
+    decided_at: Optional[datetime] = None
+
+
+class PlanReflectionNotificationRow(SQLModel, table=True):
+    __tablename__ = "plan_reflection_notifications"
+    __table_args__ = (UniqueConstraint("review_id", "recipient_user_id", "kind", name="uq_reflection_notification"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    review_id: int = Field(foreign_key="plan_reflection_reviews.id", index=True)
+    recipient_user_id: UUID = Field(foreign_key="users.id", index=True)
+    kind: str = Field(default="review_request")
+    created_at: datetime = Field(default_factory=utc_now)
+    read_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+
+
 class PlanDocumentHeadRow(SQLModel, table=True):
     __tablename__ = "plan_document_heads"
     __table_args__ = (

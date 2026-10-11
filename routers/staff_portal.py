@@ -22,6 +22,7 @@ from models import (
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from parent_auth import list_pending_parent_registrations
 from plan_docs.contracts import DOCUMENT_TYPE_LABELS
+from plan_docs.services.reflection_reviews import portal_items as reflection_portal_items
 from plan_docs.services.review_notifications import (
     REVIEW_OUTCOME,
     list_pending_review_documents,
@@ -94,6 +95,7 @@ def _render_staff_home(
     attendance_attention_count = 0
     plan_notifications = []
     pending_plan_documents = []
+    pending_reflections = []
     pending_notices = []
     pending_child_change_requests = []
     pending_parent_registrations = []
@@ -179,6 +181,9 @@ def _render_staff_home(
                 for notification in plan_notifications
                 if notification.notification_kind == REVIEW_OUTCOME
             ]
+        pending_reflections, reflection_notifications = reflection_portal_items(
+            session, staff_user.id, nursery_ref, staff_user.staff_role == "admin")
+        plan_notifications.extend(reflection_notifications)
     except Exception:
         logger.exception(
             "staff portal plan notification load failed",
@@ -216,8 +221,8 @@ def _render_staff_home(
                 "decided_by_name": notification.decided_by_name or notification.requested_by_name,
                 "note": notification.decision_comment,
                 "returned_at": notification.created_at,
-                "open_action": f"/plans/notifications/{notification.id}/open",
-                "dismiss_url": f"/plans/notifications/{notification.id}/dismiss",
+                "open_action": getattr(notification, "open_url", f"/plans/notifications/{notification.id}/open"),
+                "dismiss_url": getattr(notification, "dismiss_url", f"/plans/notifications/{notification.id}/dismiss"),
             })
         else:
             other_plan_notifications.append(notification)
@@ -279,7 +284,7 @@ def _render_staff_home(
                 )
                 approval_queue_errors.append("保護者の初回登録の承認依頼を取得できませんでした。")
 
-    approval_queue_items = []
+    approval_queue_items = list(pending_reflections)
     for document in pending_plan_documents:
         approval_queue_items.append(
             {

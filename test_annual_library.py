@@ -1,5 +1,6 @@
 """Annual import, copy and editing tests against isolated SQLite databases."""
 from copy import deepcopy
+from datetime import date
 import json
 from pathlib import Path
 import tempfile
@@ -14,7 +15,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 import child_records.models  # noqa: F401
 import database
 from csrf import CsrfTokenMiddleware, verify_csrf
-from models import Classroom
+from models import Classroom, User, StaffClassroomAssignment
 from plan_docs.auth_adapter import StaffUser, resolve_plan_docs_staff_user
 from plan_docs.contracts import DocumentStatus, DocumentType, Role
 from plan_docs.db_models import PlanDocumentRow, PlanRevisionRow
@@ -70,6 +71,10 @@ class AnnualLibraryTests(unittest.TestCase):
         SQLModel.metadata.create_all(self.engine)
         with Session(self.engine) as s:
             s.add_all([Classroom(id=1, name="A組"), Classroom(id=2, name="B組")]); s.commit()
+            teacher = User(email="annual-teacher@example.invalid", display_name="今年の担任", staff_role="can_edit")
+            s.add(teacher); s.flush()
+            s.add(StaffClassroomAssignment(staff_user_id=teacher.id, classroom_id=1, starts_on=date(2020, 4, 1)))
+            s.commit()
         self.user = StaffUser(role=Role.CAN_EDIT, actor_ref="staff:test", nursery_ref="test-nursery",
                               classroom_refs=("A組",), name="今年の担任")
         self.app = FastAPI(dependencies=[Depends(verify_csrf)])

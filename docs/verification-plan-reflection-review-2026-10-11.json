@@ -1,0 +1,31 @@
+{
+  "annual_fields": [
+    73,
+    59,
+    33,
+    39,
+    49,
+    45
+  ],
+  "new_annual_save_and_review": true,
+  "teacher_and_plan_preserved": true,
+  "reflection_other_periods_preserved": true,
+  "annual_return_resubmit_approve": true,
+  "history_preserved": true,
+  "daily_rows": 22,
+  "daily_autosave_confirmation_approval": true,
+  "actual_admin_portal": true,
+  "save_error_preserves_input": true,
+  "viewports": [
+    1440,
+    760,
+    390
+  ],
+  "page_errors": [],
+  "external_writes": [],
+  "production_baseline": "eb83bf0",
+  "production_tests_passed": 71,
+  "development_tests_passed": 44,
+  "final_teacher_display_and_layout": true,
+  "deployed": false
+}

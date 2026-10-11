@@ -17,13 +17,13 @@ from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_ed
 from ..contracts import DocumentStatus, DocumentType, normalize_status
 from ..serializers import document_to_dict
 from ..services.daily_reflections import (
-    DailyReflectionError,
     reflection_for_document,
     reflection_state,
     reflection_state_label,
     reminder_time,
-    save_daily_reflection,
 )
+from ..services import reflection_reviews
+from .reflections import router as reflection_router
 from ..store import (
     ConcurrentUpdateError,
     DocumentRepositoryDep,
@@ -94,6 +94,10 @@ def _can_view_document(
         return False
     if document.nursery_ref != user.nursery_ref:
         return False
+    if document.annual_sheet:
+        from models import Classroom
+        classroom = repository.session.get(Classroom, document.annual_sheet["classroom_id"])
+        return user.can_access_classroom(classroom.name if classroom else document.classroom_ref)
     if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
         child = _progress_child(document, repository)
         if child is None:
@@ -300,6 +304,7 @@ def document_detail(
         impact_labels=IMPACT_LABELS,
         changed_at_default=local_naive_now().strftime("%Y-%m-%dT%H:%M"),
         reflection=reflection,
+        reflection_review=reflection_reviews.state(repository.session, document, -1) if document.document_type == DocumentType.DAILY_PLAN else None,
         reflection_state=reflection_state(reflection),
         reflection_state_label=reflection_state_label(reflection),
         reflection_reminder_time=reminder_time().strftime("%H:%M"),
@@ -314,18 +319,16 @@ def save_reflection_draft(
     user: CurrentUser,
     repository: DocumentRepositoryDep,
     reflection_body: Annotated[str, Form()] = "",
+    reflection_version: Annotated[int, Form(ge=0)] = 0,
 ):
     document = _visible_document(document_id, user, repository)
     _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
-    reflection = save_daily_reflection(
-        repository.session,
-        document_id=document_id,
-        body=reflection_body,
-        actor_ref=user.actor_ref or "unknown",
-        submit=False,
-    )
+    reflection_reviews.begin(repository.session)
+    reflection_reviews.save_draft(repository.session, document, -1, [reflection_body], reflection_version, user.actor_ref)
+    repository.session.commit()
+    reflection = reflection_for_document(repository.session, document_id)
     return HTMLResponse(_reflection_status_html(reflection))
 
 
@@ -337,22 +340,19 @@ def submit_daily_reflection(
     repository: DocumentRepositoryDep,
     reflection_body: Annotated[str, Form()] = "",
     action: Annotated[str, Form()] = "submit",
+    reflection_version: Annotated[int, Form(ge=0)] = 0,
 ):
     document = _visible_document(document_id, user, repository)
     _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
-    try:
-        save_daily_reflection(
-            repository.session,
-            document_id=document_id,
-            body=reflection_body,
-            actor_ref=user.actor_ref or "unknown",
-            submit=action == "submit",
-        )
-    except DailyReflectionError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return RedirectResponse(url=f"/plans/documents/{document_id}", status_code=303)
+    if action == "submit" and not reflection_body.strip():
+        raise HTTPException(422, "振り返りを入力してください")
+    reflection_reviews.begin(repository.session)
+    reflection_reviews.save_draft(repository.session, document, -1, [reflection_body], reflection_version, user.actor_ref)
+    repository.session.commit()
+    target = f"/plans/documents/{document_id}/reflections/-1/confirm" if action == "submit" else reflection_reviews.input_url(document_id, -1)
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.get("/documents/{document_id}/edit")
@@ -715,3 +715,5 @@ def correct_execution_change_json(
     except ExecutionChangeError as exc:
         _raise_repository_error(exc)
     return _change_to_dict(change)
+
+router.include_router(reflection_router)

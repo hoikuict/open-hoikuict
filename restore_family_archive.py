@@ -223,6 +223,11 @@ def _family_care_project(rows):
 
 
 def _project(rows):
+    expected_reflections = _reflection_schema()
+    reflection_rows = {row[:3]: _tokens(row[3]) for row in rows if row[:3] in expected_reflections}
+    if reflection_rows and reflection_rows != expected_reflections:
+        return None
+    rows = [row for row in rows if row[:3] not in expected_reflections]
     care = _family_care_project(rows)
     if care is None:
         return None
@@ -278,7 +283,19 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
+    return archive[0], ({"reflections"} if reflection_rows else set()) | ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
+
+
+def _reflection_schema():
+    from plan_docs.db_models import PlanReflectionDraftRow, PlanReflectionReviewRow, PlanReflectionNotificationRow
+    with closing(sqlite3.connect(":memory:")) as connection:
+        for model in (PlanReflectionDraftRow, PlanReflectionReviewRow, PlanReflectionNotificationRow):
+            table = model.__table__
+            connection.execute(str(CreateTable(table).compile(dialect=dialect())))
+            for index in table.indexes:
+                connection.execute(str(CreateIndex(index).compile(dialect=dialect())))
+        return {row[:3]: _tokens(row[3]) for row in connection.execute(
+            "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'")}
 
 
 def compatible(source_rows, current_rows):
@@ -302,6 +319,8 @@ def upgrade_copy(database, current_rows):
         with connection:
             connection.execute("BEGIN")
             expected = {}
+            if "reflections" in missing:
+                expected.update(_reflection_schema())
             if "family_care" in missing:
                 expected.update(_family_care_schema())
             if "archive" in missing:

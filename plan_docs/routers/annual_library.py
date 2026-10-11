@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
-from models import Classroom
+from models import Classroom, StaffClassroomAssignment, User
 from time_utils import local_today
 from ..auth_adapter import CurrentUser, require_actor, require_can_edit, require_classroom_access
 from ..contracts import DocumentStatus, DocumentType
@@ -17,6 +17,7 @@ from ..services.annual_library import (
 )
 from ..store import ConcurrentUpdateError, DocumentRepositoryDep
 from ..templating import render_template
+from ..services import reflection_reviews
 
 router = APIRouter(prefix="/annual-library", tags=["annual-library"])
 
@@ -33,7 +34,8 @@ def _document(user, repository, document_id):
             or document.document_type != DocumentType.ANNUAL_PLAN
             or document.nursery_ref != user.nursery_ref):
         raise HTTPException(404, "年案が見つかりません")
-    require_classroom_access(user, document.classroom_ref)
+    classroom = repository.session.get(Classroom, document.annual_sheet["classroom_id"])
+    require_classroom_access(user, classroom.name if classroom else document.classroom_ref)
     if document.annual_sheet.get("template_id") not in TEMPLATE_IDS:
         raise HTTPException(409, "この年案の様式には対応していません")
     return document
@@ -71,7 +73,7 @@ def _scope(user, repository, classroom_id, school_year, document_id=None):
 def _new_sheet(user, repository, classroom_id, school_year, origin):
     if origin.kind == "source":
         sheet = import_sheet(user.nursery_ref, classroom_id, origin.key)
-        return sheet, sheet["source"]["source"]["ownerText"]
+        return sheet, _registered_teachers(repository.session, classroom_id)
     if not origin.document_id or not origin.revision_id:
         raise HTTPException(422, "引き継ぐ年案と改訂を選択してください")
     previous = _document(user, repository, origin.document_id)
@@ -89,15 +91,28 @@ def _new_sheet(user, repository, classroom_id, school_year, origin):
     sheet["origin"] = origin.model_dump(exclude_none=True)
     sheet["source_digest"] = digest({"revision_id": revision.id, "snapshot": revision.snapshot})
     # A new year's document is a draft. Approval and responsible staff are not copied.
-    return sheet, user.name
+    return sheet, _registered_teachers(repository.session, classroom_id)
+
+
+def _registered_teachers(session, classroom_id):
+    today = local_today()
+    rows = session.exec(select(User.display_name).join(StaffClassroomAssignment,
+        StaffClassroomAssignment.staff_user_id == User.id).where(
+        StaffClassroomAssignment.classroom_id == classroom_id,
+        StaffClassroomAssignment.starts_on <= today,
+        (StaffClassroomAssignment.ends_on.is_(None) | (StaffClassroomAssignment.ends_on >= today)),
+        User.is_active.is_(True)).order_by(StaffClassroomAssignment.display_order,
+            User.staff_sort_order, User.display_name, User.id)).all()
+    return "・".join(dict.fromkeys(rows))
 
 
 def _previous_choices(user, repository, school_year):
     result = []
     for document in repository.list(nursery_ref=user.nursery_ref, document_type=DocumentType.ANNUAL_PLAN):
+        classroom = repository.session.get(Classroom, document.annual_sheet["classroom_id"]) if document.annual_sheet else None
         if (document.school_year != school_year - 1 or not document.annual_sheet
                 or document.annual_sheet.get("template_id") not in TEMPLATE_IDS
-                or not user.can_access_classroom(document.classroom_ref)):
+                or not user.can_access_classroom(classroom.name if classroom else document.classroom_ref)):
             continue
         head = repository.head(document.id)
         if head:
@@ -110,7 +125,7 @@ def _previous_choices(user, repository, school_year):
 def _context(user, repository, classroom_id, school_year, document_id=None, origin=None):
     _begin(repository)
     classroom, document = _scope(user, repository, classroom_id, school_year, document_id)
-    sheet, owner = None, user.name
+    sheet, owner = None, _registered_teachers(repository.session, classroom_id)
     lock = 0
     if document:
         sheet, owner = deepcopy(document.annual_sheet), document.owner_name
@@ -135,9 +150,11 @@ def _context(user, repository, classroom_id, school_year, document_id=None, orig
                                      OriginInput(kind="source", key=current[0]["key"]))
     except HTTPException as exc:
         source_error = exc.detail
+    reflection_states = [reflection_reviews.state(repository.session, document, i) for i in range(4)] if document else []
+    periods, columns = reflection_reviews.annual_layout(sheet["age"]) if sheet else ([], [])
     return {
         "document_id": document.id if document else None, "lock_version": lock,
-        "classroom_id": classroom_id, "classroom_name": classroom.name,
+        "classroom_id": classroom_id, "classroom_name": document.classroom_ref if document else classroom.name,
         "school_year": school_year, "age": sheet["age"] if sheet else None, "nursery_name": user.nursery_ref,
         "owner_name": owner, "sheet": sheet,
         "editable": user.can_edit and (not document or document.can_edit_body),
@@ -145,6 +162,11 @@ def _context(user, repository, classroom_id, school_year, document_id=None, orig
         "sources": sources, "references": references, "source_error": source_error,
         "previous": _previous_choices(user, repository, school_year),
         "pending_timings": pending_count(sheet) if sheet else 0,
+        "created_at": document.created_at.isoformat() if document else None,
+        "reflection": [r["values"] for r in reflection_states] if document else [["", ""] for _ in range(4)],
+        "reflection_states": reflection_states or [{"version": 0, "status": "draft", "label": "下書き", "locked": False, "review_id": None} for _ in range(4)],
+        "reflection_columns": columns, "reflection_periods": periods,
+        "reflection_editable": user.can_edit and (not document or document.status != DocumentStatus.ARCHIVED),
     }
 
 
@@ -188,6 +210,8 @@ def context(request: Request, user: CurrentUser, repository: DocumentRepositoryD
 @router.post("/save")
 def save(payload: SaveInput, request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     require_can_edit(user, request)
+    if not payload.owner_name.strip():
+        raise HTTPException(422, "担任名を入力してください。登録がない場合は手入力できます。")
     _begin(repository, write=True)
     classroom, document = _scope(user, repository, payload.classroom_id,
                                  payload.school_year, payload.document_id)
@@ -202,7 +226,7 @@ def save(payload: SaveInput, request: Request, user: CurrentUser, repository: Do
     if payload.source_digest != sheet["source_digest"]:
         raise HTTPException(409, "取り込み元が変更されています。入力内容は保持されています")
     sheet["fields"] = validate_fields(payload, sheet)
-    title = f"{payload.school_year}年度 年間指導計画（{classroom.name}・{sheet['age']}歳児）"
+    title = f"{payload.school_year}年度 年間指導計画（{document.classroom_ref if document else classroom.name}・{sheet['age']}歳児）"
     try:
         if document:
             repository.update_document(document.id, title=title, owner_name=payload.owner_name,

@@ -7,10 +7,13 @@
   const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const clone = x => JSON.parse(JSON.stringify(x));
   let boot = JSON.parse(document.getElementById('annual-library-boot').textContent);
+  let reflection=[],savedReflection='[]';
   let cells = {}, defs = new Map(), selected = 'development-2', owner = '', undo = [];
   let focusBefore = null, showRef = true, diff = true, busy = false, saved = '';
   const value = () => JSON.stringify({cells, owner});
-  const dirty = () => boot.sheet && value() !== saved;
+  const dirtyPlan=()=>boot.sheet && value()!==saved;
+  const dirtyReflection=()=>JSON.stringify(reflection)!==savedReflection;
+  const dirty=()=>dirtyPlan()||dirtyReflection();
   const editable = () => boot.editable && root.dataset.detail !== 'true';
   const message = (text, error = false) => {
     $('#annual-message').textContent = text;
@@ -39,9 +42,10 @@
       const editControl = el.matches('[data-start],[data-confirm],#annual-save,#annual-import,#annual-undo');
       el.disabled = flag || (editControl && !editable());
     });
-    root.querySelectorAll('textarea').forEach(el => { el.readOnly = flag || !editable(); });
+    root.querySelectorAll('textarea').forEach(el => { el.readOnly=flag||(el.hasAttribute('data-reflection')?(!boot.reflection_editable||reviewLocked(Number(el.dataset.reflection.split(':')[0]))):!editable()); });
     if ($('#annual-undo')) $('#annual-undo').disabled = flag || !editable() || !undo.length;
     if ($('#annual-save')) $('#annual-save').disabled = flag || !editable() || !boot.sheet;
+    root.querySelectorAll('#reflection-save,#reflection-reset,#reflection-review,#reflection-review-period').forEach(el=>el.disabled=flag||!boot.sheet||!boot.reflection_editable);
     if ($('#annual-import')) $('#annual-import').disabled = flag || !editable() || !!boot.document_id || !$('#annual-origin').value;
   }
   function status() {
@@ -122,7 +126,7 @@
       });
       board.style.height = (Math.max(0, ...boxes.map(r => r.bottom)) + 7) + 'px';
     });
-    root.querySelectorAll('.rd-field textarea,#annual-owner').forEach(fit);
+    root.querySelectorAll('.rd-field textarea,#annual-owner,[data-reflection]').forEach(fit);
   }
   function renderSheet() {
     if (!boot.sheet) return;
@@ -140,11 +144,12 @@
     $('.annual-source-range').textContent = source.source.sheet + ' · ' + source.source.range;
     $('.rd-coverage').textContent = `本文${source.fields.length}欄・発達と関わり${source.sections.reduce((n, s) => n + s.items.length, 0)}文を反映`;
     $('.rd-legend').hidden = !source.sections.length;
-    renderReferences();
+    renderReferences();renderReflection();
     reference(); status(); requestAnimationFrame(pack);
   }
   function adopt(data) {
     boot = data;
+    reflection=clone(data.reflection_draft||data.reflection);savedReflection=JSON.stringify(data.reflection);
     cells = clone(data.sheet?.fields || {}); owner = data.owner_name; undo = []; focusBefore = null;
     defs = new Map(data.sheet ? [...data.sheet.source.fields, ...data.sheet.source.sections.flatMap(s => s.items.map(x => ({...x, ticks:s.ticks})))].map(x => [x.id, x]) : []);
     if (!defs.has(selected)) selected = defs.keys().next().value;
@@ -204,7 +209,7 @@
         origin:boot.sheet.origin, source_digest:boot.sheet.source_digest,
         fields:Object.fromEntries(Object.entries(cells).map(([key, c]) => [key, {body:c.body, start:c.start, confirmed:c.confirmed}]))};
       const data = await api('save', {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-Token':document.querySelector('meta[name="csrf-token"]')?.content || ''}, body:JSON.stringify(payload)});
-      adopt(data); message('保存しました。承認・文書情報から確認を依頼できます。');
+      data.reflection_draft=clone(reflection);adopt(data);message('年案を保存しました。反省を記入し、承認確認へ進めます。');
     } catch (e) { message(e.message, true); }
     finally { setBusy(false); }
   }
@@ -228,6 +233,7 @@
     else if (e.target.id === 'annual-owner') owner = e.target.value;
     else return;
     fit(e.target); status(); pack(); message('未保存の変更があります。');
+    if(e.target.id==='annual-owner')reflectionStatus();
   });
   root.addEventListener('change', e => {
     const id = e.target.dataset.start || e.target.dataset.confirm;
@@ -271,6 +277,83 @@
   window.addEventListener('beforeunload', e => { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
   window.addEventListener('beforeprint', pack);
   window.addEventListener('afterprint', () => requestAnimationFrame(pack));
+  function reflectionKey(index){return index;}
+  const reviewLocked=index=>boot.reflection_states[index].locked;
+  function openReview(index){window.location.assign('/plans/reflection-reviews/'+boot.reflection_states[index].review_id);}
+  async function saveReflectionDraft(){
+    if(!boot.document_id){
+      const period=$('#reflection-review-period').value;
+      const payload={document_id:boot.document_id,lock_version:boot.lock_version,
+        classroom_id:boot.classroom_id,school_year:boot.school_year,owner_name:owner,
+        origin:boot.sheet.origin,source_digest:boot.sheet.source_digest,
+        fields:Object.fromEntries(Object.entries(cells).map(([key,c])=>[key,{body:c.body,start:c.start,confirmed:c.confirmed}]))};
+      const data=await api('save',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name=csrf-token]')?.content||''},body:JSON.stringify(payload)});
+      data.reflection_draft=clone(reflection);
+      adopt(data);
+      $('#reflection-review-period').value=period;
+      setBusy(true);
+    }
+    const response=await fetch(`/plans/documents/${boot.document_id}/reflections`,{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name=csrf-token]')?.content||''},
+      body:JSON.stringify({entries:reflection.map((values,period)=>({period,values,version:boot.reflection_states[period].version}))})});
+    if(response.redirected||!response.headers.get('content-type')?.includes('application/json'))throw new Error('ログイン状態を確認してください。入力内容は保持しています。');
+    const result=await response.json();
+    if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'保存できませんでした。入力内容は保持しています。');
+    boot.reflection_states=reflection.map((_,i)=>result[i]);boot.reflection=clone(reflection);
+    boot.reflection_saved_at=boot.reflection_states.find(s=>s.updated_at)?.updated_at;
+    savedReflection=JSON.stringify(reflection);
+  }
+  function reflectionStatus(text='',error=false){
+    $('.reflection-meta').textContent=`${boot.school_year}年度 · ${boot.classroom_name}（${boot.age}歳児） / 担任：${owner||'未入力'}`;
+    const filled=reflection.flat().filter(value=>value.trim()).length;
+    $('.reflection-progress').textContent=`${filled} / 8欄 記入済み`;
+    $('.reflection-state').textContent=dirtyReflection()?'未保存の変更あり':boot.reflection_states.some(s=>s.updated_at)?'保存済み':'未入力';
+    $('.reflection-state').classList.toggle('reflection-dirty',dirtyReflection());
+    root.querySelectorAll('[data-period-status]').forEach(el=>{el.textContent=boot.reflection_states[Number(el.dataset.periodStatus)].label;});
+    if($('#reflection-review'))$('#reflection-review').textContent=reviewLocked(reflectionKey(Number($('#reflection-review-period').value)))?'承認状況を確認':'承認確認へ進む';
+    if(text){$('.reflection-message').textContent=text;$('.reflection-message').setAttribute('role',error?'alert':'status');}
+  }
+  function renderReflection(){
+    const area=$('#annual-reflection-editor');
+    area.innerHTML=`<div class="reflection-top"><div><h3>年間指導計画反省</h3><span class="reflection-state"></span></div><div class="reflection-actions no-print"><button id="reflection-reset" type="button">入力を戻す</button><button id="reflection-save" type="button">下書き保存</button></div></div>
+      <p class="reflection-meta">${esc(boot.school_year)}年度 · ${esc(boot.classroom_name)}（${boot.age}歳児） / 担任：${esc(owner||'未入力')}</p>
+      <p class="reflection-note no-print">各期の反省を入力し、承認確認へ進んで管理者へ依頼します。下書き保存では通知されません。年案の承認後も反省を記入できます。${boot.document_id?'':' 年案が未保存の場合は、ここから年案と反省の下書きを保存して進めます。'}</p>
+      <div class="rd-scroll"><table class="reflection-grid" aria-label="年間指導計画反省の入力"><thead><tr><th>期</th>${boot.reflection_columns.map(label=>`<th>${esc(label)}</th>`).join('')}</tr></thead><tbody>${boot.reflection_periods.map((period,i)=>`<tr><th scope="row">${esc(period)}<small class="reflection-period-status" data-period-status="${i}"></small></th>${boot.reflection_columns.map((label,j)=>`<td><textarea class="rd-edit" maxlength="20000" data-reflection="${i}:${j}" aria-label="${esc(period)} ${esc(label)}の反省" placeholder="${esc(label)}の反省を記入">${esc(reflection[i][j])}</textarea></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="reflection-review-controls no-print"><label>承認を依頼する期 <select id="reflection-review-period">${boot.reflection_periods.map((p,i)=>`<option value="${i}">${esc(p)}</option>`).join('')}</select></label><button class="reflection-save" id="reflection-review" type="button">承認確認へ進む</button></div>
+      <p class="reflection-progress no-print"></p><p class="reflection-message no-print" role="status" aria-live="polite"></p>`;
+    $('#creation-note').textContent=boot.created_at?`作成時のクラス名・保存した担任名を表示しています。作成日時：${boot.created_at}`:'クラスは選択中のクラス、担任は現在の登録内容を表示します。担任名は編集できます。初回保存時の情報を年案に保持します。';
+    reflectionStatus();
+  }
+  root.addEventListener('input',e=>{
+    if(e.target.hasAttribute('data-reflection')&&!busy&&boot.reflection_editable&&!reviewLocked(Number(e.target.dataset.reflection.split(':')[0]))){const [i,j]=e.target.dataset.reflection.split(':').map(Number);reflection[i][j]=e.target.value;fit(e.target);reflectionStatus('未保存の変更があります。');}
+  });
+  root.addEventListener('click',async e=>{
+    const button=e.target.closest('button');if(!button||busy)return;
+    if(button.id==='reflection-reset'){
+      if(dirtyReflection()&&!confirm('反省の未保存の入力を取り消して、最後に保存した内容へ戻しますか？'))return;
+      reflection=JSON.parse(savedReflection);renderReflection();pack();setBusy(false);reflectionStatus('最後に保存した反省へ戻しました。');
+    }
+    if(button.id==='reflection-save'){
+      setBusy(true);
+      try{
+        await saveReflectionDraft();
+        reflectionStatus('反省の下書きを保存しました。管理者への通知はまだありません。');
+      }catch(error){reflectionStatus(error.message,true);}finally{setBusy(false);}
+    }
+    if(button.id==='reflection-review'){
+      const index=Number($('#reflection-review-period').value),key=reflectionKey(index);
+      if(reviewLocked(key)){openReview(key);return;}
+      if(!reflection[index].some(value=>value.trim())){reflectionStatus('承認を依頼する期の反省を入力してください。',true);return;}
+      setBusy(true);
+      try{
+        await saveReflectionDraft();reflectionStatus();
+        if(dirtyPlan()&&!confirm('反省の下書きは保存しました。年案本文に未保存の変更があります。確認画面へ移動しますか？'))return;
+        window.location.assign(`/plans/documents/${boot.document_id}/reflections/${index}/confirm`);
+      }catch(error){reflectionStatus(error.message,true);}finally{setBusy(false);}
+    }
+  });
+  root.addEventListener('change',e=>{if(e.target.id==='reflection-review-period')reflectionStatus();});
+
   adopt(boot);
   let width = 0;
   new ResizeObserver(entries => { const next = entries[0].contentRect.width; if (next !== width) { width = next; requestAnimationFrame(pack); } }).observe($('.rd-sheet'));

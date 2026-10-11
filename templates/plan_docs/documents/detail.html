@@ -180,37 +180,36 @@
           <p class="field-note">{{ document.target_date }} {{ reflection_reminder_time }}までに提出してください。</p>
         </div>
         <div id="daily-reflection-status" aria-live="polite">
-          <span class="reflection-status reflection-status--{{ reflection_state }}">{{ reflection_state_label }}</span>
+          <span class="reflection-status reflection-status--{{ reflection_state }}">{{ reflection_review.label if reflection_review.review_id else reflection_state_label }}</span>
         </div>
       </div>
-      {% if can_edit_document %}
-        <form method="post" action="/plans/documents/{{ document.id }}/reflection" class="form-layout">
+      {% if can_edit_document and not reflection_review.locked %}
+        <form id="daily-reflection-form" data-document-id="{{ document.id }}" method="post" action="/plans/documents/{{ document.id }}/reflection" class="form-layout">
+          <input type="hidden" name="reflection_version" value="{{ reflection_review.version }}">
           <label>
             <span>振り返り</span>
             <textarea
               name="reflection_body"
               rows="6"
+              maxlength="20000"
               required
               placeholder="その日の保育を振り返って記入してください"
-              hx-post="/plans/documents/{{ document.id }}/reflection/draft"
-              hx-trigger="keyup changed delay:1200ms, change delay:200ms"
-              hx-include="closest form"
-              hx-target="#daily-reflection-status"
-              hx-swap="innerHTML"
             >{{ reflection.body if reflection else "" }}</textarea>
           </label>
-          <p class="field-note">入力内容は自動で下書き保存されます。提出後に書き換えると再提出が必要になります。</p>
+          <p class="field-note">入力内容は自動で下書き保存されます。承認確認へ進み、依頼を確定すると管理者に通知されます。</p>
           {% if reflection and reflection.submitted_at %}
             <p class="field-note">最終提出: {{ reflection.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }}</p>
           {% endif %}
           <div class="form-actions no-print">
             <button class="button button--secondary" type="submit" name="action" value="draft" formnovalidate>下書き保存</button>
-            <button class="button button--primary" type="submit" name="action" value="submit">振り返りを提出</button>
+            <button class="button button--primary" type="submit" name="action" value="submit">承認確認へ進む</button>
           </div>
         </form>
+        <script src="{{ static_asset_url('js/daily-reflection-review.js') }}" defer></script>
       {% else %}
         <p class="daily-reflection-screen">{{ reflection.body if reflection and reflection.body else "未入力" }}</p>
       {% endif %}
+      {% if reflection_review.review_id %}<a class="button button--secondary no-print" href="/plans/reflection-reviews/{{ reflection_review.review_id }}">反省の承認状況を確認</a>{% endif %}
       <p class="daily-print-reflection" data-daily-print-reflection>{{ reflection.body if reflection and reflection.body else "未入力" }}</p>
       {% if reflection and reflection.submitted_at %}
         <p class="daily-print-submitted-at">最終提出: {{ reflection.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }}</p>

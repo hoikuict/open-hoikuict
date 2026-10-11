@@ -496,18 +496,29 @@ class PlanDocsIntegrationTests(unittest.TestCase):
             data={
                 "reflection_body": "水に触れる時間を十分に取れた。",
                 "action": "submit",
+                "reflection_version": "1",
             },
             follow_redirects=False,
         )
         self.assertEqual(submitted.status_code, 303, submitted.text)
+        self.assertTrue(submitted.headers["location"].endswith("/reflections/-1/confirm"))
+        self.assertIn("管理者へ承認を依頼", self.client.get(submitted.headers["location"]).text)
+        requested = self.client.post(f"/plans/documents/{document_id}/reflections/-1/request",
+                                     data={"version": 1}, follow_redirects=False)
+        self.assertEqual(requested.status_code, 303, requested.text)
         self.assertIn(
             "振り返り提出済み",
             self.client.get("/plans/daily-plans/?year=2026&month=8").text,
         )
 
+        locked = self.client.post(f"/plans/documents/{document_id}/reflection/draft",
+            data={"reflection_body": "依頼中の上書き", "reflection_version": 2})
+        self.assertEqual(locked.status_code, 409)
+        withdrawn = self.client.post(requested.headers["location"], data={"action": "withdraw"}, follow_redirects=False)
+        self.assertEqual(withdrawn.status_code, 303, withdrawn.text)
         edited_after_submit = self.client.post(
             f"/plans/documents/{document_id}/reflection/draft",
-            data={"reflection_body": "水遊びの時間配分を明日は短くする。"},
+            data={"reflection_body": "水遊びの時間配分を明日は短くする。", "reflection_version": 3},
         )
         self.assertIn("振り返り下書き", edited_after_submit.text)
         with Session(self.engine) as session:
