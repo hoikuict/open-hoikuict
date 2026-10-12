@@ -1,11 +1,12 @@
 import os
 import html
+import json
 import re
 import sqlite3
 import shutil
 import time
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -34,6 +35,7 @@ from models import (
     ParentPushDeliveryTarget,
     ParentPushDeliveryTargetStatus,
     ParentPushSubscription,
+    StaffClassroomAssignment,
     User,
 )
 from parent_push_runtime import run_parent_push_worker_once
@@ -266,8 +268,16 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
             response = client.get("/plans/monthly-library/context", params=params)
             self.assertEqual(response.status_code, 200, response.text)
             context = response.json()
+            self.assertFalse(context["editable"])
+            with Session(manager.get_engine(first_id)) as session:
+                admin = session.exec(select(User).where(User.staff_role == "admin")).first()
+                session.add(StaffClassroomAssignment(staff_user_id=admin.id, classroom_id=classroom_id,
+                    starts_on=date(2026, 10, 1), ends_on=date(2026, 10, 31)))
+                session.commit()
+            context = client.get("/plans/monthly-library/context", params=params).json()
+            self.assertTrue(context["editable"])
             payload = {key: context[key] for key in (
-                "document_id", "lock_version", "classroom_id", "target_month", "age", "owner_name")}
+                "document_id", "lock_version", "classroom_id", "target_month", "age", "owner_name", "base_token")}
             payload["fields"] = {"group:food": {"body": "最初の利用者だけの架空月案"}}
             saved = client.post("/plans/monthly-library/save", json=payload,
                                 headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
@@ -281,6 +291,14 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
             client.cookies.clear()
             second_id = self._login_admin(client)
             self.assertNotEqual(first_id, second_id)
+            with Session(manager.get_engine(second_id)) as session:
+                admin = session.exec(select(User).where(User.staff_role == "admin")).first()
+                session.add(StaffClassroomAssignment(staff_user_id=admin.id, classroom_id=classroom_id,
+                    starts_on=date(2026, 10, 1), ends_on=date(2026, 10, 31)))
+                session.commit()
+            replay = client.post("/plans/monthly-library/save", json=payload,
+                headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)})
+            self.assertEqual(replay.status_code, 409)
             context = client.get("/plans/monthly-library/context", params=params).json()
             self.assertIsNone(context["document_id"])
             self.assertEqual(context["sheet"]["fields"], {})
@@ -296,6 +314,73 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("職員ログイン", response.text)
+
+    def test_annual_weekly_and_reflections_stay_in_their_demo_session(self):
+        from csrf import CSRF_COOKIE_NAME
+        from test_annual_library import source_fixture
+
+        source_path = self.runtime_dir / "annual-source.json"
+        source_path.write_text(json.dumps(source_fixture(), ensure_ascii=False), encoding="utf-8")
+        environment = {"HOIKU_NURSERY_REF": "デモ検証園", "HOIKU_ANNUAL_LIBRARY_SOURCES": json.dumps({
+            "デモ検証園": [{"id": "fixture", "path": str(source_path)}]})}
+        with patch.dict(os.environ, environment), TestClient(main.app, base_url="https://testserver") as client:
+            first_id = self._login_admin(client)
+            manager = get_demo_session_manager()
+            with Session(manager.get_engine(first_id)) as session:
+                classroom = session.exec(select(Classroom).order_by(Classroom.id)).first()
+                classroom_id = classroom.id
+                admin = session.exec(select(User).where(User.staff_role == "admin")).first()
+                admin_name = admin.display_name
+                teacher = User(email="annual-demo-test@example.invalid", display_name="架空の年案担任")
+                session.add(teacher); session.flush()
+                for user_id in (teacher.id, admin.id):
+                    session.add(StaffClassroomAssignment(staff_user_id=user_id, classroom_id=classroom_id,
+                        starts_on=date(2000, 1, 1)))
+                session.commit()
+            headers = {"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}
+            params = {"classroom_id": classroom_id, "school_year": 2026, "source_key": "fixture"}
+            response = client.get("/plans/annual-library/context", params=params)
+            self.assertEqual(response.status_code, 200, response.text)
+            boot = response.json()
+            self.assertIn("架空の年案担任", boot["owner_name"])
+            self.assertNotIn(admin_name, boot["owner_name"])
+            payload = {key: boot[key] for key in ("document_id", "lock_version", "classroom_id", "school_year", "owner_name")}
+            payload.update(owner_name="手入力した架空担任", origin=boot["sheet"]["origin"], source_digest=boot["sheet"]["source_digest"],
+                fields={key: {name: value[name] for name in ("body", "start", "confirmed")} for key, value in boot["sheet"]["fields"].items()})
+            saved = client.post("/plans/annual-library/save", json=payload, headers=headers)
+            self.assertEqual(saved.status_code, 200, saved.text)
+            annual_id = saved.json()["document_id"]
+            self.assertEqual(client.get("/plans/annual-library/context", params=params).json()["owner_name"], "手入力した架空担任")
+            reflected = client.post(f"/plans/documents/{annual_id}/reflections", headers=headers,
+                json={"entries": [{"period": 0, "version": 0, "values": ["この利用者だけの架空反省", "遊びの振り返り"]}]})
+            self.assertEqual(reflected.status_code, 200, reflected.text)
+            requested = client.post(f"/plans/documents/{annual_id}/reflections/0/request", headers=headers,
+                data={"version": reflected.json()["0"]["version"]}, follow_redirects=False)
+            self.assertEqual(requested.status_code, 303, requested.text)
+            review_url = requested.headers["location"]
+            weekly_ids = []
+            for age in (0, 3):
+                query = {"classroom_id": classroom_id, "month": "2026-10", "age": age}
+                response = client.get("/plans/weekly-library/context", params=query)
+                self.assertEqual(response.status_code, 200, response.text)
+                context = response.json()
+                item = {key: context["records"][0][key] for key in ("week_start", "document_id", "lock_version", "sheet", "owner_name")}
+                item["sheet"]["aim"] = "この利用者だけの架空週案"
+                saved = client.post("/plans/weekly-library/save", json={**query, "items": [item]}, headers=headers)
+                self.assertEqual(saved.status_code, 200, saved.text)
+                weekly_ids.append(saved.json()["records"][0]["document_id"])
+            for kind in ("monthly", "weekly"):
+                self.assertEqual(client.get(f"/plans/{kind}-plans/", params=query).status_code, 200)
+            client.cookies.clear()
+            second_id = self._login_admin(client)
+            self.assertNotEqual(first_id, second_id)
+            self.assertEqual(client.get("/plans/annual-library", params={"document_id": annual_id}).status_code, 404)
+            self.assertEqual(client.get(review_url).status_code, 404)
+            for document_id in weekly_ids:
+                self.assertEqual(client.get(f"/plans/documents/{document_id}").status_code, 404)
+            for age in (0, 3):
+                current = client.get("/plans/weekly-library/context", params={**query, "age": age}).json()
+                self.assertTrue(all(record["document_id"] is None for record in current["records"]))
 
     def test_packaged_snapshot_gets_care_certification_demo_data(self):
         with TestClient(main.app) as client:
@@ -389,16 +474,21 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
                     self.assertEqual(session.exec(select(DocumentReviewRequest)).one().status, "approved")
 
     def test_packaged_snapshot_supports_all_current_model_columns(self):
+        packaged = Path(__file__).parent / "demo_data" / "demo-template.sqlite3"
+        original = packaged.read_bytes()
         main.initialize_application()
         with sqlite3.connect(get_demo_session_manager().settings.base_db_path) as snapshot:
             for table_name, table in SQLModel.metadata.tables.items():
                 with self.subTest(table=table_name):
                     actual = {row[1] for row in snapshot.execute(f'PRAGMA table_info("{table_name}")')}
-                    self.assertTrue({column.name for column in table.columns} <= actual)
+                    self.assertTrue({column.name for column in table.columns} <= actual,
+                                    f"{table_name}: missing {sorted({column.name for column in table.columns} - actual)}")
             self.assertEqual(snapshot.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(snapshot.execute("PRAGMA foreign_key_check").fetchall(), [])
             indexes = {row[1]: row[2] for row in snapshot.execute("PRAGMA index_list(plan_documents)")}
-            self.assertEqual(indexes["uq_monthly_sheet_key"], 1)
+            for kind in ("monthly", "annual", "weekly"):
+                self.assertEqual(indexes[f"uq_{kind}_sheet_key"], 1)
+        self.assertEqual(packaged.read_bytes(), original)
 
     def test_packaged_demo_database_is_migrated_for_review_outcomes(self):
         main.initialize_application()

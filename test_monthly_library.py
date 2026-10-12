@@ -16,7 +16,8 @@ from sqlmodel import Session, SQLModel, create_engine, select
 import child_records.models  # noqa: F401
 import database
 from csrf import CsrfTokenMiddleware, verify_csrf
-from models import Child, Classroom
+from models import Child, Classroom, User, StaffClassroomAssignment
+from uuid import uuid4
 from plan_docs.auth_adapter import StaffUser, resolve_plan_docs_staff_user
 from plan_docs.contracts import DocumentStatus, DocumentType, Role
 from plan_docs.db_models import PlanDocumentRow, PlanRevisionRow
@@ -65,14 +66,19 @@ class MonthlyLibraryTests(unittest.TestCase):
         self.env.start()
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread":False}, poolclass=StaticPool)
         SQLModel.metadata.create_all(self.engine)
+        self.staff_id = uuid4()
         with Session(self.engine) as session:
+            session.add(User(id=self.staff_id, email="monthly@example.test", display_name="架空職員"))
             session.add_all([Classroom(id=1, name="A組"), Classroom(id=2,name="B組")])
             for i in (1,2):
                 session.add(Child(id=i,last_name="架空",first_name=str(i),last_name_kana="カクウ",
                     first_name_kana=str(i),birth_date=date(2024,5,1),enrollment_date=date(2024,6,1),classroom_id=1))
             session.commit()
+            for classroom_id in (1, 2):
+                session.add(StaffClassroomAssignment(staff_user_id=self.staff_id, classroom_id=classroom_id, starts_on=date(2024, 1, 1)))
+            session.commit()
         self.user=StaffUser(role=Role.CAN_EDIT, actor_ref="staff:test",nursery_ref="test-nursery",
-                            classroom_refs=("A組",),name="架空職員")
+                            classroom_refs=("A組",),name="架空職員",user_id=self.staff_id)
         self.app=FastAPI(dependencies=[Depends(verify_csrf)])
         self.app.add_middleware(CsrfTokenMiddleware)
         self.app.include_router(router,prefix="/plans")
@@ -266,37 +272,33 @@ class MonthlyLibraryTests(unittest.TestCase):
         engine.dispose()
 
 
-def test_monthly_sheet_backup_roundtrip(tmp_path):
+def test_monthly_sheet_backup_roundtrip():
+    # Exercise the recovery API present in the deployed branch.
+    import test_restore_runtime as recovery
+    from restore_data import prepare_copy
     from scripts.backup_runtime import BackupConfig, create_backup
-    from scripts.backup_recovery import prepare_restore
-    from test_backup_support import full_databases
-
-    main, facility = tmp_path / 'source' / 'hoikuict.db', tmp_path / 'source' / 'facility.sqlite'
-    storage = tmp_path / 'storage'
-    storage.mkdir()
-    full_databases(main, facility)
-    engine = create_engine(f'sqlite:///{main}')
-    sheet = {'schema_version':1, 'template_id':'infant-1', 'template_version':'2026-09-27.1',
-        'age':1, 'classroom_id':1, 'children':[{'ref':'child:1','name':'架空 園児','birth_date':'2023-01-01'}],
-        'fields':{'child:1:life':{'body':'架空の計画', 'origins':[{'source_key':'fixture', 'phrase_id':1,
-                                                                'kind':'original','text':'架空の原文'}]}}}
-    with Session(engine) as session:
-        SqlModelDocumentRepository(session).create(PlanDocument(id=0, document_type=DocumentType.MONTHLY_PLAN,
-            status=DocumentStatus.DRAFT, title='架空月案',nursery_ref='synthetic',classroom_ref='架空組',
-            actor_ref='staff:test',owner_name='架空職員',sections=[],target_month='2026-10',monthly_sheet=sheet))
-    engine.dispose()
-    config = BackupConfig(output_root=tmp_path/'sets',database_url=f'sqlite:///{main}',facility_db=facility,
-        storage_root=storage,git_sha='a'*40,app_image='sha256:'+'b'*64,compose_sha256='c'*64,
-        cloudflared_image='cloudflared@sha256:'+'d'*64,environment='test',facility_ref='synthetic',
-        quiesced=True,recovery_kit_ref='kit-test',actor_ref='operator-test',baseline_ref='baseline-test')
-    backup = create_backup(config)
-    destination = tmp_path/'restored'
-    prepare_restore(backup,destination,incident_ref='monthly-roundtrip',isolated=True)
-    restored = destination/'runtime/data/hoikuict.db'
-    with closing(sqlite3.connect(main)) as original, closing(sqlite3.connect(restored)) as recovered:
-        for query in ('SELECT monthly_sheet,monthly_sheet_key FROM plan_documents',
-                      'SELECT snapshot,content_hash FROM plan_revisions'):
-            assert original.execute(query).fetchall() == recovered.execute(query).fetchall()
+    fixture = recovery.RestoreFixture()
+    fixture.setUpClass(); fixture.setUp()
+    try:
+        sheet = {'schema_version':1, 'age':1, 'classroom_id':1,
+                 'fields':{'common:goal':{'body':'架空の月案', 'origins':[{'source_key':'fixture','phrase_id':1}]}}}
+        with Session(fixture.engine) as session:
+            SqlModelDocumentRepository(session).create(PlanDocument(id=0, document_type=DocumentType.MONTHLY_PLAN,
+                status=DocumentStatus.DRAFT, title='架空月案',nursery_ref='synthetic',classroom_ref='架空組',
+                actor_ref='staff:test',owner_name='架空職員',sections=[],target_month='2026-10',monthly_sheet=sheet))
+        main=fixture.data/'hoikuict.db'
+        backup=create_backup(BackupConfig(output_root=fixture.paths.backups,database_url=f'sqlite:///{main}',
+            facility_db=fixture.data/'facility.sqlite',storage_root=fixture.storage,git_sha=recovery.CURRENT_SHA,
+            app_image='sha256:'+'b'*64,compose_sha256='c'*64,facility_ref='synthetic',quiesced=True,
+            cloudflared_image='sha256:'+'f'*64,recovery_kit_ref='test-kit',
+            actor_ref='test-operator',baseline_ref='test-baseline'))
+        restored=prepare_copy(fixture.paths,backup.name,'monthly-roundtrip')/'data/hoikuict.db'
+        with closing(sqlite3.connect(main)) as original, closing(sqlite3.connect(restored)) as recovered:
+            for query in ('SELECT monthly_sheet,monthly_sheet_key FROM plan_documents',
+                          'SELECT snapshot,content_hash FROM plan_revisions'):
+                assert original.execute(query).fetchall() == recovered.execute(query).fetchall()
+    finally:
+        fixture.tearDown()
 
 
 if __name__=='__main__':

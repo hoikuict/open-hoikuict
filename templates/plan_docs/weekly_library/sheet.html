@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}週案を作成・編集 | hoiku-plan-docs{% endblock %}
+{% block head %}{{ super() }}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endblock %}
+{% block content %}
+<section id="weekly-library">
+  <header class="form-header"><div><p class="eyebrow">週間計画</p><h1>週案を作成・編集</h1><p class="lead">0～2歳は月内の週一覧、3～5歳は曜日別の帳票です。</p></div><span id="weekly-status" class="status"></span></header>
+  <nav class="plan-calendar-nav"><a data-leave href="/plans/weekly-plans/?classroom_id={{ boot.classroom_id }}&month={{ boot.month }}&age={{ boot.age }}">週案カレンダー</a><a data-leave href="/plans/monthly-plans/?classroom_id={{ boot.classroom_id }}&month={{ boot.month }}&age={{ boot.age }}">月案カレンダー</a><a data-leave id="weekly-document-link" hidden>保存した文書・承認状況</a></nav>
+  <div id="weekly-message" role="status" hidden></div>
+  <form id="weekly-form" class="form-layout" autocomplete="off">
+  <fieldset id="weekly-fields">
+    <section class="form-panel"><h2>基本情報</h2><div class="field-grid">
+      <label>表示月<input id="weekly-month" type="month" value="{{ boot.month }}" min="1900-01" max="2199-12" required></label>
+      <label>対象週<input name="target_week" type="week" required></label>
+      <label>クラス<select name="classroom_ref">{% for c in classrooms %}<option value="{{ c.id }}" {% if c.id == boot.classroom_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+      <label>年齢<select name="age_class">{% for n in range(6) %}<option value="{{ n }}" {% if n == boot.age %}selected{% endif %}>{{ n }}歳児</option>{% endfor %}</select></label>
+      <label>作成者<input name="owner_name" type="text" maxlength="200" required></label>
+    </div><label class="check-row"><input name="include_saturday" type="checkbox">土曜を含める（3～5歳の曜日別欄）</label><p id="week-range" class="field-note"></p></section>
+    <section class="form-panel" id="weekly-sources"><h2>参考になる週案例を探す</h2><p class="field-note">活動名から詳細を開き、選択中の週へコピーできます。過去の反省・氏名・承認印はコピーしません。</p>
+      <div class="field-grid"><label>参考例の年齢<select id="search-age"><option value="">すべて</option>{% for n in range(6) %}<option value="{{ n }}">{{ n }}歳児</option>{% endfor %}</select></label>
+      <label>参考例の月<select id="search-month"><option value="">すべて</option>{% for n in range(1,13) %}<option value="{{ n }}">{{ n }}月</option>{% endfor %}</select></label><label>キーワード<input type="search" id="search-keyword" maxlength="200" placeholder="活動・ねらい・援助・準備"></label></div>
+      <p id="source-count" role="status"></p><div id="source-list"></div>
+    </section>
+    <section class="form-panel" id="plan-paper"><div class="paper-heading"><h2>週日指導計画（週案）</h2><strong id="weekly-layout"></strong></div><p id="paper-scope"></p><p id="paper-format-note" class="field-note"></p><div id="paper-fields"></div></section>
+    <section class="form-panel"><h2>月案との接続</h2><label>接続する月案<select name="parent_document_id"><option value="">接続しない</option></select></label><a id="parent-link" target="_blank" rel="noopener" hidden>接続した新しい月案帳票を確認</a><label>{{ context_labels['related_monthly_summary'] }}<textarea name="related_monthly_summary" maxlength="20000" rows="4"></textarea></label></section>
+    <section class="form-panel"><h2>今週の入力</h2>{% for key,label in context_labels.items() %}{% if key != 'related_monthly_summary' %}<label>{{ label }}<textarea name="{{ key }}" maxlength="20000" rows="4"></textarea></label>{% endif %}{% endfor %}</section>
+    <div class="form-actions"><button type="button" id="weekly-cancel" class="button button--ghost">取消してカレンダーへ</button><button type="button" id="weekly-revert" class="button button--secondary">保存した内容に戻す</button><button type="submit" id="weekly-save" class="button button--primary">下書きを保存</button></div>
+  </fieldset></form>
+  <dialog id="weekly-confirm"><h2>入力内容の確認</h2><p id="weekly-confirm-text"></p><div class="dialog-actions"><button type="button" id="weekly-confirm-no">やめる</button><button type="button" id="weekly-confirm-yes">続ける</button></div></dialog>
+</section>
+<script type="application/json" id="weekly-boot">{{ boot|tojson }}</script><script src="{{ static_asset_url('js/weekly-library.js') }}"></script>
+{% endblock %}

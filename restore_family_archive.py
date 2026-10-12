@@ -1,4 +1,4 @@
-"""Recognize the approved additive archive and September 24/25 migrations."""
+"""Recognize the approved additive archive, plan and fee migrations."""
 
 from contextlib import closing
 import re
@@ -16,10 +16,24 @@ SPEC_COLUMNS = {
     },
 }
 SHARING_COLUMNS = {"child_observation_logs": {"visibility": "VARCHAR", "shared_staff_ids": "JSON"}}
+WEEKLY_COLUMNS = {"weekly_sheet": "JSON", "weekly_sheet_key": "VARCHAR"}
+WEEKLY_INDEXES = {
+    "uq_weekly_sheet_key": "CREATE UNIQUE INDEX uq_weekly_sheet_key ON plan_documents(weekly_sheet_key) WHERE weekly_sheet_key IS NOT NULL",
+    "ix_plan_documents_weekly_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_weekly_sheet_key ON plan_documents (weekly_sheet_key)",
+}
 MONTHLY_COLUMNS = {"monthly_sheet": "JSON", "monthly_sheet_key": "VARCHAR"}
 MONTHLY_INDEXES = {
     "uq_monthly_sheet_key": "CREATE UNIQUE INDEX uq_monthly_sheet_key ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL",
     "ix_plan_documents_monthly_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_monthly_sheet_key ON plan_documents (monthly_sheet_key)",
+}
+ANNUAL_COLUMNS = {"annual_sheet": "JSON", "annual_sheet_key": "VARCHAR"}
+ANNUAL_INDEXES = {
+    "uq_annual_sheet_key": "CREATE UNIQUE INDEX uq_annual_sheet_key ON plan_documents(annual_sheet_key) WHERE annual_sheet_key IS NOT NULL",
+    "ix_plan_documents_annual_sheet_key": "CREATE UNIQUE INDEX ix_plan_documents_annual_sheet_key ON plan_documents (annual_sheet_key)",
+}
+FEE_COLUMNS = {
+    "extended_care_fee_rules": {"fee_bands_json": "TEXT"},
+    "extended_care_charges": {"fee_breakdown_json": "TEXT"},
 }
 
 
@@ -123,11 +137,15 @@ def _sharing_project(rows):
 
 
 def _monthly_project(rows):
+    return _sheet_project(rows, MONTHLY_COLUMNS, MONTHLY_INDEXES)
+
+
+def _sheet_project(rows, columns, approved_indexes):
     """Accept exactly the nullable sheet columns and approved uniqueness indexes."""
     normalized, found, indexes = [], set(), set()
     for row in rows:
-        if row[0] == "index" and row[1] in MONTHLY_INDEXES:
-            if row[2] != "plan_documents" or _tokens(row[3]) != _tokens(MONTHLY_INDEXES[row[1]]):
+        if row[0] == "index" and row[1] in approved_indexes:
+            if row[2] != "plan_documents" or _tokens(row[3]) != _tokens(approved_indexes[row[1]]):
                 return None
             indexes.add(row[1])
             continue
@@ -135,7 +153,7 @@ def _monthly_project(rows):
             normalized.append(row)
             continue
         tokens = _tokens(row[3])
-        for name, kind in MONTHLY_COLUMNS.items():
+        for name, kind in columns.items():
             if name not in tokens:
                 continue
             index = tokens.index(name)
@@ -151,12 +169,86 @@ def _monthly_project(rows):
             found.add(name)
         normalized.append((*row[:3], " ".join(tokens)))
     if found or indexes:
-        if found != set(MONTHLY_COLUMNS) or not indexes:
+        if found != set(columns) or not indexes:
             return None
     return normalized, bool(found)
 
 
+def _fee_project(rows):
+    """Recognize exactly both nullable fields; preserve all unrelated schema."""
+    normalized, found = [], set()
+    for row in rows:
+        if row[0] != "table" or row[1] not in FEE_COLUMNS:
+            normalized.append(row)
+            continue
+        tokens = _tokens(row[3])
+        for name in FEE_COLUMNS[row[1]]:
+            if name not in tokens:
+                continue
+            index = tokens.index(name)
+            end = index + 2
+            # SQLModel creates VARCHAR, while the production migration adds TEXT.
+            # Defaults, constraints, length limits and other types stay unsupported.
+            if tokens.count(name) != 1 or end >= len(tokens) or tokens[index + 1] not in {"TEXT", "VARCHAR"}:
+                return None
+            if tokens[end] == ",":
+                del tokens[index:end + 1]
+            elif tokens[end] == ")" and tokens[index - 1] == ",":
+                del tokens[index - 1:end]
+            else:
+                return None
+            found.add((row[1], name))
+        normalized.append((*row[:3], " ".join(tokens)))
+    expected = {(table, name) for table, fields in FEE_COLUMNS.items() for name in fields}
+    if found and found != expected:
+        return None
+    return normalized, bool(found)
+
+
+def _family_care_schema():
+    from family_care_service import TABLES
+    with closing(sqlite3.connect(":memory:")) as connection:
+        for model in TABLES:
+            table = model.__table__
+            connection.execute(str(CreateTable(table).compile(dialect=dialect())))
+            for index in table.indexes:
+                connection.execute(str(CreateIndex(index).compile(dialect=dialect())))
+        rows = connection.execute(
+            "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+    return {row[:3]: _tokens(row[3]) for row in rows}
+
+
+def _family_care_project(rows):
+    expected = _family_care_schema()
+    found = {row[:3]: _tokens(row[3]) for row in rows if row[:3] in expected}
+    if found and found != expected:
+        return None
+    return [row for row in rows if row[:3] not in expected], bool(found)
+
+
 def _project(rows):
+    expected_reflections = _reflection_schema()
+    reflection_rows = {row[:3]: _tokens(row[3]) for row in rows if row[:3] in expected_reflections}
+    if reflection_rows and reflection_rows != expected_reflections:
+        return None
+    rows = [row for row in rows if row[:3] not in expected_reflections]
+    care = _family_care_project(rows)
+    if care is None:
+        return None
+    rows, has_care = care
+    fee = _fee_project(rows)
+    if fee is None:
+        return None
+    rows, has_fee = fee
+    weekly = _sheet_project(rows, WEEKLY_COLUMNS, WEEKLY_INDEXES)
+    if weekly is None:
+        return None
+    rows, has_weekly = weekly
+    annual = _sheet_project(rows, ANNUAL_COLUMNS, ANNUAL_INDEXES)
+    if annual is None:
+        return None
+    rows, has_annual = annual
     monthly = _monthly_project(rows)
     if monthly is None:
         return None
@@ -200,7 +292,19 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set())
+    return archive[0], ({"weekly11"} if has_weekly else set()) | ({"reflections"} if reflection_rows else set()) | ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
+
+
+def _reflection_schema():
+    from plan_docs.db_models import PlanReflectionDraftRow, PlanReflectionReviewRow, PlanReflectionNotificationRow
+    with closing(sqlite3.connect(":memory:")) as connection:
+        for model in (PlanReflectionDraftRow, PlanReflectionReviewRow, PlanReflectionNotificationRow):
+            table = model.__table__
+            connection.execute(str(CreateTable(table).compile(dialect=dialect())))
+            for index in table.indexes:
+                connection.execute(str(CreateIndex(index).compile(dialect=dialect())))
+        return {row[:3]: _tokens(row[3]) for row in connection.execute(
+            "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'")}
 
 
 def compatible(source_rows, current_rows):
@@ -224,6 +328,10 @@ def upgrade_copy(database, current_rows):
         with connection:
             connection.execute("BEGIN")
             expected = {}
+            if "reflections" in missing:
+                expected.update(_reflection_schema())
+            if "family_care" in missing:
+                expected.update(_family_care_schema())
             if "archive" in missing:
                 connection.execute("ALTER TABLE families ADD COLUMN archived_at DATETIME")
                 expected.update(_archive_schema())
@@ -242,6 +350,22 @@ def upgrade_copy(database, current_rows):
                 for row in current_rows:
                     if row[0] == "index" and row[1] in MONTHLY_INDEXES:
                         connection.execute(row[3])
+            if "weekly11" in missing:
+                for name, kind in WEEKLY_COLUMNS.items():
+                    connection.execute(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+                for row in current_rows:
+                    if row[0] == "index" and row[1] in WEEKLY_INDEXES:
+                        connection.execute(row[3])
+            if "annual28" in missing:
+                for name, kind in ANNUAL_COLUMNS.items():
+                    connection.execute(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+                for row in current_rows:
+                    if row[0] == "index" and row[1] in ANNUAL_INDEXES:
+                        connection.execute(row[3])
+            if "fee_bands" in missing:
+                for table, fields in FEE_COLUMNS.items():
+                    for name, kind in fields.items():
+                        connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
             for row in sorted(current_rows, key=lambda row: row[0] != "table"):
                 if row[:3] in expected:
                     connection.execute(row[3])

@@ -22,6 +22,7 @@ from models import (
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from parent_auth import list_pending_parent_registrations
 from plan_docs.contracts import DOCUMENT_TYPE_LABELS
+from plan_docs.services.reflection_reviews import portal_items as reflection_portal_items
 from plan_docs.services.review_notifications import (
     REVIEW_OUTCOME,
     list_pending_review_documents,
@@ -91,8 +92,10 @@ def _render_staff_home(
     approval_queue_errors = []
     schedule_remaining_count = 0
     survey_pending_count = 0
+    attendance_attention_count = 0
     plan_notifications = []
     pending_plan_documents = []
+    pending_reflections = []
     pending_notices = []
     pending_child_change_requests = []
     pending_parent_registrations = []
@@ -130,6 +133,21 @@ def _render_staff_home(
         schedule_error = "予定を取得できませんでした。再読み込みしてください。"
 
     try:
+        # Personal attention always covers every assigned classroom, independent
+        # of the attendance cards' scope and three-card display limit.
+        attention_classrooms, _ = classroom_scope(
+            session,
+            staff_user,
+            target_date,
+            unassigned_admin_all=False,
+        )
+        attention_summaries = build_attendance_summaries(
+            session,
+            attention_classrooms,
+            target_date,
+            attention_limit=0,
+        )
+        attendance_attention_count = sum(item.attention_count for item in attention_summaries)
         _survey_items, survey_pending_count = build_unanswered_survey_items(
             session,
             staff_user,
@@ -163,6 +181,9 @@ def _render_staff_home(
                 for notification in plan_notifications
                 if notification.notification_kind == REVIEW_OUTCOME
             ]
+        pending_reflections, reflection_notifications = reflection_portal_items(
+            session, staff_user.id, nursery_ref, staff_user.staff_role == "admin")
+        plan_notifications.extend(reflection_notifications)
     except Exception:
         logger.exception(
             "staff portal plan notification load failed",
@@ -200,8 +221,8 @@ def _render_staff_home(
                 "decided_by_name": notification.decided_by_name or notification.requested_by_name,
                 "note": notification.decision_comment,
                 "returned_at": notification.created_at,
-                "open_action": f"/plans/notifications/{notification.id}/open",
-                "dismiss_url": f"/plans/notifications/{notification.id}/dismiss",
+                "open_action": getattr(notification, "open_url", f"/plans/notifications/{notification.id}/open"),
+                "dismiss_url": getattr(notification, "dismiss_url", f"/plans/notifications/{notification.id}/dismiss"),
             })
         else:
             other_plan_notifications.append(notification)
@@ -263,7 +284,7 @@ def _render_staff_home(
                 )
                 approval_queue_errors.append("保護者の初回登録の承認依頼を取得できませんでした。")
 
-    approval_queue_items = []
+    approval_queue_items = list(pending_reflections)
     for document in pending_plan_documents:
         approval_queue_items.append(
             {
@@ -344,9 +365,8 @@ def _render_staff_home(
                 "url": f"/document-reviews/{item.id}"})
     approval_queue_items.sort(key=lambda item: item["requested_at"], reverse=True)
 
-    attendance_attention_count = sum(item.attention_count for item in attendance_summaries)
     attention_count = attendance_attention_count + survey_pending_count
-    assignment_names = [item.classroom.name for item in assignment_views]
+    assignment_names = list(dict.fromkeys(item.classroom.name for item in assignment_views))
     display_assignment_names = assignment_names[:3]
     assignment_remaining_count = max(len(assignment_names) - len(display_assignment_names), 0)
     classroom_remaining_count = max(len(classrooms) - len(attendance_summaries), 0)
@@ -376,7 +396,7 @@ def _render_staff_home(
             "next_schedule": next_schedule_item(schedule_items),
             "attention_count": attention_count,
             "attention_error": attention_error,
-            "attention_url": "/staff/attention?scope=all" if show_all else "/staff/attention",
+            "attention_url": "/staff/attention",
             "timeline_messages": timeline_messages,
             "timeline_error": timeline_error,
             "plan_notifications": plan_notifications,
@@ -415,20 +435,13 @@ def _render_staff_attention(
     survey_items = []
 
     try:
-        classrooms, assignment_views = classroom_scope(
+        classrooms, _ = classroom_scope(
             session,
             staff_user,
             target_date,
             show_all=show_all,
+            unassigned_admin_all=False,
         )
-        if staff_user.staff_role == "admin" and not assignment_views:
-            show_all = True
-            classrooms, assignment_views = classroom_scope(
-                session,
-                staff_user,
-                target_date,
-                show_all=True,
-            )
         summaries = build_attendance_summaries(
             session,
             classrooms,

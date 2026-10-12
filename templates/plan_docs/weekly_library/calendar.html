@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ '月案' if monthly else '週案' }}カレンダー | hoiku-plan-docs{% endblock %}
+{% block head %}{{ super() }}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endblock %}
+{% block content %}
+<header class="form-header"><div><p class="eyebrow">指導計画</p><h1>{{ '月案' if monthly else '週案' }}カレンダー</h1><p class="lead">作成状況を確認し、必要な{{ '月' if monthly else '週' }}から計画を開けます。</p></div></header>
+<nav class="plan-calendar-nav"><a href="/plans/weekly-plans/?classroom_id={{ classroom.id }}&month={{ month }}&age={{ age }}" {% if not monthly %}aria-current="page"{% endif %}>週案カレンダー</a><a href="/plans/monthly-plans/?classroom_id={{ classroom.id }}&month={{ month }}&age={{ age }}" {% if monthly %}aria-current="page"{% endif %}>月案カレンダー</a><a href="/plans/">指導計画一覧</a></nav>
+<form class="calendar-filters" method="get"><label>クラス<select name="classroom_id">{% for c in classrooms %}<option value="{{ c.id }}" {% if c.id == classroom.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label><label>年齢<select name="age">{% for n in range(6) %}<option value="{{ n }}" {% if n == age %}selected{% endif %}>{{ n }}歳児</option>{% endfor %}</select></label>
+{% if monthly %}<label>年度<input name="year" type="number" min="1900" max="2198" value="{{ year }}" required></label>{% else %}<label>表示月<input name="month" type="month" min="1900-01" max="2199-12" value="{{ month }}" required></label>{% endif %}<button class="button" type="submit">表示</button><a class="button" href="{{ previous_url }}">前の{{ '年度' if monthly else '月' }}</a><a class="button" href="{{ next_url }}">次の{{ '年度' if monthly else '月' }}</a></form>
+<h2>{{ year|string + '年度' if monthly else month }}・{{ classroom.name }}・{{ age }}歳児</h2>
+<div class="{{ 'month-grid' if monthly else 'week-list' }}">
+{% for card in cards %}<article class="calendar-card" data-period="{{ card.key }}"><div class="calendar-card-heading"><h3>{{ card.label }}</h3><span class="status">{{ card.documents[0].status_label if card.documents else '未作成' }}</span><a class="button button--primary" href="{{ card.url }}">{{ '計画を開く' if card.documents else ('＋ 作成' if user.can_edit else '帳票を確認') }}</a></div>
+{% if monthly %}{% if card.documents %}<p>{{ card.documents[0].monthly_sheet.fields.get('common:goal', {}).get('body', '') }}</p>{% else %}<p>この月の計画はまだありません。</p>{% endif %}
+{% else %}<p>ねらい：{{ card.plan.aim if card.plan and card.plan.aim else '未入力' }}</p>{% if card.plan and age < 3 %}<p>今週の活動：{{ card.plan.activity or '未入力' }}<br><small>週全体の計画です。各日への割り当てはありません。</small></p>{% endif %}<div class="calendar-days-scroll" tabindex="0" role="region" aria-label="{{ card.label }}の活動"><div class="calendar-days">{% for day in card.days %}<div class="{{ 'outside' if day.outside else '' }}"><strong>{{ day.label }}</strong><p>{{ day.activity or '—' }}</p></div>{% endfor %}</div></div>{% endif %}
+{% for d in card.documents %}{% if not monthly and not d.weekly_sheet %}<p><a href="/plans/documents/{{ d.id }}">以前の形式の週案：{{ d.title }}（{{ d.status_label }}）</a></p>{% endif %}{% endfor %}</article>{% endfor %}
+</div><p class="field-note">{{ '月を選ぶと、新しい月案帳票へ月・クラス・年齢を引き継ぎます。' if monthly else '週は月曜始まり。月をまたぐ週も同じ計画を表示します。' }}</p>
+{% endblock %}

@@ -1,0 +1,40 @@
+{
+  "state": "complete",
+  "verified": true,
+  "checked_at": "2026-10-04T02:18:46.864821+00:00",
+  "baseline_commit": "1f083a15c7a8f8d1123e6bf57918b1cead123340",
+  "commit": "74439d61150885f36887ffd95fa120d354999806",
+  "image_id": "sha256:b73184bb7e939c2da835cab40f4943eb321c0c1a20a3e01287eae6f98d71b91e",
+  "application_tests": {
+    "passed": 498,
+    "failed": 0,
+    "skipped": 0,
+    "collection_errors": 0,
+    "pytest": "8.4.2",
+    "verified": true
+  },
+  "family_care": {
+    "verified": true,
+    "read_only": true,
+    "records_written": 0,
+    "rendered_roles": 2,
+    "asset_sha256": {
+      "css/family-care.css": "b6f1c281464e61b73800446984eced23a1b700ddeddce194cbe43e2646d73905",
+      "js/family-care.js": "1456bb6e8b2baef5ef01a9c4ac19195d54b36cf817905e9148d498c3c24a1e63"
+    }
+  },
+  "existing_backups_verified": 10,
+  "existing_features_verified": true,
+  "config_preserved": true,
+  "production_records_written": 0,
+  "completed_at": "2026-10-04T02:17:42.099532+00:00",
+  "attachments_verified": 13,
+  "public_browser_verification": {
+    "verified": true,
+    "family_list_entry_verified": true,
+    "common_fields_verified": true,
+    "existing_individual_preserved": true,
+    "console_errors": 0,
+    "production_records_written": 0
+  }
+}

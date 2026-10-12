@@ -17,13 +17,13 @@ from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_ed
 from ..contracts import DocumentStatus, DocumentType, normalize_status
 from ..serializers import document_to_dict
 from ..services.daily_reflections import (
-    DailyReflectionError,
     reflection_for_document,
     reflection_state,
     reflection_state_label,
     reminder_time,
-    save_daily_reflection,
 )
+from ..services import reflection_reviews
+from .reflections import router as reflection_router
 from ..store import (
     ConcurrentUpdateError,
     DocumentRepositoryDep,
@@ -32,6 +32,7 @@ from ..store import (
     SqlModelDocumentRepository,
 )
 from ..templating import render_template
+from ..services.monthly_access import can_edit_monthly_document, EDIT_REASON
 
 
 router = APIRouter(tags=["documents"])
@@ -89,10 +90,14 @@ def _can_view_document(
     user: StaffUser,
     repository: SqlModelDocumentRepository,
 ) -> bool:
-    if document.monthly_sheet is not None and not user.actor_ref:
+    if (document.monthly_sheet is not None or document.annual_sheet is not None or document.weekly_sheet is not None) and not user.actor_ref:
         return False
     if document.nursery_ref != user.nursery_ref:
         return False
+    if document.annual_sheet:
+        from models import Classroom
+        classroom = repository.session.get(Classroom, document.annual_sheet["classroom_id"])
+        return user.can_access_classroom(classroom.name if classroom else document.classroom_ref)
     if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
         child = _progress_child(document, repository)
         if child is None:
@@ -109,6 +114,8 @@ def _can_edit_document(
 ) -> bool:
     if not user.can_edit:
         return False
+    if document.document_type == DocumentType.MONTHLY_PLAN:
+        return can_edit_monthly_document(repository.session, user, document)
     if document.document_type != DocumentType.CHILD_PROGRESS_RECORD:
         return True
     child = _progress_child(document, repository)
@@ -127,7 +134,7 @@ def _require_document_edit_access(
 ) -> None:
     require_can_edit(user, request)
     if not _can_edit_document(document, user, repository):
-        raise HTTPException(status_code=403, detail="この園児の児童票を編集できません")
+        raise HTTPException(status_code=403, detail=EDIT_REASON if document.document_type == DocumentType.MONTHLY_PLAN else "この園児の児童票を編集できません")
 
 
 def _visible_document(
@@ -259,11 +266,19 @@ def document_detail(
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
     monthly_boot = None
+    annual_boot = None
+    if document.annual_sheet is not None:
+        from .annual_library import _context as annual_context
+        annual_boot = annual_context(user, repository, document.annual_sheet["classroom_id"],
+                                     document.school_year, document.id)
+        annual_boot["editable"] = False
     if document.monthly_sheet is not None:
         from .monthly_library import _context
         monthly_boot = _context(user, repository, document.monthly_sheet["classroom_id"],
                                 document.target_month, document.monthly_sheet["age"], document.id)
         monthly_boot["editable"] = False
+        monthly_boot["edit_reason"] = "閲覧中です。修正は月案の編集画面から行います。"
+        monthly_boot["base_token"] = None
     reflection = (
         reflection_for_document(repository.session, document_id)
         if document.document_type == DocumentType.DAILY_PLAN
@@ -275,6 +290,7 @@ def document_detail(
         user=user,
         document=document,
         monthly_boot=monthly_boot,
+        annual_boot=annual_boot,
         status_options=list(DocumentStatus),
         lock_version=head.lock_version if head else 0,
         revisions=repository.revisions(document_id),
@@ -288,6 +304,7 @@ def document_detail(
         impact_labels=IMPACT_LABELS,
         changed_at_default=local_naive_now().strftime("%Y-%m-%dT%H:%M"),
         reflection=reflection,
+        reflection_review=reflection_reviews.state(repository.session, document, -1) if document.document_type == DocumentType.DAILY_PLAN else None,
         reflection_state=reflection_state(reflection),
         reflection_state_label=reflection_state_label(reflection),
         reflection_reminder_time=reminder_time().strftime("%H:%M"),
@@ -302,18 +319,16 @@ def save_reflection_draft(
     user: CurrentUser,
     repository: DocumentRepositoryDep,
     reflection_body: Annotated[str, Form()] = "",
+    reflection_version: Annotated[int, Form(ge=0)] = 0,
 ):
     document = _visible_document(document_id, user, repository)
     _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
-    reflection = save_daily_reflection(
-        repository.session,
-        document_id=document_id,
-        body=reflection_body,
-        actor_ref=user.actor_ref or "unknown",
-        submit=False,
-    )
+    reflection_reviews.begin(repository.session)
+    reflection_reviews.save_draft(repository.session, document, -1, [reflection_body], reflection_version, user.actor_ref)
+    repository.session.commit()
+    reflection = reflection_for_document(repository.session, document_id)
     return HTMLResponse(_reflection_status_html(reflection))
 
 
@@ -325,22 +340,19 @@ def submit_daily_reflection(
     repository: DocumentRepositoryDep,
     reflection_body: Annotated[str, Form()] = "",
     action: Annotated[str, Form()] = "submit",
+    reflection_version: Annotated[int, Form(ge=0)] = 0,
 ):
     document = _visible_document(document_id, user, repository)
     _require_document_edit_access(document, user, repository, request)
     if document.document_type != DocumentType.DAILY_PLAN:
         raise HTTPException(status_code=404, detail="日案が見つかりません")
-    try:
-        save_daily_reflection(
-            repository.session,
-            document_id=document_id,
-            body=reflection_body,
-            actor_ref=user.actor_ref or "unknown",
-            submit=action == "submit",
-        )
-    except DailyReflectionError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return RedirectResponse(url=f"/plans/documents/{document_id}", status_code=303)
+    if action == "submit" and not reflection_body.strip():
+        raise HTTPException(422, "振り返りを入力してください")
+    reflection_reviews.begin(repository.session)
+    reflection_reviews.save_draft(repository.session, document, -1, [reflection_body], reflection_version, user.actor_ref)
+    repository.session.commit()
+    target = f"/plans/documents/{document_id}/reflections/-1/confirm" if action == "submit" else reflection_reviews.input_url(document_id, -1)
+    return RedirectResponse(url=target, status_code=303)
 
 
 @router.get("/documents/{document_id}/edit")
@@ -356,6 +368,10 @@ def edit_document_form(
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
     if document.monthly_sheet is not None:
         return RedirectResponse(f"/plans/monthly-library?document_id={document.id}", status_code=303)
+    if document.weekly_sheet is not None:
+        return RedirectResponse(f"/plans/weekly-library?document_id={document.id}", status_code=303)
+    if document.annual_sheet is not None:
+        return RedirectResponse(f"/plans/annual-library?document_id={document.id}", status_code=303)
     return render_template(
         request,
         "documents/edit.html",
@@ -376,6 +392,10 @@ async def update_document(
     document = _visible_document(document_id, user, repository)
     if document.monthly_sheet is not None:
         raise HTTPException(status_code=409, detail="帳票の月案編集画面から保存してください")
+    if document.weekly_sheet is not None:
+        raise HTTPException(status_code=409, detail="帳票の週案編集画面から保存してください")
+    if document.annual_sheet is not None:
+        raise HTTPException(status_code=409, detail="帳票の年案編集画面から保存してください")
     _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
@@ -699,3 +719,5 @@ def correct_execution_change_json(
     except ExecutionChangeError as exc:
         _raise_repository_error(exc)
     return _change_to_dict(change)
+
+router.include_router(reflection_router)

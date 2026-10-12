@@ -2,3 +2,5 @@
 @media(min-width:1280px){.contact-workspace{grid-template-columns:1fr 1.15fr}.parent-contact .md\:grid-cols-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(pointer:coarse){.reply-choices button{min-height:44px}}
 .parent-contact .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.parent-contact .grid>div{padding:8px;font-size:12px;overflow-wrap:anywhere}
+#daily-reply-form { scroll-margin-top: 20px; }
+#daily-reply-form:target { border-color: #818cf8; box-shadow: 0 0 0 2px #e0e7ff; }

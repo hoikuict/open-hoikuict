@@ -163,6 +163,33 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-10-12 デモへの差分統合: demo-integration-2026-10-12.md
+          - 2026-09-28〜10-12 指導計画の更新:
+              - 年案の担任名の実装: annual-owner-implementation-2026-10-12.md
+              - 年案の担任名の配備: deployment-annual-owner-2026-10-12.md
+              - 週案とカレンダーの実装: weekly-calendars-implementation-2026-10-11.md
+              - 週案とカレンダーの配備: deployment-weekly-calendars-2026-10-11.md
+              - 年案・反省承認の実装: plan-reflection-review-implementation-2026-10-11.md
+              - 年案・反省承認の配備: deployment-plan-reflection-review-2026-10-11.md
+              - 日案印刷の実装: daily-print-implementation-2026-10-11.md
+              - 日案印刷の配備: deployment-daily-print-2026-10-11.md
+              - 日案例検索の実装: daily-example-search-implementation-2026-10-11.md
+              - 日案例検索の配備: deployment-daily-example-search-2026-10-11.md
+              - 日案例一覧の実装: daily-example-list-implementation-2026-10-11.md
+              - 日案例一覧の配備: deployment-daily-example-list-2026-10-11.md
+              - 既存年案の引継ぎ: annual-library-implementation-2026-09-28.md
+              - 月案の担当権限と共同編集: monthly-assignment-edit-proposal-2026-09-28.md
+          - 2026-10-04 出欠・保育認定の更新:
+              - 月間登降園の実装: attendance-monthly-20261004.md
+              - 月間登降園の配備: deployment-attendance-monthly-2026-10-04.md
+              - 延長保育の時間帯設定: extended-care-bands-20261004.md
+              - 延長保育設定の配備: deployment-extended-care-2026-10-04.md
+              - 家族共通の保育認定の仕様: family-care-certification-proposal-2026-10-04.md
+              - 家族共通の保育認定の実装: family-care-certification-2026-10-04.md
+              - 家族共通の保育認定の配備: deployment-family-care-2026-10-04.md
+              - 認定画面の導線整理: care-recognition-navigation-2026-10-04.md
+              - 認定画面の導線の配備: deployment-care-navigation-2026-10-04.md
+              - 作業完了記録: work-handoff-2026-10-04.md
           - 2026-09-27 main・デモへの統合: main-demo-integration-2026-09-27.md
           - 2026-09-27 月案の配信キャッシュ修正: deployment-monthly-asset-cache-2026-09-27.md
           - 2026-09-27 主任印欄の本番更新: deployment-monthly-chief-stamp-2026-09-27.md

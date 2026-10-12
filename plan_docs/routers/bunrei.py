@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..services.monthly_access import require_monthly_edit, classroom_id_for_ref
+
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -182,6 +184,7 @@ async def create_monthly_from_bunrei(
     owner_name = str(form.get("owner_name") or user.name).strip()
     require_classroom_access(user, classroom_ref)
 
+    require_monthly_edit(repository.session, user, classroom_id_for_ref(repository.session, classroom_ref), target_month)
     selection = {
         section_key.removeprefix("section_"): list(form.getlist(section_key))
         for section_key in form

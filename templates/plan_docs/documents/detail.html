@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ document.title }} | hoiku-plan-docs{% endblock %}
+{% block head %}
+  {{ super() }}
+  {% if document.weekly_sheet %}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endif %}
+  {% if document.document_type.value == "daily_plan" %}
+    <link rel="stylesheet" href="/static/css/daily-plan-print.css">
+  {% endif %}
+{% endblock %}
 {% block content %}
   {% macro render_schedule(schedule) %}
     <section class="report-section report-schedule">
@@ -26,7 +33,7 @@
                 {% for column in schedule.columns %}
                   {% set cell = row.cells.get(column.key) %}
                   <td>
-                    {{ cell.body if cell else "" }}
+                    {% if document.document_type.value == "daily_plan" %}<span class="daily-print-cell-body">{{ cell.body if cell else "" }}</span>{% else %}{{ cell.body if cell else "" }}{% endif %}
                     {% if cell and cell.needs_confirmation %}
                       <div class="inline-note">{{ cell.editor_note or "確認が必要です。" }}</div>
                     {% endif %}
@@ -41,12 +48,12 @@
   {% endmacro %}
 
   {% macro render_section(section) %}
-    <section class="report-section">
+    <section class="report-section{% if document.document_type.value == 'daily_plan' and section.section_key in ['daily_goal', 'daily_content'] %} daily-print-purpose{% endif %}">
       <div class="report-section__heading">
         <h2>{{ section.title }}</h2>
       </div>
       <p>{{ section.body }}</p>
-      <footer class="report-section__footer">
+      <footer class="report-section__footer{% if document.document_type.value == 'daily_plan' and not (section.evidence_tags|reject('equalto', '入力')|list) %} daily-print-empty{% endif %}">
         <span>
           {% for tag in section.evidence_tags %}
             {% if tag != "入力" %}<b>{{ tag }}</b>{% endif %}
@@ -79,6 +86,11 @@
   {% if monthly_boot %}
     {% with boot=monthly_boot, classrooms=[], detail_mode=true %}
       {% include "plan_docs/monthly_library/_sheet.html" %}
+    {% endwith %}
+  {% endif %}
+  {% if annual_boot %}
+    {% with boot=annual_boot, classrooms=[], detail_mode=true %}
+      {% include "plan_docs/annual_library/_sheet.html" %}
     {% endwith %}
   {% endif %}
   {% if document.confirmation_items %}
@@ -122,7 +134,8 @@
     </form>
   </section>
 
-  <article class="report-sheet">
+  {% if document.weekly_sheet %}{% include "plan_docs/weekly_library/_report.html" %}{% endif %}
+  <article class="report-sheet" {% if annual_boot or document.weekly_sheet %}hidden{% endif %}>
     <header class="report-sheet__meta">
       <span>{{ document.document_type_label }}</span>
       <span>
@@ -169,36 +182,39 @@
           <p class="field-note">{{ document.target_date }} {{ reflection_reminder_time }}までに提出してください。</p>
         </div>
         <div id="daily-reflection-status" aria-live="polite">
-          <span class="reflection-status reflection-status--{{ reflection_state }}">{{ reflection_state_label }}</span>
+          <span class="reflection-status reflection-status--{{ reflection_state }}">{{ reflection_review.label if reflection_review.review_id else reflection_state_label }}</span>
         </div>
       </div>
-      {% if can_edit_document %}
-        <form method="post" action="/plans/documents/{{ document.id }}/reflection" class="form-layout">
+      {% if can_edit_document and not reflection_review.locked %}
+        <form id="daily-reflection-form" data-document-id="{{ document.id }}" method="post" action="/plans/documents/{{ document.id }}/reflection" class="form-layout">
+          <input type="hidden" name="reflection_version" value="{{ reflection_review.version }}">
           <label>
             <span>振り返り</span>
             <textarea
               name="reflection_body"
               rows="6"
+              maxlength="20000"
               required
               placeholder="その日の保育を振り返って記入してください"
-              hx-post="/plans/documents/{{ document.id }}/reflection/draft"
-              hx-trigger="keyup changed delay:1200ms, change delay:200ms"
-              hx-include="closest form"
-              hx-target="#daily-reflection-status"
-              hx-swap="innerHTML"
             >{{ reflection.body if reflection else "" }}</textarea>
           </label>
-          <p class="field-note">入力内容は自動で下書き保存されます。提出後に書き換えると再提出が必要になります。</p>
+          <p class="field-note">入力内容は自動で下書き保存されます。承認確認へ進み、依頼を確定すると管理者に通知されます。</p>
           {% if reflection and reflection.submitted_at %}
             <p class="field-note">最終提出: {{ reflection.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }}</p>
           {% endif %}
           <div class="form-actions no-print">
             <button class="button button--secondary" type="submit" name="action" value="draft" formnovalidate>下書き保存</button>
-            <button class="button button--primary" type="submit" name="action" value="submit">振り返りを提出</button>
+            <button class="button button--primary" type="submit" name="action" value="submit">承認確認へ進む</button>
           </div>
         </form>
+        <script src="{{ static_asset_url('js/daily-reflection-review.js') }}" defer></script>
       {% else %}
-        <p>{{ reflection.body if reflection and reflection.body else "未入力" }}</p>
+        <p class="daily-reflection-screen">{{ reflection.body if reflection and reflection.body else "未入力" }}</p>
+      {% endif %}
+      {% if reflection_review.review_id %}<a class="button button--secondary no-print" href="/plans/reflection-reviews/{{ reflection_review.review_id }}">反省の承認状況を確認</a>{% endif %}
+      <p class="daily-print-reflection" data-daily-print-reflection>{{ reflection.body if reflection and reflection.body else "未入力" }}</p>
+      {% if reflection and reflection.submitted_at %}
+        <p class="daily-print-submitted-at">最終提出: {{ reflection.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }}</p>
       {% endif %}
     </section>
   {% endif %}
@@ -244,7 +260,7 @@
               {% if change.confirmation_status == "pending" %}
                 <div class="notice"><strong>事後確認待ち</strong></div>
                 {% if user.is_admin %}
-                  <form method="post" action="/plans/documents/{{ document.id }}/execution-changes/{{ change.id }}/confirm">
+                  <form method="post" action="/plans/documents/{{ document.id }}/execution-changes/{{ change.id }}/confirm" class="no-print">
                     <label>
                       <span>確認コメント</span>
                       <input name="confirmation_comment" type="text">
@@ -359,5 +375,11 @@
     <div class="report-section__heading"><h2>版履歴</h2></div>
     <p>現在のロック版: {{ lock_version }} / リビジョン数: {{ revisions | length }}</p>
   </section>
+{% endblock %}
+{% block body_end %}
+  {{ super() }}
+  {% if document.document_type.value == "daily_plan" %}
+    <script src="/static/js/daily-plan-print.js"></script>
+  {% endif %}
 {% endblock %}
 

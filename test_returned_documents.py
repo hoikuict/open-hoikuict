@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -8,7 +8,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 
 from auth import Role
 import database
-from models import Classroom, DocumentReviewRequest, User
+from models import Classroom, DocumentReviewRequest, StaffClassroomAssignment, User
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from plan_docs.contracts import DocumentStatus, DocumentType
 from plan_docs.db_models import PlanReviewNotificationRow
@@ -66,11 +66,17 @@ def sign_in(client, users, name):
 def return_plan(portal, document_type=DocumentType.DAILY_PLAN):
     client, engine, users = portal
     with Session(engine) as session:
+        if document_type == DocumentType.MONTHLY_PLAN:
+            classroom = session.exec(select(Classroom).where(Classroom.name == "ひよこ組")).one()
+            session.add(StaffClassroomAssignment(staff_user_id=users["作成者"], classroom_id=classroom.id,
+                starts_on=date(2026, 10, 1), ends_on=date(2026, 10, 31)))
+            session.commit()
         document = SqlModelDocumentRepository(session).create(PlanDocument(
             id=0, document_type=document_type, status=DocumentStatus.DRAFT,
             title=f"検証用 {document_type.value}", nursery_ref=DEFAULT_NURSERY_REF,
             classroom_ref="ひよこ組", actor_ref=f"staff:{users['作成者']}",
             owner_name="作成者", sections=[],
+            target_month="2026-10" if document_type == DocumentType.MONTHLY_PLAN else None,
         ))
     sign_in(client, users, "作成者")
     url = f"/plans/documents/{document.id}"

@@ -1,0 +1,118 @@
+
+#annual-plan-sheet{--rd-bg:light-dark(#f3f6f4,#15221c);--rd-paper:light-dark(#fff,#223329);--rd-text:light-dark(#253d31,#edf3ee);--rd-muted:light-dark(#607369,#b3c6b8);--rd-line:light-dark(#c3cec7,#60786a);--rd-soft:light-dark(#edf3ef,#2d4134);--rd-green:light-dark(#216447,#a2ddbb);--rd-on:light-dark(#fff,#143224);--rd-active:light-dark(#edf7f0,#314d3b);--rd-change:light-dark(#fff6dd,#493f25);--rd-warn:light-dark(#79581a,#f3d18b);background:var(--rd-bg);color:var(--rd-text);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Yu Gothic UI",Meiryo,sans-serif;border:1px solid var(--rd-line);border-radius:8px;overflow:hidden;}
+#annual-plan-sheet *{box-sizing:border-box;min-width:0;}
+#annual-plan-sheet [hidden]{display:none!important;}
+#annual-plan-sheet button,#annual-plan-sheet select,#annual-plan-sheet textarea,#annual-plan-sheet input{font:inherit;color:inherit;}
+#annual-plan-sheet button,#annual-plan-sheet select{border:1px solid var(--rd-line);border-radius:4px;background:var(--rd-paper);padding:6px 9px;max-width:100%;}
+#annual-plan-sheet button:hover{background:var(--rd-soft);}
+#annual-plan-sheet button[aria-pressed="true"]{background:var(--rd-active);border-color:var(--rd-green);color:var(--rd-green);}
+#annual-plan-sheet button:disabled{opacity:.45;}
+#annual-plan-sheet small{font-size:11px;color:var(--rd-muted);}
+#annual-plan-sheet a{color:var(--rd-green);overflow-wrap:anywhere;}
+#annual-plan-sheet .rd-chrome{display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:12px 18px;background:var(--rd-paper);border-bottom:1px solid var(--rd-line);font-size:12px;}
+#annual-plan-sheet .rd-chrome strong{font-weight:500;color:var(--rd-green);}
+#annual-plan-sheet .rd-chrome small{margin-left:auto;}
+#annual-plan-sheet .rd-main{padding:18px;}
+#annual-plan-sheet .rd-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+#annual-plan-sheet h2{font-size:21px;font-weight:500;line-height:1.35;margin:0 0 4px;}
+#annual-plan-sheet .rd-context{font-size:12px;color:var(--rd-muted);}
+#annual-plan-sheet .rd-save{background:var(--rd-green);color:var(--rd-on);border-color:var(--rd-green);}
+#annual-plan-sheet .rd-save:hover{background:var(--rd-green);color:var(--rd-on);}
+#annual-plan-sheet .rd-source{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;padding:12px 0 8px;}
+#annual-plan-sheet .rd-source span{color:var(--rd-muted);}
+#annual-plan-sheet .rd-import-status{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;border-bottom:1px solid var(--rd-line);padding-bottom:9px;}
+#annual-plan-sheet .rd-pending{color:var(--rd-warn);}
+#annual-plan-sheet .rd-original-image{font-size:12px;padding:10px 0;border-bottom:1px solid var(--rd-line);}
+#annual-plan-sheet .rd-original-image img{display:block;width:100%;height:auto;margin-top:12px;background:light-dark(#fff,#fff);}
+#annual-plan-sheet .rd-original-image div{color:var(--rd-muted);margin-top:5px;}
+#annual-plan-sheet .rd-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 0;font-size:12px;}
+#annual-plan-sheet .rd-change-count{margin-left:auto;color:var(--rd-muted);}
+#annual-plan-sheet .rd-reference{padding:12px;background:var(--rd-paper);border:1px solid var(--rd-line);margin-bottom:12px;font-size:12px;}
+#annual-plan-sheet .rd-reference-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;}
+#annual-plan-sheet .rd-reference strong{font-weight:500;}
+#annual-plan-sheet .rd-source-text{white-space:pre-wrap;margin:8px 0;}
+#annual-plan-sheet .rd-reference details{color:var(--rd-muted);margin-top:7px;}
+#annual-plan-sheet .rd-reference .rd-raw-line{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;color:var(--rd-text);}
+#annual-plan-sheet .rd-paper{padding:12px;background:var(--rd-paper);border:1px solid var(--rd-line);}
+#annual-plan-sheet .rd-scroll{overflow-x:auto;}
+#annual-plan-sheet .rd-sheet{min-width:860px;}
+#annual-plan-sheet table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;}
+#annual-plan-sheet th,#annual-plan-sheet td{border:1px solid var(--rd-line);font-weight:400;padding:0;vertical-align:top;}
+#annual-plan-sheet th{background:var(--rd-soft);padding:7px 6px;text-align:center;vertical-align:middle;}
+#annual-plan-sheet .rd-meta td{text-align:center;vertical-align:middle;}
+#annual-plan-sheet .rd-sheet-title{font-weight:500;padding:12px 6px;}
+#annual-plan-sheet .rd-owner{padding:9px;white-space:pre-wrap;font-size:12px;}
+#annual-plan-sheet .rd-section-title{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--rd-soft);border:1px solid var(--rd-line);padding:8px 10px;margin-top:-1px;font-size:13px;}
+#annual-plan-sheet .rd-section-title strong{font-weight:500;}
+#annual-plan-sheet .rd-axis{height:39px;position:relative;margin:0 28px;font-size:11px;}
+#annual-plan-sheet .rd-axis span{position:absolute;top:9px;transform:translateX(-50%);white-space:nowrap;}
+#annual-plan-sheet .rd-category{width:79px;}
+#annual-plan-sheet .rd-board{position:relative;margin:0 28px;}
+#annual-plan-sheet .rd-grid{position:absolute;inset:0;pointer-events:none;}
+#annual-plan-sheet .rd-grid i{position:absolute;top:0;bottom:0;width:1px;background:var(--rd-line);opacity:.4;}
+#annual-plan-sheet .rd-entry{position:absolute;padding:0 5px 5px 7px;font-size:12px;}
+#annual-plan-sheet .rd-entry-label{display:block;padding:2px 0!important;border:0!important;background:transparent!important;color:var(--rd-green);font-size:11px;max-width:100%;text-align:left;}
+#annual-plan-sheet .rd-anchor{position:absolute;width:6px;height:6px;background:var(--rd-green);border-radius:50%;transform:translateX(-50%);top:-3px;}
+#annual-plan-sheet .rd-entry-controls{display:none;padding:5px 0;font-size:11px;}
+#annual-plan-sheet .rd-entry[data-selected="true"] .rd-entry-controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap;}
+#annual-plan-sheet .rd-entry-controls select{font-size:12px;padding:4px 6px;}
+#annual-plan-sheet .rd-entry-controls label{display:flex;align-items:center;gap:4px;}
+#annual-plan-sheet .rd-entry-controls label{white-space:nowrap;flex:0 0 auto;}
+#annual-plan-sheet .rd-entry-controls select{width:auto;}
+#annual-plan-sheet .rd-entry-controls input[type="checkbox"]{appearance:auto;width:14px;height:14px;min-height:0;padding:0;margin:0;flex:none;box-shadow:none;accent-color:var(--rd-green);}
+#annual-plan-sheet .rd-edit{display:block;resize:none;width:100%;min-height:38px;border:0;border-radius:0;background:transparent;line-height:1.6;padding:5px 7px;margin:0;overflow:hidden;font-size:12px;}
+#annual-plan-sheet .rd-entry .rd-edit{padding:3px 0;}
+#annual-plan-sheet .rd-entry[data-selected="true"],#annual-plan-sheet .rd-field[data-selected="true"]{box-shadow:inset 0 0 0 1px var(--rd-green);background:var(--rd-active);}
+#annual-plan-sheet[data-diff="true"] .rd-entry[data-changed="true"],#annual-plan-sheet[data-diff="true"] .rd-field[data-changed="true"]{background:var(--rd-change);}
+#annual-plan-sheet .rd-field{position:relative;padding:3px;min-height:80px;}
+#annual-plan-sheet .rd-field-source{display:block;font-size:11px;color:var(--rd-muted);padding:0 7px;text-align:left;}
+#annual-plan-sheet .rd-terms table{margin-top:-1px;}
+#annual-plan-sheet .rd-terms th span{display:block;font-size:11px;color:var(--rd-muted);}
+#annual-plan-sheet .rd-legend{font-size:11px;color:var(--rd-muted);padding-top:9px;}
+#annual-plan-sheet footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--rd-muted);padding-top:12px;}
+#annual-plan-sheet .rd-live{color:var(--rd-green);}
+@media(max-width:800px){#annual-plan-sheet .rd-main{padding:12px;}#annual-plan-sheet .rd-chrome{padding:10px 12px;}}
+@media(pointer:coarse){#annual-plan-sheet button,#annual-plan-sheet select{min-height:44px;}#annual-plan-sheet .rd-edit{font-size:16px;}}
+#annual-plan-sheet .annual-pickers,#annual-plan-sheet .annual-origin,#annual-plan-sheet .annual-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+#annual-plan-sheet .annual-pickers label,#annual-plan-sheet .annual-origin label{display:flex;align-items:center;gap:8px;}
+#annual-plan-sheet .annual-pickers label{white-space:nowrap;}
+#annual-plan-sheet .annual-origin label{display:grid;grid-template-columns:auto minmax(0,1fr);flex:1 1 420px;white-space:nowrap;}
+#annual-plan-sheet .annual-preview-note{margin:0;padding:10px 18px;background:var(--rd-soft);font-size:12px;}
+#annual-plan-sheet .annual-pickers input{width:100px;background:var(--rd-paper);border:1px solid var(--rd-line);border-radius:4px;padding:6px 9px;}
+#annual-plan-sheet .annual-source-warning{flex-basis:100%;margin:0;font-size:12px;color:var(--rd-warn);}
+#annual-plan-sheet .annual-empty{padding:28px 0;}
+#annual-plan-sheet .rd-sheet-title,#annual-plan-sheet .annual-class-label{white-space:pre-line;}
+#annual-plan-sheet .rd-edit[readonly]{color:var(--rd-text);opacity:1;}
+#annual-plan-sheet .annual-editor{margin:0;padding:0;}
+#annual-plan-sheet [role="alert"]{color:var(--rd-warn);}
+#annual-plan-sheet textarea{box-shadow:none;}
+#annual-plan-sheet button,#annual-plan-sheet summary{cursor:pointer;}
+#annual-plan-sheet .rd-source-grid .rd-grid-text{white-space:pre-wrap;overflow-wrap:anywhere;padding:6px 4px;vertical-align:middle;}
+#annual-plan-sheet .rd-source-grid .rd-grid-text:empty{padding:0;}
+#annual-plan-sheet .annual-reflections{margin-top:24px;}
+#annual-plan-sheet .annual-reflections h3{font-size:17px;margin:0 0 6px;}
+#annual-plan-sheet .annual-reflections p{font-size:12px;color:var(--rd-muted);}
+#annual-plan-sheet .annual-reflections details{padding:12px;margin:12px 0;background:var(--rd-paper);border:1px solid var(--rd-line);}
+#annual-plan-sheet .annual-reflections summary{font-size:13px;overflow-wrap:anywhere;}
+#annual-plan-sheet .annual-reflections table{min-width:860px;margin-top:12px;}
+#annual-plan-sheet .annual-reflections .rd-grid-text{padding:10px;vertical-align:top;}
+@media print{
+  @page{size:A3 landscape;margin:12mm;}
+  #annual-plan-sheet{border:0;background:white;color:black;}
+  #annual-plan-sheet .no-print,#annual-plan-sheet .rd-chrome{display:none!important;}
+  #annual-plan-sheet .rd-main,#annual-plan-sheet .rd-paper{padding:0;border:0;}
+  #annual-plan-sheet .rd-scroll{overflow:visible;}
+  #annual-plan-sheet .rd-sheet{min-width:0;}
+  #annual-plan-sheet .annual-reflections table{min-width:0;}
+  #annual-plan-sheet .annual-reflections{break-before:page;}
+  #annual-plan-sheet .rd-entry[data-selected="true"],#annual-plan-sheet .rd-field[data-selected="true"],
+  #annual-plan-sheet[data-diff="true"] .rd-entry[data-changed="true"],#annual-plan-sheet[data-diff="true"] .rd-field[data-changed="true"]{background:transparent;box-shadow:none;}
+  #annual-plan-sheet tr{break-inside:avoid;}
+  #annual-plan-sheet textarea{color:black;background:transparent;outline:none;}
+}
+
+#annual-reflection-editor{scroll-margin-top:16px;margin-top:24px;border:1px solid var(--rd-line);background:var(--rd-paper);padding:16px}#annual-plan-sheet #annual-reflection-editor h3{font-size:19px;margin:0 0 5px}#annual-plan-sheet .reflection-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}#annual-plan-sheet .reflection-actions{display:flex;gap:8px;flex-wrap:wrap}#annual-plan-sheet .reflection-note{font-size:12px;color:var(--rd-muted);margin:7px 0 12px}#annual-plan-sheet .reflection-meta{font-size:13px;margin:10px 0;white-space:pre-line}#annual-plan-sheet .reflection-grid{min-width:680px}#annual-plan-sheet .reflection-grid th:first-child{width:105px}#annual-plan-sheet .reflection-grid textarea{min-height:105px;resize:vertical;padding:10px;font-size:13px;line-height:1.6}#annual-plan-sheet .reflection-grid th{padding:10px}#annual-plan-sheet .reflection-progress{font-size:12px;color:var(--rd-muted)}#annual-plan-sheet .reflection-message{margin:12px 0 0;font-size:13px;min-height:1.5em}#annual-plan-sheet .reflection-save{background:var(--rd-green);color:var(--rd-on);border-color:var(--rd-green)}#annual-plan-sheet .reflection-grid textarea:focus,#annual-owner:focus{outline:2px solid #468769;outline-offset:-2px;background:#f1f8f3}#annual-plan-sheet .reflection-dirty{color:#8c5d13}#annual-plan-sheet .rd-meta #annual-owner{min-height:60px}
+@media print{#annual-reflection-editor{break-before:page;border:0;padding:0}#annual-plan-sheet .reflection-grid{min-width:0}#annual-plan-sheet .reflection-actions,#annual-plan-sheet .reflection-note,#annual-plan-sheet .reflection-progress,#annual-plan-sheet .reflection-message{display:none}#annual-plan-sheet .annual-reflections{display:none}}
+
+
+#annual-plan-sheet .reflection-review-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:15px 0 8px}#annual-plan-sheet .reflection-review-controls label{display:flex;gap:8px;align-items:center;white-space:nowrap}#annual-plan-sheet .reflection-review-controls select{width:auto}#annual-plan-sheet .reflection-period-status{display:block;font-size:11px;margin-top:6px}#annual-plan-sheet .reflection-grid textarea[readonly]{background:var(--rd-soft)}#annual-plan-sheet .section-jumps{display:flex;gap:20px;margin:10px 0}#annual-plan-sheet .creation-note{font-size:12px;color:var(--rd-muted)}

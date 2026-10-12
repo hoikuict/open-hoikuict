@@ -1,0 +1,86 @@
+{
+  "state": "complete",
+  "verified": true,
+  "checked_at": "2026-10-04T00:25:06.111930+00:00",
+  "baseline_commit": "744d05fc95afedfffc79c4f93739b08cb38b396e",
+  "commit": "1f083a15c7a8f8d1123e6bf57918b1cead123340",
+  "image_id": "sha256:6aad0756038cc7653eb200306ae2552f0f52ceb039d5a6465b5d4c74759e9b0b",
+  "application_tests": {
+    "passed": 408,
+    "failed": 0,
+    "skipped": 0,
+    "collection_errors": 0,
+    "pytest": "8.4.2",
+    "verified": true
+  },
+  "synthetic_drill": {
+    "verified": true,
+    "restore": "succeeded",
+    "maintenance": true,
+    "csrf": true,
+    "password_reauthentication": true,
+    "relogin": true,
+    "websocket": true,
+    "progress_capability": true,
+    "schedule_disabled": true
+  },
+  "extended_care": {
+    "verified": true,
+    "read_only": true,
+    "records_written": 0,
+    "roles_verified": 3,
+    "rules": 2,
+    "asset_sha256": {
+      "css/extended-care-settings.css": "09d7cf2c5823f12aa793071e46c6bdd5faef3665c043e809425ec8d3b1a9ecc8",
+      "js/extended-care-settings.js": "af8cab3743c8cdc12ebd9a25c7e165bfeb5e31d7a929f0653c6ad21eea28b65e",
+      "js/extended-care-calculator.js": "d948778422f8d218f239f94046be48bcae28303d4f7680d34854e5a662b6128e"
+    }
+  },
+  "deployed_asset_sha256": {
+    "css/extended-care-settings.css": "09d7cf2c5823f12aa793071e46c6bdd5faef3665c043e809425ec8d3b1a9ecc8",
+    "js/extended-care-settings.js": "af8cab3743c8cdc12ebd9a25c7e165bfeb5e31d7a929f0653c6ad21eea28b65e",
+    "js/extended-care-calculator.js": "d948778422f8d218f239f94046be48bcae28303d4f7680d34854e5a662b6128e"
+  },
+  "existing_backups_verified": 10,
+  "public_browser_verification": {
+    "verified": true,
+    "url": "https://hikarinomori.hoikuict.net/extended-care-fees/settings",
+    "checked_at": "2026-10-04T00:27:33.759618+00:00",
+    "authenticated_admin": true,
+    "separate_category_forms": true,
+    "existing_short_rule_preserved": true,
+    "billing_enabled_preserved": true,
+    "standard_rule_still_unconfigured": true,
+    "simulation_only": true,
+    "example_bands": [
+      {
+        "start": "18:00",
+        "end": "19:00",
+        "unit_minutes": 10,
+        "price": 100
+      },
+      {
+        "start": "19:00",
+        "end": "20:00",
+        "unit_minutes": 10,
+        "price": 200
+      }
+    ],
+    "observed": {
+      "19:00": 600,
+      "19:01": 800,
+      "20:10": "out-of-band warning; total undetermined"
+    },
+    "save_confirmation_verified": true,
+    "test_inputs_discarded_and_reloaded": true,
+    "production_settings_saved": false,
+    "console_errors": 0,
+    "screenshot": ".local-dev/extended-care-settings-preview/production-ready.png"
+  },
+  "direct_http_probe": "cloudflare_http_403",
+  "existing_features_verified": true,
+  "config_preserved": true,
+  "production_records_written": 0,
+  "completed_at": "2026-10-04T00:24:09.729145+00:00",
+  "attachments_verified": 13
+}

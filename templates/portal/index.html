@@ -36,7 +36,7 @@
         {% endif %}
         <a href="{{ attention_url }}" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
           <span class="block text-xs text-slate-300">要確認</span>
-          <strong class="mt-1 block text-2xl">{{ attention_count }}件</strong>
+          <strong class="mt-1 block text-2xl">{% if attention_error %}取得不可{% else %}{{ attention_count }}件{% endif %}</strong>
         </a>
         <a href="#attendance" class="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur hover:bg-white/15">
           <span class="block text-xs text-slate-300">在園中</span>
@@ -129,10 +129,10 @@
         <p class="mt-2 text-sm text-slate-600">{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
         {% endif %}
         <div class="mt-4 flex flex-wrap gap-2">
-          <form method="post" action="/plans/notifications/{{ notification.id }}/open">
+          <form method="post" action="{{ notification.open_url if notification.open_url is defined else '/plans/notifications/' ~ notification.id ~ '/open' }}">
             <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">帳票を確認</button>
           </form>
-          <form method="post" action="/plans/notifications/{{ notification.id }}/dismiss">
+          <form method="post" action="{{ notification.dismiss_url if notification.dismiss_url is defined else '/plans/notifications/' ~ notification.id ~ '/dismiss' }}">
             <input type="hidden" name="redirect_to" value="/">
             <button type="submit" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">確認済みにして消す</button>
           </form>
@@ -259,6 +259,7 @@
     <section id="attention" class="rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm lg:col-span-4 sm:p-6">
       <p class="text-xs font-bold uppercase tracking-[0.2em] text-amber-600">Attention</p>
       <h2 class="mt-1 text-xl font-bold text-slate-900">要確認</h2>
+      <p class="mt-2 text-xs text-slate-500">集計対象：担当する全クラスの出欠・本人宛ての未回答アンケート</p>
       {% if attention_error %}
       <p class="mt-5 text-sm text-rose-700">{{ attention_error }}</p>
       {% else %}

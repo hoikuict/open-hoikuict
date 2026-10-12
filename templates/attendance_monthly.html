@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}園児別・月間の登降園修正 | open-hoikuict{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/attendance-monthly.css?v=20261004">
+<div id="attendance-monthly" class="am" data-state="{{ data|tojson|forceescape }}">
+  <a href="/attendance" class="am-back">登降園管理に戻る</a>
+  <div class="am-heading"><div><h1>園児別・月間の登降園修正</h1><p>1か月の記録を確認し、抜けている時刻を補記します。</p></div></div>
+  {% if notice %}<p class="am-notice success" role="status">{{ notice }}</p>{% endif %}
+  {% if error %}<p class="am-notice error" role="alert" id="server-error">{{ error }} 今回の変更は保存していません。</p>{% endif %}
+  <form method="get" class="am-filters">
+    <label>対象月<input type="month" name="month" id="month-select" value="{{ month }}" required></label>
+    <label>クラス<select name="classroom_id" id="class-select"><option value="0">すべて</option>{% for room in classrooms %}<option value="{{ room.id }}" {% if classroom_id == room.id %}selected{% endif %}>{{ room.name }}</option>{% endfor %}</select></label>
+    <label>園児<select name="child_id" id="child-select">{% for item in children %}<option value="{{ item.id }}" data-classroom="{{ item.classroom_id or 0 }}" {% if child and child.id == item.id %}selected{% endif %}>{{ item.full_name }}（{{ classroom_names.get(item.classroom_id, 'クラス未設定') }}）</option>{% endfor %}</select></label>
+    <button type="submit" class="am-primary">表示する</button>
+  </form>
+  {% if child %}
+  <div class="am-heading"><div><h2>{{ child.full_name }} ／ {{ month }}</h2><p>{{ classroom_names.get(child.classroom_id, 'クラス未設定') }} · {{ rows|length }}日分</p></div>{% if current_user.is_admin %}<button id="open-bulk" type="button" class="am-primary">管理者：まとめて補完</button>{% endif %}</div>
+  <div class="am-summary"><div>打刻漏れ<strong>{{ missing_count }}件</strong></div><div>出欠を要確認<strong>{{ unknown_count }}件</strong></div><div>修正・取消履歴あり<strong>{{ corrected_count }}日</strong></div></div>
+  <div class="am-toolbar"><label><input type="checkbox" id="missing-only"> 打刻漏れ・要確認だけ表示</label><label><input type="checkbox" id="fees-toggle" checked> 延長料金の列を表示</label><span>記録のない日も表示しています。</span></div>
+  <div class="am-scroll" tabindex="0" aria-label="月間記録（横スクロールできます）"><table><thead><tr><th>日付</th><th>出欠・保護者連絡</th><th>登園</th><th>降園</th><th>状態</th><th class="am-fee">延長分数・料金・状態</th><th>お迎え予定・実際</th><th>操作</th></tr></thead><tbody id="monthly-rows">
+  {% for row in rows %}
+    <tr data-date="{{ row.date }}" data-missing="{{ 1 if row.allowed and (row.missing or row.unknown) else 0 }}" class="{{ 'am-missing' if row.missing and row.allowed else '' }}">
+      <td>{{ row.date[5:] }}（{{ row.weekday }}）</td><td>{{ row.visual }}<small>{{ row.contact }}</small></td>
+      <td class="am-time">{{ row.arrival or '—' }}{% if row.date_mismatch %}<small class="am-warning">記録日を確認</small>{% endif %}</td>
+      <td class="am-time">{{ row.departure or '—' }}{% if row.next_day %}<small>翌日</small>{% endif %}</td>
+      <td>{% if row.future %}未来日{% elif not row.allowed %}在籍期間外{% elif row.missing %}<span class="am-badge warning">{{ '両方未打刻' if not row.arrival and not row.departure else '登園未打刻' if not row.arrival else '降園未打刻' }}</span>{% elif row.unknown %}<span class="am-badge">出欠を要確認</span>{% elif row.departure %}降園済み{% else %}{{ row.visual }}{% endif %}{% if row.history %}<small>補記・修正・取消履歴あり</small>{% endif %}</td>
+      <td class="am-fee">{{ row.fee_minutes if row.fee_minutes is not none else '—' }}分 · {{ row.fee if row.fee is not none else '—' }}円<small>{{ row.fee_status }}</small></td>
+      <td>{{ row.planned or '—' }} · {{ row.person or '—' }}<small>実際：{{ row.actual or '未記録' }}</small></td>
+      <td><button type="button" data-edit-day="{{ row.date }}">{{ '補記する' if row.missing and row.allowed and not row.locked and current_user.can_edit else '詳細・修正' if row.allowed and not row.locked and current_user.can_edit else '詳細' }}</button></td>
+    </tr>
+  {% endfor %}
+  </tbody></table></div>
+  <p class="am-help">出席確認や片方の打刻がある日を打刻漏れの候補としています。出欠未確認の日は欠席・休園とは断定せず「要確認」と表示します。出欠・お迎え予定は時刻の修正では変わりません。</p>
+  {% else %}<p class="am-notice">この月・クラスの対象園児がいません。</p>{% endif %}
+
+  <dialog id="day-editor" aria-labelledby="day-title"><form id="day-form" method="post">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
+    <input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="classroom_id" value="{{ classroom_id or 0 }}">
+    <input type="hidden" name="date" id="day-date"><input type="hidden" name="revision" id="day-revision">
+    <header><div><small>{{ child.full_name if child else '' }}</small><h2 id="day-title">登降園記録</h2></div><button type="button" data-close="day-editor" aria-label="閉じる">×</button></header>
+    <div class="am-dialog-body">
+      <p id="day-context" class="am-notice"></p><p id="day-error" class="am-notice error" role="alert" hidden></p>
+      <fieldset id="day-fields"><legend>登園・降園時刻</legend><div class="am-time-fields">
+        <label>登園時刻<input type="time" name="arrival" id="day-arrival" step="60"></label>
+        <label>降園時刻<input type="time" name="departure" id="day-departure" step="60"></label>
+        <label>降園の日付<select name="next_day" id="day-offset"><option value="false">対象日</option><option value="true">翌日（03:00まで）</option></select></label>
+      </div><label id="date-repair" hidden><input type="checkbox" name="repair_dates" value="true"> 記録の日付も対象日へ訂正する</label>
+      <p id="day-before" class="am-help"></p>
+      <label>補記・修正理由（必須）<textarea name="reason" id="day-reason" rows="2" required maxlength="500"></textarea></label>
+      <div class="am-shortcuts"><button type="button" data-day-reason="打刻忘れのため">打刻忘れ</button><button type="button" data-day-reason="保護者に実際の時刻を確認したため">保護者に確認</button><button type="button" data-day-reason="職員の記録を確認したため">職員の記録を確認</button></div>
+      <p class="am-help">修正者：{{ current_user.name }}。理由と変更前後を履歴に記録します。</p></fieldset>
+      <p class="am-notice">時刻の保存時に未確定の延長料金を再計算します。確定・調整・対象外・請求転送済みの料金がある日は編集できません。</p>
+      <details><summary>お迎え・補食・延長料金</summary><dl id="day-details"></dl></details>
+      <a id="day-cancel-link" class="am-back">打刻の取消・履歴を開く</a>
+      <section><h3>補記・修正・取消の履歴</h3><div id="day-history"></div></section>
+    </div><footer><button type="button" data-close="day-editor">変更せず閉じる</button><button class="am-primary" id="day-save" type="submit">この日の記録を保存</button></footer>
+  </form></dialog>
+
+  {% if current_user.is_admin and child %}
+  <dialog id="bulk-editor" class="am-wide" aria-labelledby="bulk-title"><form id="bulk-form" method="post" action="/attendance/monthly/{{ child.id }}/bulk">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token if request.state.csrf_token is defined else '' }}">
+    <input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="classroom_id" value="{{ classroom_id or 0 }}"><input type="hidden" name="payload" id="bulk-payload">
+    <header><div><small>管理者専用 · {{ child.full_name }} ／ {{ month }}</small><h2 id="bulk-title">空欄の時刻をまとめて補完</h2></div><button type="button" data-close="bulk-editor" aria-label="一括補完を閉じる">×</button></header>
+    <div class="am-dialog-body">
+      <p class="am-notice">1. 共通時刻を空欄へ入れる → 2. 違う日だけ直す → 3. 保存内容を確認。既存の打刻はそのまま残します。</p>
+      <div class="am-common"><label>共通の登園時刻<input type="time" id="common-arrival" step="60"></label><label>共通の降園時刻<input type="time" id="common-departure" step="60"></label><button type="button" id="apply-common">選択した日の空欄へ入れる</button></div>
+      <p class="am-help">共通時刻が分からない側は空欄にできます。お迎え予定は実際の降園時刻とは別なので、参考として表示しています。</p>
+      <div class="am-toolbar"><label><input type="checkbox" id="include-unknown"> 出欠未確認の日も候補に表示する</label><button type="button" id="bulk-select-all">表示中の候補を全選択</button><button type="button" id="bulk-select-none">全選択を解除</button></div>
+      <div class="am-scroll"><table><thead><tr><th>対象</th><th>日付・出欠</th><th>登園</th><th>降園</th><th>降園日</th><th>お迎え予定</th></tr></thead><tbody id="bulk-rows"></tbody></table></div>
+      <p class="am-help">欠席・未来日・在籍期間外・料金確定済みの日は一括補完の対象外です。未確認の日は実際に出席していたことを確認して選択してください。</p>
+      <label>共通の補完理由（必須）<textarea name="reason" id="bulk-reason" rows="2" required maxlength="500" placeholder="例：試験運転中の打刻漏れ。職員の記録で時刻を確認。"></textarea></label>
+      <p class="am-help">修正者：{{ current_user.name }}。各日に「管理者の一括補完」として変更前後を記録します。</p>
+      <p id="bulk-error" class="am-notice error" role="alert" hidden></p>
+      <section id="bulk-confirmation" class="am-notice" hidden><h3 id="bulk-count"></h3><div id="bulk-diff"></div><p>未確定の延長料金を再計算します。入力した時刻と対象日を確認して保存してください。</p></section>
+    </div>
+    <footer><button type="button" data-close="bulk-editor">保存せず閉じる</button><button type="button" id="review-bulk" class="am-primary">保存内容を確認</button><button type="submit" id="save-bulk" class="am-primary" hidden>まとめて保存</button></footer>
+  </form></dialog>
+  {% endif %}
+</div>
+<script src="/static/js/attendance-monthly.js?v=20261004" defer></script>
+{% endblock %}

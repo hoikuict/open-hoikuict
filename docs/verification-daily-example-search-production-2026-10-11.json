@@ -1,0 +1,81 @@
+{
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-10-10T22:45:17.205951+00:00",
+    "app_commit": "3392880660909e8471a8b437c6c002aa583fb220",
+    "image_id": "sha256:c8ee81f732e25f2d7d4527496df199d5cefb074a68e21910fcb1070d69b17d0f",
+    "image_changes": [
+      "plan_docs/routers/plans.py",
+      "templates/plan_docs/daily_plans/form.html",
+      "static/js/daily-example-search.js",
+      "test_daily_example_search.py"
+    ],
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-daily-example-search-20261011-3392880",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/daily-example-search-339288066090",
+    "tests": {
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "pytest": "8.4.2",
+      "verified": true
+    },
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "6439dad39df628b991d7e79dd1635a38e43f25e773f5dbf7a0fff16155bc22cc",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "filter_cases": 4,
+      "candidate_counts": [
+        10,
+        30,
+        30,
+        30
+      ],
+      "keyword_only": true,
+      "copy_preserves_filters": true,
+      "copy_sets_candidate_age": true,
+      "initially_open": 0,
+      "table_columns": 4,
+      "aims_content": true,
+      "business_records_written": 0
+    }
+  },
+  "public": {
+    "url": "https://hikarinomori.hoikuict.net/plans/daily-plans/new?age_class=0%E6%AD%B3%E5%85%90&month=10",
+    "http_status": 200,
+    "filter_cases": 4,
+    "candidate_counts": [
+      10,
+      30,
+      30,
+      30
+    ],
+    "keyword_only": true,
+    "max_30_notice": true,
+    "search_keeps_unsaved_draft": true,
+    "details_after_search": true,
+    "copy_sets_candidate_age": true,
+    "copy_preserves_filters_and_basic_fields": true,
+    "copied_rows": 14,
+    "empty_results": true,
+    "anonymous_save_disabled": true,
+    "viewport_widths": [
+      1440,
+      760,
+      390
+    ],
+    "browser_errors": [],
+    "business_write_requests": [],
+    "cloudflare_telemetry_requests": 17,
+    "js_sha256": "651068174e38f137e36175df882ce4281188a4f280b12980bae8b74b14a91c3a",
+    "health": "ok"
+  },
+  "independent_record_verification": true,
+  "deployment_guard_tests_passed": 8
+}

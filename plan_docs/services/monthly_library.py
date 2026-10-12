@@ -55,6 +55,7 @@ class SaveInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     document_id: int | None = Field(default=None, gt=0)
     lock_version: int = Field(default=0, ge=0)
+    base_token: str | None = Field(default=None, max_length=4000)
     classroom_id: int = Field(gt=0)
     target_month: str
     age: int = Field(ge=0, le=5)

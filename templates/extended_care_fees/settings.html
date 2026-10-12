@@ -1,163 +1,56 @@
 {% extends "base.html" %}
-{% block title %}延長保育料金ルール設定 | open-hoikuict{% endblock %}
-
-{% block content %}
+{% block title %}延長保育料金の設定 | open-hoikuict{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_asset_url('css/extended-care-settings.css') }}">{% endblock %}
+{% block content %}<div id="fee-settings" data-state="{{ settings_state|tojson|forceescape }}">
+{% if fee_preview|default(false) %}<p class="notice">実装画面の操作検証用です。すべて架空データで、本番には接続していません。</p>{% endif %}
+  <main id="top">
 {% include "settings/_back.html" %}
-<style>[data-rule-fields] [hidden] { display: none !important; }</style>
-<div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
-  <div>
-    <h1 class="text-xl font-bold text-gray-700">延長保育料金ルール設定</h1>
-    <p class="text-sm text-gray-500 mt-1">適用期間ごとに開始時刻、猶予時間、丸め単位、単価を設定します。</p>
-  </div>
-  <a href="/extended-care-fees/" class="px-3 py-1.5 border border-gray-300 text-sm rounded hover:bg-gray-50">月次集計へ</a>
-</div>
+    <div class="page-heading"><div><h1>延長保育料金の設定</h1><p>標準時間・短時間それぞれの、延長を利用する時間と料金を設定します。</p></div><a class="button" href="#simulator">保存前に料金を試す <span aria-hidden="true">↓</span></a></div>
+    <div class="flow" aria-label="設定の順番"><span><b>1</b>通常保育時間</span><i>→</i><span><b>2</b>前・あと延長</span><i>→</i><span><b>3</b>試算して保存</span></div>
+    <p class="intro">区分の選択は不要です。<strong>標準時間は左の枠、短時間は右の枠</strong>で設定します。小さな画面では縦に並びます。</p>
+    {% if message %}<p class="notice" role="status">{{ message }}</p>{% endif %}{% if not current_user.can_edit %}<p class="notice">閲覧専用のため、料金ルールは変更できません。</p>{% endif %}<div id="global-notice" class="notice" role="status" hidden></div>
+    <div id="plan-cards" class="plan-grid"></div>
 
-{% if message %}
-<div class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{{ message }}</div>
-{% endif %}
+    <section id="simulator" class="card simulator" aria-labelledby="sim-title">
+      <header class="section-heading"><div><p class="eyebrow">保存前に確認</p><h2 id="sim-title">この時刻なら、いくら？</h2></div><span class="tag">入力中の設定で試算</span></header>
+      <p class="muted">登園・降園の例を入力して、上の枠に入力した時間帯と料金を確かめます。</p>
+      <div class="sim-inputs"><label>保育必要量<select id="sim-category"><option value="standard">保育標準時間</option><option value="short">保育短時間</option></select></label><label>利用日<input id="sim-date" type="date" value="{{ settings_state.today }}"></label><label>登園時刻<input id="sim-arrival" type="time" value="08:30"></label><label>降園時刻<input id="sim-departure" type="time" value="19:20"></label></div>
+      <div class="presets"><span>降園の境界を試す</span><button data-leave="18:59">18:59</button><button data-leave="19:00">19:00</button><button data-leave="19:01">19:01</button><button data-leave="20:10">20:10（時間帯外）</button></div>
+      <div id="sim-result" aria-live="polite"></div>
+      <details class="quiet-details"><summary>この試算の計算方法</summary><p>各時間帯で利用した分数を課金単位ごとに切り上げ、合算します。「時間帯ごと定額」は、その時間帯を1分以上利用したときに1回分です。19:00ちょうどの降園は、19:00開始の時間帯を使ったことにはしません。</p><p>猶予は通常保育時間との境界で前・あとそれぞれ1回適用し、19:00など途中の区切りでは適用し直しません。設定時間帯の外・日付をまたぐ利用は要確認とし、合計を確定しません。「使用しない」延長での利用も要確認になります。</p></details>
+    </section>
 
-{% if billing_errors %}
-<div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-  <ul class="space-y-1">
-    {% for error in billing_errors %}<li>{{ error }}</li>{% endfor %}
-  </ul>
-</div>
-{% endif %}
 
-<div class="mb-5 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-  <div class="flex items-start justify-between gap-3 flex-wrap">
-    <div>
-      <h2 class="text-base font-semibold text-gray-700">保育必要量別の計算</h2>
-      <p class="mt-1 text-sm text-gray-600">設定は、①標準時間・短時間の料金ルールを登録 → ②園児ごとの保育認定と適用期間を登録 → ③区分別計算の開始日を指定、の順に行います。</p>
-      <p class="mt-2 text-sm text-gray-600">開始日以降は、その日の園児の保育認定に対応するルールを使用します。切替前の記録は従来計算です。過去分は自動で書き換わらないため、必要な月だけ料金一覧から再計算してください。</p>
-      <a href="/children/" class="mt-2 inline-block text-sm text-indigo-700 underline">園児の保育認定を確認</a>
-    </div>
-    <span class="rounded-full px-2.5 py-1 text-xs {% if calculation_setting.mode == 'category_aware' %}bg-indigo-100 text-indigo-800{% else %}bg-gray-100 text-gray-600{% endif %}">{{ "区分別" if calculation_setting.mode == "category_aware" else "従来計算" }}</span>
-  </div>
-  {% if current_user.is_admin %}
-  <form method="post" action="/extended-care-fees/calculation-settings" class="mt-4 flex flex-wrap items-end gap-4">
-    <label class="flex items-center gap-2 pb-2 text-sm text-gray-700"><input type="checkbox" name="category_aware" value="1" {% if calculation_setting.mode == 'category_aware' %}checked{% endif %}>区分別計算を有効にする</label>
-    <label class="text-sm text-gray-600">開始日<input type="date" name="category_aware_from" value="{{ calculation_setting.category_aware_from.isoformat() if calculation_setting.category_aware_from else '' }}" class="mt-1 block rounded border border-gray-300 px-3 py-2"></label>
-    <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700">計算モードを保存</button>
-  </form>
-  {% else %}<p class="mt-3 text-xs text-gray-500">計算モードの切替は管理者のみ行えます。</p>{% endif %}
-</div>
-
-<div class="mb-5 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-  <div class="flex items-start justify-between gap-3 flex-wrap">
-    <div>
-      <h2 class="text-base font-semibold text-gray-700">請求入力への連携</h2>
-      <p class="mt-1 text-sm text-gray-500">確認済みの延長保育料金を、同じ月の請求入力へ園児ごとに合算して転送します。</p>
-    </div>
-    <span class="rounded-full px-2.5 py-1 text-xs {% if billing_setting.is_enabled %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-600{% endif %}">
-      {% if billing_setting.is_enabled %}有効{% else %}無効{% endif %}
-    </span>
-  </div>
-  {% if current_user.is_admin %}
-  <form method="post" action="/extended-care-fees/settings/billing" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-    <label class="flex items-center gap-2 text-sm text-gray-700 pb-2">
-      <input type="checkbox" name="is_enabled" value="1" {% if billing_setting.is_enabled %}checked{% endif %} class="h-4 w-4 rounded border-gray-300">
-      請求連携を有効にする
-    </label>
-    <div>
-      <label class="block text-sm text-gray-600 mb-1">請求費目コード</label>
-      <input type="text" name="fee_item_code" value="{{ billing_setting.fee_item_code }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
-      <p class="mt-1 text-xs text-gray-500">通常は monthly_childcare のまま使用します。</p>
-    </div>
-    <div>
-      <label class="block text-sm text-gray-600 mb-1">明細名テンプレート</label>
-      <input type="text" name="description_template" value="{{ billing_setting.description_template }}" class="w-full px-3 py-2 border border-gray-300 rounded text-sm" required>
-      <p class="mt-1 text-xs text-gray-500">{year} と {month} を使用できます。</p>
-    </div>
-    <div class="md:col-span-3 flex items-center justify-between gap-3 flex-wrap border-t border-gray-100 pt-3">
-      <p class="text-xs text-gray-500">転送方法: 月次手動／対象月: 請求月と同月（固定）</p>
-      <button type="submit" class="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">請求連携設定を保存</button>
-    </div>
-  </form>
-  {% else %}
-  <dl class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-    <div><dt class="text-gray-500">請求費目</dt><dd class="text-gray-800">{{ billing_setting.fee_item_code }}</dd></div>
-    <div><dt class="text-gray-500">明細名</dt><dd class="text-gray-800">{{ billing_setting.description_template }}</dd></div>
-    <div><dt class="text-gray-500">転送方法</dt><dd class="text-gray-800">月次手動（同月）</dd></div>
-  </dl>
-  <p class="mt-3 text-xs text-gray-500">請求連携設定は管理者のみ変更できます。</p>
-  {% endif %}
-</div>
-
-{% if errors %}
-<div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-  <ul class="space-y-1">
-    {% for error in errors %}
-    <li>{{ error }}</li>
-    {% endfor %}
-  </ul>
-</div>
-{% endif %}
-
-{% if not current_user.can_edit %}
-<div class="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-  閲覧専用のため、料金ルールは変更できません。
-</div>
-{% endif %}
-
-{% from "extended_care_fees/_rule_fields.html" import rule_fields %}
-{% if current_user.can_edit %}
-<section class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-  <h2 class="mb-4 text-lg font-bold text-slate-800">新しいルール</h2>
-  <form method="post" action="/extended-care-fees/settings" data-fee-rule-form>
-    {{ rule_fields(new_form_values if editing_rule_id else form_values, care_time_categories) }}
-    <button class="mt-5 rounded bg-indigo-600 px-5 py-3 font-semibold text-white">ルールを追加</button>
-  </form>
-</section>
-{% endif %}
-<section class="space-y-3">
-  <h2 class="text-lg font-bold text-slate-800">登録済みルール</h2>
-  {% for rule in rules %}
-  <details class="rounded-xl border border-slate-200 bg-white p-5" {% if editing_rule_id == rule.id %}open{% endif %}>
-    <summary class="cursor-pointer font-semibold text-slate-800">
-      {{ rule.care_time_category.label if rule.care_time_category else '従来計算（区分なし）' }} ／ {{ rule.name }}
-      <span class="ml-2 text-sm font-normal">{{ rule.effective_from }} 〜 {{ rule.effective_to or '終了日なし' }} ／ {{ '有効' if rule.is_active else '無効' }}</span>
-    </summary>
-    {% if current_user.can_edit %}
-    <form method="post" action="/extended-care-fees/settings/{{ rule.id }}" class="mt-5" data-fee-rule-form>
-      {{ rule_fields(form_values if editing_rule_id == rule.id else rule, care_time_categories) }}
-      <button class="mt-5 rounded bg-indigo-600 px-5 py-3 font-semibold text-white">このルールを更新</button>
-    </form>
-    {% else %}
-    <div class="mt-4 space-y-2 text-sm text-slate-700">
-      <p>通常保育時間：{{ rule.normal_start_time or '未設定' }} 〜 {{ rule.normal_end_time or '未設定' }}</p>
-      <p>朝延長：{{ '有効' if rule.morning_enabled and rule.care_time_category else '無効' }} ／ {{ rule.morning_rounding_minutes }}分ごとに{{ rule.morning_unit_price }}円 ／ 猶予{{ rule.morning_grace_minutes }}分</p>
-      <p>夕延長：{{ '有効' if rule.evening_enabled or not rule.care_time_category else '無効' }} ／ {{ rule.evening_rounding_minutes if rule.evening_rounding_minutes is not none else rule.rounding_minutes }}分ごとに{{ rule.evening_unit_price if rule.evening_unit_price is not none else rule.unit_price }}円</p>
-      <p>日別上限額：{{ rule.daily_cap_amount if rule.daily_cap_amount is not none else 'なし' }}</p>
-    </div>
-    {% endif %}
-  </details>
-  {% else %}<p class="text-slate-500">料金ルールがありません。</p>{% endfor %}
-</section>
-{% endblock %}
-{% block body_end %}
-<script>
-document.querySelectorAll('[data-fee-rule-form]').forEach((form) => {
-  const field = (name) => form.elements.namedItem(name);
-  const refresh = () => {
-    const category = field('care_time_category').value;
-    const specific = ['standard', 'short'].includes(category);
-    form.querySelectorAll('[data-category-fields]').forEach((el) => {
-      el.hidden = !specific;
-      el.disabled = !specific;
-    });
-    form.querySelector('[data-legacy-field]').hidden = specific;
-    ['normal_start_time', 'normal_end_time'].forEach((name) => { field(name).required = specific; });
-    field('evening_enabled').disabled = category === 'legacy';
-    if (category === 'legacy') field('evening_enabled').checked = true;
-    const parts = [];
-    if (specific && field('morning_enabled').checked) parts.push(`朝：${field('normal_start_time').value}より前（猶予${field('morning_grace_minutes').value}分）、${field('morning_rounding_minutes').value}分ごとに${field('morning_unit_price').value}円`);
-    if (field('evening_enabled').checked) parts.push(`夕：${field(specific ? 'normal_end_time' : 'start_time').value}より後（猶予${field('grace_minutes').value}分）、${field('rounding_minutes').value}分ごとに${field('unit_price').value}円`);
-    form.querySelector('[data-rule-preview]').textContent = category === '' ? '最初に保育必要量を選択してください。' : parts.join(' ／ ');
-  };
-  form.addEventListener('input', refresh);
-  form.addEventListener('change', refresh);
-  refresh();
-});
-</script>
-{% endblock %}
+<section class="card operations"><header class="section-heading"><h2>適用と過去分の確認</h2></header><div class="operations-grid">
+<div><h3>区分別計算への切替</h3><form id="mode-form" action="/extended-care-fees/calculation-settings" method="post"><fieldset {% if not current_user.is_admin %}disabled{% endif %}>
+<label class="check"><input id="mode-enabled" name="category_aware" type="checkbox" value="1" {% if calculation_setting.mode == 'category_aware' %}checked{% endif %}>区分別計算を有効にする</label>
+<label>切替開始日<input id="mode-from" name="category_aware_from" type="date" value="{{ calculation_setting.category_aware_from or '' }}"></label><p id="mode-status" class="muted"></p>
+<p class="small muted">その日に有効な園児の保育認定で標準・短時間を選びます。<a href="/children/">園児の保育認定を確認</a></p><button type="submit">計算モードを保存</button></fieldset></form></div>
+<div><h3>保存後、必要な月だけ再計算</h3><p class="muted">ルールの保存だけでは過去の料金は変わりません。確定・調整・対象外・請求転送済みの料金は維持します。</p><p class="small muted">対象月の実績と料金を一覧で確認してから再計算します。</p><label>対象月<input id="recalc-month" type="month" value="{{ settings_state.today[:7] }}"></label><button id="preview-recalc" type="button">料金一覧で対象月を確認</button></div></div></section>
+<details class="card supplemental"><summary><span><strong>請求入力への連携</strong><small>料金設定とは別に保存します</small></span><span class="tag">{{ '有効' if billing_setting.is_enabled else '無効' }}</span></summary>
+<form class="supplement-body" id="billing-form" method="post" action="/extended-care-fees/settings/billing"><fieldset {% if not current_user.is_admin %}disabled{% endif %}><div class="inline-fields">
+<label class="check"><input name="is_enabled" type="checkbox" value="1" {% if billing_setting.is_enabled %}checked{% endif %}>請求連携を有効にする</label>
+<label>請求費目コード<input name="fee_item_code" value="{{ billing_setting.fee_item_code }}" required></label>
+<label class="grow">明細名テンプレート<input name="description_template" value="{{ billing_setting.description_template }}" required></label></div>
+<p class="small muted">転送方法：月次手動 ／ 対象月：請求月と同月。{year} と {month} を使用できます。</p><button type="submit">請求連携設定を保存</button></fieldset></form></details>
+{% macro legacy_form(rule) %}
+<form class="supplement-body legacy-form" method="post" action="/extended-care-fees/settings{{ '/' ~ rule.id if rule else '' }}"><fieldset {% if not current_user.can_edit %}disabled{% endif %}>
+<input type="hidden" name="care_time_category" value="legacy"><input type="hidden" name="evening_enabled" value="1"><input type="hidden" name="morning_grace_minutes" value="0"><input type="hidden" name="morning_rounding_minutes" value="15"><input type="hidden" name="morning_unit_price" value="0">
+<div class="legacy-grid"><label class="span-2">ルール名<input name="name" value="{{ rule.name if rule else '' }}" required maxlength="100"></label>
+<label>適用開始日<input name="effective_from" type="date" value="{{ rule.effective_from if rule else '' }}" required></label><label>適用終了日<input name="effective_to" type="date" value="{{ rule.effective_to or '' if rule else '' }}"></label>
+<label>延長開始時刻<input name="start_time" type="time" value="{{ rule.start_time if rule else '' }}" required></label>
+<label>猶予時間（分）<input name="grace_minutes" type="number" min="0" max="120" value="{{ rule.grace_minutes if rule else 0 }}" required></label>
+<label>課金単位（分ごと）<input name="rounding_minutes" type="number" min="1" max="120" value="{{ rule.rounding_minutes if rule else 15 }}" required></label>
+<label>1単位の料金（円）<input name="unit_price" type="number" min="0" value="{{ rule.unit_price if rule else '' }}" required></label>
+<label>日別上限額（円・任意）<input name="daily_cap_amount" type="number" min="0" value="{{ rule.daily_cap_amount if rule and rule.daily_cap_amount is not none else '' }}"></label>
+<label class="check"><input name="is_active" type="checkbox" value="1" {% if not rule or rule.is_active %}checked{% endif %}>このルールを有効にする</label></div>
+<button type="submit">{{ 'このルールを更新' if rule else '従来ルールを追加' }}</button></fieldset></form>{% endmacro %}
+<details class="card supplemental"><summary><span><strong>従来計算のルール</strong><small>切替前の記録に使用。標準時間・短時間の枠とは別に管理</small></span><span class="tag neutral">区分なし</span></summary>
+<p class="notice">従来ルールの名前に「標準」とあっても、保育標準時間用の設定にはなりません。過去の計算のために残します。</p>
+{% for rule in rules if not rule.care_time_category %}<details><summary>{{ rule.name }} ／ {{ rule.effective_from }}〜{{ rule.effective_to or '終了日なし' }} ／ {{ '有効' if rule.is_active else '無効' }}</summary>{{ legacy_form(rule) }}</details>{% endfor %}
+{% if current_user.can_edit %}<details><summary>＋ 従来ルールを追加</summary>{{ legacy_form(none) }}</details>{% endif %}</details>
+</main>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title"><header><h2 id="confirm-title"></h2><button class="icon-button" data-close="confirm-dialog" aria-label="確認を閉じる">×</button></header><div class="dialog-body" id="confirm-body"></div><p class="error-box dialog-error" id="confirm-error" role="alert" hidden></p><footer><button data-close="confirm-dialog">入力に戻る</button><button id="confirm-save" class="primary">この設定を保存</button></footer></dialog>
+  <dialog id="discard-dialog" aria-labelledby="discard-title"><header><h2 id="discard-title">入力内容を戻しますか？</h2></header><div class="dialog-body"><p id="discard-text"></p></div><footer><button data-close="discard-dialog">戻さず続ける</button><button id="discard-yes" class="danger">変更を破棄する</button></footer></dialog>
+<div id="toast" class="toast" role="status" hidden></div></div>{% endblock %}
+{% block body_end %}<script src="{{ static_asset_url('js/extended-care-calculator.js') }}" defer></script><script src="{{ static_asset_url('js/extended-care-settings.js') }}" defer></script>{% endblock %}

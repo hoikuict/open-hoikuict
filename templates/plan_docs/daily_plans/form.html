@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block title %}日案作成 | hoiku-plan-docs{% endblock %}
 {% block content %}
+  <link rel="stylesheet" href="/static/css/daily-example-list.css">
   <section class="form-header">
     <div>
       <p class="eyebrow">daily_plan</p>
       <h1>日案を作成</h1>
-      <p class="lead">過去の日案例を探し、「時間・子どもの様子・保育士の援助・配慮事項」の4列を下書きへコピーして編集できます。</p>
+      <p class="lead">主な活動の一覧から詳細を開いて確認し、「時間・子どもの様子・保育士の援助・配慮事項」の4列を下書きへコピーして編集できます。</p>
     </div>
   </section>
 
@@ -16,9 +17,9 @@
     </section>
   {% endif %}
 
-  <section class="form-panel">
+  <section class="form-panel daily-example-panel">
     <h2>匿名化された過去の日案例から選ぶ</h2>
-    <p class="field-note">候補DBは読み取り専用です。選択した内容は独立した下書きになるため、その後は自由に書き換えられます。</p>
+    <p class="field-note">主な活動を選ぶと詳細が開きます。内容を確認し、必要な候補を下書きへコピーできます。</p>
     {% if corpus_info.get("development_review_data") == "1" %}
       <div class="notice">
         <strong>開発用の匿名化レビューDBを使用中</strong>
@@ -28,6 +29,7 @@
     {% if corpus_error %}
       <div class="notice"><strong>文例DBを読み込めません</strong><span>{{ corpus_error }}</span></div>
     {% endif %}
+    <p class="field-note">年齢・月は、それぞれ「すべて」で絞り込みを外せます。</p>
     <form method="get" action="/plans/daily-plans/new" class="form-layout compact">
       <input name="target_date" type="hidden" value="{{ form_values.get('target_date', '') }}">
       <input name="classroom_ref" type="hidden" value="{{ form_values.get('classroom_ref', default_classroom_ref) }}">
@@ -35,15 +37,16 @@
         <label>
           <span>年齢</span>
           <select name="age_class">
-            <option value="">すべて</option>
+            <option value="" {% if not selected_age_class %}selected{% endif %}>すべて</option>
             {% for option in age_class_options %}
-              <option value="{{ option }}" {% if form_values.get('age_class') == option %}selected{% endif %}>{{ option }}</option>
+              <option value="{{ option }}" {% if selected_age_class == option %}selected{% endif %}>{{ option }}</option>
             {% endfor %}
           </select>
         </label>
         <label>
           <span>月</span>
           <select name="month">
+            <option value="" {% if selected_month is none %}selected{% endif %}>すべて</option>
             {% for value in range(1, 13) %}
               <option value="{{ value }}" {% if selected_month == value %}selected{% endif %}>{{ value }}月</option>
             {% endfor %}
@@ -58,33 +61,49 @@
     </form>
 
     {% if examples %}
-      <div class="reference-list">
+      <div class="daily-example-list-heading"><strong>主な活動　{{ examples|length }}件</strong><span>年齢・月</span><span>詳細</span></div>
+      <div class="daily-example-list">
         {% for example in examples %}
-          <article class="section-block">
-            <h3>{{ example.title }} <small>{{ example.age_class }} / {{ example.month }}月</small></h3>
-            <p><strong>主な活動:</strong> {{ example.main_activity or "記載なし" }}</p>
-            <p class="field-note">時系列 {{ example.activity_blocks|length }}行{% if example.review_pending %} / 開発レビュー中{% endif %}</p>
-            <div class="daily-plan-grid-scroll daily-plan-grid-preview">
-              <table class="daily-plan-edit-grid">
-                <thead>
-                  <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
-                </thead>
-                <tbody>
-                  {% for block in example.activity_blocks %}
-                    <tr>
-                      <td>{{ block.time_and_activity }}</td>
-                      <td>{{ block.child_state }}</td>
-                      <td>{{ block.support }}</td>
-                      <td>{{ block.considerations }}</td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+          <details class="daily-example-card">
+            <summary class="daily-example-summary">
+              <span class="daily-example-activity">{{ example.main_activity or "主な活動の記載なし" }}</span>
+              <span class="daily-example-age-month">{{ example.age_class }} / {{ example.month }}月</span>
+              <span class="daily-example-toggle" aria-hidden="true"></span>
+            </summary>
+            <div class="daily-example-detail">
+              <div class="daily-example-detail-heading"><span>{{ example.title }}</span><span>時系列 {{ example.activity_blocks|length }}行{% if example.review_pending %} / 開発レビュー中{% endif %}</span></div>
+              <div class="daily-example-purpose">
+                <div><h3>ねらい</h3><p>{{ example.aims|join('\n') or "記載なし" }}</p></div>
+                <div><h3>内容</h3><p>{{ example.content or "記載なし" }}</p></div>
+              </div>
+              <div class="daily-plan-grid-scroll daily-plan-grid-preview" tabindex="0" role="region" aria-label="{{ example.main_activity or '主な活動の記載なし' }}の1日の流れ">
+                <table class="daily-plan-edit-grid">
+                  <thead>
+                    <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for block in example.activity_blocks %}
+                      <tr>
+                        <td>{{ block.time_and_activity }}</td>
+                        <td>{{ block.child_state }}</td>
+                        <td>{{ block.support }}</td>
+                        <td>{{ block.considerations }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="daily-example-actions">
+                <a class="button button--secondary daily-example-copy" href="/plans/daily-plans/new?age_class={{ selected_age_class|urlencode }}&month={{ selected_month if selected_month is not none else '' }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
+                <button class="button button--ghost close-daily-example" type="button">詳細を閉じる</button>
+              </div>
             </div>
-            <a class="button button--secondary" href="/plans/daily-plans/new?age_class={{ example.age_class|urlencode }}&month={{ selected_month }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
-          </article>
+          </details>
         {% endfor %}
       </div>
+      {% if examples|length == 30 %}
+        <p class="field-note">候補は最大30件まで表示しています。必要に応じて年齢・月・キーワードで絞り込んでください。</p>
+      {% endif %}
       {% if corpus_info %}
         <p class="field-note">コーパス版: {{ corpus_info.get("corpus_version", corpus_info.get("generated_at", "不明")) }} / スキーマ: {{ corpus_info.get("schema_version", "不明") }}</p>
       {% endif %}
@@ -93,9 +112,13 @@
     {% endif %}
   </section>
 
+  <div class="notice" id="daily-example-feedback" role="status" hidden></div>
   <form class="form-layout" method="post" action="/plans/daily-plans" id="daily-draft">
     <input name="example_id" type="hidden" value="{{ form_values.get('example_id', '') }}">
     <input name="example_source_ref" type="hidden" value="{{ form_values.get('example_source_ref', '') }}">
+    <input name="search_age_class" type="hidden" value="{{ selected_age_class }}">
+    <input name="search_month" type="hidden" value="{{ selected_month if selected_month is not none else '' }}">
+    <input name="search_query" type="hidden" value="{{ search_query }}">
 
     <section class="form-panel">
       <h2>下書きの基本情報</h2>
@@ -203,6 +226,13 @@
   </template>
   <script>
     (() => {
+      document.querySelector(".daily-example-panel")?.addEventListener("click", (event) => {
+        const closeButton = event.target.closest(".close-daily-example");
+        if (!closeButton) return;
+        const card = closeButton.closest(".daily-example-card");
+        card.open = false;
+        card.querySelector("summary").focus();
+      });
       const body = document.getElementById("daily-timeline-rows");
       const template = document.getElementById("daily-row-template");
       const addButton = document.getElementById("add-daily-row");
@@ -233,4 +263,5 @@
       });
     })();
   </script>
+  <script src="/static/js/daily-example-search.js"></script>
 {% endblock %}

@@ -928,6 +928,44 @@ class Guardian(SQLModel, table=True):
         return f"{self.last_name} {self.first_name}"
 
 
+class FamilyCareCertification(SQLModel, table=True):
+    __tablename__ = "family_care_certifications"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    family_id: int = Field(foreign_key="families.id", index=True)
+    effective_from: date
+    effective_to: Optional[date] = None
+    data: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    is_active: bool = True
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class FamilyCareChildSetting(SQLModel, table=True):
+    __tablename__ = "family_care_child_settings"
+    child_id: int = Field(primary_key=True, foreign_key="children.id")
+    family_id: int = Field(foreign_key="families.id", index=True)
+    mode: str = Field(max_length=16)
+    joined_on: date
+
+
+class FamilyCareCertificationLink(SQLModel, table=True):
+    __tablename__ = "family_care_certification_links"
+    certification_id: int = Field(primary_key=True, foreign_key="child_care_certifications.id")
+    family_certification_id: int = Field(foreign_key="family_care_certifications.id", index=True)
+
+
+class FamilyCareAudit(SQLModel, table=True):
+    __tablename__ = "family_care_audits"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    family_id: int = Field(foreign_key="families.id", index=True)
+    action: str = Field(max_length=32)
+    before_snapshot: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    after_snapshot: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    reason: str = Field(default="", max_length=500)
+    actor_name: str = Field(max_length=100)
+    actor_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ChildCareCertification(SQLModel, table=True):
     __tablename__ = "child_care_certifications"
     __table_args__ = (
@@ -1112,6 +1150,8 @@ class ExtendedCareFeeRule(SQLModel, table=True):
     evening_grace_minutes: Optional[int] = None
     evening_rounding_minutes: Optional[int] = None
     evening_unit_price: Optional[int] = None
+    # NULL keeps the existing category/legacy calculation unchanged.
+    fee_bands_json: Optional[str] = None
     is_active: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -1168,6 +1208,7 @@ class ExtendedCareCharge(SQLModel, table=True):
     certification_id: Optional[int] = Field(default=None, foreign_key="child_care_certifications.id", index=True)
     care_time_category_snapshot: Optional[CareTimeCategory] = Field(default=None, index=True)
     calculation_version: str = Field(default="legacy_v1", max_length=32)
+    fee_breakdown_json: Optional[str] = None
     actual_check_in_at: Optional[datetime] = None
     normal_start_at: Optional[datetime] = None
     normal_end_at: Optional[datetime] = None

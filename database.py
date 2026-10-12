@@ -14,6 +14,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import local_today, utc_now
 import family_archive_guard  # noqa: F401 -- requires audited archive-state transitions
+import family_care_sync  # noqa: F401 -- preserve recognition when family membership changes
 
 DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 _database_url = make_url(DATABASE_URL)
@@ -154,7 +155,13 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
             "reason": "VARCHAR", "previous_status": "VARCHAR", "actor_user_id": "CHAR(32)",
         },
         "child_observation_logs": {"visibility": "VARCHAR", "shared_staff_ids": "JSON"},
-        "plan_documents": {"monthly_sheet": "JSON", "monthly_sheet_key": "VARCHAR"},
+        "plan_documents": {
+            "monthly_sheet": "JSON", "monthly_sheet_key": "VARCHAR",
+            "annual_sheet": "JSON", "annual_sheet_key": "VARCHAR",
+            "weekly_sheet": "JSON", "weekly_sheet_key": "VARCHAR",
+        },
+        "extended_care_fee_rules": {"fee_bands_json": "TEXT"},
+        "extended_care_charges": {"fee_breakdown_json": "TEXT"},
     }
     for table_name, additions in workflow_columns.items():
         columns = {
@@ -170,10 +177,11 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
     connection.execute(
         "CREATE INDEX IF NOT EXISTS ix_families_archived_at ON families(archived_at)"
     )
-    connection.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_sheet_key "
-        "ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL"
-    )
+    for kind in ("monthly", "annual", "weekly"):
+        connection.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS uq_{kind}_sheet_key "
+            f"ON plan_documents({kind}_sheet_key) WHERE {kind}_sheet_key IS NOT NULL"
+        )
     identity_columns = {
         "children": {
             "registration_verification_name": "VARCHAR(200)",
@@ -477,7 +485,9 @@ def create_db_and_tables() -> None:
     _migrate_add_calendar_columns()
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
+    _migrate_weekly_sheet_columns()
     _migrate_monthly_sheet_columns()
+    _migrate_annual_sheet_columns()
     _migrate_plan_document_action_columns()
     _migrate_plan_review_notification_columns()
     _migrate_parent_push_delivery_columns()
@@ -945,6 +955,21 @@ def _migrate_survey_tables() -> None:
     return
 
 
+def _migrate_weekly_sheet_columns() -> None:
+    # Additive migration: existing weekly/individual plans remain untouched.
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(plan_documents)")}
+        if not columns:
+            return
+        for name, kind in (("weekly_sheet", "JSON"), ("weekly_sheet_key", "VARCHAR")):
+            if name not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_weekly_sheet_key "
+            "ON plan_documents(weekly_sheet_key) WHERE weekly_sheet_key IS NOT NULL"
+        )
+
+
 def _migrate_monthly_sheet_columns() -> None:
     # Additive migration: existing monthly/individual plans remain untouched.
     with engine.begin() as conn:
@@ -957,6 +982,21 @@ def _migrate_monthly_sheet_columns() -> None:
         conn.exec_driver_sql(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_monthly_sheet_key "
             "ON plan_documents(monthly_sheet_key) WHERE monthly_sheet_key IS NOT NULL"
+        )
+
+
+def _migrate_annual_sheet_columns() -> None:
+    """Add annual sheets without converting any existing plan or period."""
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(plan_documents)")}
+        if not columns:
+            return
+        for name, kind in (("annual_sheet", "JSON"), ("annual_sheet_key", "VARCHAR")):
+            if name not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_annual_sheet_key "
+            "ON plan_documents(annual_sheet_key) WHERE annual_sheet_key IS NOT NULL"
         )
 
 
@@ -1239,6 +1279,7 @@ def _migrate_care_certification_and_extended_care_columns() -> None:
         charge_cols = _table_columns("extended_care_charges")
 
         rule_additions = {
+            "fee_bands_json": "TEXT",
             "care_time_category": "VARCHAR(32)",
             "normal_start_time": "VARCHAR",
             "normal_end_time": "VARCHAR",
@@ -1256,6 +1297,7 @@ def _migrate_care_certification_and_extended_care_columns() -> None:
                 conn.execute(text(f"ALTER TABLE extended_care_fee_rules ADD COLUMN {column_name} {column_sql}"))
 
         charge_additions = {
+            "fee_breakdown_json": "TEXT",
             "certification_id": "INTEGER REFERENCES child_care_certifications(id)",
             "care_time_category_snapshot": "VARCHAR(32)",
             "calculation_version": "VARCHAR(32) DEFAULT 'legacy_v1' NOT NULL",

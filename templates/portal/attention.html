@@ -8,11 +8,11 @@
       <div>
         <p class="text-sm font-medium text-amber-300">{{ portal_date }}</p>
         <h1 class="mt-2 text-2xl font-bold sm:text-3xl">{{ staff_record.display_name }}さんの要確認</h1>
-        <p class="mt-2 text-sm text-slate-300">担当クラスの出欠と、本人宛ての未回答アンケートを一覧にしています。</p>
+        <p class="mt-2 text-sm text-slate-300">{{ '全クラス' if show_all else '担当する全クラス' }}の出欠と、本人宛ての未回答アンケートを一覧にしています。</p>
       </div>
       <div class="rounded-2xl border border-white/10 bg-white/10 px-5 py-4 text-center">
         <span class="block text-xs text-slate-300">要確認</span>
-        <strong class="mt-1 block text-3xl">{{ attention_count }}件</strong>
+        <strong class="mt-1 block text-3xl">{% if attention_error %}取得不可{% else %}{{ attention_count }}件{% endif %}</strong>
       </div>
     </div>
     <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">

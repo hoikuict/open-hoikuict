@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}反省の承認確認{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ static_asset_url('css/reflection-review.css') }}">
+<section class="reflection-review-page">
+  <p>{{ labels[review.status] if review else '承認依頼の確認' }}</p>
+  <h1>{{ snapshot.title }}</h1>
+  <p>{{ snapshot.classroom }} / 担任：{{ snapshot.owner }}</p>
+  {% if review %}<p>{{ review.requested_by_name }} · {{ review.created_at|jst_datetime('%Y-%m-%d %H:%M') }} に依頼</p>
+  {% else %}<p>反省の下書きを保存しました。以下の内容で管理者へ承認を依頼します。</p>{% endif %}
+  <div class="reflection-review-values">
+  {% for column in snapshot.columns %}<section><h2>{{ column }}</h2><p class="reflection-body">{{ snapshot['values'][loop.index0] or '未入力' }}</p></section>{% endfor %}
+  </div>
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  {% if review and review.decided_by_name %}<p>{{ review.decided_by_name }} · {{ labels[review.status] }} · {{ review.decided_at|jst_datetime('%Y-%m-%d %H:%M') }}</p>{% endif %}
+  {% if review and review.decision_comment %}<p class="reflection-body">{{ review.decision_comment }}</p>{% endif %}
+  {% if not review %}
+    <form method="post" action="/plans/documents/{{ document.id }}/reflections/{{ snapshot.period }}/request">
+      <input type="hidden" name="version" value="{{ state.version }}">
+      <a class="button button--secondary" href="{{ input_url }}">入力へ戻る</a>
+      <button class="button button--primary" type="submit">管理者へ承認を依頼</button>
+    </form>
+  {% else %}
+    <a class="button button--secondary" href="{{ input_url }}">入力・承認状況へ戻る</a>
+    <a class="button button--secondary" href="/#pending-approvals">管理者の通知</a>
+    {% if state.review_id == review.id and user.can_edit %}
+    <form method="post" action="/plans/reflection-reviews/{{ review.id }}">
+      {% if review.status == 'pending' and state.status == 'pending' %}
+        {% if user.is_admin %}<label>承認・差戻しのコメント（差戻し時は必須）<textarea name="comment" maxlength="4000" rows="3"></textarea></label>
+          <button class="button button--primary" name="action" value="approve">承認する</button>
+          <button class="button button--secondary" name="action" value="return">差し戻す</button>{% endif %}
+        {% if user.is_admin or review.requested_by == user.actor_ref %}<button class="button button--secondary" name="action" value="withdraw">依頼を取り下げる</button>{% endif %}
+      {% elif review.status == 'approved' and state.status == 'approved' %}
+        <button class="button button--secondary" name="action" value="revise">修正して再依頼する</button>
+      {% endif %}
+    </form>
+    {% endif %}
+  {% endif %}
+  {% if history is defined and history|length > 1 %}<details><summary>これまでの承認依頼</summary><ul>
+    {% for item in history %}<li><a href="/plans/reflection-reviews/{{ item.id }}">{{ item.created_at|jst_datetime('%Y-%m-%d %H:%M') }} · {{ labels[item.status] }}</a></li>{% endfor %}
+  </ul></details>{% endif %}
+</section>
+{% endblock %}

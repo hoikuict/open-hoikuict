@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-11",
+  "status": "implemented_and_verified_not_deployed",
+  "baseline_app_commit": "3392880660909e8471a8b437c6c002aa583fb220",
+  "branch": "codex/daily-print-20261011",
+  "production_files_sha256": {
+    "templates/plan_docs/documents/detail.html": "3502a3d9209e0c866a2fc4d3ab9477746961273b24592a554ed709c22150c42a",
+    "static/css/daily-plan-print.css": "c0852f18bd32206f658b729a10a9c5f3318bc21de25dde1afd15ff483844faf7",
+    "static/js/daily-plan-print.js": "6fceabf2620bd415f6c5e154b01244279031474242967d68789ac01f3dc58468"
+  },
+  "matching_print_changes_in_main_and_production_worktrees": true,
+  "unit_tests": {
+    "main": {
+      "test_plan_docs.py": 19,
+      "test_daily_example_search.py": 6,
+      "passed": 25
+    },
+    "production_worktree": {
+      "test_plan_docs.py": 19,
+      "test_daily_example_search.py": 6,
+      "passed": 25
+    }
+  },
+  "browser": {
+    "states": {
+      "empty": {
+        "table_rows": 22,
+        "reflection_characters": 0
+      },
+      "partial": {
+        "table_rows": 22,
+        "reflection_characters": 22
+      },
+      "filled": {
+        "table_rows": 22,
+        "reflection_characters": 70
+      },
+      "long": {
+        "table_rows": 22,
+        "reflection_characters": 3199
+      }
+    },
+    "table_content_preserved": true,
+    "print_has_no_internal_borders": true,
+    "reflection_complete": true,
+    "live_edit_and_beforeprint": true,
+    "existing_autosave": true,
+    "readonly_print": true,
+    "non_daily_print": {
+      "weekly": "unchanged",
+      "monthly": "unchanged",
+      "annual": "unchanged"
+    },
+    "browser_errors": [],
+    "fictional_data_only": true
+  },
+  "pdf": {
+    "empty": {
+      "pages": 1,
+      "all_table_content": true,
+      "a4_portrait": true
+    },
+    "partial": {
+      "pages": 1,
+      "all_table_content": true,
+      "a4_portrait": true
+    },
+    "filled": {
+      "pages": 1,
+      "all_table_content": true,
+      "a4_portrait": true
+    },
+    "long": {
+      "pages": 3,
+      "all_table_content": true,
+      "a4_portrait": true
+    },
+    "readonly": {
+      "pages": 1,
+      "all_table_content": true,
+      "a4_portrait": true
+    }
+  },
+  "all_80_long_reflection_lines_preserved": true,
+  "final_filled_and_all_long_pdf_pages_visually_checked": true,
+  "final_print_background_white": true,
+  "git_diff_check": "passed",
+  "production_mutations": false,
+  "pdf_artifact": "output/pdf/daily-plan-print-implemented.pdf"
+}
