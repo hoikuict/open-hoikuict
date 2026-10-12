@@ -101,7 +101,8 @@ def _registered_teachers(session, classroom_id):
         StaffClassroomAssignment.classroom_id == classroom_id,
         StaffClassroomAssignment.starts_on <= today,
         (StaffClassroomAssignment.ends_on.is_(None) | (StaffClassroomAssignment.ends_on >= today)),
-        User.is_active.is_(True)).order_by(StaffClassroomAssignment.display_order,
+        User.is_active.is_(True),
+        User.staff_role != "admin").order_by(StaffClassroomAssignment.display_order,
             User.staff_sort_order, User.display_name, User.id)).all()
     return "・".join(dict.fromkeys(rows))
 
