@@ -1,0 +1,43 @@
+{
+  "verified": true,
+  "checks": [
+    {
+      "kind": "add",
+      "fields": 9,
+      "required": 6,
+      "states": 5,
+      "submissionAndReview": true,
+      "mobileWidth": 390
+    },
+    {
+      "kind": "invite",
+      "fields": 9,
+      "required": 6,
+      "states": 5,
+      "submissionAndReview": true,
+      "mobileWidth": 390
+    },
+    {
+      "kind": "current",
+      "fields": 19,
+      "required": 13,
+      "states": 5,
+      "submissionAndReview": true,
+      "mobileWidth": 390
+    },
+    {
+      "kind": "new",
+      "fields": 28,
+      "required": 13,
+      "states": 5,
+      "submissionAndReview": true,
+      "mobileWidth": 390
+    }
+  ],
+  "errors": [],
+  "unexpected": [],
+  "writes": [],
+  "fictionalOnly": true,
+  "backendTested": false,
+  "proposalNotImplemented": true
+}

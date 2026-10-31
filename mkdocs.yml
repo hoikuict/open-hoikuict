@@ -18,12 +18,26 @@ extra_css:
 plugins:
   - search
 markdown_extensions:
+  - attr_list
   - admonition
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.tasklist:
       custom_checkbox: true
 nav:
+  - 登録の手順と更新記録:
+      - 保護者登録: parent-registration-manual.md
+      - 職員登録: staff-registration-manual.md
+      - 在園児の保護者登録の実機反映: deployment-parent-guardian-2026-11-01.md
+      - 在園児の保護者登録の実装: parent-existing-guardian-implementation-2026-11-01.md
+      - 在園児の保護者登録の合意画面: parent-existing-guardian-proposal-2026-11-01.md
+      - 職員QR付き案内の実機反映: deployment-staff-auth-print-2026-11-01.md
+      - 職員QR付き案内の実装: staff-auth-print-implementation-2026-11-01.md
+      - 職員QR付き案内の合意画面: staff-auth-print-proposal-2026-11-01.md
+      - 家族情報と保護者アカウント: guardian-account-sync.md
+      - 仕様の決定・変更記録: spec-decisions.md
+      - 記録の更新方法: documentation.md
+      - 更新履歴: history.md
   - はじめに: index.md
   - 導入ロードマップ: roadmap.md
   - 仕様・設計:

@@ -1,0 +1,96 @@
+{
+  "date": "2026-11-01T08:39:22.991500+09:00",
+  "approval": "両方に適用して実装（推奨）",
+  "approved_mock": "PARENT-EXISTING-GUARDIAN-MOCK-001",
+  "approved_mock_files_unchanged": true,
+  "workspace": "C:\\python\\open-hoikuict",
+  "branch": "main",
+  "base_commit": "ab947ba718a8d2c64da66e2cafb255f01cda14ad",
+  "uncommitted_changes": true,
+  "deployed": false,
+  "production_accessed_during_implementation": false,
+  "production_baseline_for_mock": "c8990b8888c071a896ff58c2f81ada13fb1099e6",
+  "pytest": {
+    "passed": 152,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "new_tests": 13,
+    "warnings": 2,
+    "full_suite": false,
+    "duration_seconds": 73.238,
+    "log": ".local-dev/parent-guardian-registration-tests.log"
+  },
+  "browser": {
+    "verified": true,
+    "checks": [
+      {
+        "kind": "add",
+        "fields": 9,
+        "required": 6,
+        "mockMatches": true,
+        "mobile": 390
+      },
+      {
+        "kind": "invite",
+        "fields": 9,
+        "required": 6,
+        "mockMatches": true,
+        "mobile": 390
+      },
+      {
+        "kind": "new",
+        "fields": 28,
+        "required": 13,
+        "mockMatches": false,
+        "mobile": 390
+      }
+    ],
+    "errors": [],
+    "unexpected": [],
+    "writes": [],
+    "allNetworkFulfilledLocally": true
+  },
+  "visual_inspection": "Desktop and 390px mobile rendered responses inspected; no overlap or clipping",
+  "ruff": "passed",
+  "diff_check": "passed",
+  "docs": {
+    "strict_with_only_preexisting_omitted_nav_downgraded_to_info": "passed",
+    "repository_validation_settings_changed": false
+  },
+  "runtime_files": [
+    "parent_enrollment.py",
+    "parent_auth.py",
+    "routers/parent_auth.py",
+    "templates/parent_auth/enrollment.html",
+    "templates/parent_auth/enrollment_invite.html",
+    "templates/parent_auth/admin.html",
+    "static/js/parent-guardian-registration.js"
+  ],
+  "source_sha256": {
+    "parent_enrollment.py": "a964cabc3e3c9fbedc2b6962445c6f0ea361dc17362413e4c71ad40bcb9f5f6f",
+    "parent_auth.py": "d30122a01bf6b6c60a4d2961e2617fc5f953fbc13f9018f5ee2217efd3aca32e",
+    "routers/parent_auth.py": "a45020935a8293709acf951c3c81d1f0e7f0435c08eb1c3c63715f3addd6920a",
+    "templates/parent_auth/enrollment.html": "6dcd297b383ee97ebcb72d96e926e5b8a282dddd61d9967a900bfa3f36ef3b2d",
+    "templates/parent_auth/enrollment_invite.html": "8695f2dabdfe914ee9fed31d4e8a2328db5c6a803b4a9c3204d657883a9cffe5",
+    "templates/parent_auth/admin.html": "00ba69025007632af61cc0f20f41143c8bfb83f76f1452cbf608c68ee495b649",
+    "static/js/parent-guardian-registration.js": "829a24c6aad29279c5d5f231d1f372f60e77f34a82c0c0732f232507ee73e3e2",
+    "test_parent_guardian_registration.py": "dabbb4379481cd92440ead92ec48d29d4a7f22256ea2183fa0aec98c4517dc40",
+    "test_parent_enrollment.py": "d7327ea3670983904807ccaed3de16cb1cfd65fa08c5316ba2456302c2c22c6f",
+    "test_guardian_preservation.py": "cadeea1cc6ca3648ccac00627dfd640208d5d2a7366310cde665ab86c59b4c74",
+    "test_family_archive_usage.py": "ac56588de2cfb8ec818833823376e015ce2034360a22616ab8c8399b7c376958",
+    "tools/verify_parent_guardian_render.py": "9b26f0eddb136dc8acd482dffe316a141721e67b191802331a1b0f19edaa7ebf",
+    "tools/verify_parent_guardian_browser.cjs": "b1626ed3b365465e849baff7d7312996033809cc71c2f05f2d2eb5b47a2d681d",
+    "docs/parent-existing-guardian-implementation-2026-11-01.md": "c405e8a5db8fe82d6a1185204cbb5554d90820f6a75a0d5aff2b07d19025a420",
+    "docs/parent-existing-guardian-proposal-2026-11-01.md": "55749fdfafefa0974a3a7ea6062f0784f9a25f7a47421fc707301db136b2072c",
+    "docs/parent-registration-manual.md": "6563ab99808dbf0bc621380e969b955ae7e2f6682a36ad577eb9b39c82d6301b",
+    "docs/guardian-account-sync.md": "b31c17ddb889e9e419ca1c05907212615690b5164abfbb3259b56b3fd66e7633",
+    "docs/spec-decisions.md": "c8b1d73e420a7b1b4c399d5174940adfc8afc9416831d1a0be40d3122ad0262a",
+    "docs/history.md": "2a8b7ba4c5c4b20002d89d506a3f576ffc1016cee8a9eea265c7dd9eea374271",
+    "mkdocs.yml": "ed93ffa7a65af5f5e81d1015c84ebd63cdca3bc4fdb5b6e3f4cbdcc87dbad32f"
+  },
+  "snapshot": ".local-dev/parent-guardian-registration-evidence/source",
+  "tracked_patch_sha256": "bfea68748e4a27d932c9930a473bd93ef075d7d6b17acf2b11b85cf2b399e98e",
+  "legacy_pending": "Old submitted forms retain validation and application scope; no bulk rewrite",
+  "unsubmitted_invitations": "Existing child invitations use guardian-only fields on next submission"
+}

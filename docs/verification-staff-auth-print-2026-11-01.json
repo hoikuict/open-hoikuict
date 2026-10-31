@@ -1,0 +1,89 @@
+{
+  "date": "2026-11-01 JST",
+  "approved_mock": "STAFF-PRINT-MOCK-001",
+  "approval": "いいね、実装しよう",
+  "approved_mock_hashes_unchanged": true,
+  "workspace": "C:\\python\\open-hoikuict",
+  "branch": "main",
+  "base_commit": "ab947ba718a8d2c64da66e2cafb255f01cda14ad",
+  "uncommitted_changes": true,
+  "deployed": false,
+  "production_accessed": false,
+  "pytest": {
+    "passed": 105,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0,
+    "new_handout_tests": 23,
+    "full_suite": false,
+    "warnings": 2,
+    "log": ".local-dev/staff-handout-verified-tests.log"
+  },
+  "browser": {
+    "checks": [
+      "activate: actual template, print/cancel, mobile, clipboard failure, expiry and history return",
+      "reset: actual template, print/cancel, mobile, clipboard failure, expiry and history return",
+      "long: actual template, print/cancel, mobile, clipboard failure, expiry and history return"
+    ],
+    "errors": [],
+    "unexpected": [],
+    "writes": [],
+    "allNetworkFulfilledLocally": true
+  },
+  "print": [
+    {
+      "case": "activate",
+      "pages": 1,
+      "format": "A4 portrait",
+      "complete_text": true,
+      "sha256": "2cc64c36fc282f55371de668f45eec44f8827199f39eb29716b112fcd8583a78"
+    },
+    {
+      "case": "reset",
+      "pages": 1,
+      "format": "A4 portrait",
+      "complete_text": true,
+      "sha256": "31d9eac1f435a1ce5b14b6724911a6105052cc171f84aa7991b51189ba769cd6"
+    },
+    {
+      "case": "long",
+      "pages": 1,
+      "format": "A4 portrait",
+      "complete_text": true,
+      "sha256": "9e4d807f812b0bc60091ff6e8ecb320af847429fcf621e3eff572a391bc4b235"
+    }
+  ],
+  "visual_inspection": "PDF pages rendered with Poppler; standard and long fields and mobile checked",
+  "docs": {
+    "standard_strict": "blocked by pre-existing omitted-nav-pages warning",
+    "strict_with_only_omitted_nav_downgraded_to_info": "passed",
+    "repository_validation_settings_changed": false
+  },
+  "ruff_changed_python": "passed",
+  "not_verified": [
+    "Physical printer",
+    "Physical smartphone QR scan",
+    "Production deployment"
+  ],
+  "sha256": {
+    ".env.example": "4690af330131e89ee5e3f8e0d8c54c7c7e8ba5200a56454ccf190329222dacc2",
+    "staff_auth_handout.py": "2daec5290e7a87157e389187688a90e0fda3cf1cf6c4aa968080aa63c7fc15a4",
+    "routers/staff_auth.py": "0faf317f88940905aaae3ad514c732d8e06834fc730430cf2647f67b5da3d21e",
+    "templates/staff_auth/action_code.html": "5ad6a4d60fa0d6a849d44ee15332610a4fdc413555a3c443cd402fce1f796567",
+    "templates/staff_auth/authentication.html": "4f8cb76bb13ad85085e1b5811d34cc43391141c3d8c5614fe95bb07c3ba4da14",
+    "static/css/staff-auth-handout.css": "63f09f73af60a5acbf0b8fcf8c32a968b0f4176142e7aaec9c3bb05a9b42aa7b",
+    "static/js/staff-auth-handout.js": "80a5bcf028c0649babe089e4930892f323c249b9aec579154bd2d02f0e6df798",
+    "test_staff_auth_handout.py": "0cc5c4d4437bc87e5ce068b4f88d40e98836593750f74e4122451f0c75815c78",
+    "test_local_staff_auth.py": "26e477cf7f884ea9468569b255ca7de8932419b5fb70378361fd4739de6076fb",
+    "tools/verify_staff_handout_render.py": "c553783615ff0f63c242fc5ee498cefb4c38233f58569640b5d52f17876b4779",
+    "tools/verify_staff_handout_browser.cjs": "fd906f36d7f9f1363533e2ec327a0316676c437e0fe28787361713f22b176e32",
+    "docs/staff-auth-print-proposal-2026-11-01.md": "cda0e70cb0365407b954f6b2ce4c00fd33ab58ef289dd74587b87f0b74e2cfbe",
+    "docs/staff-auth-print-implementation-2026-11-01.md": "c3f7181a44dd9d996af2ec6c7ee52e15e1cc4c66c4d552a541ca6ab8a4294608",
+    "docs/staff-registration-manual.md": "a8f0c968753374f9cbbf7342dc0e38a5972718bd98f87ebf89e3140f8703aaae",
+    "docs/spec-decisions.md": "13dec74faaf2239443c73818d1f0556e77f0a59bb8fdc538a15ce272af661ead",
+    "docs/environment-profiles.md": "8070bc4b4796d48da852c0cb335c8b4e3c45e1c437f2b6cf7a36177d2fb57664",
+    "docs/local-authentication-spec.md": "4c6979ddbea9e9d6db44df52636ff9b876ee77042a2c3b744746207908d1dc7a",
+    "docs/history.md": "fdb052db2f7a70b6795cb55c43ca4b644e5950e85e74fab245948249e0ca6f5b",
+    "mkdocs.yml": "d65cf5e695c19fb0c2bbcd3cbf9195757b503ae9ba165b8d5c464855a4ba4e5f"
+  }
+}
