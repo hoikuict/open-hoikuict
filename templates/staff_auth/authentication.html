@@ -42,7 +42,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label class="block text-sm font-medium text-slate-700">
         発行理由
-        <input type="text" name="reason" required maxlength="500" placeholder="例: 本人からパスワード紛失の申告" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+        <input type="text" name="reason" value="{{ form_reason }}" required maxlength="500" placeholder="例: 本人からパスワード紛失の申告" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
       </label>
       <button type="submit" class="rounded-xl bg-amber-600 px-5 py-3 text-sm font-medium text-white hover:bg-amber-700">再設定コードを発行</button>
     </form>
@@ -55,11 +55,11 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label class="block text-sm font-medium text-slate-700">
         ログインID
-        <input type="text" name="login_id" value="{{ credential.login_id if credential else user.email }}" required maxlength="255" autocomplete="off" {% if credential %}readonly{% endif %} class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 {% if credential %}bg-slate-100{% endif %}">
+        <input type="text" name="login_id" value="{{ credential.login_id if credential else (form_login_id if form_login_id is not none else user.email) }}" required maxlength="255" autocomplete="off" {% if credential %}readonly{% endif %} class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 {% if credential %}bg-slate-100{% endif %}">
       </label>
       <label class="block text-sm font-medium text-slate-700">
         発行理由
-        <input type="text" name="reason" required maxlength="500" placeholder="例: 新規採用職員の初期設定" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+        <input type="text" name="reason" value="{{ form_reason }}" required maxlength="500" placeholder="例: 新規採用職員の初期設定" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
       </label>
       <button type="submit" class="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-medium text-white hover:bg-indigo-700">有効化コードを発行</button>
     </form>

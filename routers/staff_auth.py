@@ -54,6 +54,7 @@ from staff_permissions import (
     require_live_admin,
 )
 from staff_user_service import list_active_staff_users
+from staff_auth_handout import prepare_staff_code_handout, staff_code_handout_details
 from staff_recovery import (
     RECOVERY_FAILURE,
     REQUEST_ACCEPTED,
@@ -715,6 +716,8 @@ def _render_staff_authentication_page(
     user: User,
     credential: PasswordCredential | None,
     form_error: str = "",
+    form_login_id: str | None = None,
+    form_reason: str = "",
     status_code: int = 200,
 ):
     return _no_store(
@@ -728,6 +731,8 @@ def _render_staff_authentication_page(
                 "credential": credential,
                 "auth_status": _credential_status(credential),
                 "form_error": form_error,
+                "form_login_id": form_login_id,
+                "form_reason": form_reason,
                 "csrf_token": getattr(request.state, "csrf_token", ""),
             },
             status_code=status_code,
@@ -770,6 +775,7 @@ def issue_staff_activation_from_admin(
     credential = _staff_credential_for_user(session, user_id)
     target_name = user.display_name
     try:
+        handout = prepare_staff_code_handout("activate")
         _, activation_code = issue_existing_staff_activation(
             session,
             user=user,
@@ -785,6 +791,8 @@ def issue_staff_activation_from_admin(
             user=user,
             credential=credential,
             form_error=str(exc),
+            form_login_id=login_id,
+            form_reason=reason,
             status_code=400,
         )
 
@@ -800,6 +808,9 @@ def issue_staff_activation_from_admin(
                 "action_code": activation_code,
                 "expires_label": f"{ACTION_CODE_TTL_MINUTES}分",
                 "destination": "/staff/activate",
+                "is_activation": True,
+                **handout,
+                **staff_code_handout_details(session, activation_code),
             },
         )
     )
@@ -820,6 +831,7 @@ def issue_staff_password_reset_from_admin(
     credential = _staff_credential_for_user(session, user_id)
     target_name = user.display_name
     try:
+        handout = prepare_staff_code_handout("reset_password")
         reset_code = issue_staff_password_reset(
             session,
             user=user,
@@ -833,6 +845,7 @@ def issue_staff_password_reset_from_admin(
             user=user,
             credential=credential,
             form_error=str(exc),
+            form_reason=reason,
             status_code=400,
         )
 
@@ -848,6 +861,9 @@ def issue_staff_password_reset_from_admin(
                 "action_code": reset_code,
                 "expires_label": f"{ACTION_CODE_TTL_MINUTES}分",
                 "destination": "/staff/reset-password",
+                "is_activation": False,
+                **handout,
+                **staff_code_handout_details(session, reset_code),
             },
         )
     )
