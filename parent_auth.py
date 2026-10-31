@@ -437,9 +437,14 @@ def _queue_registration_mail(
         link = f"{_registration_base_url()}/parent-portal/register/invite#{raw_token}"
         subject = "保護者ポータル 初回登録のご案内"
         body = f"保護者ポータルの初回登録手続きを開始してください。\n\n{link}\n\nこのリンクは24時間有効です。"
-        if session.get(ParentEnrollment, registration.id):
-            subject = "入園時の情報入力のお願い"
-            body = f"入園に必要なお子さま・保護者・連絡先の情報をご入力ください。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。"
+        enrollment = session.get(ParentEnrollment, registration.id)
+        if enrollment:
+            if enrollment.child_id is not None:
+                subject = "保護者アカウント登録のお願い"
+                body = f"保護者ご本人の氏名・カナ・続柄・電話番号・勤務先などをご入力ください。お子さまの登録情報の再入力は不要です。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。"
+            else:
+                subject = "入園時の情報入力のお願い"
+                body = f"入園に必要なお子さま・保護者・連絡先の情報をご入力ください。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。"
         if session.get(ParentPublicRegistration, registration.id):
             subject = "保護者アカウント 初回申請のメール確認"
             body = f"保護者アカウントの初回申請を受け付けました。次のリンクからお子さま・保護者・連絡先の情報をご入力ください。園が内容を確認後、パスワード設定の案内をお送りします。\n\n{link}\n\nこのリンクは24時間有効です。お心当たりがない場合は、このメールを破棄してください。"

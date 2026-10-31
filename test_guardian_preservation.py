@@ -115,7 +115,7 @@ def test_approved_child_profile_edit_preserves_unshown_guardians(pilot):
 
 
 @pytest.mark.parametrize("target_order", [1, 3])
-def test_parent_intake_supplements_existing_ledger_without_deleting_others(pilot, target_order):
+def test_parent_intake_updates_only_target_guardian_without_deleting_others(pilot, target_order):
     client, engine, ids, _ = pilot
     original = seed_guardians(pilot, [1, 2, 3])
     with Session(engine) as session:
@@ -126,7 +126,7 @@ def test_parent_intake_supplements_existing_ledger_without_deleting_others(pilot
         session.add_all([family, child])
         session.commit()
     registration_id, account_id, token = invite(pilot, child_id=ids["child"], guardian_order=target_order)
-    form = open_form(client, token)
+    form = open_form(client, token, guardian_only=True)
     assert "既存の勤務先住所" not in form.text
     submitted = client.post("/parent-portal/register/enrollment", data=profile(
         last_name="検証", first_name="葵", g1_workplace="", g1_workplace_address="", g1_workplace_phone="",
@@ -146,7 +146,7 @@ def test_parent_intake_supplements_existing_ledger_without_deleting_others(pilot
                     assert item[key] == value
         assert len(session.exec(select(Child)).all()) == 2
         child = session.get(Child, ids["child"])
-        assert child.birth_date == date(2023, 6, 10)
+        assert child.birth_date == date(2021, 5, 4)
         assert child.extra_data["allergy"] == ["Milk"]
         assert child.extra_data["medical_notes"] == "既存の連絡事項"
         assert child.home_phone == "0311111111"

@@ -61,6 +61,7 @@ from url_utils import safe_internal_redirect
 from parent_enrollment import (
     CHILD_FIELDS, GUARDIAN_FIELDS, FIELD_LABELS, enrollment_state, enrollment_target,
     latest_enrollment, prepare_enrollment, submit_enrollment,
+    GUARDIAN_ONLY_FIELDS, is_guardian_only_submission,
 )
 from family_support import validate_parent_contact_email
 from parent_public_registration import (
@@ -301,6 +302,7 @@ def _enrollment_form(request, enrollment, values, error="", status_code=200, *, 
         "enrollment": enrollment, "values": values, "form_error": error,
         "child_fields": CHILD_FIELDS, "guardian_fields": GUARDIAN_FIELDS,
         "public_application": public_application,
+        "guardian_only": enrollment.child_id is not None and not public_application,
     }, status_code)
 
 
@@ -743,7 +745,8 @@ def enrollment_invite(request: Request, child_name: str = Form(""), email: str =
         account.display_name = f"{enrollment.child_name}さんの保護者（初回入力待ち）"
         session.add(account)
         issue_parent_invitation(session, account=account, actor_user=actor,
-                                reason="入園時の初回情報登録", enrollment=enrollment)
+                                reason="在園児の保護者登録" if child_id is not None else "入園時の初回情報登録",
+                                enrollment=enrollment)
     except (ValueError, HTTPException) as exc:
         session.rollback()
         return _render_staff(request, "parent_auth/enrollment_invite.html", {
@@ -855,6 +858,8 @@ def _admin_auth_response(request, account_id, session, current_user, *, review_e
             "enrollment_pending": bool(latest_enrollment(session, account_id) and not latest_enrollment(session, account_id).applied_at),
             "latest_enrollment": latest_enrollment(session, account_id),
             "enrollment_field_labels": FIELD_LABELS,
+            "guardian_enrollment_field_labels": GUARDIAN_ONLY_FIELDS,
+            "is_guardian_only_submission": is_guardian_only_submission,
             "active_session_count": active_session_count,
             "mail_deliveries": mail_deliveries,
             "invitation_issues": parent_invitation_requirements(session, account, allow_initial_restart=True),

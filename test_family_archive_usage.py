@@ -114,7 +114,7 @@ def test_initial_input_and_approval_continue_without_reinvitation(pilot, when):
             session.get(ParentRegistrationRequest, registration_id).status == "approved"
         )
         assert session.get(Family, ids["family"]).is_archived
-        assert session.get(Child, ids["sibling"]).home_address == "検証用の住所"
+        assert session.get(Child, ids["sibling"]).home_address == "旧住所"
         assert len(session.exec(select(Child)).all()) == 2
 
 

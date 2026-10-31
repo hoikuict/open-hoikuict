@@ -59,12 +59,14 @@ def invite(pilot, **extra):
         )
 
 
-def open_form(client, raw_token):
+def open_form(client, raw_token, *, guardian_only=None):
     response = client.post(
         "/parent-portal/register/invite/verify", data={"token": raw_token}
     )
     assert response.status_code == 200, response.text
-    assert "入園時の初回情報入力" in response.text
+    if guardian_only is None:
+        guardian_only = response.context["guardian_only"]
+    assert ("保護者アカウントの登録" if guardian_only else "入園時の初回情報入力") in response.text
     return response
 
 
@@ -224,7 +226,7 @@ def test_existing_child_preserves_other_guardian_and_links_only_selected_child(p
     registration_id, account_id, raw_token = invite(
         pilot, child_id=ids["child"], guardian_order=1
     )
-    form = open_form(client, raw_token)
+    form = open_form(client, raw_token, guardian_only=True)
     assert "検証 葵" in form.text and 'name="g2_last_name"' not in form.text
     assert "09011112222" not in form.text and 'value="勤務先住所"' not in form.text
     response = client.post(
@@ -240,7 +242,7 @@ def test_existing_child_preserves_other_guardian_and_links_only_selected_child(p
         )
         family = session.get(Family, ids["family"])
         assert family.guardian_profiles()[1]["first_name"] == "太郎"
-        assert session.get(Child, ids["sibling"]).home_address == "検証用の住所"
+        assert session.get(Child, ids["sibling"]).home_address == "旧住所"
         assert [
             link.child_id for link in session.exec(select(ParentChildLink)).all()
         ] == [ids["child"]]
@@ -258,7 +260,7 @@ def test_existing_child_selector_and_new_guardian_preserve_ledger(pilot):
         original_birth_date, original_address = child.birth_date, child.family.home_address
         original_profiles = session.get(Family, ids["family"]).guardian_profiles()
     registration_id, account_id, token = invite(pilot, child_id=ids["child"], guardian_order=0)
-    open_form(client, token)
+    open_form(client, token, guardian_only=True)
     response = client.post("/parent-portal/register/enrollment", data=profile(
         last_name="検証", first_name="葵", g1_first_name="追加", g1_relationship="祖母",
     ))
@@ -388,7 +390,7 @@ def test_changed_ledger_blocks_approval_without_overwriting(pilot):
     registration_id, account_id, raw_token = invite(
         pilot, child_id=ids["child"], guardian_order=1
     )
-    open_form(client, raw_token)
+    open_form(client, raw_token, guardian_only=True)
     client.post(
         "/parent-portal/register/enrollment",
         data=profile(last_name="検証", first_name="葵"),
