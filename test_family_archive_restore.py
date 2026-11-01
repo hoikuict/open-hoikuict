@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 
 import database
 from restore_data import file_hash, inspect_backup, prepare_copy, schema_compatible
-from scripts.backup_runtime import BackupConfig, create_backup
+from scripts.backup_runtime_v1 import BackupConfig, create_backup
 from test_restore_runtime import CURRENT_SHA, RestoreFixture
 
 

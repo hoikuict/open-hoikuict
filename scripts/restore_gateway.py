@@ -32,6 +32,9 @@ TEMPLATES = Environment(loader=FileSystemLoader(Path(__file__).resolve().parents
                         autoescape=select_autoescape(["html"]))
 JOB_PATH = re.compile(r"/settings/backups/restore/jobs/([0-9a-f-]{36})$")
 HOP_HEADERS = {b"connection", b"keep-alive", b"proxy-authenticate", b"proxy-authorization", b"te", b"trailer", b"transfer-encoding", b"upgrade"}
+APP_PORT = int(os.getenv("HOIKUICT_GATEWAY_APP_PORT", "8001"))
+if not 1024 <= APP_PORT <= 65535:
+    raise ValueError("Invalid application port")
 
 
 class Supervisor:
@@ -59,7 +62,7 @@ class Supervisor:
         environment = {**os.environ, "HOIKUICT_RESTORE_PROBE": "1" if mode == "probe" else "0",
                        "FORWARDED_ALLOW_IPS": "127.0.0.1"}
         self.process = subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1",
-                                         "--port", "8001", "--proxy-headers", "--timeout-graceful-shutdown", "30"],
+                                         "--port", str(APP_PORT), "--proxy-headers", "--timeout-graceful-shutdown", "30"],
                                         env=environment)
         self.mode = mode
 
@@ -87,7 +90,7 @@ class Supervisor:
                 self.start(wanted)
             if self.process and self.process.poll() is None:
                 try:
-                    with self.http.open("http://127.0.0.1:8001/healthz", timeout=2) as response:
+                    with self.http.open(f"http://127.0.0.1:{APP_PORT}/healthz", timeout=2) as response:
                         self.healthy = response.status == 200
                 except Exception:
                     self.healthy = False
@@ -166,7 +169,7 @@ def create_gateway(supervisor: Supervisor | None = None) -> FastAPI:
         headers += [("x-forwarded-proto", "https" if websocket.scope["scheme"] == "wss" else "http"),
                     ("x-forwarded-for", websocket.client.host if websocket.client else "127.0.0.1")]
         try:
-            async with connect(uri, host="127.0.0.1", port=8001, proxy=None, additional_headers=headers,
+            async with connect(uri, host="127.0.0.1", port=APP_PORT, proxy=None, additional_headers=headers,
                                subprotocols=websocket.scope.get("subprotocols") or None,
                                max_size=16 * 1024 * 1024) as upstream:
                 await websocket.accept(subprotocol=upstream.subprotocol)
@@ -219,7 +222,7 @@ def create_gateway(supervisor: Supervisor | None = None) -> FastAPI:
             return unavailable()
         raw_path = request.scope.get("raw_path", request.url.path.encode()).decode("ascii")
         query = request.scope.get("query_string", b"").decode("ascii")
-        target = "http://127.0.0.1:8001" + raw_path + ("?" + query if query else "")
+        target = f"http://127.0.0.1:{APP_PORT}" + raw_path + ("?" + query if query else "")
         headers = [(k, v) for k, v in without_hop_headers(request.headers.raw)
                    if k.lower() not in {b"x-forwarded-for", b"x-forwarded-proto", b"forwarded"}]
         # Uvicorn has already checked the configured trusted proxy before setting scope.

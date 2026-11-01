@@ -9,7 +9,7 @@ import database
 from plan_docs.db_models import PlanDocumentRow
 from restore_data import inspect_backup, prepare_copy, schema, schema_compatible
 from restore_family_archive import compatible, upgrade_copy
-from scripts.backup_runtime import BackupConfig, create_backup
+from scripts.backup_runtime_v1 import BackupConfig, create_backup
 from sqlmodel import Session
 from test_restore_runtime import CURRENT_SHA, RestoreFixture
 

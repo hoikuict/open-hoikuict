@@ -81,6 +81,24 @@ def test_supported_photos_are_normalized_without_metadata(format):
         assert image.getpixel((0, 0)) == (255, 255, 255)
 
 
+@pytest.mark.parametrize("format", ["GIF", "XBM", "TIFF", "BMP"])
+def test_disallowed_image_decoders_are_never_entered(format, monkeypatch):
+    # A renamed file must be rejected before its format-specific header parser
+    # can run. No exploit payload or expensive decoder is needed for this check.
+    source = BytesIO()
+    Image.new("1", (8, 8)).save(source, format)
+    source.seek(0)
+    Image.init()
+    _, accepts = Image.OPEN[format]
+
+    def forbidden_decoder(*args, **kwargs):
+        pytest.fail(f"Disallowed {format} decoder was entered")
+
+    monkeypatch.setitem(Image.OPEN, format, (forbidden_decoder, accepts))
+    with pytest.raises(ValueError, match="写真"):
+        normalize_photo(UploadFile(file=source, filename="renamed.jpg"))
+
+
 def test_old_schema_upgrade_and_photo_backup_restore(tmp_path, monkeypatch):
     runtime = tmp_path / "runtime"
     runtime.mkdir()
@@ -129,8 +147,9 @@ def test_old_schema_upgrade_and_photo_backup_restore(tmp_path, monkeypatch):
     engine.dispose()
     facility_db = runtime / "facility.sqlite"
     with sqlite3.connect(facility_db) as connection:
-        connection.execute("CREATE TABLE examples (id INTEGER PRIMARY KEY)")
-    config = BackupConfig(output_root=tmp_path / "backups", database_url=f"sqlite:///{main_db}", facility_db=facility_db, storage_root=storage, git_sha="a" * 40, app_image="test@sha256:" + "b" * 64, compose_sha256="c" * 64, quiesced=True, environment="test")
+        from plan_docs.services.bunrei import _ensure_facility_table
+        _ensure_facility_table(connection)
+    config = BackupConfig(output_root=tmp_path / "backups", database_url=f"sqlite:///{main_db}", facility_db=facility_db, storage_root=storage, git_sha="a" * 40, app_image="test@sha256:" + "b" * 64, compose_sha256="c" * 64, quiesced=True, environment="test", cloudflared_image="cloudflared@sha256:" + "d" * 64, recovery_kit_ref="test-kit", actor_ref="test-operator", baseline_ref="test-baseline")
     backup = create_backup(config)
     assert verify_backup_set(backup)["status"] == "ok"
     restored = tmp_path / "restored.db"
@@ -139,21 +158,3 @@ def test_old_schema_upgrade_and_photo_backup_restore(tmp_path, monkeypatch):
         assert connection.execute("SELECT sex, photo_id FROM children WHERE id = ?", (child_id,)).fetchone() == ("female", photo_id)
         assert connection.execute("SELECT content FROM profile_photos WHERE id = ?", (photo_id,)).fetchone()[0] == photo
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
-
-
-@pytest.mark.parametrize("format", ["GIF", "XBM", "TIFF", "BMP"])
-def test_disallowed_image_decoders_are_never_entered(format, monkeypatch):
-    # A renamed file must be rejected before its format-specific header parser
-    # can run. No exploit payload or expensive decoder is needed for this check.
-    source = BytesIO()
-    Image.new("1", (8, 8)).save(source, format)
-    source.seek(0)
-    Image.init()
-    _, accepts = Image.OPEN[format]
-
-    def forbidden_decoder(*args, **kwargs):
-        pytest.fail(f"Disallowed {format} decoder was entered")
-
-    monkeypatch.setitem(Image.OPEN, format, (forbidden_decoder, accepts))
-    with pytest.raises(ValueError, match="写真"):
-        normalize_photo(UploadFile(file=source, filename="renamed.jpg"))

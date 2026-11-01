@@ -86,7 +86,7 @@ class RestoreExecutor:
             if admin_credential(self.paths.data / "hoikuict.db", request["actor_id"])["fingerprint"] != request["credential_fingerprint"]:
                 raise RestoreError("管理者情報が変わったため復元を中止しました。")
             update_job(job_id, phase="saving", step=1, message="復元直前のデータを退避しています。")
-            rollback_id = fresh_backup(self.paths)
+            rollback_id = fresh_backup(self.paths, actor_ref=job_id)
             update_job(job_id, rollback_backup=rollback_id, phase="preparing", step=2, message="別の領域に復元データを準備しています。")
             prepared = prepare_copy(self.paths, request["backup_id"], job_id)
             update_job(job_id, phase="verifying", step=3, message="写真・添付・データを検査しています。")
