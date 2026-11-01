@@ -1,0 +1,11 @@
+{
+  "app_commit": "70fb5dbcbc7577066682b7c7eb8dd017d42c5ec9",
+  "source_copy": "C:\\python\\open-hoikuict\\.local-dev\\parent-guardian-rollout-20261101\\source",
+  "hashes": {
+    "parent_enrollment.py": "406ec71ccea451811fe76918f5acff1be85bdc0adc7d474d1dd1cb1f48e7b5c7",
+    "routers/parent_auth.py": "0169b07a82a571e7a4a892ab7cc75fb8c1ed0f92d56e1eec6e400ce38ca057b4",
+    "templates/parent_auth/enrollment.html": "ef52380c5b291a0b00fb9af116142fab1649bdf1b8db03f20b61d48a09a66430"
+  },
+  "basis": "Verified production deployment earlier in this conversation; no new production or business-data access",
+  "previous_mock_unchanged": true
+}

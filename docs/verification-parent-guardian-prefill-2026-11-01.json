@@ -1,0 +1,72 @@
+{
+  "recorded_at": "2026-11-01T00:16:03.414708+00:00",
+  "approval": "この内容で実装（推奨）",
+  "approved_mock": "PARENT-GUARDIAN-PREFILL-MOCK-001",
+  "previous_mock_unchanged": true,
+  "mock_hashes": {
+    "baseline.json": "ec30e45d1127e2bb39b1ef97d94dc20463037ff66fe5813a2d260b1d9fb4ca95",
+    "fixtures.js": "4a07fd85f830d8c9ba97519ec1fc56a5a45f96d22e8cf5ce080a4f9df3963600",
+    "index.html": "18d62c6fc5692bcecf35afbb43e86800f167e3ac8eeb6f7c8ef752eb387b787a",
+    "preview.css": "28ae9360f3a66e0b7e8691aeb726d4b980076022c30a0615b5195f0a8267fcdb",
+    "preview.js": "7234a12f7e7e264ebcf1adb95dd6714ca4b0e93342de2bab52eb2535259dd294",
+    "verification.json": "768e9a18bab3e46972f1d0050427525ab0c25bd1cc598a2d9dd37532c6d6f796",
+    "verified-invite-desktop.png": "507690ef8fdb7f1402713b70d05f6694218e9e255a69562f646ad5b7c9faa823",
+    "verified-invite-mobile.png": "e030b1130521fa8832fefddcb4216777dfd78a9e55a02022d73417272c2d9c32"
+  },
+  "app_commit": "c4e3d449ea17256b384badfcf6094e82ae7b49d3",
+  "baseline_commit": "70fb5dbcbc7577066682b7c7eb8dd017d42c5ec9",
+  "source_hashes": {
+    "parent_enrollment.py": "6f6279c34d9fce3ec7596dea641b8fbf3e59d204804f4c27ebb1fa74c024d2d6",
+    "routers/parent_auth.py": "8bb4af7ee1b85a13185d8938ba951965df8de5beae67a7e1f19d6b8bc04922d2",
+    "templates/parent_auth/enrollment.html": "4a35e411e1c81e6136d087b0eafd0de996aacfb8f694080fccba6a162a7ed3a7",
+    "test_parent_guardian_prefill.py": "af490f812113aea11d2af5ea7085ce2e03d590bc76e2c0b9eda89da22f803f45",
+    "test_parent_guardian_registration.py": "33eb87255e1c5e40d8e2329608768243f8c1d53c6b450dd72b79c5660defdc44",
+    "test_parent_enrollment.py": "92bc82a565579c36a3c7c71fdad704862df00b56f1d90f37a52ebd4bbea90c4e",
+    "test_guardian_preservation.py": "bf5af49c208fb084ef3cacec2446c035eba5948f83d6f16940b6952b97d8649d"
+  },
+  "pytest": {
+    "passed": 176,
+    "new_tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": "78.378"
+  },
+  "browser": {
+    "verified": true,
+    "checks": [
+      {
+        "kind": "add",
+        "fields": 9,
+        "required": 6,
+        "mockMatches": true,
+        "mobile": 390
+      },
+      {
+        "kind": "invite",
+        "fields": 9,
+        "required": 6,
+        "mockMatches": true,
+        "mobile": 390
+      },
+      {
+        "kind": "new",
+        "fields": 28,
+        "required": 13,
+        "mockMatches": false,
+        "mobile": 390
+      }
+    ],
+    "errors": [],
+    "unexpected": [],
+    "writes": [],
+    "allNetworkFulfilledLocally": true
+  },
+  "ruff_changed_files": "passed",
+  "diff_check": "passed",
+  "deployed": false,
+  "business_data_used_for_tests": false,
+  "visual_inspection": "Actual form and mock checked at 390px; desktop mock checked",
+  "source_copy": "C:\\python\\open-hoikuict\\.local-dev\\parent-guardian-prefill-rollout-20261101\\source",
+  "whole_suite_rerun": false
+}

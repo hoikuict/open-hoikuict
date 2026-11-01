@@ -1,5 +1,7 @@
 # 在園児の保護者追加・招待で入力範囲を分ける案
 
+後続の合意：[SD-006](spec-decisions.md#sd-006)で、既存保護者本人の登録済み9項目を初期表示する[追加修正](parent-guardian-prefill-proposal-2026-11-01.md)に合意した。以下の「事前表示しない」はSD-005時点の範囲を記録したもので、後続合意の引継ぎ対象では変更される。
+
 2026-11-01 JST、モック版 `PARENT-EXISTING-GUARDIAN-MOCK-001`。ユーザーがモックに対し「両方に適用して実装」を選択し、画面と適用範囲を合意した。[本体の実装記録](parent-existing-guardian-implementation-2026-11-01.md)あり。同日、実機へ反映済み。[実機配備記録](deployment-parent-guardian-2026-11-01.md)あり。 [決定記録 SD-005](spec-decisions.md#sd-005)を参照。以下の調査・提案は合意前の検討過程を含む。
 
 ## 要望と確認した現状

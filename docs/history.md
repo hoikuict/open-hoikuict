@@ -7,3 +7,5 @@
 - [保護者登録マニュアル](parent-registration-manual.md)
 - [職員登録マニュアル](staff-registration-manual.md)
 - [仕様の決定・変更記録](spec-decisions.md)
+
+- [登録済み保護者情報の引継ぎ](deployment-parent-guardian-prefill-2026-11-01.md)

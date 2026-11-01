@@ -26,6 +26,9 @@ markdown_extensions:
       custom_checkbox: true
 nav:
   - 登録の手順と更新記録:
+      - 登録済み本人情報の引継ぎ: parent-guardian-prefill-proposal-2026-11-01.md
+      - 引継ぎの実装: parent-guardian-prefill-implementation-2026-11-01.md
+      - 引継ぎの実機反映: deployment-parent-guardian-prefill-2026-11-01.md
       - 保護者登録: parent-registration-manual.md
       - 職員登録: staff-registration-manual.md
       - 在園児の保護者登録の実機反映: deployment-parent-guardian-2026-11-01.md
