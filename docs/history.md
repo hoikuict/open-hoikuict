@@ -6,6 +6,7 @@
 
 | 日付 | 文書 | 内容 |
 | --- | --- | --- |
+| 2026-11-01 | [職員登録](staff-registration-manual.md)・[保護者登録](parent-registration-manual.md)の公開マニュアル | QR付き案内、在園児の本人情報の引継ぎ、登録完了と困ったときの対応を掲載。[登降園時刻の一括補完](daily-work.md#bulk-attendance)に共通時刻の反映手順を追記 |
 | 2026-09-23 | [Windows導入完了時の修正](windows-server-setup.md) | [v2026.9.23.5](https://github.com/hoikuict/open-hoikuict/releases/tag/v2026.9.23.5)。管理者権限で更新した導入記録の読取と、Windowsで監視記録の更新が競合した際の再試行を修正 |
 | 2026-09-23 | [Windowsの段階別導入手順](windows-server-setup.md) | [v2026.9.23.4を公開](https://github.com/hoikuict/open-hoikuict/releases/tag/v2026.9.23.4)。園内LAN・Gmail・園外利用の案内を追加し、設定開始時の権限エラーとサービス登録・停止を修正。実サービスでHTTPS・移行・バックアップ・隔離復元・再起動を確認。園の別端末・OS再起動・実SMTP・園外公開は各導入先で確認 |
 | 2026-09-17 | [日常入力・権限・記録訂正の改善](spec-improvements-2026-09-17.md) | KIOSK時計、保護者入力・追加、お迎え予定、出欠集計、園からの連絡、健診訂正、アンケート結果閲覧者、アドレス削除を実装。[17:52に本番反映・確認済み](deployment-2026-09-17.md) |

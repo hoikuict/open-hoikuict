@@ -115,6 +115,10 @@ hide:
 
 [導入から初期台帳登録までのマニュアル](start-manual.md){ .welcome-technical-link }
 
+[職員登録マニュアル](staff-registration-manual.md) · [保護者登録マニュアル](parent-registration-manual.md)
+
+職員の初回設定・QR付き案内の印刷、保護者の招待・承認・利用開始を、管理者と本人の手順に分けて案内しています。
+
 [導入・運用・開発を担当する方へ →](technical-guide.md){ .welcome-technical-link }
 
 [GitHubでプロジェクトを見る →](https://github.com/hoikuict/open-hoikuict){ .home-button .home-button-secondary }
