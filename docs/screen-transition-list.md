@@ -109,3 +109,5 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | データエクスポート | `/data-transfers/export/{file_name}` |
 | 認可施設帳票出力 | `POST /data-transfers/ninka/export` |
 | ヘルスチェック | `/healthz` |
+
+2026-11-01更新：児童票の一覧・作成状況・入力画面で対象月を選択できる。下書き/差し戻し票は同じ入力画面で再編集する。[対象期間選択の操作](deployment-child-progress-periods-2026-11-01.md)、[SD-007](spec-decisions.md#sd-007)を参照。

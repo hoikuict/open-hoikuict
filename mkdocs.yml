@@ -53,6 +53,8 @@ nav:
       - 画面遷移: screen-transition-list.md
       - 連携契約: integration-contract.md
       - 児童記録・児童票・保育要録: child-records-spec.md
+      - 児童票の期間選択・再編集の実機反映: deployment-child-progress-periods-2026-11-01.md
+      - 児童票の期間選択の実装記録: child-progress-previous-period-implementation-2026-09-29.md
       - 園児健康管理: health-record-spec-review.md
       - インポート・エクスポート: import-export-spec.md
       - ベータ開始時の本番データ移行: beta-production-data-migration-spec.md
