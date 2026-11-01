@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      web-stack:
+        patterns:
+          - fastapi
+          - starlette
+          - uvicorn
+          - python-multipart
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
