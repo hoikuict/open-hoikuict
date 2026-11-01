@@ -14,7 +14,7 @@
 {% endif %}
 <h1>{{ heading }}</h1>
 {% if guardian_only %}
-<p>{{ enrollment.child_name }}さんの保護者として利用する、ご本人の情報を入力してください。</p>
+<p>{{ enrollment.child_name }}さんの保護者として利用する、{{ 'ご本人の登録情報を確認してください。' if prefilled_guardian else 'ご本人の情報を入力してください。' }}</p>
 <div class="target-summary"><span class="muted">対象のお子さま</span><strong>{{ enrollment.child_name }} さん</strong><p>お子さまは園の台帳に登録されています。再入力は必要ありません。</p></div>
 <p class="muted">メールアドレスは招待先をそのまま使用します。園が内容を確認して承認すると、パスワード設定の案内メールが届きます。入力画面の有効時間は2時間です。</p>
 <p class="muted">園児情報・ご自宅の連絡先に変更がある場合は、園へお知らせください。</p>
@@ -32,9 +32,10 @@
   </div></fieldset>
   <fieldset><legend>ご自宅の連絡先</legend>{{ field('home_address', '自宅住所', true) }}{{ field('home_phone', '自宅電話（ある場合）') }}</fieldset>
   {% endif %}
-  <fieldset><legend>入力する保護者ご本人</legend><div class="enrollment-grid">
+  {% if prefilled_guardian %}<style>.prefill-note{padding:.9rem 1rem;background:#eef2ff;border-left:4px solid #6366f1;border-radius:.25rem;line-height:1.7}</style><p class="prefill-note">園に登録されているご本人の情報を表示しています。内容を確認し、変更がある項目と未入力の必須項目だけ入力してください。</p>{% endif %}
+  <fieldset><legend>{{ '保護者ご本人の登録情報' if prefilled_guardian else '入力する保護者ご本人' }}</legend><div class="enrollment-grid">
     {% for key, label in guardian_fields.items() %}{{ field('g1_' ~ key, label, key in ['last_name','first_name','last_name_kana','first_name_kana','relationship','phone']) }}{% endfor %}
-  </div><p class="muted">勤務先がない場合は空欄で構いません。</p></fieldset>
+  </div><p class="muted">勤務先がない場合は空欄で構いません。{% if prefilled_guardian %}登録済みの勤務先情報を削除する場合は、園へお知らせください。{% endif %}</p></fieldset>
   {% if not enrollment.child_id %}
   <details {% if values.get('g2_last_name') %}open{% endif %}><summary>もう1人の保護者を登録する（任意）</summary>
     <p class="muted">家族情報として登録します。この方のログインアカウントは園が別途招待します。</p>

@@ -127,7 +127,9 @@ def test_parent_intake_updates_only_target_guardian_without_deleting_others(pilo
         session.commit()
     registration_id, account_id, token = invite(pilot, child_id=ids["child"], guardian_order=target_order)
     form = open_form(client, token, guardian_only=True)
-    assert "既存の勤務先住所" not in form.text
+    assert "既存の勤務先住所" in form.text
+    for order in [1, 2, 3]:
+        assert (f'value="既存の勤務先{order}"' in form.text) == (order == target_order)
     submitted = client.post("/parent-portal/register/enrollment", data=profile(
         last_name="検証", first_name="葵", g1_workplace="", g1_workplace_address="", g1_workplace_phone="",
     ))

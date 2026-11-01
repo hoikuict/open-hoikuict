@@ -61,7 +61,7 @@ from url_utils import safe_internal_redirect
 from parent_enrollment import (
     CHILD_FIELDS, GUARDIAN_FIELDS, FIELD_LABELS, enrollment_state, enrollment_target,
     latest_enrollment, prepare_enrollment, submit_enrollment,
-    GUARDIAN_ONLY_FIELDS, is_guardian_only_submission,
+    GUARDIAN_ONLY_FIELDS, is_guardian_only_submission, guardian_prefill_values,
 )
 from family_support import validate_parent_contact_email
 from parent_public_registration import (
@@ -291,6 +291,8 @@ def identity_page(request: Request, session: Session = Depends(get_session)):
             is_public = session.get(ParentPublicRegistration, state.registration_request_id) is not None
             if is_public:
                 values = {}
+            elif enrollment.child_id is not None:
+                values = guardian_prefill_values(enrollment)
             return _enrollment_form(request, enrollment, values, public_application=is_public)
     except AuthenticationFailed:
         return _no_store(RedirectResponse("/parent-portal/register/status?state=invalid", status_code=303))
@@ -303,6 +305,7 @@ def _enrollment_form(request, enrollment, values, error="", status_code=200, *, 
         "child_fields": CHILD_FIELDS, "guardian_fields": GUARDIAN_FIELDS,
         "public_application": public_application,
         "guardian_only": enrollment.child_id is not None and not public_application,
+        "prefilled_guardian": bool(guardian_prefill_values(enrollment, public_application=public_application)),
     }, status_code)
 
 

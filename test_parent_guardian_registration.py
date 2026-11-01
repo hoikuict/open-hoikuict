@@ -62,7 +62,8 @@ def test_existing_invite_only_accepts_own_fields_and_preserves_ledger(pilot, ord
     assert "no-store" in form.headers["cache-control"]
     assert set(Inputs(form.text).names) == set(GUARDIAN_ONLY_FIELDS)
     assert len(Inputs(form.text).required) == 6
-    assert "旧住所" not in form.text and "09011112222" not in form.text and "園の記録" not in form.text
+    assert "旧住所" not in form.text and "園の記録" not in form.text
+    assert ("09011112222" in form.text) == (order == 1)
     assert "園児情報の再入力は不要" in client.get(
         f"/parent-accounts/enrollment/new?child_id={ids['child']}&guardian_order={order}"
     ).text

@@ -76,6 +76,22 @@ def is_guardian_only_submission(enrollment: ParentEnrollment | None) -> bool:
     return bool(enrollment and (enrollment.submitted_data or {}).get("_input_scope") == GUARDIAN_ONLY_SCOPE)
 
 
+def guardian_prefill_values(enrollment: ParentEnrollment, *, public_application: bool = False) -> dict[str, str]:
+    """Expose only the selected adult's nine invitation-time fields after token verification."""
+    snapshot = enrollment.source_snapshot
+    if public_application or enrollment.child_id is None or not isinstance(snapshot, dict) or snapshot.get("adding_guardian"):
+        return {}
+    profile = snapshot.get("profile")
+    guardians = profile.get("guardians_data") if isinstance(profile, dict) else None
+    if not isinstance(guardians, list):
+        return {}
+    matches = [item for item in guardians if isinstance(item, dict) and item.get("order") == enrollment.guardian_order]
+    if len(matches) != 1:
+        return {}
+    # Never fall back to the first guardian, or include email, photos, IDs, or family data.
+    return {f"g1_{key}": str(matches[0].get(key) or "") for key in GUARDIAN_FIELDS}
+
+
 def latest_enrollment(session: Session, account_id: int) -> ParentEnrollment | None:
     return session.exec(
         select(ParentEnrollment)

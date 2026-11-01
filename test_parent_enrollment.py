@@ -228,7 +228,8 @@ def test_existing_child_preserves_other_guardian_and_links_only_selected_child(p
     )
     form = open_form(client, raw_token, guardian_only=True)
     assert "検証 葵" in form.text and 'name="g2_last_name"' not in form.text
-    assert "09011112222" not in form.text and 'value="勤務先住所"' not in form.text
+    assert "09011112222" in form.text and 'value="勤務先住所"' in form.text
+    assert "旧住所" not in form.text and 'value="太郎"' not in form.text
     response = client.post(
         "/parent-portal/register/enrollment",
         data=profile(last_name="検証", first_name="葵"),
