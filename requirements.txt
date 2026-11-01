@@ -15,7 +15,7 @@ python-dotenv==1.2.4
 argon2-cffi==25.1.0
 pywebpush==2.3.0
 qrcode==8.2
-mkdocs>=1.6,<2
+mkdocs>=1.6.1,<2
 mkdocs-material
 pymdown-extensions
 # Security floors for transitive dependencies used by HTTP clients.
