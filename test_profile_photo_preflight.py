@@ -139,3 +139,21 @@ def test_old_schema_upgrade_and_photo_backup_restore(tmp_path, monkeypatch):
         assert connection.execute("SELECT sex, photo_id FROM children WHERE id = ?", (child_id,)).fetchone() == ("female", photo_id)
         assert connection.execute("SELECT content FROM profile_photos WHERE id = ?", (photo_id,)).fetchone()[0] == photo
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
+@pytest.mark.parametrize("format", ["GIF", "XBM", "TIFF", "BMP"])
+def test_disallowed_image_decoders_are_never_entered(format, monkeypatch):
+    # A renamed file must be rejected before its format-specific header parser
+    # can run. No exploit payload or expensive decoder is needed for this check.
+    source = BytesIO()
+    Image.new("1", (8, 8)).save(source, format)
+    source.seek(0)
+    Image.init()
+    _, accepts = Image.OPEN[format]
+
+    def forbidden_decoder(*args, **kwargs):
+        pytest.fail(f"Disallowed {format} decoder was entered")
+
+    monkeypatch.setitem(Image.OPEN, format, (forbidden_decoder, accepts))
+    with pytest.raises(ValueError, match="写真"):
+        normalize_photo(UploadFile(file=source, filename="renamed.jpg"))
