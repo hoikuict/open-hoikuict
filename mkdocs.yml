@@ -82,6 +82,7 @@ nav:
   - デモを試す: https://demo.hoikuict.net/
   - ダウンロード: download.md
   - 利用開始マニュアル:
+      - 目次: manual-index.md
       - start-manual.md
       - 職員登録: staff-registration-manual.md
       - 保護者登録: parent-registration-manual.md

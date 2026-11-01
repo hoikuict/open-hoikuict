@@ -5,6 +5,8 @@ PCへの導入から、Excelの初期台帳、保護者の利用開始・停止�
 [Windows用アプリをダウンロード](https://github.com/hoikuict/open-hoikuict/releases/latest/download/OpenHoikuICT.exe){ .md-button .md-button--primary }
 [対応PCと配布内容](download.md){ .md-button }
 
+登録後の日々の業務や、記録・料金・運用の資料は[マニュアル目次](manual-index.md)から探せます。
+
 ## 1. 利用する環境を決める
 
 | 目的 | 進め方 |
