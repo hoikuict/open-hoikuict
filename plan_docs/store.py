@@ -358,6 +358,11 @@ class SqlModelDocumentRepository:
             section.body = str(item.get("body") or "")
             section.needs_confirmation = bool(item.get("needs_confirmation"))
             section.editor_note = str(item.get("editor_note") or "").strip() or None
+            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
+                if "source_refs" in item:
+                    section.source_refs = list(item["source_refs"])
+                if "evidence_tags" in item:
+                    section.evidence_tags = list(item["evidence_tags"])
         if document.schedule and schedule_form is not None:
             for schedule_row in document.schedule.rows:
                 label = schedule_form.get(f"rowlabel__{schedule_row.row_key}")

@@ -7,13 +7,16 @@
     <div>
       <p class="text-sm font-semibold text-indigo-600">児童記録</p>
       <h1 class="mt-1 text-2xl font-bold text-slate-900">児童票作成状況</h1>
-      <p class="mt-2 text-sm text-slate-600">施設設定の周期に基づき、現在の対象期間と作成状況を確認できます。</p>
+      <p class="mt-2 text-sm text-slate-600">対象期間の作成状況を確認できます。最初は直近で終了した期間を表示します。</p>
     </div>
     {% if current_user.is_admin %}<a href="/settings/child-records" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">記録設定</a>{% endif %}
   </div>
 
+  {% set period_filters = {'classroom_id': selected_classroom_id, 'group_by': selected_group_by, 'age_group': selected_age_group, 'status': selected_status} %}
+  {% include "child_records/_progress_period.html" %}
   <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
     <form method="get" action="/child-records/progress" class="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="target_month" value="{{ selected_target_month }}">
       <label class="text-sm font-semibold">クラス
         <select name="classroom_id" class="mt-1 block rounded border px-3 py-2">
           <option value="">すべてのクラス</option>
@@ -42,10 +45,10 @@
         </select>
       </label>
       <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">絞り込む</button>
-      {% if selected_age_group or selected_status or selected_classroom_id %}<a href="/child-records/progress" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">条件を解除</a>{% endif %}
+      {% if selected_age_group or selected_status or selected_classroom_id %}<a href="/child-records/progress?target_month={{ selected_target_month }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">条件を解除</a>{% endif %}
     </form>
     <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-      <span class="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">在園児 {{ total_count }}名</span>
+      <span class="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">対象児童 {{ total_count }}名</span>
       <span class="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">未作成 {{ uncreated_count }}名</span>
       <span class="rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-700">表示 {{ filtered_count }}名</span>
     </div>
@@ -60,7 +63,7 @@
           {% if loop.changed(row.group_key) %}<tr class="bg-indigo-50"><th colspan="6" class="px-4 py-3 text-left font-semibold">{{ row.group_label }}</th></tr>{% endif %}
           {% set can_create = row.can_create if row.can_create is defined else current_user.can_edit %}
           <tr>
-            <td class="px-4 py-4 font-semibold text-slate-900">{{ row.child.full_name }}</td>
+            <td class="px-4 py-4 font-semibold text-slate-900">{{ row.child.full_name }}{% if row.child.withdrawal_date and row.child.withdrawal_date < today %}<p class="mt-1 text-xs font-normal text-amber-700">{{ row.child.withdrawal_date.strftime('%m/%d') }} {{ row.child.status.label }}</p>{% endif %}</td>
             <td class="px-4 py-4 text-slate-600">{{ row.age_label }}</td>
             <td class="px-4 py-4 text-slate-600">{{ row.child.classroom.name if row.child.classroom else '-' }}</td>
             <td class="px-4 py-4 text-slate-600">{{ row.cycle.period_start.strftime('%Y/%m/%d') }}〜{{ row.cycle.period_end.strftime('%Y/%m/%d') }}</td>
@@ -68,12 +71,14 @@
               {% if row.document %}<span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{{ status_labels.get(row.document.status, row.document.status) }}</span>{% else %}<span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">未作成</span>{% endif %}
             </td>
             <td class="px-4 py-4 text-right">
-              {% if row.document %}
+              {% if row.can_edit %}
+              <a href="{{ row.entry_url }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-indigo-700">続きを入力</a>
+              {% elif row.document %}
               <a href="/plans/documents/{{ row.document.id }}" class="font-medium text-indigo-600 hover:underline">開く</a>
               {% elif can_create %}
-              <a href="/children/{{ row.child.id }}/progress-records/new" class="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700">入力する</a>
+              <a href="{{ row.entry_url }}" class="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700">入力する</a>
               {% else %}
-              <a href="/children/{{ row.child.id }}/progress-records" class="font-medium text-slate-600 hover:underline">履歴を見る</a>
+              <a href="/children/{{ row.child.id }}/progress-records?target_month={{ selected_target_month }}" class="font-medium text-slate-600 hover:underline">履歴を見る</a>
               {% endif %}
             </td>
           </tr>
@@ -82,5 +87,7 @@
       </table>
     </div>
   </section>
+  <p class="text-xs text-slate-500">対象期間に在籍していた児童を表示しています。退園後も対象期間の児童票を入力できます。クラスと編集権限は現在の登録に基づきます。</p>
 </div>
+<script src="/static/js/child-progress.js" defer></script>
 {% endblock %}

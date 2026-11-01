@@ -13,10 +13,11 @@
   <div role="alert" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">児童票を作成できる権限がありません。作成済みの児童票は下の履歴から確認できます。</div>
   {% endif %}
 
+  {% include "child_records/_progress_period.html" %}
   <section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div><p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">現在の対象期間</p><p class="mt-1 font-semibold text-indigo-950">{{ current_cycle.period_start.strftime('%Y/%m/%d') }}〜{{ current_cycle.period_end.strftime('%Y/%m/%d') }}</p><p class="mt-1 text-sm text-indigo-700">{{ current_cycle.interval_months }}か月周期</p></div>
-      {% if current_record %}<a href="/plans/documents/{{ current_record.id }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm">現在の児童票を開く</a>{% elif can_create %}<a href="/children/{{ child.id }}/progress-records/new" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">児童票を入力</a>{% else %}<span class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm">閲覧のみ</span>{% endif %}
+      {% if can_edit_current %}<a href="{{ entry_url }}" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">続きを入力</a>{% elif current_record %}<a href="/plans/documents/{{ current_record.id }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm">対象期間の児童票を開く</a>{% elif not period_available %}<span class="text-sm text-slate-600">対象期間に在籍していません</span>{% elif can_create %}<a href="{{ entry_url }}" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">児童票を入力</a>{% else %}<span class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm">閲覧のみ</span>{% endif %}
     </div>
   </section>
 
@@ -27,4 +28,5 @@
     </div>
   </section>
 </div>
+<script src="/static/js/child-progress.js" defer></script>
 {% endblock %}

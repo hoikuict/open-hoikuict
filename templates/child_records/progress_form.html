@@ -2,36 +2,48 @@
 {% block title %}{{ child.full_name }}の児童票入力 | open-hoikuict{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-7xl space-y-6">
+<div class="mx-auto max-w-7xl space-y-6" data-progress-editor data-progress-has-unsaved="{{ 'true' if error else 'false' }}">
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div><p class="text-sm font-semibold text-indigo-600">{{ child.full_name }}</p><h1 class="mt-1 text-2xl font-bold text-slate-900">児童票を入力</h1><p class="mt-2 text-sm text-slate-600">右側の過去ログを確認し、必要な記録を根拠として選びながらまとめます。</p></div>
-    <a href="/children/{{ child.id }}/progress-records" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">児童票一覧へ</a>
+    <div class="flex flex-wrap gap-2"><a href="/children/{{ child.id }}/progress-records?target_month={{ selected_target_month }}" data-progress-navigation class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700">児童票一覧へ</a><a href="/child-records/progress?target_month={{ selected_target_month }}" data-progress-navigation class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700">作成状況へ</a></div>
   </div>
-  {% if error %}<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>{% endif %}
-  {% if existing_document_id %}<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><span>この対象期間の児童票はすでに作成されています。</span><a href="/plans/documents/{{ existing_document_id }}" class="font-semibold underline">作成済み児童票を開く</a></div>{% endif %}
+  <section data-progress-unsaved hidden role="alert" class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+    <p>この児童票に未保存の変更があります。</p><div class="flex flex-wrap gap-2"><button type="button" data-progress-save-go class="rounded-lg bg-indigo-600 px-4 py-2 text-white">保存して切り替える</button><button type="button" data-progress-discard class="rounded-lg border border-amber-300 bg-white px-4 py-2">保存せず切り替える</button><button type="button" data-progress-stay class="rounded-lg border border-amber-300 bg-white px-4 py-2">入力を続ける</button></div>
+  </section>
+  {% include "child_records/_progress_period.html" %}
+  {% if saved %}<div role="status" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">下書きを保存しました。対象期間は {{ period_start.strftime('%Y/%m/%d') }}〜{{ period_end.strftime('%Y/%m/%d') }} です。</div>{% endif %}
+  {% if error %}<div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ error }}</div>{% endif %}
+  {% if conflict_document_id %}<p><a href="/plans/documents/{{ conflict_document_id }}" target="_blank" rel="noopener" class="text-sm font-semibold text-indigo-700 underline">作成済み児童票を別のタブで開く</a></p>{% elif document %}<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900"><span>保存済みの{{ document.status_label }}を開いています。変更はこの児童票に上書き保存されます。</span><a href="/plans/documents/{{ document.id }}" class="font-semibold underline">詳細・承認へ</a></div>{% endif %}
+  {% if duplicate_count > 1 %}<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">同じ期間の児童票が{{ duplicate_count }}件あります。既存の内容は残しています。児童票一覧の履歴からそれぞれ確認してください。</div>{% endif %}
+  {% if not period_available %}<div role="status" class="rounded-xl border border-slate-200 bg-white p-5 text-slate-700">この児童は対象期間に在籍していません。在籍していた期間を選択してください。退園・卒園の場合は園児情報の退園日も確認してください。</div>{% else %}
 
-  <form method="post" action="/children/{{ child.id }}/progress-records" class="grid items-start gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,.8fr)]">
+  <form method="post" action="/children/{{ child.id }}/progress-records" data-progress-body class="grid items-start gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]">
+    <input type="hidden" name="continue_url" value="{{ continue_url }}">
+    {% if document %}<input type="hidden" name="document_id" value="{{ document.id }}"><input type="hidden" name="lock_version" value="{{ lock_version }}">{% endif %}
     <div class="space-y-5">
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="font-semibold text-slate-900">対象期間</h2>
         <div class="mt-3 grid gap-3 sm:grid-cols-2"><label class="text-sm font-medium text-slate-700">開始日<input type="date" name="period_start" value="{{ period_start.isoformat() }}" readonly class="mt-1 block w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2"></label><label class="text-sm font-medium text-slate-700">終了日<input type="date" name="period_end" value="{{ period_end.isoformat() }}" readonly class="mt-1 block w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2"></label></div>
         <input type="hidden" name="cycle_key" value="{{ cycle_key }}">
+        <p class="mt-3 text-xs text-slate-500">対象年度：{{ period_fiscal_year }}年度 · 作成日時：{% if document %}{{ document.created_at|jst_datetime('%Y/%m/%d %H:%M') }}{% else %}保存した日時を記録{% endif %}</p>
       </section>
       {% for definition in section_definitions %}
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><label class="block text-sm font-semibold text-slate-800">{{ definition.title }}{% if definition.key == 'progress_children_overview' %} <span class="text-rose-600">*</span>{% endif %}<textarea name="body_{{ definition.key }}" rows="{% if definition.key == 'progress_children_overview' %}7{% else %}5{% endif %}" maxlength="5000" {% if definition.key == 'progress_children_overview' %}required{% endif %} class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-2 leading-7" placeholder="{{ definition.purpose }}">{{ values.get(definition.key, '') }}</textarea></label></section>
       {% endfor %}
-      <div class="flex justify-end"><button type="submit" {% if existing_document_id %}disabled{% endif %} class="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300">下書きを作成</button></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><span data-progress-save-state aria-live="polite" class="text-xs text-slate-500">{% if document %}保存済み{% else %}新しい下書き{% endif %}</span><button type="submit" {% if conflict_document_id %}disabled{% endif %} class="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300">下書きを保存</button></div>
     </div>
 
     <aside class="space-y-4 xl:sticky xl:top-4">
       <section class="rounded-2xl border border-indigo-200 bg-white shadow-sm">
-        <div class="border-b border-indigo-100 bg-indigo-50 px-5 py-4"><h2 class="font-semibold text-indigo-950">対象期間の子どもの記録</h2><p class="mt-1 text-xs text-indigo-700">本文へ自動転記せず、選んだ記録を根拠として紐付けます。</p></div>
+        <div class="border-b border-indigo-100 bg-indigo-50 px-5 py-4"><h2 class="font-semibold text-indigo-950">対象期間の子どもの記録</h2><p class="mt-1 text-xs text-indigo-700">{{ period_start.strftime('%Y/%m/%d') }}〜{{ period_end.strftime('%Y/%m/%d') }}</p><p class="mt-1 text-xs text-indigo-700">本文へ自動転記せず、選んだ記録を根拠として紐付けます。</p></div>
         <div class="max-h-[70vh] space-y-3 overflow-y-auto p-4">
-          {% for log in logs %}<label class="block cursor-pointer rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50"><span class="flex items-start gap-3"><input type="checkbox" name="source_log_ids" value="{{ log.id }}" class="mt-1"><span class="min-w-0"><span class="flex flex-wrap items-center gap-2"><strong class="text-sm text-slate-900">{{ log.observed_on.strftime('%Y/%m/%d') }}</strong>{% for category in log.categories %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[.7rem] text-slate-600">{{ category }}</span>{% endfor %}</span><span class="mt-2 block whitespace-pre-wrap text-sm leading-6 text-slate-700">{{ log.child_state }}</span>{% if log.reflection %}<span class="mt-2 block text-xs leading-5 text-slate-500">振り返り：{{ log.reflection }}</span>{% endif %}</span></span></label>{% else %}<div class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">対象期間のログはまだありません。ログがなくても児童票の下書きは作成できます。</div>{% endfor %}
+          {% for log in logs %}<label class="block cursor-pointer rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50"><span class="flex items-start gap-3"><input type="checkbox" name="source_log_ids" value="{{ log.id }}" {% if log.id|string in selected_log_ids %}checked{% endif %} class="mt-1"><span class="min-w-0"><span class="flex flex-wrap items-center gap-2"><strong class="text-sm text-slate-900">{{ log.observed_on.strftime('%Y/%m/%d') }}</strong>{% for category in log.categories %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[.7rem] text-slate-600">{{ category }}</span>{% endfor %}</span><span class="mt-2 block whitespace-pre-wrap text-sm leading-6 text-slate-700">{{ log.child_state }}</span>{% if log.reflection %}<span class="mt-2 block text-xs leading-5 text-slate-500">振り返り：{{ log.reflection }}</span>{% endif %}</span></span></label>{% else %}<div class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">対象期間のログはまだありません。ログがなくても児童票の下書きは作成できます。</div>{% endfor %}
         </div>
       </section>
     </aside>
   </form>
+  {% endif %}
 </div>
+<script src="/static/js/child-progress.js" defer></script>
 {% endblock %}
 

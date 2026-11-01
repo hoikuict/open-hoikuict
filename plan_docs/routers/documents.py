@@ -366,6 +366,10 @@ def edit_document_form(
     _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
+    if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
+        return RedirectResponse(
+            f"/children/{document.child_id}/progress-records/new?document_id={document.id}", status_code=303
+        )
     if document.monthly_sheet is not None:
         return RedirectResponse(f"/plans/monthly-library?document_id={document.id}", status_code=303)
     if document.weekly_sheet is not None:
