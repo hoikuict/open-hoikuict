@@ -801,6 +801,9 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     create_parser = subparsers.add_parser("create", help="backup setを作成します")
+    create_parser.add_argument("--format-version", type=int, choices=(1, 2),
+                               default=os.getenv("HOIKUICT_BACKUP_FORMAT_VERSION", "1"),
+                               help="従来の取得は1。復旧用設定の準備後に2を明示します")
     create_parser.add_argument("--output-root", type=Path, required=True)
     create_parser.add_argument(
         "--database-url",
@@ -824,7 +827,7 @@ def _build_parser() -> argparse.ArgumentParser:
                                default=Path(os.environ["HOIKUICT_BACKUP_CONTROL_DIR"]) if os.getenv("HOIKUICT_BACKUP_CONTROL_DIR") else None)
     create_parser.add_argument("--schema-contract", default=CURRENT_CONTRACT)
     create_parser.add_argument("--recovery-kit-ref", default=os.getenv("HOIKUICT_BACKUP_RECOVERY_KIT_REF", ""))
-    create_parser.add_argument("--actor-ref", required=True)
+    create_parser.add_argument("--actor-ref", default="")
     create_parser.add_argument("--retention-class", choices=("daily", "monthly", "change"), default="daily")
     create_parser.add_argument("--baseline-ref", default=os.getenv("HOIKUICT_BACKUP_BASELINE_REF", ""))
     create_parser.add_argument("--count-change-ref", default="")
@@ -873,7 +876,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "create":
-            backup_path = create_backup(
+            from scripts.backup_format import create_operational_backup
+            backup_path = create_operational_backup(
                 BackupConfig(
                     output_root=args.output_root,
                     database_url=args.database_url,
@@ -895,7 +899,8 @@ def main(argv: list[str] | None = None) -> int:
                     count_change_ref=args.count_change_ref,
                     max_count_drop=args.max_count_drop,
                     previous_set=args.previous_set,
-                )
+                ),
+                format_version=args.format_version,
             )
             print(f"backupを作成しました: {backup_path}")
             return 0

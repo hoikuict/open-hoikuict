@@ -77,3 +77,23 @@ def test_restore_rollback_backup_keeps_legacy_format_without_kit(runtime, monkey
     backup_id = fresh_backup(paths, actor_ref="test-restore")
     result = verify_backup_set(paths.backups / backup_id)
     assert result["format_version"] == 1 and result["status"] == "ok"
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_cli_preserves_old_arguments_and_requires_explicit_format_two(runtime, monkeypatch, version):
+    import os
+    import subprocess
+    import sys
+    monkeypatch.delenv("HOIKUICT_BACKUP_FORMAT_VERSION", raising=False)
+    config = runtime.config
+    args = [sys.executable, "-m", "scripts.backup_runtime", "create", "--output-root", str(config.output_root),
+        "--database-url", config.database_url, "--facility-db", str(config.facility_db),
+        "--storage-root", str(config.storage_root), "--git-sha", config.git_sha,
+        "--app-image", config.app_image, "--compose-sha256", config.compose_sha256, "--quiesced"]
+    if version == 2:
+        args += ["--format-version", "2", "--cloudflared-image", config.cloudflared_image,
+            "--recovery-kit-ref", "test-kit", "--actor-ref", "test-operator", "--baseline-ref", "test-baseline"]
+    result = subprocess.run(args, capture_output=True, env={**os.environ, "PYTHONUTF8": "1"})
+    assert result.returncode == 0, result.stderr.decode("utf-8")
+    backup = next(config.output_root.glob("open-hoikuict_*"))
+    assert verify_backup_set(backup)["format_version"] == version
