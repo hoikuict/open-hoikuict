@@ -11,3 +11,5 @@
 - [登録済み保護者情報の引継ぎ](deployment-parent-guardian-prefill-2026-11-01.md)
 
 - [2026-11-01 児童票の対象期間選択・再編集の実機反映](deployment-child-progress-periods-2026-11-01.md)
+
+- [2026-11-01 写真・CSV・バックアップ拡張の実機反映とGitHub依存監査](deployment-maintenance-2026-11-01.md)
