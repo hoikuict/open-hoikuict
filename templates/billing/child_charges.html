@@ -2,6 +2,7 @@
 {% block title %}園児別請求入力 | open-hoikuict{% endblock %}
 
 {% block content %}
+{% from 'billing/_reopen_controls.html' import reopen_button %}
 {% set can_edit_table = editable and current_user and current_user.can_edit %}
 
 <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -32,6 +33,14 @@
 {% endif %}
 
 <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+  {% if reopen_export and current_user and current_user.is_admin %}
+  <div class="border-b border-indigo-200 bg-indigo-50 px-5 py-4 text-sm leading-7 text-indigo-900">
+    Zengin作成済みのため金額は編集できません。銀行提出前であれば、出力を取消して同じ請求月を修正できます。
+    {{ reopen_button(reopen_export, cycle.year_month) }}
+  </div>
+  {% elif can_edit_table %}
+  <p class="border-b border-slate-200 px-5 py-4 text-sm text-slate-600">修正した金額を保存し、請求一覧からZenginを作成してください。</p>
+  {% endif %}
   <div class="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <h2 class="text-lg font-semibold text-slate-900">一括入力</h2>
@@ -51,7 +60,7 @@
   </div>
 
   {% if can_edit_table %}
-  <form id="child-charge-table" method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/table">
+  <form id="child-charge-table" data-billing-edit method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/table">
     {% if return_month %}<input type="hidden" name="return_month" value="{{ return_month }}">{% endif %}
   {% endif %}
     <div class="overflow-x-auto">
@@ -102,6 +111,7 @@
               <input
                 name="amount_{{ column.code }}_{{ row.child.id }}"
                 type="number"
+                step="any"
                 inputmode="numeric"
                 value="{% if amount != 0 %}{{ amount }}{% endif %}"
                 class="h-9 w-28 rounded border border-slate-300 bg-white px-2 text-right text-sm font-medium text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
@@ -190,4 +200,5 @@
     </table>
   </div>
 </section>
+{% include 'billing/_reopen_controls.html' %}
 {% endblock %}

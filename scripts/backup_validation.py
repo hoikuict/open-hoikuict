@@ -14,7 +14,7 @@ from typing import Any
 from PIL import Image
 
 
-CURRENT_CONTRACT = "production-20261101"
+CURRENT_CONTRACT = "billing-reopen-20261101"
 POLICY_VERSION = 2
 SCHEDULE_KEYS = {"schema_version", "enabled", "frequency", "run_time", "weekday", "timezone"}
 

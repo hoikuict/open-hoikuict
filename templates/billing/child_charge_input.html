@@ -2,6 +2,7 @@
 {% block title %}{{ child.full_name }} の請求入力 | open-hoikuict{% endblock %}
 
 {% block content %}
+{% from 'billing/_reopen_controls.html' import reopen_button %}
 <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
   <div>
     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Child Charge Input</p>
@@ -28,7 +29,7 @@
     <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 class="text-lg font-semibold text-slate-900">明細を追加</h2>
       {% if editable and current_user and current_user.can_edit %}
-      <form method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/{{ child.id }}" class="mt-4 space-y-4">
+      <form data-billing-edit method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/{{ child.id }}" class="mt-4 space-y-4">
         <label class="block">
           <span class="text-sm font-medium text-slate-700">内容</span>
           <input name="description" value="写真代" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" required>
@@ -57,6 +58,10 @@
       </form>
       {% else %}
       <p class="mt-4 text-sm text-slate-500">この請求月は「{{ cycle_status_label }}」のため編集できません。</p>
+      {% if reopen_export and current_user and current_user.is_admin %}
+      <p class="my-3 text-sm leading-6 text-slate-600">銀行提出前であれば、出力を取消して同じ請求月の入力へ戻れます。</p>
+      {{ reopen_button(reopen_export, cycle.year_month) }}
+      {% endif %}
       {% if current_user and current_user.can_edit %}
       <form method="post" action="/billing/child-charges/{{ child.id }}/new-editable-cycle" class="mt-4">
         <button type="submit" class="w-full rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
@@ -137,7 +142,7 @@
     <h2 class="text-lg font-semibold text-slate-900">家族口座情報の編集</h2>
   </div>
   {% if can_manage_billing_accounts %}
-  <form method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/{{ child.id }}/profile" class="grid gap-4 p-5 md:grid-cols-2 lg:grid-cols-4">
+  <form data-billing-edit method="post" action="/billing/cycles/{{ cycle.id }}/child-charges/{{ child.id }}/profile" class="grid gap-4 p-5 md:grid-cols-2 lg:grid-cols-4">
     <label class="block">
       <span class="text-sm font-medium text-slate-700">支払方法</span>
       <select name="payment_method" class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
@@ -217,4 +222,5 @@
   <p class="p-5 text-sm text-slate-500">口座情報は管理者または請求・口座情報管理権限を持つ職員が管理します。</p>
   {% endif %}
 </section>
+{% include 'billing/_reopen_controls.html' %}
 {% endblock %}

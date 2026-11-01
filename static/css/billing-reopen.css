@@ -1,0 +1,15 @@
+#billing-reopen-dialog{box-sizing:border-box;width:min(620px,calc(100% - 28px));max-height:90vh;overflow:auto;margin:auto;padding:26px;border:0;border-radius:12px;color:#1e293b;background:#fff;box-shadow:0 20px 60px #0f172a40}
+#billing-reopen-dialog::backdrop{background:#0f172a88}
+#billing-reopen-dialog h2{font-size:21px;font-weight:700;margin:0 0 16px}
+#billing-reopen-dialog p{line-height:1.9;margin:0 0 16px}
+#billing-reopen-dialog .billing-reopen-warning{padding:12px;border:1px solid #fde68a;border-radius:6px;color:#854d0e;background:#fffbeb}
+.billing-reopen-reason{display:block;margin:20px 0 12px;font-weight:600}
+.billing-reopen-reason textarea{display:block;box-sizing:border-box;width:100%;margin-top:8px;padding:10px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;font-weight:400}
+.billing-reopen-check{display:flex;align-items:flex-start;gap:10px;line-height:1.8}
+.billing-reopen-check input{flex-shrink:0;width:18px;height:18px;margin-top:5px}
+.billing-reopen-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:24px}
+.billing-reopen-actions button{padding:9px 13px;border:1px solid #cbd5e1;border-radius:6px;font-weight:600;background:#fff}
+.billing-reopen-actions button[type=submit]{background:#4f46e5;border-color:#4f46e5;color:#fff}
+.billing-reopen-actions button:disabled{opacity:.5;cursor:wait}
+#billing-reopen-dialog #billing-reopen-error{margin-top:16px;padding:10px;border:1px solid #fecaca;color:#b91c1c;background:#fef2f2}
+@media(max-width:760px){#billing-reopen-dialog{padding:20px}}

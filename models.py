@@ -1887,6 +1887,8 @@ class ZenginExport(SQLModel, table=True):
     superseded_by_export_id: Optional[int] = Field(default=None, foreign_key="zengin_exports.id")
     reissue_reason: Optional[str] = None
     canceled_reason: Optional[str] = None
+    canceled_by: Optional[str] = None
+    canceled_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     result_imported_at: Optional[datetime] = None
     content_hash: str

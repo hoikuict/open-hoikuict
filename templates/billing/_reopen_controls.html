@@ -1,0 +1,27 @@
+{% macro reopen_button(export, month) -%}
+<button type="button" data-reopen-export="{{ export.id }}" data-reopen-month="{{ month }}"
+        data-reopen-count="{{ export.total_count }}" data-reopen-amount="{{ export.total_amount }}"
+        class="rounded border border-amber-600 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">取消して修正</button>
+{%- endmacro %}
+{% if current_user and current_user.is_admin %}
+<dialog id="billing-reopen-dialog" aria-labelledby="billing-reopen-title">
+  <form id="billing-reopen-form" method="post" action="#">
+    <h2 id="billing-reopen-title">Zengin出力を取消して、請求を修正</h2>
+    <p id="billing-reopen-summary"></p>
+    <p>この出力を「取消済み」にし、<strong>同じ請求月の入力画面</strong>へ戻します。請求金額は保持され、修正後に「保存」してからZenginを作り直します。</p>
+    <p class="billing-reopen-warning">ダウンロード済みの古いファイルは提出に使わないでください。この操作で銀行側の受付は取り消せません。</p>
+    <label class="billing-reopen-reason">取消理由（必須）
+      <textarea name="reason" rows="3" required maxlength="500" placeholder="例：写真代を訂正するため"></textarea>
+    </label>
+    <label class="billing-reopen-check"><input name="confirmed_unsubmitted" type="checkbox" value="true" required>このファイルを銀行へ提出・アップロードしていないことを確認しました</label>
+    <p id="billing-reopen-error" role="alert" hidden></p>
+    <div class="billing-reopen-actions">
+      <button type="button" data-reopen-close>戻る</button>
+      <button type="submit">取消して修正へ進む</button>
+    </div>
+  </form>
+</dialog>
+<script type="application/json" id="billing-reopen-initial">{{ reopen_initial|default(none)|tojson }}</script>
+{% endif %}
+<link rel="stylesheet" href="{{ static_asset_url('css/billing-reopen.css') }}">
+<script src="{{ static_asset_url('js/billing-reopen.js') }}" defer></script>
