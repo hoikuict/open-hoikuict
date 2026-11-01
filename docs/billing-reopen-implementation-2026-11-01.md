@@ -1,6 +1,6 @@
 # 銀行提出前のZengin取消・請求修正の実装記録
 
-2026-11-01 JST。**実装・ローカル検証済み、実機未配備、GitHub未反映。**
+2026-11-01 JST。**実装・検証・実機反映・GitHubへの実装push済み。** 実機更新完了は2026-11-01 13:06:27 JST。[配備記録](deployment-billing-reopen-2026-11-01.md)を参照。
 [SD-011](spec-decisions.md#sd-011)と[合意したモック](billing-reopen-proposal-2026-11-01.md)に対応する。
 ユーザーは「まだ銀行へ提出していない」と回答後、取消→同じ月を修正・保存→再作成の案に「この内容で実装（推奨）」と回答した。
 
@@ -20,7 +20,7 @@ Zengin出力に `canceled_by` と `canceled_at` のnullable列を追加する移
 
 ## 作業場所・差分
 
-- 本番基準のコピー：`.local-dev/backup-v2-rollout-20261101/source`、ブランチ `codex/billing-reopen-20261101`。ベースHEAD `283958d6f8f93e68a2405557268cac26031f3423`（本体 `225ea99d8ca39f773dd9b8e0920bca13854817b5` 以降は文書変更のみ）。今回の変更は未コミット。
+- 本番基準のコピー：`.local-dev/backup-v2-rollout-20261101/source`、ブランチ `codex/billing-reopen-20261101`。ベースHEAD `283958d6f8f93e68a2405557268cac26031f3423`（本体 `225ea99d8ca39f773dd9b8e0920bca13854817b5` 以降は文書変更のみ）。本体コミット `d75b28d2f14a5660922e51d9a177b2ce259de652` を実機反映・GitHubへpush済み。
 - 共有ルート：`main` / `ab947ba718a8d2c64da66e2cafb255f01cda14ad` にも実装を取り込んだ。対象ファイルがベースと一致することを確認してから同期し、既存の `database.py` とバックアップ処理の別変更は必要な箇所だけを更新して保持。
 - 共有ルートと本番基準コピーに既に存在したschema差分は `schema-differences.json` に記録。共通の定義で済むと仮定せず、それぞれの登録済みモデルと検査定義が一致することを確認する。配備候補は引き続き本番基準コピーを使う。
 - 主な変更：`zengin_service.py`、`routers/billing.py`、`routers/zengin.py`、`models.py`、`database.py`、請求テンプレート3つと共通確認画面、専用JS/CSS、バックアップ検査定義、`test_billing_reopen.py`。
@@ -49,4 +49,4 @@ Zengin出力に `canceled_by` と `canceled_at` のnullable列を追加する移
 
 ## 未実施
 
-実機への配備、実データでの取消や請求修正、GitHubへのpush、公開マニュアルと整備進捗Excelの更新。配備時はその時点の最新更新記録と本番版を再確認し、既存の本番機能を保持して適用する。
+実データでの取消や請求修正、公開マニュアルと整備進捗Excelの更新。実機反映とGitHubへのpushは完了した。実機候補の95件成功、既存データ保持、全体CIの既存lintエラーについては[配備記録](deployment-billing-reopen-2026-11-01.md)を参照。
