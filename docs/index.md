@@ -23,7 +23,7 @@ hide:
 
 [スクショ付きガイド（試作）](manual-guide-preview/index.html){ .home-button .home-button-secondary }
 
-[保護者の方へ：登園・降園](manual-guide-preview/index.html#parents){ .home-button .home-button-secondary }
+[保護者の方へ：アプリ・登園・降園](manual-guide-preview/index.html#parents){ .home-button .home-button-secondary }
 
 <p class="welcome-demo-help">Windows 11 x64のPCで試せます。<a href="download/">対応PC・配布内容はこちら</a></p>
 

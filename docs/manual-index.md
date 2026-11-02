@@ -1,13 +1,13 @@
 # マニュアル目次
 
-**保護者の方へ：** [登園・降園の画面付きマニュアル](manual-guide-preview/index.html#parents) · [文字で読む手順](parent-attendance-manual.md)
+**保護者の方へ：** [保護者アプリの使い方](manual-guide-preview/index.html#parent-app) · [登園・降園の画面付きマニュアル](manual-guide-preview/index.html#parents) · [文字で読む手順](parent-attendance-manual.md)
 
 やりたい業務から、公開中の手順や関連資料を探せます。管理者・職員・保護者それぞれの操作に合う資料を選んでください。
 
 初めて使う方は、[利用開始](start-manual.md) → [職員登録](staff-registration-manual.md) → [保護者登録](parent-registration-manual.md)の順で進めます。
 
 !!! tip "スクショ付きの使い方ガイドを試せます"
-    [画面付きマニュアルの試作版を開く](manual-guide-preview/index.html)。業務別の目次と「こんなときどうする？」から探せます。まずは欠席の電話・打刻漏れ・パスワード忘れの3例を、画面を拡大しながら確認できます。[対象範囲と使い方](manual-guide.md)
+    [画面付きマニュアルの試作版を開く](manual-guide-preview/index.html)。業務別の目次と「こんなときどうする？」から探せます。職員の登録・困りごとと、保護者の登降園・アプリの使い方を、画面を拡大しながら確認できます。[対象範囲と使い方](manual-guide.md)
 
 「操作手順」は順を追って進める案内、「概要」は機能や入口の説明、「仕様」は詳しい条件や設計資料です。資料ごとの対象版を確認し、画面が異なる場合は園の運用担当者へ確認してください。
 
