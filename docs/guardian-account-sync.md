@@ -1,5 +1,7 @@
 # 家族プロフィール・保護者アカウントの共通入力と入園時の招待
 
+[画面を見ながら進める登録手順（試作版）](manual-guide-preview/index.html#article/child) · [整備・確認の記録](spec-decisions.md#sd-014)
+
 ## 状況に応じて登録ルートを選ぶ
 
 | 状況 | 園の操作 | 保護者の操作 |
