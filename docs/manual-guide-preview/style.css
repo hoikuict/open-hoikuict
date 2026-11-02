@@ -5,11 +5,11 @@
 @media print{.preview-bar,.site-head,#sidebar,.reader-controls,.step-nav,.next-prev,.state-select,.breadcrumb,.related,.source-note,.head-actions,dialog,.screen figcaption span:last-child{display:none!important}.layout{display:block}main{padding:0;max-width:none}.article-title{font-size:23px}.reader{display:block}.print-only{display:grid!important;gap:15px}.screen-only{display:none!important}.step-body{break-inside:avoid;border:0;padding:12px 0}.screen{margin:10px 0}.screen img{max-height:340px;object-fit:contain}.article-intro{padding:10px;margin:12px 0}.step-body p,.callouts{font-size:12px}.checklist{break-inside:avoid}.checklist input{appearance:none;border:1px solid #777;width:12px;height:12px}.faq details{break-inside:avoid}.faq details>p{display:block}body{background:white;color:#111}.all-steps{gap:8px}a{color:#222;text-decoration:none}@page{size:A4;margin:14mm}}
 
 
+
 /* BEGIN UI LABELS */
 /* Names in the instructions are static references, not additional controls. */
 .ui-ref{display:inline-flex;align-items:baseline;gap:.4em;max-width:100%;margin:.14em .13em;padding:.12em .48em;border:1px solid;border-radius:4px;font-size:1em;line-height:1.65;vertical-align:baseline;cursor:text;text-align:left;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .ui-ref strong{font-weight:750;min-width:0;overflow-wrap:anywhere}
-.ui-ref-kind{font-size:.72rem;font-weight:650;white-space:nowrap;flex-shrink:0;padding-right:.45em;border-right:1px solid currentColor}
 .ui-ref--menu{color:#205d46;background:#eef7f1;border-color:#a8c9b5;border-left-width:3px}
 .ui-ref--button{color:#463285;background:#f1efff;border-color:#b9ace1;border-bottom-width:3px}
 .ui-ref--field{color:#76501b;background:#fff8e9;border-color:#bca577;border-style:dashed}
