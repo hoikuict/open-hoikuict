@@ -21,6 +21,8 @@ hide:
 [Windows用アプリをダウンロード](https://github.com/hoikuict/open-hoikuict/releases/latest/download/OpenHoikuICT.exe){ .home-button .home-button-secondary }
 [利用開始マニュアル](start-manual.md){ .home-button .home-button-secondary }
 
+[スクショ付きガイド（試作）](manual-guide-preview/index.html){ .home-button .home-button-secondary }
+
 <p class="welcome-demo-help">Windows 11 x64のPCで試せます。<a href="download/">対応PC・配布内容はこちら</a></p>
 
 <p class="welcome-note">デモは架空の園児やご家庭のデータを使っています。<br>実際のお子さんやご家庭の名前・連絡先は入力しないでください。</p>
@@ -116,6 +118,10 @@ hide:
 [導入から初期台帳登録までのマニュアル](start-manual.md){ .welcome-technical-link }
 
 [業務から探すマニュアル目次](manual-index.md){ .welcome-technical-link }
+
+[スクショ付きの使い方ガイドを試す →](manual-guide-preview/index.html){ .welcome-technical-link }
+
+「欠席の電話」「打刻漏れ」「パスワード忘れ」を、番号付きの画面と一緒に確認できます。業務別の目次と「こんなときどうする？」から探せる試作版です。[試作版でできること](manual-guide.md)
 
 [職員登録マニュアル](staff-registration-manual.md) · [保護者登録マニュアル](parent-registration-manual.md)
 
