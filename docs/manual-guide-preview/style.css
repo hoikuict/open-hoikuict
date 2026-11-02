@@ -9,6 +9,8 @@
 
 
 
+
+
 /* BEGIN ADMISSION NAVIGATION */
 .admission-choices{margin:34px 0}.admission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.admission-choices .issue-card{background:#fff;border-top:4px solid #629577}.admission-back{margin:-8px 0 22px;font-size:.88rem}.article-related{margin:32px 0}.admission-grid .issue-card h3{font-size:1.2rem;line-height:1.6}@media(max-width:760px){.admission-grid{grid-template-columns:1fr}.admission-choices .section-head{align-items:flex-start;gap:8px;flex-direction:column}}@media print{.admission-back,.article-related{display:none!important}}
 /* END ADMISSION NAVIGATION */
