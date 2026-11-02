@@ -1,12 +1,12 @@
 'use strict';
-const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-list": [1265, 807], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 720], "password-person": [1280, 720], "phone-empty": [1265, 741], "phone-filled": [1265, 741], "phone-partial": [1265, 741], "phone-saved": [1265, 839], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 720], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850]};
+const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-list": [1265, 807], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 720], "password-person": [1280, 720], "phone-empty": [1265, 741], "phone-filled": [1265, 741], "phone-partial": [1265, 741], "phone-saved": [1265, 839], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 720], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487]};
 const main = document.getElementById('main');
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BEGIN UI LABELS
 // Only reviewed UI names are decorated; examples, values and errors stay ordinary text.
 const uiTerms = Object.fromEntries([
   ['menu',['設定','職員管理','職員権限設定','園児一覧','出欠一覧','出欠確認','保護者アカウント','園児別・月間の登降園修正','パスワード再設定','保護者・家族情報','確認待ちの初回登録','メールの配送状況']],
-  ['button',['職員を追加','園児を追加','認証管理','担当クラス','権限設定','クラス管理','園児別・月間修正','管理者：まとめて補完','追加する','登録する','キャンセル','一覧へ戻る','編集','有効化コードを発行','コードを確認して次へ','ログイン情報を設定','再設定コードを発行','パスワードを再設定','パスワードを設定する','管理者の方：パスワードを忘れた場合','詳細','閉じる','連絡受付を記録','受付を取り消す','表示する','選択した日の空欄へ入れる','保存内容を確認','○日分をまとめて保存','3日分をまとめて保存','保存せず閉じる','詳細・修正','この日の記録を保存','打刻の取消・履歴を開く','引き継いで追加','在園児の保護者を追加・招待','この保護者を招待','新しい保護者を追加','登録済み・認証管理','初回入力の招待を送信','入力内容を園に提出する','入力をやめる','承認','却下','選択','更新する','提出内容を確認する','まだ園児台帳にいない子どもの新規入園受付','共通QR・申請受付','新しい申請の受付を開始する','新しい申請の受付を停止する','案内を印刷','QR画像を保存','登録案内メールを受け取る']],
+  ['button',['職員を追加','園児を追加','認証管理','担当クラス','権限設定','クラス管理','園児別・月間修正','管理者：まとめて補完','追加する','登録する','キャンセル','一覧へ戻る','編集','有効化コードを発行','コードを確認して次へ','ログイン情報を設定','再設定コードを発行','パスワードを再設定','パスワードを設定する','管理者の方：パスワードを忘れた場合','詳細','閉じる','連絡受付を記録','受付を取り消す','表示する','選択した日の空欄へ入れる','保存内容を確認','○日分をまとめて保存','3日分をまとめて保存','保存せず閉じる','詳細・修正','この日の記録を保存','打刻の取消・履歴を開く','引き継いで追加','在園児の保護者を追加・招待','この保護者を招待','新しい保護者を追加','登録済み・認証管理','初回入力の招待を送信','入力内容を園に提出する','入力をやめる','承認','却下','選択','更新する','提出内容を確認する','まだ園児台帳にいない子どもの新規入園受付','共通QR・申請受付','新しい申請の受付を開始する','新しい申請の受付を停止する','案内を印刷','QR画像を保存','登録案内メールを受け取る','最初に戻る','登園する','降園する','確認へ','決定','修正','取り消し','名前選択へ']],
   ['field',['表示名','メールアドレス','権限','表示順','有効','ログインID','発行理由','新しいパスワード','新しいパスワード（確認）','再設定コード','有効化コード','クラス','担当区分','開始日','終了日','主表示にする','所属する家族','兄弟姉妹を選択','姓','名','姓（カナ）','名（カナ）','生年月日','入園日','退園日','在籍状況','家族名','自宅住所','自宅電話番号','在園児','保護者のメールアドレス','確認理由','連絡方法','欠席理由','連絡内容','取消理由','共通の補完理由','共通の降園時刻','子どもの名前','入園予定日','閲覧を許可する園児','保護者ご本人のメールアドレス','承認先の園児・保護者']]
 ].flatMap(([kind,names])=>names.map(name=>[name,kind])));
 function uiRef(kind,label){
@@ -858,6 +858,220 @@ const manualArticles = {
       "child-new-invite"
     ]
   },
+  "parent-arrival": {
+    "audience": "parents",
+    "title": "園に着いたとき（登園）",
+    "chapter": 1,
+    "role": "保護者の方",
+    "tag": "保護者用／登園",
+    "summary": "園にある受付用の画面で操作します。最後に「登園を受け付けました。」と出たら終わりです。",
+    "before": "お迎えの時間と、お迎えに来る人を決めておきます。",
+    "keywords": "保護者 登園 朝 着いた 受付 打刻 お迎え 時間 補食",
+    "imagePrefix": "terminal-pickup",
+    "steps": [
+      {
+        "title": "お子さまのクラスを押します",
+        "text": "園に着いたら、受付用の画面を見ます。お子さまのクラスを押してください。",
+        "image": "terminal-classes",
+        "alt": "園の受付用の画面。さくら組を選ぶ例。",
+        "note": "クラスが分からないときは、職員に声をかけてください。"
+      },
+      {
+        "title": "お子さまの名前を押します",
+        "text": "お子さまの名前を探して押します。同じ名字のお子さまがいるときは、下の名前まで見てください。",
+        "image": "terminal-names",
+        "alt": "さくら組のお子さまの名前が並ぶ画面。見本あおいを選ぶ例。",
+        "note": "クラスを間違えたら「最初に戻る」を押して、選び直します。"
+      },
+      {
+        "title": "名前を確かめて「登園する」を押します",
+        "text": "大きく出ている名前がお子さまの名前か、もう一度見ます。合っていたら「登園する」を押します。",
+        "image": "terminal-arrival",
+        "alt": "選んだお子さまの名前と、緑色の登園するボタン。",
+        "note": "ここでは、まだ終わりではありません。続けてお迎えの予定を入れます。予定をすでに入れている場合は、手順5の確認画面が出ることがあります。"
+      },
+      {
+        "title": "お迎えの予定を入れます",
+        "text": "お迎えの時間、来る人、補食が必要かを選びます。下まで入れたら「確認へ」を押します。",
+        "image": "terminal-pickup-filled",
+        "alt": "お迎え予定の入力画面全体。16時30分、母、補食は不要を選んだ例。",
+        "states": [
+          [
+            "filled",
+            "入れ終わった例"
+          ],
+          [
+            "empty",
+            "まだ入れていない例"
+          ],
+          [
+            "partial",
+            "途中まで入れた例"
+          ],
+          [
+            "error",
+            "選び忘れがある例"
+          ],
+          [
+            "extra",
+            "ほかの時刻・分を選ぶ例"
+          ]
+        ],
+        "stateNotes": {
+          "filled": "午後4時30分に、お母さんがお迎えに来る例です。ご家庭の予定に合わせて選んでください。",
+          "empty": "時間、来る人、補食を順に選びます。",
+          "partial": "「16時」だけ選んだ例です。次に「分」を選びます。",
+          "error": "選び忘れがあると、赤い案内が出ます。案内が出たところを選び直してください。",
+          "extra": "表示されていない時間は「その他の時刻」、細かい分は「その他の分を選ぶ」を開きます。"
+        },
+        "calls": [
+          "午後4時なら「16時」を押します。",
+          "30分なら「30分」を押します。上の「選択中」が「16:30」になったか見ます。",
+          "お迎えに来る人を選びます。",
+          "「補食」は、夕方などに食べる軽い食事です。「必要」か「不要」を選びます。迷ったら職員に聞いてください。",
+          "「確認へ」を押します。"
+        ],
+        "note": "画面の下が見えないときは、画面を指で下から上になぞってください。"
+      },
+      {
+        "title": "内容を見て「決定」を押します",
+        "text": "名前、お迎えの時間、来る人、補食を見ます。合っていたら「決定」を1回押します。",
+        "image": "terminal-confirm",
+        "alt": "登園とお迎え予定の確認画面。内容の欄と、最後に押す決定ボタン。",
+        "note": "直したいときは「修正」を押します。別のお子さまを選んでしまったら「取り消し」で戻ります。「決定」を押すと、登園とお迎えの予定が記録されます。"
+      },
+      {
+        "title": "「登園を受け付けました。」と出たら終わりです",
+        "text": "この表示が出たことを見届けてください。少しすると、最初の画面に戻ります。",
+        "image": "terminal-arrival-done",
+        "alt": "登園を受け付けました。と表示された完了画面。",
+        "note": "兄弟姉妹も登園するときは、1人ずつ同じ操作をします。"
+      }
+    ],
+    "checks": [
+      "お子さまの名前を確かめた",
+      "お迎えの予定を確かめて「決定」を押した",
+      "「登園を受け付けました。」と出た"
+    ],
+    "faq": [
+      [
+        "お迎えの予定を入れる画面が出ません",
+        "すでに予定が入っていると、確認画面が先に出ることがあります。内容が合っていれば「決定」を押します。違っていれば「修正」で直します。"
+      ],
+      [
+        "登園なのに「降園する」と出ます",
+        "登園が記録されているか、職員が出席を確認した可能性があります。「降園する」は押さず、職員に声をかけてください。"
+      ],
+      [
+        "名前が見つかりません",
+        "選んだクラスが合っているか見ます。見つからなければ、職員に声をかけてください。ほかのお子さまの名前では進めません。"
+      ],
+      [
+        "お迎えの予定が変わりました",
+        "園へ変更を伝えてください。時間だけでなく、お迎えに来る人が変わるときも知らせてください。"
+      ],
+      [
+        "終わったか分からなくなりました",
+        "繰り返し押さず、職員に記録を見てもらってください。画面に「接続済み」と出ているだけでは、受付が終わったことにはなりません。"
+      ]
+    ],
+    "relatedArticles": [
+      "parent-departure"
+    ],
+    "source": "parent-attendance-manual/",
+    "sourceLabel": "保護者の方へ：登園・降園の使い方"
+  },
+  "parent-departure": {
+    "audience": "parents",
+    "title": "お迎えのとき（降園）",
+    "chapter": 1,
+    "role": "保護者の方・お迎えに来た方",
+    "tag": "保護者用／降園",
+    "summary": "園にある受付用の画面で操作します。最後に「降園を受け付けました。」と出たら終わりです。",
+    "before": "予定していた人ではなく、実際にお迎えに来た人を選びます。",
+    "keywords": "保護者 降園 帰る お迎え 迎え 受付 打刻 父 母 祖父 祖母",
+    "imagePrefix": "terminal-departure",
+    "steps": [
+      {
+        "title": "お子さまのクラスを押します",
+        "text": "お迎えに来たら、受付用の画面でお子さまのクラスを押します。",
+        "image": "terminal-classes",
+        "alt": "園の受付用の画面。さくら組を選ぶ例。"
+      },
+      {
+        "title": "お子さまの名前を押します",
+        "text": "お子さまの名前を探して押します。下の名前まで見てください。",
+        "image": "terminal-names",
+        "alt": "クラスのお子さまの名前が並ぶ画面。見本あおいを選ぶ例。",
+        "note": "クラスを間違えたら「最初に戻る」で選び直します。"
+      },
+      {
+        "title": "迎えに来た人を選び「降園する」を押します",
+        "text": "名前が合っているか見ます。実際に迎えに来た人を選び、「降園する」を1回押します。",
+        "image": "terminal-departure-filled",
+        "alt": "降園の画面。お子さまの名前、実際にお迎えに来た母、青色の降園するボタンを示す。",
+        "states": [
+          [
+            "filled",
+            "迎えに来た人を選んだ例"
+          ],
+          [
+            "empty",
+            "まだ選んでいない例"
+          ],
+          [
+            "error",
+            "選び忘れがある例"
+          ]
+        ],
+        "stateNotes": {
+          "filled": "お母さんがお迎えに来た例です。朝の予定が「母」でも、お父さんが来たなら「父」を選びます。",
+          "empty": "実際に迎えに来た人を選んでから、下の「降園する」を押します。",
+          "error": "赤い案内が出たら、迎えに来た人を選びます。選んでから「降園する」を押してください。"
+        },
+        "note": "「降園する」を押すと、その時刻が記録されます。名前を間違えたら、押す前に「名前選択へ」で戻ります。"
+      },
+      {
+        "title": "「降園を受け付けました。」と出たら終わりです",
+        "text": "この表示が出たことを見届けてください。少しすると、最初の画面に戻ります。",
+        "image": "terminal-departure-done",
+        "alt": "降園を受け付けました。と表示された完了画面。",
+        "note": "兄弟姉妹も帰るときは、1人ずつ同じ操作をします。"
+      }
+    ],
+    "checks": [
+      "お子さまの名前を確かめた",
+      "実際に迎えに来た人を選んだ",
+      "「降園を受け付けました。」と出た"
+    ],
+    "faq": [
+      [
+        "お迎えなのに「登園する」と出ます",
+        "登園の記録がない可能性があります。「登園する」は押さず、職員に声をかけてください。"
+      ],
+      [
+        "「本日の打刻は完了しています」と出ます",
+        "今日の降園は記録されています。何度も押す必要はありません。表示された時刻が違うときは、職員に伝えてください。"
+      ],
+      [
+        "迎えに来た人を間違えました",
+        "「降園する」を押す前なら、正しい人を選び直します。押した後は、職員に訂正をお願いしてください。"
+      ],
+      [
+        "朝に伝えた人とは別の人が迎えに来ました",
+        "実際に迎えに来た人を選びます。お迎えの人の変更は、園にも伝えてください。"
+      ],
+      [
+        "押し忘れて帰ってしまいました",
+        "園へ連絡し、お子さまの名前と帰った時刻を伝えてください。"
+      ]
+    ],
+    "relatedArticles": [
+      "parent-arrival"
+    ],
+    "source": "parent-attendance-manual/",
+    "sourceLabel": "保護者の方へ：登園・降園の使い方"
+  },
   // END REGISTRATION ARTICLES
   phone: {
     title:'電話で欠席連絡を受けた', chapter:1, role:'出欠確認を操作できる職員', tag:'朝の出欠・連絡',
@@ -906,6 +1120,27 @@ const manualArticles = {
     source:'staff-registration-manual/#troubleshooting',sourceLabel:'職員登録マニュアル：パスワードの再設定'
   }
 };
+// BEGIN PARENT GUIDE
+// Parent-facing pages share the image viewer, but use their own short navigation.
+let staffSidebarMarkup='';
+function setManualAudience(page,id){
+  const parent=page==='parents'||page==='parent-help'||(page==='article'&&manualArticles[id]?.audience==='parents');
+  const sidebar=document.getElementById('sidebar');
+  if(!staffSidebarMarkup)staffSidebarMarkup=sidebar.innerHTML;
+  document.body.classList.toggle('parent-guide',parent);
+  document.querySelector('.brand strong').textContent=parent?'保護者のための使い方ガイド':'職員のための使い方ガイド';
+  document.querySelector('.brand').setAttribute('href',parent?'#parents':'#home');
+  sidebar.innerHTML=parent?`<nav aria-label="保護者用の目次"><a href="#parents" class="nav-home">保護者用のホーム</a><p class="nav-label">登園・降園</p><a href="#article/parent-arrival">園に着いたとき（登園）</a><a href="#article/parent-departure">お迎えのとき（降園）</a><a href="#parent-help">間違えた・うまくいかない</a></nav><div class="sidebar-note"><strong>分からないときは</strong><p>園の職員に声をかけてください。</p><a href="#home">職員用のガイドへ</a></div>`:staffSidebarMarkup;
+}
+function parentHome(){return `<p class="eyebrow">保護者の方へ</p><h1>登園・降園の使い方</h1><p class="lead">園に着いたときと、お迎えのとき。<br>園にある受付用の画面で、次のように操作します。</p><div class="parent-cards">${['parent-arrival','parent-departure'].map(card).join('')}</div><a class="parent-help-link" href="#parent-help"><strong>間違えた・うまくいかない →</strong><span>押し忘れ、名前が見つからない、画面が進まないとき</span></a><div class="parent-tip"><h2>最後の表示まで見届けてください</h2><p>「登園を受け付けました。」<br>または「降園を受け付けました。」と出たら終わりです。</p><p>兄弟姉妹も、1人ずつ操作します。</p></div><p class="source-note">ここは使い方を読むページです。登園・降園の記録は、園の受付用の画面で行ってください。画面の名前・日付・時刻は例です。</p>`;}
+function parentScreenshot(image,alt){return `<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(alt)}" aria-label="${esc(alt)}を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v8" alt="${esc(alt)}"></button><figcaption><span>画面の見本</span><span>画像を押すと大きくなります ↗</span></figcaption></figure>`;}
+function parentHelp(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>困ったとき</span></div><h1>間違えた・うまくいかない</h1><p class="lead">分からないときは、園の職員に声をかけてください。</p><section class="parent-tip"><h2>名前を間違えて押しました</h2><p>まだ決める前なら、「名前選択へ」や「取り消し」で戻れます。</p><p>登園の「決定」や「降園する」を押した後は、職員に訂正をお願いしてください。押した名前と、何を押したかを伝えます。</p></section><section class="parent-tip"><h2>押すのを忘れました</h2><p>職員に、お子さまの名前と、園に着いた時刻・帰った時刻を伝えてください。後から押す前に、職員に確認してください。</p></section><section class="parent-tip"><h2>画面が進みません・通信の案内が出ました</h2><p>何度も押さず、職員に声をかけてください。職員が、記録されたかどうかを確認します。</p>${parentScreenshot('terminal-offline','通信が切れているときの画面')}<p>「接続済み」と出ているだけでは、登園・降園の受付が終わったことにはなりません。</p></section><section class="parent-tip"><h2>「本日の打刻は完了しています」と出ました</h2><p>今日の降園は記録されています。表示された時刻が違うときは、職員に伝えてください。</p>${parentScreenshot('terminal-already','今日の登園と降園が記録されている画面')}</section><section class="parent-tip"><h2>途中で最初の画面に戻りました</h2><p>しばらく操作しないと、最初の画面に戻ります。「操作を続ける」が出たら、押して続けられます。</p><p>「決定」や「降園する」を押す前なら、クラスから選び直します。押した後か分からないときは、職員に確認してください。</p></section><a href="#parents">← 登園・降園の手順へ戻る</a>`;}
+function parentArticle(id){
+  const a=manualArticles[id];
+  return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>${a.title}</span></div><p class="eyebrow">保護者の方へ</p><h1>${a.title}</h1><p class="lead">${prose(a.summary)}</p><p class="parent-before">${prose(a.before)}</p><div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 戻る</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次へ →</button>`:`<button class="primary" data-check-jump>最後に確かめる ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>これで終わりです</h2><p>使い方を読んだあとの確認です。このページでは登園・降園を記録できません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section><section class="faq"><h2>困ったとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section><a class="parent-help-link" href="#parent-help"><strong>間違えた・画面が進まないときはこちら →</strong></a><div class="parent-related">${a.relatedArticles.map(articleLink).join('')}<a href="#parents">← 保護者用のホームへ</a></div><details class="source-note"><summary>このマニュアルの画面について</summary><p>2026年11月3日に確認した版をもとに、説明用の名前や時刻で撮影しています。完了画面は、読めるように止めて撮影しました。園の画面と違うときは、職員に聞いてください。</p></details>`;
+}
+
+// END PARENT GUIDE
 let currentArticle='', currentStep=0, allSteps=false, imageState={}, checked={};
 const titles=['利用を始める','毎日の出欠と連絡','園児・家庭と記録','指導計画をつくる','職員間で共有する','料金と請求を確認する','点検・困ったとき'];
 document.getElementById('chapter-nav').innerHTML=titles.map((t,i)=>`<a href="#chapter/${i}"><span class="chapter-number">0${i+1}</span>${t}</a>`).join('');
@@ -915,12 +1150,12 @@ const card=id=>{const a=manualArticles[id];return `<a class="issue-card" href="$
 // BEGIN ADMISSION NAVIGATION
 function admissionChoices(){return `<section class="admission-choices" aria-label="新入園児の登録"><div class="section-head"><h2>新入園児を登録する</h2><span>家庭の状況から選ぶ</span></div><div class="admission-grid">${['child-sibling','parent-qr'].map(card).join('')}</div></section>`;}
 // END ADMISSION NAVIGATION
-function home(){return `<section class="hero"><p class="eyebrow">毎日の「どうする？」を、ひとつずつ。</p><h1>迷ったら、ここから。</h1><p class="lead">忙しい保育の合間にも、必要な手順がすぐ見つかる。<br>画面を見ながら、一緒に進める使い方ガイドです。</p><div class="hero-index" aria-hidden="true">Guide<small>FOR NURSERY STAFF</small></div></section>${searchBox()}${admissionChoices()}<section class="entrances" aria-label="2つの探し方"><a class="entrance emphasis" href="#issues"><small>いま、解決したいことがある</small><h2>こんなときどうする？</h2><p>困っている場面を選んで、解決の手順へ。</p><span class="arrow" aria-hidden="true">↗</span></a><a class="entrance" href="#chapters"><small>仕事の流れを知りたい</small><h2>業務ごとに、順番に読む</h2><p>利用開始から日々の記録、月末の請求まで。</p><span class="arrow" aria-hidden="true">↗</span></a></section><div class="section-head"><h2>登録の準備と、日々の困りごと</h2><span>スクショ付きの代表例</span></div><section class="issue-grid">${Object.keys(manualArticles).filter(id=>!['child-sibling','parent-qr'].includes(id)).map(card).join('')}</section><div class="hint-strip"><strong>画面と同じ言葉で。</strong><span>押すボタンの名前、保存されるタイミング、間違えたときの戻り方まで、ひとつの手順にまとめています。</span></div>`;}
+function home(){return `<a class="parent-entry" href="#parents"><strong>保護者の方はこちら →</strong><span>園に着いたとき・お迎えのときの使い方</span></a><section class="hero"><p class="eyebrow">毎日の「どうする？」を、ひとつずつ。</p><h1>迷ったら、ここから。</h1><p class="lead">忙しい保育の合間にも、必要な手順がすぐ見つかる。<br>画面を見ながら、一緒に進める使い方ガイドです。</p><div class="hero-index" aria-hidden="true">Guide<small>FOR NURSERY STAFF</small></div></section>${searchBox()}${admissionChoices()}<section class="entrances" aria-label="2つの探し方"><a class="entrance emphasis" href="#issues"><small>いま、解決したいことがある</small><h2>こんなときどうする？</h2><p>困っている場面を選んで、解決の手順へ。</p><span class="arrow" aria-hidden="true">↗</span></a><a class="entrance" href="#chapters"><small>仕事の流れを知りたい</small><h2>業務ごとに、順番に読む</h2><p>利用開始から日々の記録、月末の請求まで。</p><span class="arrow" aria-hidden="true">↗</span></a></section><div class="section-head"><h2>登録の準備と、日々の困りごと</h2><span>スクショ付きの代表例</span></div><section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents'&&!['child-sibling','parent-qr'].includes(id)).map(card).join('')}</section><div class="hint-strip"><strong>画面と同じ言葉で。</strong><span>押すボタンの名前、保存されるタイミング、間違えたときの戻り方まで、ひとつの手順にまとめています。</span></div>`;}
 function chapters(){return `${crumb('仕事の流れから読む')}<p class="eyebrow">体系的に読む</p><h1>業務ごとに、順番に。</h1><p class="lead">全7分野・既存の33項目を見渡せます。担当する仕事から選んでください。</p><div class="chapter-grid">${manualChapters.map((c,i)=>`<a class="chapter-card" href="#chapter/${i}"><small>CHAPTER 0${i+1} · ${c.topics.length}項目</small><h2>${titles[i]} →</h2><p>${c.description}</p></a>`).join('')}</div><p class="notice">「画面付きの試作」と「現在公開されている資料」を分けて表示しています。既存資料は別のタブで開きます。</p>`;}
 function articleLink(id){const a=manualArticles[id];return `<a class="topic" href="#article/${id}"><span><strong>${a.title}</strong><small>${a.role} · ${a.steps.length}ステップ</small></span><span class="badge">画面付きの試作 →</span></a>`;}
 function referenceLink(t){return `<a class="topic" href="${esc(t.url)}" target="_blank" rel="noopener"><span><strong>${esc(t.title)}</strong><small>${esc(t.role)} · 既存資料を別タブで開く</small></span><span class="badge reference">${esc(t.kind)} ↗</span></a>`;}
-function chapter(i){const c=manualChapters[i];return `${crumb(titles[i])}<p class="eyebrow">CHAPTER 0${i+1}</p><h1>${titles[i]}</h1><p class="lead">${c.description}</p>${Object.values(manualArticles).some(a=>a.chapter===i)?`<h2>画面を見ながら進める</h2><div class="topic-list">${Object.entries(manualArticles).filter(([,a])=>a.chapter===i).map(([id])=>articleLink(id)).join('')}</div>`:''}<div class="section-head"><h2>順番に読む・詳しく確認する</h2><span>現在の公開資料</span></div><div class="topic-list">${c.topics.map(referenceLink).join('')}</div><p class="source-note">この分野の既存${c.topics.length}項目を掲載しています。概要・仕様の資料は、今後の画面付き手順の整備候補です。</p>`;}
-function issues(){return `${crumb('こんなときどうする？')}<p class="eyebrow">場面から探す</p><h1>いま、どんなことで困っていますか。</h1><p class="lead">機能の名前が分からなくても大丈夫。近い場面を選んでください。</p>${searchBox()}<section class="issue-grid">${Object.keys(manualArticles).map(card).join('')}</section><div class="notice"><strong>この試作版では、共通QRの受付と新入園児の登録を含む9つの場面を試せます。</strong>ほかの業務は「仕事の流れから読む」から、現在の公開資料を確認できます。</div><a href="#chapters">業務別の目次を見る →</a>`;}
+function chapter(i){const c=manualChapters[i];return `${crumb(titles[i])}<p class="eyebrow">CHAPTER 0${i+1}</p><h1>${titles[i]}</h1><p class="lead">${c.description}</p>${Object.values(manualArticles).some(a=>a.chapter===i&&a.audience!=='parents')?`<h2>画面を見ながら進める</h2><div class="topic-list">${Object.entries(manualArticles).filter(([,a])=>a.chapter===i&&a.audience!=='parents').map(([id])=>articleLink(id)).join('')}</div>`:''}<div class="section-head"><h2>順番に読む・詳しく確認する</h2><span>現在の公開資料</span></div><div class="topic-list">${c.topics.map(referenceLink).join('')}</div><p class="source-note">この分野の既存${c.topics.length}項目を掲載しています。概要・仕様の資料は、今後の画面付き手順の整備候補です。</p>`;}
+function issues(){return `${crumb('こんなときどうする？')}<p class="eyebrow">場面から探す</p><h1>いま、どんなことで困っていますか。</h1><p class="lead">機能の名前が分からなくても大丈夫。近い場面を選んでください。</p>${searchBox()}<section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents').map(card).join('')}</section><div class="notice"><strong>この試作版では、共通QRの受付と新入園児の登録を含む9つの場面を試せます。</strong>ほかの業務は「仕事の流れから読む」から、現在の公開資料を確認できます。</div><a href="#chapters">業務別の目次を見る →</a>`;}
 const helpOptions={
   admission:[['兄弟姉妹が在園している・以前在園していた','同じ家族へ追加し、保護者の閲覧対象を確認する','#article/child-sibling'],['初めて入園する家庭','共通QRで申し込み、園が確認・承認する','#article/parent-qr']],
   clock:[['空欄の時刻を、まとめて入れたい','実際の時刻が分かっている・管理者が操作する','#article/clock'],['すでに入っている時刻が間違っている','空欄の補完ではなく、日ごとの訂正','#answer/clock-correct'],['実際の時刻がまだ分からない','まず園内の記録や保護者に確認する','#answer/clock-unknown']],
@@ -935,26 +1170,26 @@ const answers={
 };
 function answer(id){const a=answers[id];return `<div class="diagnosis">${crumb('状況に合わせた対応')}<p class="eyebrow">まず、ここを確認</p><h1>${a[0]}</h1><p>${prose(a[1])}</p><div class="notice">${prose(a[2])}</div><div class="related"><a class="primary topic" href="#article/${a[3]}">関連する画面付きの手順を読む →</a><a class="topic" href="#help/${a[3]}">状況を選び直す</a></div></div>`;}
 function normalize(s){return s.normalize('NFKC').toLowerCase().replace(/\s+/g,'');}
-function search(q){const n=normalize(q), terms=q.normalize('NFKC').trim().split(/[\s　]+/).filter(Boolean);const expansions=[];if(/欠席|電話|でんわ|休み/.test(n))expansions.push('phone');if(/打刻|だこく|登園|降園|補完/.test(n))expansions.push('clock');if(/ログイン|パスワード|コード/.test(n))expansions.push('password');const matches=Object.entries(manualArticles).filter(([id,a])=>expansions.includes(id)||(terms.length&&terms.every(t=>normalize(a.title+a.keywords+a.summary).includes(normalize(t)))));const refs=manualChapters.flatMap(c=>c.topics).filter(t=>terms.length&&terms.every(w=>normalize(t.title+t.role).includes(normalize(w))));return `${crumb('検索結果')}<h1>必要な手順を探す</h1>${searchBox()}<p class="search-status" role="status">${q?`「${esc(q)}」：画面付き ${matches.length}件・既存資料 ${refs.length}件`:'困っていることや、やりたいことを入力してください。'}</p>${matches.length?`<h2>画面を見ながら進める</h2><div class="topic-list">${matches.map(([id])=>articleLink(id)).join('')}</div>`:''}${refs.length?`<div class="section-head"><h2>現在の公開資料</h2></div><div class="topic-list">${refs.map(referenceLink).join('')}</div>`:''}${q&&!matches.length&&!refs.length?`<div class="empty-result"><h2>ぴったりの手順が見つかりませんでした。</h2><p>「打刻忘れ」「職員登録」のような短い言葉で試してください。<br>この試作版で画面付きの手順があるのは9例です。</p><a href="#chapters">業務別の目次から探す →</a></div>`:''}`;}
+function search(q){const n=normalize(q), terms=q.normalize('NFKC').trim().split(/[\s　]+/).filter(Boolean);const expansions=[];if(/欠席|電話|でんわ|休み/.test(n))expansions.push('phone');if(/打刻|だこく|登園|降園|補完/.test(n))expansions.push('clock');if(/ログイン|パスワード|コード/.test(n))expansions.push('password');const matches=Object.entries(manualArticles).filter(([id,a])=>expansions.includes(id)||(terms.length&&terms.every(t=>normalize(a.title+a.keywords+a.summary).includes(normalize(t)))));const refs=manualChapters.flatMap(c=>c.topics).filter(t=>terms.length&&terms.every(w=>normalize(t.title+t.role).includes(normalize(w))));return `${crumb('検索結果')}<h1>必要な手順を探す</h1>${searchBox()}<p class="search-status" role="status">${q?`「${esc(q)}」：画面付き ${matches.length}件・既存資料 ${refs.length}件`:'困っていることや、やりたいことを入力してください。'}</p>${matches.length?`<h2>画面を見ながら進める</h2><div class="topic-list">${matches.map(([id])=>articleLink(id)).join('')}</div>`:''}${refs.length?`<div class="section-head"><h2>現在の公開資料</h2></div><div class="topic-list">${refs.map(referenceLink).join('')}</div>`:''}${q&&!matches.length&&!refs.length?`<div class="empty-result"><h2>ぴったりの手順が見つかりませんでした。</h2><p>「打刻忘れ」「職員登録」のような短い言葉で試してください。<br>この試作版で画面付きの手順があるのは職員向け9例・保護者向け2例です。</p><a href="#chapters">業務別の目次から探す →</a></div>`:''}`;}
 function renderStep(a,i,print=false){
   const s=a.steps[i], prefix=s.imagePrefix||a.imagePrefix||(currentArticle==='phone'?'phone':'monthly');
   const selected=!print&&s.states?(imageState[i]||s.states[0][0]):'';
   const image=selected?prefix+'-'+selected:s.image;
   const caption=selected?s.stateNotes[selected]:s.alt;
-  return `<section class="step-body" id="${print?'print-':''}step-${i}"><div class="step-heading"><span class="number">${i+1}</span><h2>${s.title}</h2></div><p>${prose(s.text)}</p>${s.states&&!print?`<label class="state-select">見本の状態 <select data-state-step="${i}" aria-label="見本の状態">${s.states.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="state-explanation">${prose(s.stateNotes[selected])}</p>`:''}${image?`<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(caption)}" aria-label="手順${i+1}の画面を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v7" alt="${esc(caption)}"></button><figcaption><span>配備記録に対応する画面の見本・架空データ${image.startsWith('monthly-')&&image!=='monthly-list'?'／入力欄を縦に展開':''}</span><span>画像を押すと拡大 ↗</span></figcaption></figure>`:''}${s.calls?`<ol class="callouts">${s.calls.map((c,k)=>`<li><span class="number">${k+1}</span><span>${prose(c)}</span></li>`).join('')}</ol>`:''}${s.note?`<div class="notice ${i===a.steps.length-2?'warm':''}">${prose(s.note)}</div>`:''}</section>`;
+  return `<section class="step-body" id="${print?'print-':''}step-${i}"><div class="step-heading"><span class="number">${i+1}</span><h2>${s.title}</h2></div><p>${prose(s.text)}</p>${s.states&&!print?`<label class="state-select">${a.audience==='parents'?'ほかの画面を見る':'見本の状態'} <select data-state-step="${i}" aria-label="見本の状態">${s.states.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="state-explanation">${prose(s.stateNotes[selected])}</p>`:''}${image?`<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(caption)}" aria-label="手順${i+1}の画面を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v8" alt="${esc(caption)}"></button><figcaption><span>${a.audience==='parents'?'画面の見本。名前や時刻は例です。':'配備記録に対応する画面の見本・架空データ'}${image.startsWith('monthly-')&&image!=='monthly-list'?'／入力欄を縦に展開':''}</span><span>画像を押すと拡大 ↗</span></figcaption></figure>`:''}${s.calls?`<ol class="callouts">${s.calls.map((c,k)=>`<li><span class="number">${k+1}</span><span>${prose(c)}</span></li>`).join('')}</ol>`:''}${s.note?`<div class="notice ${i===a.steps.length-2?'warm':''}">${prose(s.note)}</div>`:''}</section>`;
 }
-function article(id){const a=manualArticles[id];return `${crumb('画面付きの手順',a.chapter)}<div class="article-meta"><span class="badge">${a.tag}</span><span>${a.role}</span><span>全${a.steps.length}ステップ</span></div><h1 class="article-title">${a.title}</h1><p class="lead">${a.summary}</p>${a.admission?`<p class="admission-back"><a href="#help/admission">← 新入園児の登録方法を選び直す</a></p>`:""}<dl class="article-intro"><div><dt>この手順でできること</dt><dd>${a.goal}</dd></div><div><dt>始める前に</dt><dd>${prose(a.before)}</dd></div></dl>${openingPath(a.path)}${uiLegend()}<div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 前の手順</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次の手順へ →</button>`:`<button class="primary" data-check-jump>完了を確認する ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>ここまでできたら、完了です。</h2><p>読みながら確認するためのチェックです。実際の業務データには反映されません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section>${a.relatedArticles?.length?`<section class="article-related"><h2>関連する手順</h2><div class="topic-list">${a.relatedArticles.map(articleLink).join('')}</div></section>`:""}<section class="faq"><h2>うまくいかない・間違えたとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section><div class="related"><a href="#chapter/${a.chapter}">← ${titles[a.chapter]}の目次</a><span>·</span><a href="#issues">ほかの困りごとを見る</a></div><details class="source-note"><summary>この見本の対象版・参照した資料</summary><p>2026-11-01〜03の配備記録と保存済みテンプレートをもとに、架空データで画面を表示して撮影しました。園の実データ・実機の画面は撮影していません。外枠は撮影用に整理し、一括補完の画面は入力欄を縦に展開しています。保護者の承認画面は登録申請欄を抜粋しています。新規入園の入力画面は、任意のもう1人の保護者欄を開いて撮影しています。実際の園での表示・文言の最終確認は今後行います。モック作成日：2026-11-03。</p><a href="https://open.hoikuict.net/${a.source}" target="_blank" rel="noopener">${a.sourceLabel}（公開中の資料）↗</a></details>`;}
+function article(id){const a=manualArticles[id];if(a.audience==='parents')return parentArticle(id);return `${crumb('画面付きの手順',a.chapter)}<div class="article-meta"><span class="badge">${a.tag}</span><span>${a.role}</span><span>全${a.steps.length}ステップ</span></div><h1 class="article-title">${a.title}</h1><p class="lead">${a.summary}</p>${a.admission?`<p class="admission-back"><a href="#help/admission">← 新入園児の登録方法を選び直す</a></p>`:""}<dl class="article-intro"><div><dt>この手順でできること</dt><dd>${a.goal}</dd></div><div><dt>始める前に</dt><dd>${prose(a.before)}</dd></div></dl>${openingPath(a.path)}${uiLegend()}<div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 前の手順</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次の手順へ →</button>`:`<button class="primary" data-check-jump>完了を確認する ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>ここまでできたら、完了です。</h2><p>読みながら確認するためのチェックです。実際の業務データには反映されません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section>${a.relatedArticles?.length?`<section class="article-related"><h2>関連する手順</h2><div class="topic-list">${a.relatedArticles.map(articleLink).join('')}</div></section>`:""}<section class="faq"><h2>うまくいかない・間違えたとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section><div class="related"><a href="#chapter/${a.chapter}">← ${titles[a.chapter]}の目次</a><span>·</span><a href="#issues">ほかの困りごとを見る</a></div><details class="source-note"><summary>この見本の対象版・参照した資料</summary><p>2026-11-01〜03の配備記録と保存済みテンプレートをもとに、架空データで画面を表示して撮影しました。園の実データ・実機の画面は撮影していません。外枠は撮影用に整理し、一括補完の画面は入力欄を縦に展開しています。保護者の承認画面は登録申請欄を抜粋しています。新規入園の入力画面は、任意のもう1人の保護者欄を開いて撮影しています。実際の園での表示・文言の最終確認は今後行います。モック作成日：2026-11-03。</p><a href="https://open.hoikuict.net/${a.source}" target="_blank" rel="noopener">${a.sourceLabel}（公開中の資料）↗</a></details>`;}
 function completionText(id){const count=(checked[id]||[]).length;return count===manualArticles[id].checks.length?'✓ すべて確認できました。':`${count} / ${manualArticles[id].checks.length} 項目を確認済み`;}
-function renderRoute(focus=true){let parts=location.hash.slice(1).split('/');let [page,arg]=parts;if(page==='article'&&arg==='child-new-family')arg='parent-qr';document.getElementById('sidebar').classList.remove('open');document.getElementById('menu-toggle').setAttribute('aria-expanded','false');let html;switch(page){case 'chapters':html=chapters();break;case 'chapter':html=manualChapters[+arg]?chapter(+arg):chapters();break;case 'issues':html=issues();break;case 'help':html=helpOptions[arg]?help(arg):issues();break;case 'answer':html=answers[arg]?answer(arg):issues();break;case 'search':{let q='';try{q=decodeURIComponent(parts.slice(1).join('/'));}catch{}html=search(q);break;}case 'article':if(manualArticles[arg]){if(currentArticle!==arg){currentStep=0;imageState={};allSteps=false;}currentArticle=arg;html=article(arg);break;}default:html=home();}
+function renderRoute(focus=true){let parts=location.hash.slice(1).split('/');let [page,arg]=parts;if(page==='article'&&arg==='child-new-family')arg='parent-qr';document.getElementById('sidebar').classList.remove('open');document.getElementById('menu-toggle').setAttribute('aria-expanded','false');setManualAudience(page,arg);let html;switch(page){case 'parents':html=parentHome();break;case 'parent-help':html=parentHelp();break;case 'chapters':html=chapters();break;case 'chapter':html=manualChapters[+arg]?chapter(+arg):chapters();break;case 'issues':html=issues();break;case 'help':html=helpOptions[arg]?help(arg):issues();break;case 'answer':html=answers[arg]?answer(arg):issues();break;case 'search':{let q='';try{q=decodeURIComponent(parts.slice(1).join('/'));}catch{}html=search(q);break;}case 'article':if(manualArticles[arg]){if(currentArticle!==arg){currentStep=0;imageState={};allSteps=false;}currentArticle=arg;html=article(arg);break;}default:html=home();}
 main.innerHTML=html;document.querySelectorAll('#sidebar nav a').forEach(a=>{const active=a.getAttribute('href')===(location.hash||'#home');a.classList.toggle('current',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
 if(page==='search'){try{main.querySelector('#search-input').value=decodeURIComponent(parts.slice(1).join('/'));}catch{}}
-bind();document.title=(main.querySelector('h1')?.textContent||'使い方ガイド')+'｜オープン保育ICT・モック';if(focus){window.scrollTo(0,0);main.focus({preventScroll:true});}}
+bind();document.title=(main.querySelector('h1')?.textContent||'使い方ガイド')+'｜オープン保育ICT・使い方ガイド';if(focus){window.scrollTo(0,0);main.focus({preventScroll:true});}}
 function updateReader(){const y=window.scrollY;main.innerHTML=article(currentArticle);bind();window.scrollTo(0,y);}
 function bind(){main.querySelector('#search-form')?.addEventListener('submit',e=>{e.preventDefault();location.hash='search/'+encodeURIComponent(main.querySelector('#search-input').value.trim());});main.querySelectorAll('[data-search]').forEach(b=>b.addEventListener('click',()=>location.hash='search/'+encodeURIComponent(b.dataset.search)));
 main.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{currentStep=+b.dataset.step;imageState={};updateReader();main.querySelector('.step-body').scrollIntoView({block:'start'});main.querySelector('.step-heading h2').setAttribute('tabindex','-1');main.querySelector('.step-heading h2').focus({preventScroll:true});}));
 main.querySelectorAll('[data-reader]').forEach(b=>b.addEventListener('click',()=>{allSteps=b.dataset.reader==='all';imageState={};updateReader();main.querySelector(`[data-reader="${allSteps?'all':'step'}"]`).focus({preventScroll:true});}));
 main.querySelectorAll('[data-state-step]').forEach(s=>s.addEventListener('change',()=>{imageState={...imageState,[s.dataset.stateStep]:s.value};const step=s.dataset.stateStep;updateReader();main.querySelector(`[data-state-step="${step}"]`).focus({preventScroll:true});}));
-main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const dialog=document.getElementById('image-dialog');document.getElementById('zoom-image').src='assets/'+b.dataset.zoom+'.jpg?v=20261103-v7';document.getElementById('zoom-image').alt=b.dataset.caption;document.getElementById('image-title').textContent='画面を拡大して確認';dialog.showModal();}));
+main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const dialog=document.getElementById('image-dialog');document.getElementById('zoom-image').src='assets/'+b.dataset.zoom+'.jpg?v=20261103-v8';document.getElementById('zoom-image').alt=b.dataset.caption;document.getElementById('image-title').textContent='画面を拡大して確認';dialog.showModal();}));
 main.querySelector('[data-print]')?.addEventListener('click',()=>window.print());main.querySelector('[data-check-jump]')?.addEventListener('click',()=>{document.getElementById('completion').scrollIntoView();main.querySelector('[data-check]').focus({preventScroll:true});});
 main.querySelectorAll('[data-check]').forEach(c=>c.addEventListener('change',()=>{checked[currentArticle]=Array.from(main.querySelectorAll('[data-check]:checked')).map(e=>+e.dataset.check);main.querySelector('.check-progress').textContent=completionText(currentArticle);}));}
 document.getElementById('close-image').addEventListener('click',()=>document.getElementById('image-dialog').close());

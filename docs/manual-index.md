@@ -1,5 +1,7 @@
 # マニュアル目次
 
+**保護者の方へ：** [登園・降園の画面付きマニュアル](manual-guide-preview/index.html#parents) · [文字で読む手順](parent-attendance-manual.md)
+
 やりたい業務から、公開中の手順や関連資料を探せます。管理者・職員・保護者それぞれの操作に合う資料を選んでください。
 
 初めて使う方は、[利用開始](start-manual.md) → [職員登録](staff-registration-manual.md) → [保護者登録](parent-registration-manual.md)の順で進めます。
