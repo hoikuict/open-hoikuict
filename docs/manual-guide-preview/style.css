@@ -28,6 +28,12 @@
 
 
 
+
+
+
+
+
+
 /* BEGIN UI LABELS */
 /* Names in the instructions are static references, not additional controls. */
 .ui-ref{display:inline-flex;align-items:baseline;gap:.4em;max-width:100%;margin:.14em .13em;padding:.12em .48em;border:1px solid;border-radius:4px;font-size:1em;line-height:1.65;vertical-align:baseline;cursor:text;text-align:left;box-decoration-break:clone;-webkit-box-decoration-break:clone}
@@ -54,6 +60,7 @@
 @media(max-width:760px){.parent-cards{grid-template-columns:1fr}.parent-entry{align-items:flex-start;flex-direction:column;gap:6px}.parent-guide main{padding:24px 17px}.parent-guide .parent-tip{padding:20px}.parent-guide .step-nav button{min-width:150px}.parent-guide .step-body{padding:20px 16px}.parent-guide .step-heading h2{font-size:1.12rem}.parent-guide .next-prev button{padding:10px}.parent-guide .screen figcaption{font-size:.7rem}}
 @media print{.parent-entry,.parent-help-link,.parent-related{display:none!important}.parent-guide .step-body>p,.parent-guide .notice,.parent-guide .callouts{font-size:12px}}
 .parent-guide .screen-focused{max-width:600px}.screen-focused button{position:relative;aspect-ratio:600/340}.screen-focused img{position:absolute;top:0;left:0;width:100%;height:auto}.screen-focused[data-frame="app-home-child"] button{aspect-ratio:600/280}.screen-focused[data-frame="app-home-unread"] button{aspect-ratio:600/195}.screen-focused[data-frame="app-home-updates"] button{aspect-ratio:600/575}.screen-focused[data-frame="app-home-menu"] button{aspect-ratio:600/410}.screen-focused[data-frame="app-contact-entry"] button,.screen-focused[data-frame="app-pickup-entry"] button{aspect-ratio:585/965}@media print{.screen-focused img{max-height:none;object-fit:fill}}
+.parent-guide .screen-compact{max-width:600px}.screen-compact[data-frame="push-menu"] button,.screen-compact[data-frame="push-preferences"] button{position:relative;aspect-ratio:600/410}.screen-compact[data-frame="push-preferences"] button{aspect-ratio:600/480}.screen-compact[data-frame="push-menu"] img,.screen-compact[data-frame="push-preferences"] img{position:absolute;top:0;left:0;width:100%;height:auto}
 /* END PARENT GUIDE */
 
 .site-return{display:inline-flex;align-items:center;font-size:.78rem;padding:8px;text-decoration:none;white-space:nowrap}@media(max-width:760px){.site-return{font-size:.66rem;padding:6px}.site-head{gap:7px}.head-actions{flex-wrap:wrap;justify-content:flex-end}.brand{flex-shrink:0}}@media(max-width:760px){.site-head{height:auto;min-height:81px;flex-wrap:wrap;padding:12px 17px}.head-actions{margin-left:auto;flex-wrap:nowrap}}

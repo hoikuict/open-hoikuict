@@ -1,13 +1,13 @@
 'use strict';
-const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "app-absence-error": [585, 1604], "app-absence-private": [585, 1108], "app-absence-sick": [585, 1542], "app-attention": [585, 878], "app-contact-bottom": [585, 878], "app-contact-care": [585, 878], "app-contact-empty": [585, 3479], "app-contact-entry": [585, 1342], "app-contact-error": [585, 3545], "app-contact-filled": [585, 3479], "app-contact-top": [585, 878], "app-history": [585, 878], "app-home-absence": [585, 1558], "app-home-child": [585, 878], "app-home-date": [585, 878], "app-home-empty": [585, 1022], "app-home-menu": [585, 878], "app-home-saved": [585, 1558], "app-home-unread": [585, 878], "app-home-updates": [585, 878], "app-home": [585, 1342], "app-menu": [585, 878], "app-notice": [585, 950], "app-notices": [585, 878], "app-notification": [585, 878], "app-pickup-empty": [585, 1240], "app-pickup-entry": [585, 1342], "app-pickup-error": [585, 1436], "app-pickup-filled": [585, 1240], "app-pickup-partial": [585, 1240], "app-reply": [585, 878], "app-survey-done": [585, 878], "app-survey-empty": [585, 878], "app-survey-error": [585, 878], "app-survey-filled": [585, 878], "app-surveys": [585, 878], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-list": [1265, 807], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 720], "password-person": [1280, 720], "phone-empty": [1265, 741], "phone-filled": [1265, 741], "phone-partial": [1265, 741], "phone-saved": [1265, 839], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 720], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487]};
+const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "app-absence-error": [585, 1604], "app-absence-private": [585, 1108], "app-absence-sick": [585, 1542], "app-attention": [585, 878], "app-contact-bottom": [585, 878], "app-contact-care": [585, 878], "app-contact-empty": [585, 3479], "app-contact-entry": [585, 1342], "app-contact-error": [585, 3545], "app-contact-filled": [585, 3479], "app-contact-top": [585, 878], "app-history": [585, 878], "app-home-absence": [585, 1558], "app-home-child": [585, 878], "app-home-date": [585, 878], "app-home-empty": [585, 1022], "app-home-menu": [585, 878], "app-home-saved": [585, 1558], "app-home-unread": [585, 878], "app-home-updates": [585, 878], "app-home": [585, 1342], "app-menu": [585, 878], "app-notice": [585, 950], "app-notices": [585, 878], "app-notification": [585, 878], "app-pickup-empty": [585, 1240], "app-pickup-entry": [585, 1342], "app-pickup-error": [585, 1436], "app-pickup-filled": [585, 1240], "app-pickup-partial": [585, 1240], "app-reply": [585, 878], "app-survey-done": [585, 878], "app-survey-empty": [585, 878], "app-survey-error": [585, 878], "app-survey-filled": [585, 878], "app-surveys": [585, 878], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-list": [1265, 807], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 720], "password-person": [1280, 720], "phone-empty": [1265, 741], "phone-filled": [1265, 741], "phone-partial": [1265, 741], "phone-saved": [1265, 839], "push-android-allow": [600, 900], "push-android-check": [600, 900], "push-enable": [585, 878], "push-iphone-add": [585, 1036], "push-iphone-allow": [600, 900], "push-iphone-check": [600, 900], "push-menu": [585, 878], "push-preferences": [585, 878], "push-registered": [585, 878], "push-test": [585, 878], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 720], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487]};
 const main = document.getElementById('main');
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BEGIN UI LABELS
 // Only reviewed UI names are decorated; examples, values and errors stay ordinary text.
 const uiTerms = Object.fromEntries([
   ['menu',['保護者ホーム','メニュー','日次連絡履歴','お知らせ','アンケート','子ども情報変更申請','登録情報','通知設定','パスワード変更','設定','職員管理','職員権限設定','園児一覧','出欠一覧','出欠確認','保護者アカウント','園児別・月間の登降園修正','パスワード再設定','保護者・家族情報','確認待ちの初回登録','メールの配送状況']],
-  ['button',['日付を変更','日次連絡を入力','日次連絡を編集','お迎え予定を登録・変更','未読・未回答','保存する','予定を保存','ホームへ戻る','戻る','表示','ダウンロード','出席・欠席を連絡する','回答する','回答を編集','内容を編集','履歴を見る','返信あり','職員を追加','園児を追加','認証管理','担当クラス','権限設定','クラス管理','園児別・月間修正','管理者：まとめて補完','追加する','登録する','キャンセル','一覧へ戻る','編集','有効化コードを発行','コードを確認して次へ','ログイン情報を設定','再設定コードを発行','パスワードを再設定','パスワードを設定する','管理者の方：パスワードを忘れた場合','詳細','閉じる','連絡受付を記録','受付を取り消す','表示する','選択した日の空欄へ入れる','保存内容を確認','○日分をまとめて保存','3日分をまとめて保存','保存せず閉じる','詳細・修正','この日の記録を保存','打刻の取消・履歴を開く','引き継いで追加','在園児の保護者を追加・招待','この保護者を招待','新しい保護者を追加','登録済み・認証管理','初回入力の招待を送信','入力内容を園に提出する','入力をやめる','承認','却下','選択','更新する','提出内容を確認する','まだ園児台帳にいない子どもの新規入園受付','共通QR・申請受付','新しい申請の受付を開始する','新しい申請の受付を停止する','案内を印刷','QR画像を保存','登録案内メールを受け取る','最初に戻る','登園する','降園する','確認へ','決定','修正','取り消し','名前選択へ']],
-  ['field',['出席','欠席','私用','病欠','体調メモ','園への連絡事項','現在の体温','症状','備考','性状','表示名','メールアドレス','権限','表示順','有効','ログインID','発行理由','新しいパスワード','新しいパスワード（確認）','再設定コード','有効化コード','クラス','担当区分','開始日','終了日','主表示にする','所属する家族','兄弟姉妹を選択','姓','名','姓（カナ）','名（カナ）','生年月日','入園日','退園日','在籍状況','家族名','自宅住所','自宅電話番号','在園児','保護者のメールアドレス','確認理由','連絡方法','欠席理由','連絡内容','取消理由','共通の補完理由','共通の降園時刻','子どもの名前','入園予定日','閲覧を許可する園児','保護者ご本人のメールアドレス','承認先の園児・保護者']]
+  ['button',['この端末で通知を受け取る','この端末の通知を解除する','この端末へテスト通知を送る','設定を保存','許可','共有','ホーム画面に追加','追加','日付を変更','日次連絡を入力','日次連絡を編集','お迎え予定を登録・変更','未読・未回答','保存する','予定を保存','ホームへ戻る','戻る','表示','ダウンロード','出席・欠席を連絡する','回答する','回答を編集','内容を編集','履歴を見る','返信あり','職員を追加','園児を追加','認証管理','担当クラス','権限設定','クラス管理','園児別・月間修正','管理者：まとめて補完','追加する','登録する','キャンセル','一覧へ戻る','編集','有効化コードを発行','コードを確認して次へ','ログイン情報を設定','再設定コードを発行','パスワードを再設定','パスワードを設定する','管理者の方：パスワードを忘れた場合','詳細','閉じる','連絡受付を記録','受付を取り消す','表示する','選択した日の空欄へ入れる','保存内容を確認','○日分をまとめて保存','3日分をまとめて保存','保存せず閉じる','詳細・修正','この日の記録を保存','打刻の取消・履歴を開く','引き継いで追加','在園児の保護者を追加・招待','この保護者を招待','新しい保護者を追加','登録済み・認証管理','初回入力の招待を送信','入力内容を園に提出する','入力をやめる','承認','却下','選択','更新する','提出内容を確認する','まだ園児台帳にいない子どもの新規入園受付','共通QR・申請受付','新しい申請の受付を開始する','新しい申請の受付を停止する','案内を印刷','QR画像を保存','登録案内メールを受け取る','最初に戻る','登園する','降園する','確認へ','決定','修正','取り消し','名前選択へ']],
+  ['field',['プッシュ通知を利用する','出欠確認をプッシュで受け取る','出欠確認をメールでも受け取る','ウェブアプリとして開く','通知を許可','出席','欠席','私用','病欠','体調メモ','園への連絡事項','現在の体温','症状','備考','性状','表示名','メールアドレス','権限','表示順','有効','ログインID','発行理由','新しいパスワード','新しいパスワード（確認）','再設定コード','有効化コード','クラス','担当区分','開始日','終了日','主表示にする','所属する家族','兄弟姉妹を選択','姓','名','姓（カナ）','名（カナ）','生年月日','入園日','退園日','在籍状況','家族名','自宅住所','自宅電話番号','在園児','保護者のメールアドレス','確認理由','連絡方法','欠席理由','連絡内容','取消理由','共通の補完理由','共通の降園時刻','子どもの名前','入園予定日','閲覧を許可する園児','保護者ご本人のメールアドレス','承認先の園児・保護者']]
 ].flatMap(([kind,names])=>names.map(name=>[name,kind])));
 function uiRef(kind,label){
   return `<span class="ui-ref ui-ref--${kind}"><strong>${esc(label)}</strong></span>`;
@@ -1653,6 +1653,346 @@ const manualArticles = {
     "source": "parent-app-manual/",
     "sourceLabel": "保護者アプリの使い方"
   },
+  "parent-app-notifications-android": {
+    "audience": "parents",
+    "section": "app",
+    "title": "Androidで通知を受け取る",
+    "summary": "園から「出欠確認のお願い」が来たときに、スマホに通知を出すための設定です。Chromeで操作します。",
+    "before": "通知を受けたいスマホで、Chromeを開きます。園から案内されたページと、自分のログイン情報を用意してください。",
+    "chapter": 1,
+    "role": "保護者の方",
+    "tag": "保護者アプリ",
+    "imagePrefix": "app",
+    "keywords": "Android アンドロイド Chrome 通知 設定 許可 届かない プッシュ 出欠確認",
+    "steps": [
+      {
+        "title": "「メニュー」から「通知設定」を開きます",
+        "text": "園から案内されたページでログインします。画面の上の「メニュー」を押し、「通知設定」を選んでください。",
+        "image": "push-menu",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。「メニュー」から「通知設定」を開きます",
+        "note": "このマニュアルのページではなく、普段、園へ連絡しているページで操作します。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "「メニュー」を押して開いたところです。",
+          "「通知設定」を押します。"
+        ]
+      },
+      {
+        "title": "「この端末で通知を受け取る」を押します",
+        "text": "「この端末で通知を受け取る」を押してください。「端末」は、いま使っているスマートフォンのことです。",
+        "image": "push-enable",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。「この端末で通知を受け取る」を押します",
+        "note": "「園側の通知設定は準備中です。」と出ている場合は、園からの案内を待ってください。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "このボタンを押すと、通知の許可を求める画面が出ます。"
+        ]
+      },
+      {
+        "title": "通知の確認で「許可」を押します",
+        "text": "通知してよいか聞かれたら、「許可」を押してください。",
+        "image": "push-android-allow",
+        "alt": "操作の図。実機のスクリーンショットではありません。通知の確認で「許可」を押します",
+        "note": "すでに許可している場合、この確認が出ないこともあります。「ブロック」にしてしまった場合は、最後の手順を見てください。",
+        "compact": true,
+        "diagram": true,
+        "calls": [
+          "園のページの通知を「許可」にします。"
+        ]
+      },
+      {
+        "title": "「許可」と「この端末は登録済み」を確かめます",
+        "text": "「通知権限」が許可、「登録状態」が「この端末は登録済み」になっているか見てください。",
+        "image": "push-registered",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。「許可」と「この端末は登録済み」を確かめます",
+        "note": "「未登録」のままなら、もう一度「この端末で通知を受け取る」を押します。エラーが出る場合は、表示された文を園へ伝えてください。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "通知を許可できています。",
+          "このスマートフォンを登録できています。"
+        ]
+      },
+      {
+        "title": "2つにチェックを入れ、保存します",
+        "text": "下へ進み、「プッシュ通知を利用する」と「出欠確認をプッシュで受け取る」にチェックを入れます。「設定を保存」を押し、「保存しました。」と出たことを確かめてください。",
+        "image": "push-preferences",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。2つにチェックを入れ、保存します",
+        "note": "画像は保存した後の例です。「出欠確認をメールでも受け取る」は、メールもほしい場合だけチェックします。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "「プッシュ通知を利用する」にチェックします。",
+          "「出欠確認をプッシュで受け取る」にチェックします。",
+          "「設定を保存」を押します。",
+          "「保存しました。」と出たら、設定を保存できています。"
+        ]
+      },
+      {
+        "title": "テスト通知がスマホに出るか確かめます",
+        "text": "上へ戻り、「この端末へテスト通知を送る」を押します。スマホに通知が出たら、その通知を押してください。園のアプリの「通知設定」が開けば確認できました。",
+        "image": "push-test",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。テスト通知がスマホに出るか確かめます",
+        "note": "「送信を受け付けました。」だけでは、スマホに届いたかは分かりません。通知が出ない場合は、次の手順を見てください。テストでは出欠の連絡は送られません。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "このスマートフォンへ、確認用の通知を送ります。",
+          "画像は送信を受け付けた例です。スマホに出た通知も確かめてください。"
+        ]
+      },
+      {
+        "title": "届かないときは、Chromeとスマホの設定を見ます",
+        "text": "Chromeで園のページを開き、アドレスバー左のページ情報から「権限」→「通知」を開いて許可します。スマホの「設定」でも「通知」→「アプリの通知」→「Chrome」を開き、通知をオンにしてください。",
+        "image": "push-android-check",
+        "alt": "操作の図。実機のスクリーンショットではありません。届かないときは、Chromeとスマホの設定を見ます",
+        "note": "設定を直したら、園のアプリの「通知設定」に戻ります。「未登録」なら登録し直し、テスト通知を確かめてください。機種によって項目の名前が違います。",
+        "compact": true,
+        "diagram": true,
+        "calls": [
+          "Chromeで、園のページの通知を許可します。",
+          "スマホ側でも、Chromeの通知をオンにします。"
+        ]
+      }
+    ],
+    "checks": [
+      "「通知権限」は許可、「登録状態」は「この端末は登録済み」です。",
+      "受け取りたい通知にチェックを入れ、「設定を保存」を押しました。",
+      "スマホにテスト通知が出て、通知を押すと「通知設定」が開きました。"
+    ],
+    "faq": [
+      [
+        "「非対応」と出る、設定が見つからないときは",
+        "Chromeを新しくして、通常のタブで園のページを開き直します。シークレットモードでは通知を受け取れません。機種やAndroidのバージョンによって操作が違う場合は、表示された画面を園の職員に見せてください。"
+      ],
+      [
+        "どんな通知が届きますか",
+        "現在、この設定で受け取れるのは、園からの「出欠確認のお願い」です。お知らせ・アンケート・日次連絡の返信がすべてスマホに通知される設定ではありません。アプリの中も確認してください。"
+      ],
+      [
+        "テスト通知をもう一度送りたいです",
+        "1分以上あけてから押してください。テストは1日に10回までです。表示された案内に従ってください。"
+      ],
+      [
+        "スマホを替えたときや、家族のスマホでも使うときは",
+        "通知を受けたいスマホごとに、この手順を行います。家族はそれぞれ、園から案内された自分のアカウントでログインしてください。"
+      ],
+      [
+        "ログアウトした後、通知が届かなくなりました",
+        "ログアウトすると、そのブラウザーの通知登録は解除されます。再びログインしたら「通知設定」を開き、「この端末で通知を受け取る」を押して、登録状態とテスト通知を確かめてください。"
+      ],
+      [
+        "通知を止めたいです",
+        "いま使っているスマホだけ止める場合は「この端末の通知を解除する」を押します。このアカウントで登録したすべてのスマホを止める場合は「プッシュ通知を利用する」のチェックを外し、「設定を保存」を押します。メールを止めたい場合は、メールのチェックも外して保存します。"
+      ],
+      [
+        "「園側の通知設定は準備中です。」と出ます",
+        "スマホの故障ではありません。園での準備が必要です。受け取る通知の設定は保存できますが、スマホの登録は園から利用開始の案内が来てから行ってください。"
+      ]
+    ],
+    "relatedArticles": [
+      "parent-app-notifications-iphone",
+      "parent-app-home",
+      "parent-app-contact"
+    ],
+    "source": "parent-app-manual/",
+    "sourceLabel": "保護者アプリの使い方",
+    "references": [
+      [
+        "Chromeで通知を使う（Google）",
+        "https://support.google.com/chrome/answer/3220216?hl=ja&co=GENIE.Platform%3DAndroid"
+      ],
+      [
+        "Androidで通知を管理する（Google）",
+        "https://support.google.com/android/answer/9079661?hl=ja"
+      ]
+    ],
+    "sourceNote": "アプリ内の画像は、確認した配備版に説明用の名前と設定状態を入れた見本です。スマートフォン側の操作は、公式案内をもとにした「操作の図」で、実機のスクリーンショットではありません。機種やバージョンによって表示が違います。実機での受信確認は未実施です。公式案内は2026年11月3日に確認しました。"
+  },
+  "parent-app-notifications-iphone": {
+    "audience": "parents",
+    "section": "app",
+    "title": "iPhoneで通知を受け取る",
+    "summary": "園から「出欠確認のお願い」が来たときに、iPhoneに通知を出すための設定です。最初に、園のアプリをホーム画面に追加します。",
+    "before": "通知を受けたいiPhoneで操作します。Safariで園から案内されたページを開いてください。ホーム画面に追加済みなら、手順2から進めます。",
+    "chapter": 1,
+    "role": "保護者の方",
+    "tag": "保護者アプリ",
+    "imagePrefix": "app",
+    "keywords": "iPhone アイフォン アイフォーン Safari ホーム画面 通知 設定 許可 届かない プッシュ 出欠確認",
+    "steps": [
+      {
+        "title": "園のアプリをホーム画面に追加します",
+        "text": "Safariの「共有」から「ホーム画面に追加」を選びます。「ウェブアプリとして開く」が出たらオンにして、「追加」を押してください。",
+        "image": "push-iphone-add",
+        "alt": "操作の図。実機のスクリーンショットではありません。園のアプリをホーム画面に追加します",
+        "note": "「共有」はページメニューの中にある場合もあります。「ホーム画面に追加」が見つからないときは、一覧の「アクションを編集」も確認してください。",
+        "compact": true,
+        "diagram": true,
+        "calls": [
+          "園のページを開いて「共有」を押します。",
+          "「ホーム画面に追加」を選びます。",
+          "この項目が出る場合は、オンにします。",
+          "「追加」を押します。"
+        ]
+      },
+      {
+        "title": "ホーム画面のアイコンから開きます",
+        "text": "Safariを離れ、ホーム画面にできた「保護者ポータル」のアイコンを押します。ログインしたら、「メニュー」から「通知設定」を開いてください。",
+        "image": "push-menu",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。ホーム画面のアイコンから開きます",
+        "note": "追加するときに名前を変えた場合は、その名前のアイコンです。通知を設定するときは、必ずこのアイコンから開きます。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "アイコンから開いたアプリで「メニュー」を押します。",
+          "「通知設定」を押します。"
+        ]
+      },
+      {
+        "title": "「この端末で通知を受け取る」を押します",
+        "text": "「この端末で通知を受け取る」を押してください。「端末」は、いま使っているスマートフォンのことです。",
+        "image": "push-enable",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。「この端末で通知を受け取る」を押します",
+        "note": "「園側の通知設定は準備中です。」と出ている場合は、園からの案内を待ってください。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "このボタンを押すと、通知の許可を求める画面が出ます。"
+        ]
+      },
+      {
+        "title": "通知の確認で「許可」を押します",
+        "text": "通知してよいか聞かれたら、「許可」を押してください。",
+        "image": "push-iphone-allow",
+        "alt": "操作の図。実機のスクリーンショットではありません。通知の確認で「許可」を押します",
+        "note": "すでに許可している場合、この確認が出ないこともあります。「許可しない」にした場合は、最後の手順を見てください。",
+        "compact": true,
+        "diagram": true,
+        "calls": [
+          "園のアプリからの通知を「許可」にします。"
+        ]
+      },
+      {
+        "title": "「許可」と「この端末は登録済み」を確かめます",
+        "text": "「通知権限」が許可、「登録状態」が「この端末は登録済み」になっているか見てください。",
+        "image": "push-registered",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。「許可」と「この端末は登録済み」を確かめます",
+        "note": "「未登録」のままなら、もう一度「この端末で通知を受け取る」を押します。エラーが出る場合は、表示された文を園へ伝えてください。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "通知を許可できています。",
+          "このスマートフォンを登録できています。"
+        ]
+      },
+      {
+        "title": "2つにチェックを入れ、保存します",
+        "text": "下へ進み、「プッシュ通知を利用する」と「出欠確認をプッシュで受け取る」にチェックを入れます。「設定を保存」を押し、「保存しました。」と出たことを確かめてください。",
+        "image": "push-preferences",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。2つにチェックを入れ、保存します",
+        "note": "画像は保存した後の例です。「出欠確認をメールでも受け取る」は、メールもほしい場合だけチェックします。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "「プッシュ通知を利用する」にチェックします。",
+          "「出欠確認をプッシュで受け取る」にチェックします。",
+          "「設定を保存」を押します。",
+          "「保存しました。」と出たら、設定を保存できています。"
+        ]
+      },
+      {
+        "title": "テスト通知がスマホに出るか確かめます",
+        "text": "上へ戻り、「この端末へテスト通知を送る」を押します。スマホに通知が出たら、その通知を押してください。園のアプリの「通知設定」が開けば確認できました。",
+        "image": "push-test",
+        "alt": "配備版の画面を使った見本。設定状態は説明用です。テスト通知がスマホに出るか確かめます",
+        "note": "「送信を受け付けました。」だけでは、スマホに届いたかは分かりません。通知が出ない場合は、次の手順を見てください。テストでは出欠の連絡は送られません。",
+        "compact": true,
+        "diagram": false,
+        "calls": [
+          "このスマートフォンへ、確認用の通知を送ります。",
+          "画像は送信を受け付けた例です。スマホに出た通知も確かめてください。"
+        ]
+      },
+      {
+        "title": "届かないときは、iPhoneの設定を見ます",
+        "text": "iPhoneの「設定」→「通知」で、ホーム画面に追加したアプリを選び、「通知を許可」をオンにします。おやすみモードなどの「集中モード」で通知を止めていないかも確かめてください。",
+        "image": "push-iphone-check",
+        "alt": "操作の図。実機のスクリーンショットではありません。届かないときは、iPhoneの設定を見ます",
+        "note": "設定を直したら、ホーム画面のアイコンから園のアプリを開きます。「通知設定」で登録状態を見て、もう一度テスト通知を確かめてください。",
+        "compact": true,
+        "diagram": true,
+        "calls": [
+          "「設定」→「通知」で、追加したアプリを選びます。",
+          "「通知を許可」をオンにします。",
+          "集中モードの設定も確かめます。"
+        ]
+      }
+    ],
+    "checks": [
+      "「通知権限」は許可、「登録状態」は「この端末は登録済み」です。",
+      "受け取りたい通知にチェックを入れ、「設定を保存」を押しました。",
+      "スマホにテスト通知が出て、通知を押すと「通知設定」が開きました。"
+    ],
+    "faq": [
+      [
+        "「非対応」と出る、通知の確認が出ないときは",
+        "Safariのタブではなく、ホーム画面に追加したアイコンから開いているか確かめます。iPhoneはiOS 16.4以降が必要です。古い場合はiPhoneを更新してください。それでも進めないときは園に相談してください。"
+      ],
+      [
+        "設定の一覧にアプリがありません",
+        "先に、ホーム画面のアイコンから開き、アプリ内の「この端末で通知を受け取る」を押したか確かめます。アイコンを追加したときに名前を変えた場合は、その名前を探してください。"
+      ],
+      [
+        "どんな通知が届きますか",
+        "現在、この設定で受け取れるのは、園からの「出欠確認のお願い」です。お知らせ・アンケート・日次連絡の返信がすべてスマホに通知される設定ではありません。アプリの中も確認してください。"
+      ],
+      [
+        "テスト通知をもう一度送りたいです",
+        "1分以上あけてから押してください。テストは1日に10回までです。表示された案内に従ってください。"
+      ],
+      [
+        "スマホを替えたときや、家族のスマホでも使うときは",
+        "通知を受けたいスマホごとに、この手順を行います。家族はそれぞれ、園から案内された自分のアカウントでログインしてください。"
+      ],
+      [
+        "ログアウトした後、通知が届かなくなりました",
+        "ログアウトすると、そのブラウザーの通知登録は解除されます。再びログインしたら「通知設定」を開き、「この端末で通知を受け取る」を押して、登録状態とテスト通知を確かめてください。"
+      ],
+      [
+        "通知を止めたいです",
+        "いま使っているスマホだけ止める場合は「この端末の通知を解除する」を押します。このアカウントで登録したすべてのスマホを止める場合は「プッシュ通知を利用する」のチェックを外し、「設定を保存」を押します。メールを止めたい場合は、メールのチェックも外して保存します。"
+      ],
+      [
+        "「園側の通知設定は準備中です。」と出ます",
+        "スマホの故障ではありません。園での準備が必要です。受け取る通知の設定は保存できますが、スマホの登録は園から利用開始の案内が来てから行ってください。"
+      ]
+    ],
+    "relatedArticles": [
+      "parent-app-notifications-android",
+      "parent-app-home",
+      "parent-app-contact"
+    ],
+    "source": "parent-app-manual/",
+    "sourceLabel": "保護者アプリの使い方",
+    "references": [
+      [
+        "Safariでウェブサイトをアプリにする（Apple）",
+        "https://support.apple.com/ja-jp/guide/iphone/iphea86e5236/ios"
+      ],
+      [
+        "iPhoneの通知の設定を変更する（Apple）",
+        "https://support.apple.com/ja-jp/guide/iphone/iph7c3d96bab/ios"
+      ],
+      [
+        "ホーム画面のアプリへの通知（WebKit・英語）",
+        "https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/"
+      ]
+    ],
+    "sourceNote": "アプリ内の画像は、確認した配備版に説明用の名前と設定状態を入れた見本です。スマートフォン側の操作は、公式案内をもとにした「操作の図」で、実機のスクリーンショットではありません。機種やバージョンによって表示が違います。実機での受信確認は未実施です。公式案内は2026年11月3日に確認しました。"
+  },
   // END REGISTRATION ARTICLES
   phone: {
     title:'電話で欠席連絡を受けた', chapter:1, role:'出欠確認を操作できる職員', tag:'朝の出欠・連絡',
@@ -1704,7 +2044,7 @@ const manualArticles = {
 // BEGIN PARENT GUIDE
 // Parent-facing pages share the image viewer, but use their own short navigation.
 let staffSidebarMarkup='';
-const parentAppIds=['parent-app-home','parent-app-contact','parent-app-absence','parent-app-pickup','parent-app-notices','parent-app-survey','parent-app-history'];
+const parentAppIds=['parent-app-home','parent-app-contact','parent-app-absence','parent-app-pickup','parent-app-notices','parent-app-survey','parent-app-history','parent-app-notifications-android','parent-app-notifications-iphone'];
 function setManualAudience(page,id){
   const parent=page==='parents'||page==='parent-app'||page==='parent-help'||(page==='article'&&manualArticles[id]?.audience==='parents');
   const sidebar=document.getElementById('sidebar');
@@ -1715,12 +2055,12 @@ function setManualAudience(page,id){
   sidebar.innerHTML=parent?`<nav aria-label="保護者用の目次"><a href="#parents" class="nav-home">保護者用のホーム</a><p class="nav-label">スマートフォンのアプリ</p><a href="#parent-app">アプリでできること</a>${parentAppIds.map(id=>`<a href="#article/${id}">${esc(manualArticles[id].title)}</a>`).join('')}<p class="nav-label">園の受付画面</p><a href="#article/parent-arrival">園に着いたとき（登園）</a><a href="#article/parent-departure">お迎えのとき（降園）</a><a href="#parent-help">間違えた・うまくいかない</a></nav><div class="sidebar-note"><strong>分からないときは</strong><p>園の職員に声をかけてください。</p><a href="#home">職員用のガイドへ</a></div>`:staffSidebarMarkup;
 }
 function parentHome(){return `<p class="eyebrow">保護者の方へ</p><h1>保護者のための使い方ガイド</h1><p class="lead">やりたいことを選んでください。<br>短い文と、画面の見本でご案内します。</p><section class="parent-tip"><h2>スマートフォンのアプリ</h2><p>朝の連絡、お休み、お迎え予定。<br>お知らせや、園からの返信を見るときはこちら。</p><a class="parent-app-start" href="#parent-app">保護者アプリの使い方を見る →</a></section><h2>園の受付画面</h2><p>園に着いたときと、お迎えのときに操作します。</p><div class="parent-cards">${['parent-arrival','parent-departure'].map(card).join('')}</div><a class="parent-help-link" href="#parent-help"><strong>受付で間違えた・うまくいかない →</strong><span>押し忘れ、名前が見つからない、画面が進まないとき</span></a><p class="source-note">ここは使い方を読むページです。実際の連絡や受付は、園のアプリ・受付画面で行ってください。画面の名前・日付・時刻は例です。</p>`;}
-function parentAppHome(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>保護者アプリ</span></div><p class="eyebrow">スマートフォンのアプリ</p><h1>保護者アプリの使い方</h1><p class="lead">「これをしたい」から選んでください。<br>1つずつ、画面を見ながら進められます。</p><div class="parent-cards">${parentAppIds.map(card).join('')}</div><div class="parent-tip"><h2>登園・降園の受付はこちら</h2><p>アプリで連絡を送っても、登園・降園の受付は終わりません。園にある受付画面も操作してください。</p><a href="#article/parent-arrival">園に着いたとき →</a><br><a href="#article/parent-departure">お迎えのとき →</a></div><p class="source-note">今回は、ホームの見方と毎日の連絡を案内しています。登録情報や通知設定などの詳しい手順は、画面を確認しながら追加します。</p>`;}
-function parentScreenshot(image,alt){return `<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(alt)}" aria-label="${esc(alt)}を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v13" alt="${esc(alt)}"></button><figcaption><span>画面の見本</span><span>画像を押すと大きくなります ↗</span></figcaption></figure>`;}
+function parentAppHome(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>保護者アプリ</span></div><p class="eyebrow">スマートフォンのアプリ</p><h1>保護者アプリの使い方</h1><p class="lead">「これをしたい」から選んでください。<br>1つずつ、画面を見ながら進められます。</p><div class="parent-cards">${parentAppIds.map(card).join('')}</div><div class="parent-tip"><h2>登園・降園の受付はこちら</h2><p>アプリで連絡を送っても、登園・降園の受付は終わりません。園にある受付画面も操作してください。</p><a href="#article/parent-arrival">園に着いたとき →</a><br><a href="#article/parent-departure">お迎えのとき →</a></div><p class="source-note">ホームの見方・毎日の連絡・通知の設定を案内しています。通知はAndroid用とiPhone用の手順から選べます。登録情報などの詳しい手順は、画面を確認しながら追加します。</p>`;}
+function parentScreenshot(image,alt){return `<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(alt)}" aria-label="${esc(alt)}を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v14" alt="${esc(alt)}"></button><figcaption><span>画面の見本</span><span>画像を押すと大きくなります ↗</span></figcaption></figure>`;}
 function parentHelp(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>困ったとき</span></div><h1>間違えた・うまくいかない</h1><p class="lead">分からないときは、園の職員に声をかけてください。</p><section class="parent-tip"><h2>名前を間違えて押しました</h2><p>まだ決める前なら、「名前選択へ」や「取り消し」で戻れます。</p><p>登園の「決定」や「降園する」を押した後は、職員に訂正をお願いしてください。押した名前と、何を押したかを伝えます。</p></section><section class="parent-tip"><h2>押すのを忘れました</h2><p>職員に、お子さまの名前と、園に着いた時刻・帰った時刻を伝えてください。後から押す前に、職員に確認してください。</p></section><section class="parent-tip"><h2>画面が進みません・通信の案内が出ました</h2><p>何度も押さず、職員に声をかけてください。職員が、記録されたかどうかを確認します。</p>${parentScreenshot('terminal-offline','通信が切れているときの画面')}<p>「接続済み」と出ているだけでは、登園・降園の受付が終わったことにはなりません。</p></section><section class="parent-tip"><h2>「本日の打刻は完了しています」と出ました</h2><p>今日の降園は記録されています。表示された時刻が違うときは、職員に伝えてください。</p>${parentScreenshot('terminal-already','今日の登園と降園が記録されている画面')}</section><section class="parent-tip"><h2>途中で最初の画面に戻りました</h2><p>しばらく操作しないと、最初の画面に戻ります。「操作を続ける」が出たら、押して続けられます。</p><p>「決定」や「降園する」を押す前なら、クラスから選び直します。押した後か分からないときは、職員に確認してください。</p></section><a href="#parents">← 登園・降園の手順へ戻る</a>`;}
 function parentArticle(id){
   const a=manualArticles[id];
-  return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>${a.title}</span></div><p class="eyebrow">保護者の方へ</p><h1>${a.title}</h1><p class="lead">${prose(a.summary)}</p><p class="parent-before">${prose(a.before)}</p><div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 戻る</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次へ →</button>`:`<button class="primary" data-check-jump>最後に確かめる ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>これで終わりです</h2><p>使い方を読んだあとの確認です。このページから園へ連絡を送ったり、受付をしたりすることはできません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section><section class="faq"><h2>困ったとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section>${a.section==='app'?'<a class="parent-help-link" href="#parent-app"><strong>ほかのアプリの使い方を見る →</strong></a>':'<a class="parent-help-link" href="#parent-help"><strong>間違えた・画面が進まないときはこちら →</strong></a>'}<div class="parent-related">${a.relatedArticles.map(articleLink).join('')}<a href="#parents">← 保護者用のホームへ</a></div><details class="source-note"><summary>このマニュアルの画面について</summary><p>2026年11月3日に確認した版をもとに、説明用の名前や時刻で撮影しています。長い画面は、手順に合わせて上・途中・下の部分を撮影しています。画面全体の見本もあります。受付の完了画面は、読めるように止めて撮影しました。園の画面と違うときは、職員に聞いてください。</p></details>`;
+  return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>${a.title}</span></div><p class="eyebrow">保護者の方へ</p><h1>${a.title}</h1><p class="lead">${prose(a.summary)}</p><p class="parent-before">${prose(a.before)}</p><div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 戻る</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次へ →</button>`:`<button class="primary" data-check-jump>最後に確かめる ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>これで終わりです</h2><p>使い方を読んだあとの確認です。このページから園へ連絡を送ったり、受付をしたりすることはできません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section><section class="faq"><h2>困ったとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section>${a.section==='app'?'<a class="parent-help-link" href="#parent-app"><strong>ほかのアプリの使い方を見る →</strong></a>':'<a class="parent-help-link" href="#parent-help"><strong>間違えた・画面が進まないときはこちら →</strong></a>'}<div class="parent-related">${a.relatedArticles.map(articleLink).join('')}<a href="#parents">← 保護者用のホームへ</a></div><details class="source-note"><summary>このマニュアルの画面について</summary>${a.sourceNote?`<p>${esc(a.sourceNote)}</p><ul>${a.references.map(([label,url])=>`<li><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a></li>`).join('')}</ul>`:`<p>2026年11月3日に確認した版をもとに、説明用の名前や時刻で撮影しています。長い画面は、手順に合わせて上・途中・下の部分を撮影しています。画面全体の見本もあります。受付の完了画面は、読めるように止めて撮影しました。園の画面と違うときは、職員に聞いてください。</p>`}</details>`;
 }
 
 // END PARENT GUIDE
@@ -1753,13 +2093,13 @@ const answers={
 };
 function answer(id){const a=answers[id];return `<div class="diagnosis">${crumb('状況に合わせた対応')}<p class="eyebrow">まず、ここを確認</p><h1>${a[0]}</h1><p>${prose(a[1])}</p><div class="notice">${prose(a[2])}</div><div class="related"><a class="primary topic" href="#article/${a[3]}">関連する画面付きの手順を読む →</a><a class="topic" href="#help/${a[3]}">状況を選び直す</a></div></div>`;}
 function normalize(s){return s.normalize('NFKC').toLowerCase().replace(/\s+/g,'');}
-function search(q){const n=normalize(q), terms=q.normalize('NFKC').trim().split(/[\s　]+/).filter(Boolean);const expansions=[];if(/欠席|電話|でんわ|休み/.test(n))expansions.push('phone');if(/打刻|だこく|登園|降園|補完/.test(n))expansions.push('clock');if(/ログイン|パスワード|コード/.test(n))expansions.push('password');const matches=Object.entries(manualArticles).filter(([id,a])=>expansions.includes(id)||(terms.length&&terms.every(t=>normalize(a.title+a.keywords+a.summary).includes(normalize(t)))));const refs=manualChapters.flatMap(c=>c.topics).filter(t=>terms.length&&terms.every(w=>normalize(t.title+t.role).includes(normalize(w))));return `${crumb('検索結果')}<h1>必要な手順を探す</h1>${searchBox()}<p class="search-status" role="status">${q?`「${esc(q)}」：画面付き ${matches.length}件・既存資料 ${refs.length}件`:'困っていることや、やりたいことを入力してください。'}</p>${matches.length?`<h2>画面を見ながら進める</h2><div class="topic-list">${matches.map(([id])=>articleLink(id)).join('')}</div>`:''}${refs.length?`<div class="section-head"><h2>現在の公開資料</h2></div><div class="topic-list">${refs.map(referenceLink).join('')}</div>`:''}${q&&!matches.length&&!refs.length?`<div class="empty-result"><h2>ぴったりの手順が見つかりませんでした。</h2><p>「打刻忘れ」「職員登録」のような短い言葉で試してください。<br>この試作版で画面付きの手順があるのは職員向け9例・保護者向け9例です。</p><a href="#chapters">業務別の目次から探す →</a></div>`:''}`;}
+function search(q){const n=normalize(q), terms=q.normalize('NFKC').trim().split(/[\s　]+/).filter(Boolean);const expansions=[];if(/欠席|電話|でんわ|休み/.test(n))expansions.push('phone');if(/打刻|だこく|登園|降園|補完/.test(n))expansions.push('clock');if(/ログイン|パスワード|コード/.test(n))expansions.push('password');const matches=Object.entries(manualArticles).filter(([id,a])=>expansions.includes(id)||(terms.length&&terms.every(t=>normalize(a.title+a.keywords+a.summary).includes(normalize(t)))));const refs=manualChapters.flatMap(c=>c.topics).filter(t=>terms.length&&terms.every(w=>normalize(t.title+t.role).includes(normalize(w))));return `${crumb('検索結果')}<h1>必要な手順を探す</h1>${searchBox()}<p class="search-status" role="status">${q?`「${esc(q)}」：画面付き ${matches.length}件・既存資料 ${refs.length}件`:'困っていることや、やりたいことを入力してください。'}</p>${matches.length?`<h2>画面を見ながら進める</h2><div class="topic-list">${matches.map(([id])=>articleLink(id)).join('')}</div>`:''}${refs.length?`<div class="section-head"><h2>現在の公開資料</h2></div><div class="topic-list">${refs.map(referenceLink).join('')}</div>`:''}${q&&!matches.length&&!refs.length?`<div class="empty-result"><h2>ぴったりの手順が見つかりませんでした。</h2><p>「打刻忘れ」「職員登録」のような短い言葉で試してください。<br>この試作版で画面付きの手順があるのは職員向け9例・保護者向け11例です。</p><a href="#chapters">業務別の目次から探す →</a></div>`:''}`;}
 function renderStep(a,i,print=false){
   const s=a.steps[i], prefix=s.imagePrefix||a.imagePrefix||(currentArticle==='phone'?'phone':'monthly');
   const selected=!print&&s.states?(imageState[i]||s.states[0][0]):'';
   const image=selected?prefix+'-'+selected:s.image;
   const caption=selected?s.stateNotes[selected]:s.alt;
-  return `<section class="step-body" id="${print?'print-':''}step-${i}"><div class="step-heading"><span class="number">${i+1}</span><h2>${s.title}</h2></div><p>${prose(s.text)}</p>${s.states&&!print?`<label class="state-select">${a.audience==='parents'?'ほかの画面を見る':'見本の状態'} <select data-state-step="${i}" aria-label="見本の状態">${s.states.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="state-explanation">${prose(s.stateNotes[selected])}</p>`:''}${image?`<figure class="screen${s.focused?' screen-focused':''}" data-frame="${s.focused?s.image:''}"><button type="button" data-zoom="${image}" data-caption="${esc(caption)}" aria-label="手順${i+1}の画面を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v13" alt="${esc(caption)}"></button><figcaption><span>${a.audience==='parents'?'画面の見本。名前や時刻は例です。':'配備記録に対応する画面の見本・架空データ'}${image.startsWith('monthly-')&&image!=='monthly-list'?'／入力欄を縦に展開':''}</span><span>画像を押すと拡大 ↗</span></figcaption></figure>`:''}${s.calls?`<ol class="callouts">${s.calls.map((c,k)=>`<li><span class="number">${k+1}</span><span>${prose(c)}</span></li>`).join('')}</ol>`:''}${s.note?`<div class="notice ${i===a.steps.length-2?'warm':''}">${prose(s.note)}</div>`:''}</section>`;
+  return `<section class="step-body" id="${print?'print-':''}step-${i}"><div class="step-heading"><span class="number">${i+1}</span><h2>${s.title}</h2></div><p>${prose(s.text)}</p>${s.states&&!print?`<label class="state-select">${a.audience==='parents'?'ほかの画面を見る':'見本の状態'} <select data-state-step="${i}" aria-label="見本の状態">${s.states.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="state-explanation">${prose(s.stateNotes[selected])}</p>`:''}${image?`<figure class="screen${s.focused?' screen-focused':''}${s.compact?' screen-compact':''}" data-frame="${s.focused||s.compact?s.image:''}"><button type="button" data-zoom="${image}" data-caption="${esc(caption)}" aria-label="手順${i+1}の画面を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v14" alt="${esc(caption)}"></button><figcaption><span>${s.diagram?'操作の図（実機のスクリーンショットではありません）':s.compact?'配備版の画面を使った見本・設定状態は説明用です':a.audience==='parents'?'画面の見本。名前や時刻は例です。':'配備記録に対応する画面の見本・架空データ'}${image.startsWith('monthly-')&&image!=='monthly-list'?'／入力欄を縦に展開':''}</span><span>画像を押すと拡大 ↗</span></figcaption></figure>`:''}${s.calls?`<ol class="callouts">${s.calls.map((c,k)=>`<li><span class="number">${k+1}</span><span>${prose(c)}</span></li>`).join('')}</ol>`:''}${s.note?`<div class="notice ${i===a.steps.length-2?'warm':''}">${prose(s.note)}</div>`:''}</section>`;
 }
 function article(id){const a=manualArticles[id];if(a.audience==='parents')return parentArticle(id);return `${crumb('画面付きの手順',a.chapter)}<div class="article-meta"><span class="badge">${a.tag}</span><span>${a.role}</span><span>全${a.steps.length}ステップ</span></div><h1 class="article-title">${a.title}</h1><p class="lead">${a.summary}</p>${a.admission?`<p class="admission-back"><a href="#help/admission">← 新入園児の登録方法を選び直す</a></p>`:""}<dl class="article-intro"><div><dt>この手順でできること</dt><dd>${a.goal}</dd></div><div><dt>始める前に</dt><dd>${prose(a.before)}</dd></div></dl>${openingPath(a.path)}${uiLegend()}<div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 前の手順</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次の手順へ →</button>`:`<button class="primary" data-check-jump>完了を確認する ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>ここまでできたら、完了です。</h2><p>読みながら確認するためのチェックです。実際の業務データには反映されません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section>${a.relatedArticles?.length?`<section class="article-related"><h2>関連する手順</h2><div class="topic-list">${a.relatedArticles.map(articleLink).join('')}</div></section>`:""}<section class="faq"><h2>うまくいかない・間違えたとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section><div class="related"><a href="#chapter/${a.chapter}">← ${titles[a.chapter]}の目次</a><span>·</span><a href="#issues">ほかの困りごとを見る</a></div><details class="source-note"><summary>この見本の対象版・参照した資料</summary><p>2026-11-01〜03の配備記録と保存済みテンプレートをもとに、架空データで画面を表示して撮影しました。園の実データ・実機の画面は撮影していません。外枠は撮影用に整理し、一括補完の画面は入力欄を縦に展開しています。保護者の承認画面は登録申請欄を抜粋しています。新規入園の入力画面は、任意のもう1人の保護者欄を開いて撮影しています。実際の園での表示・文言の最終確認は今後行います。モック作成日：2026-11-03。</p><a href="https://open.hoikuict.net/${a.source}" target="_blank" rel="noopener">${a.sourceLabel}（公開中の資料）↗</a></details>`;}
 function completionText(id){const count=(checked[id]||[]).length;return count===manualArticles[id].checks.length?'✓ すべて確認できました。':`${count} / ${manualArticles[id].checks.length} 項目を確認済み`;}
@@ -1772,7 +2112,7 @@ function bind(){main.querySelector('#search-form')?.addEventListener('submit',e=
 main.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{currentStep=+b.dataset.step;imageState={};updateReader();main.querySelector('.step-body').scrollIntoView({block:'start'});main.querySelector('.step-heading h2').setAttribute('tabindex','-1');main.querySelector('.step-heading h2').focus({preventScroll:true});}));
 main.querySelectorAll('[data-reader]').forEach(b=>b.addEventListener('click',()=>{allSteps=b.dataset.reader==='all';imageState={};updateReader();main.querySelector(`[data-reader="${allSteps?'all':'step'}"]`).focus({preventScroll:true});}));
 main.querySelectorAll('[data-state-step]').forEach(s=>s.addEventListener('change',()=>{imageState={...imageState,[s.dataset.stateStep]:s.value};const step=s.dataset.stateStep;updateReader();main.querySelector(`[data-state-step="${step}"]`).focus({preventScroll:true});}));
-main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const dialog=document.getElementById('image-dialog');document.getElementById('zoom-image').src='assets/'+b.dataset.zoom+'.jpg?v=20261103-v13';document.getElementById('zoom-image').alt=b.dataset.caption;document.getElementById('image-title').textContent='画面を拡大して確認';dialog.showModal();}));
+main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const dialog=document.getElementById('image-dialog');document.getElementById('zoom-image').src='assets/'+b.dataset.zoom+'.jpg?v=20261103-v14';document.getElementById('zoom-image').alt=b.dataset.caption;document.getElementById('image-title').textContent='画面を拡大して確認';dialog.showModal();}));
 main.querySelector('[data-print]')?.addEventListener('click',()=>window.print());main.querySelector('[data-check-jump]')?.addEventListener('click',()=>{document.getElementById('completion').scrollIntoView();main.querySelector('[data-check]').focus({preventScroll:true});});
 main.querySelectorAll('[data-check]').forEach(c=>c.addEventListener('change',()=>{checked[currentArticle]=Array.from(main.querySelectorAll('[data-check]:checked')).map(e=>+e.dataset.check);main.querySelector('.check-progress').textContent=completionText(currentArticle);}));}
 document.getElementById('close-image').addEventListener('click',()=>document.getElementById('image-dialog').close());

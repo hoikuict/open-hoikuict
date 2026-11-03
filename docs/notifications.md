@@ -2,6 +2,8 @@
 
 現在の業務通知は、職員が出欠確認から送る **「出欠確認のお願い」** が対象です。アプリ内通知に加え、保護者本人が選んだWeb Push・メールで知らせます。お知らせ・アンケート・日次連絡の更新を一律に自動配信する機能ではありません。
 
+保護者向けの平易な手順は、[Androidで通知を受け取る](manual-guide-preview/index.html#article/parent-app-notifications-android)・[iPhoneで通知を受け取る](manual-guide-preview/index.html#article/parent-app-notifications-iphone)を参照してください。[作成・確認範囲](spec-decisions.md#sd-024)。
+
 ## 受け取り方を選ぶ
 
 | 方法 | 利用条件 | 確認する場所 |
