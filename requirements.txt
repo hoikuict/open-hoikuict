@@ -19,6 +19,6 @@ mkdocs>=1.6,<2
 mkdocs-material
 pymdown-extensions
 # Security floors for transitive dependencies used by HTTP clients.
-aiohttp>=3.14.4
+aiohttp>=3.14.5
 certifi>=2026.10.19
 multidict>=6.9.1
