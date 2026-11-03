@@ -1,5 +1,5 @@
 'use strict';
-const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "app-absence-error": [585, 1604], "app-absence-private": [585, 1108], "app-absence-sick": [585, 1542], "app-attention": [585, 878], "app-contact-bottom": [585, 878], "app-contact-care": [585, 878], "app-contact-empty": [585, 3479], "app-contact-error": [585, 3545], "app-contact-filled": [585, 3479], "app-contact-top": [585, 878], "app-history": [585, 878], "app-home-absence": [585, 1558], "app-home-empty": [585, 1022], "app-home-saved": [585, 1558], "app-home": [585, 1342], "app-menu": [585, 878], "app-notice": [585, 950], "app-notices": [585, 878], "app-notification": [585, 878], "app-pickup-empty": [585, 1240], "app-pickup-error": [585, 1436], "app-pickup-filled": [585, 1240], "app-pickup-partial": [585, 1240], "app-reply": [585, 878], "app-survey-done": [585, 878], "app-survey-empty": [585, 878], "app-survey-error": [585, 878], "app-survey-filled": [585, 878], "app-surveys": [585, 878], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-list": [1265, 807], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 720], "password-person": [1280, 720], "phone-empty": [1265, 741], "phone-filled": [1265, 741], "phone-partial": [1265, 741], "phone-saved": [1265, 839], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 720], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487]};
+const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "app-absence-error": [585, 1604], "app-absence-private": [585, 1108], "app-absence-sick": [585, 1542], "app-attention": [585, 878], "app-contact-bottom": [585, 878], "app-contact-care": [585, 878], "app-contact-empty": [585, 3479], "app-contact-error": [585, 3545], "app-contact-filled": [585, 3479], "app-contact-top": [585, 878], "app-history": [585, 878], "app-home-absence": [585, 1558], "app-home-child": [585, 878], "app-home-date": [585, 878], "app-home-empty": [585, 1022], "app-home-menu": [585, 878], "app-home-saved": [585, 1558], "app-home-unread": [585, 878], "app-home-updates": [585, 878], "app-home": [585, 1342], "app-menu": [585, 878], "app-notice": [585, 950], "app-notices": [585, 878], "app-notification": [585, 878], "app-pickup-empty": [585, 1240], "app-pickup-error": [585, 1436], "app-pickup-filled": [585, 1240], "app-pickup-partial": [585, 1240], "app-reply": [585, 878], "app-survey-done": [585, 878], "app-survey-empty": [585, 878], "app-survey-error": [585, 878], "app-survey-filled": [585, 878], "app-surveys": [585, 878], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-list": [1265, 807], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 720], "password-person": [1280, 720], "phone-empty": [1265, 741], "phone-filled": [1265, 741], "phone-partial": [1265, 741], "phone-saved": [1265, 839], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 720], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487]};
 const main = document.getElementById('main');
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BEGIN UI LABELS
@@ -1076,7 +1076,7 @@ const manualArticles = {
     "audience": "parents",
     "section": "app",
     "title": "保護者アプリの画面を見る",
-    "summary": "まず、日付とお子さまの名前を見ます。やりたいことに合わせて、次の画面を開きます。",
+    "summary": "画面の上は保護者の名前、下はお子さまの名前です。それぞれの場所を見ながら、使いたい画面を開きます。",
     "before": "園から案内されたアプリを開き、ログインしておきます。",
     "chapter": 1,
     "role": "保護者の方",
@@ -1085,37 +1085,70 @@ const manualArticles = {
     "keywords": "保護者 アプリ ホーム メニュー 画面 日付 名前 登録情報 通知設定 パスワード",
     "steps": [
       {
-        "title": "日付と名前を確かめます",
-        "text": "「保護者ホーム」に、お子さまの名前が出ています。別の日の連絡をするときは、日付を選び、「日付を変更」を押します。",
-        "image": "app-home",
-        "alt": "日付と名前を確かめます。説明用の名前と日付で表示した画面。",
-        "note": "兄弟姉妹がいるときは、連絡するお子さまを選んでください。"
+        "title": "上の名前は保護者の名前です",
+        "text": "青いところに大きく出ているのは、ログインした保護者の名前です。その下で、連絡する日付を確かめます。",
+        "image": "app-home-date",
+        "alt": "ホームの上の部分。①見本はなこさんは保護者の名前。②連絡する日付。③日付を変更。",
+        "note": "お子さまの名前は、画面を下へ動かすと出てきます。次の手順で確認します。",
+        "focused": true,
+        "calls": [
+          "「見本 はなこ さん」は保護者の名前です。",
+          "別の日にする場合は、日付を選びます。",
+          "日付を選び直したら、「日付を変更」を押します。"
+        ]
       },
       {
-        "title": "朝の連絡や、お迎え予定を開きます",
-        "text": "体調や欠席を伝えるときは「日次連絡を入力」。お迎えの予定だけを変えるときは「お迎え予定を登録・変更」を押します。",
-        "image": "app-home",
-        "alt": "朝の連絡や、お迎え予定を開きます。説明用の名前と日付で表示した画面。",
-        "note": "すでに連絡を送った日は「日次連絡を編集」と表示されます。"
+        "title": "お子さまの名前から、連絡の画面を開きます",
+        "text": "画面を下へ動かし、「園児ごとの連絡・申請」を探します。ここにある、お子さまの名前を確かめてください。",
+        "image": "app-home-child",
+        "alt": "園児ごとの連絡・申請の部分。①見本あおいはお子さまの名前。②日次連絡を入力。③お迎え予定を登録・変更。",
+        "note": "兄弟姉妹がいるときは、連絡するお子さまの欄を使います。すでに連絡を送った日は「日次連絡を編集」と表示されます。",
+        "focused": true,
+        "calls": [
+          "「見本 あおい」はお子さまの名前です。",
+          "体調や欠席を伝えるときは、「日次連絡を入力」を押します。",
+          "お迎え予定だけを入れる・変えるときは、「お迎え予定を登録・変更」を押します。"
+        ]
       },
       {
-        "title": "まだ見ていない連絡を見ます",
-        "text": "「未読・未回答」を押すと、まだ読んでいないお知らせや、答えていないアンケートが出ます。読みたいものを押してください。",
-        "image": "app-attention",
-        "alt": "まだ見ていない連絡を見ます。説明用の名前と日付で表示した画面。",
-        "note": "出欠確認のお願いが来ているときも、ここで確認できます。"
+        "title": "ホームの「未読・未回答」を押します",
+        "text": "ホームにある「未読・未回答」の欄を押します。「詳細を見る →」も同じ入口です。",
+        "image": "app-home-unread",
+        "alt": "ホームの未読・未回答の欄。押す前の画面。",
+        "note": "まだ読んでいないお知らせや、答えていないアンケートの一覧が開きます。",
+        "focused": true,
+        "calls": [
+          "この欄を押してください。"
+        ]
+      },
+      {
+        "title": "一覧から、読みたいものを押します",
+        "text": "「未読・未回答」の一覧が開きました。お知らせやアンケートの名前を押してください。",
+        "image": "app-home-updates",
+        "alt": "未読・未回答を押した後の一覧。①お知らせ、②未回答のアンケート。",
+        "note": "出欠確認のお願いが届いているときも、この一覧に出ます。",
+        "focused": true,
+        "calls": [
+          "まだ読んでいないお知らせです。",
+          "まだ答えていないアンケートです。"
+        ]
       },
       {
         "title": "ほかの画面は「メニュー」から開きます",
-        "text": "画面の上の「メニュー」を押します。「日次連絡履歴」「お知らせ」「アンケート」などを選べます。ホームへ戻るときは「保護者ホーム」を押します。",
-        "image": "app-menu",
-        "alt": "ほかの画面は「メニュー」から開きます。説明用の名前と日付で表示した画面。",
-        "note": "「子ども情報変更申請」は、お子さまや家族の情報を園へ知らせる入口です。「登録情報」から同じ申請画面が開く場合もあります。「通知設定」は通知の受け取り方、「パスワード変更」はパスワードを変える入口です。"
+        "text": "画面の上の「メニュー」を押すと、使える画面の名前が出ます。開きたいものを押してください。",
+        "image": "app-home-menu",
+        "alt": "ホーム上部のメニューを開いた状態。①メニュー、②開いた項目の一覧。",
+        "note": "「登録情報」から、家族の情報を園へ申請する画面が開く場合もあります。分からないときは園の職員に聞いてください。",
+        "focused": true,
+        "calls": [
+          "「メニュー」を押して開いたところです。",
+          "この一覧から「日次連絡履歴」「お知らせ」「アンケート」などを選びます。"
+        ]
       }
     ],
     "checks": [
-      "お子さまの名前と、連絡する日を確かめました。",
-      "朝の連絡・お迎え予定・お知らせの入口が分かりました。"
+      "上の保護者名と、下のお子さまの名前を見分けられました。",
+      "連絡する日付と、使いたい画面の入口が分かりました。"
     ],
     "faq": [
       [
@@ -1665,7 +1698,7 @@ function setManualAudience(page,id){
 }
 function parentHome(){return `<p class="eyebrow">保護者の方へ</p><h1>保護者のための使い方ガイド</h1><p class="lead">やりたいことを選んでください。<br>短い文と、画面の見本でご案内します。</p><section class="parent-tip"><h2>スマートフォンのアプリ</h2><p>朝の連絡、お休み、お迎え予定。<br>お知らせや、園からの返信を見るときはこちら。</p><a class="parent-app-start" href="#parent-app">保護者アプリの使い方を見る →</a></section><h2>園の受付画面</h2><p>園に着いたときと、お迎えのときに操作します。</p><div class="parent-cards">${['parent-arrival','parent-departure'].map(card).join('')}</div><a class="parent-help-link" href="#parent-help"><strong>受付で間違えた・うまくいかない →</strong><span>押し忘れ、名前が見つからない、画面が進まないとき</span></a><p class="source-note">ここは使い方を読むページです。実際の連絡や受付は、園のアプリ・受付画面で行ってください。画面の名前・日付・時刻は例です。</p>`;}
 function parentAppHome(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>保護者アプリ</span></div><p class="eyebrow">スマートフォンのアプリ</p><h1>保護者アプリの使い方</h1><p class="lead">「これをしたい」から選んでください。<br>1つずつ、画面を見ながら進められます。</p><div class="parent-cards">${parentAppIds.map(card).join('')}</div><div class="parent-tip"><h2>登園・降園の受付はこちら</h2><p>アプリで連絡を送っても、登園・降園の受付は終わりません。園にある受付画面も操作してください。</p><a href="#article/parent-arrival">園に着いたとき →</a><br><a href="#article/parent-departure">お迎えのとき →</a></div><p class="source-note">今回は、ホームの見方と毎日の連絡を案内しています。登録情報や通知設定などの詳しい手順は、画面を確認しながら追加します。</p>`;}
-function parentScreenshot(image,alt){return `<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(alt)}" aria-label="${esc(alt)}を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v9" alt="${esc(alt)}"></button><figcaption><span>画面の見本</span><span>画像を押すと大きくなります ↗</span></figcaption></figure>`;}
+function parentScreenshot(image,alt){return `<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(alt)}" aria-label="${esc(alt)}を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v10" alt="${esc(alt)}"></button><figcaption><span>画面の見本</span><span>画像を押すと大きくなります ↗</span></figcaption></figure>`;}
 function parentHelp(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>困ったとき</span></div><h1>間違えた・うまくいかない</h1><p class="lead">分からないときは、園の職員に声をかけてください。</p><section class="parent-tip"><h2>名前を間違えて押しました</h2><p>まだ決める前なら、「名前選択へ」や「取り消し」で戻れます。</p><p>登園の「決定」や「降園する」を押した後は、職員に訂正をお願いしてください。押した名前と、何を押したかを伝えます。</p></section><section class="parent-tip"><h2>押すのを忘れました</h2><p>職員に、お子さまの名前と、園に着いた時刻・帰った時刻を伝えてください。後から押す前に、職員に確認してください。</p></section><section class="parent-tip"><h2>画面が進みません・通信の案内が出ました</h2><p>何度も押さず、職員に声をかけてください。職員が、記録されたかどうかを確認します。</p>${parentScreenshot('terminal-offline','通信が切れているときの画面')}<p>「接続済み」と出ているだけでは、登園・降園の受付が終わったことにはなりません。</p></section><section class="parent-tip"><h2>「本日の打刻は完了しています」と出ました</h2><p>今日の降園は記録されています。表示された時刻が違うときは、職員に伝えてください。</p>${parentScreenshot('terminal-already','今日の登園と降園が記録されている画面')}</section><section class="parent-tip"><h2>途中で最初の画面に戻りました</h2><p>しばらく操作しないと、最初の画面に戻ります。「操作を続ける」が出たら、押して続けられます。</p><p>「決定」や「降園する」を押す前なら、クラスから選び直します。押した後か分からないときは、職員に確認してください。</p></section><a href="#parents">← 登園・降園の手順へ戻る</a>`;}
 function parentArticle(id){
   const a=manualArticles[id];
@@ -1708,7 +1741,7 @@ function renderStep(a,i,print=false){
   const selected=!print&&s.states?(imageState[i]||s.states[0][0]):'';
   const image=selected?prefix+'-'+selected:s.image;
   const caption=selected?s.stateNotes[selected]:s.alt;
-  return `<section class="step-body" id="${print?'print-':''}step-${i}"><div class="step-heading"><span class="number">${i+1}</span><h2>${s.title}</h2></div><p>${prose(s.text)}</p>${s.states&&!print?`<label class="state-select">${a.audience==='parents'?'ほかの画面を見る':'見本の状態'} <select data-state-step="${i}" aria-label="見本の状態">${s.states.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="state-explanation">${prose(s.stateNotes[selected])}</p>`:''}${image?`<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(caption)}" aria-label="手順${i+1}の画面を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v9" alt="${esc(caption)}"></button><figcaption><span>${a.audience==='parents'?'画面の見本。名前や時刻は例です。':'配備記録に対応する画面の見本・架空データ'}${image.startsWith('monthly-')&&image!=='monthly-list'?'／入力欄を縦に展開':''}</span><span>画像を押すと拡大 ↗</span></figcaption></figure>`:''}${s.calls?`<ol class="callouts">${s.calls.map((c,k)=>`<li><span class="number">${k+1}</span><span>${prose(c)}</span></li>`).join('')}</ol>`:''}${s.note?`<div class="notice ${i===a.steps.length-2?'warm':''}">${prose(s.note)}</div>`:''}</section>`;
+  return `<section class="step-body" id="${print?'print-':''}step-${i}"><div class="step-heading"><span class="number">${i+1}</span><h2>${s.title}</h2></div><p>${prose(s.text)}</p>${s.states&&!print?`<label class="state-select">${a.audience==='parents'?'ほかの画面を見る':'見本の状態'} <select data-state-step="${i}" aria-label="見本の状態">${s.states.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="state-explanation">${prose(s.stateNotes[selected])}</p>`:''}${image?`<figure class="screen${s.focused?' screen-focused':''}" data-frame="${s.focused?s.image:''}"><button type="button" data-zoom="${image}" data-caption="${esc(caption)}" aria-label="手順${i+1}の画面を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v10" alt="${esc(caption)}"></button><figcaption><span>${a.audience==='parents'?'画面の見本。名前や時刻は例です。':'配備記録に対応する画面の見本・架空データ'}${image.startsWith('monthly-')&&image!=='monthly-list'?'／入力欄を縦に展開':''}</span><span>画像を押すと拡大 ↗</span></figcaption></figure>`:''}${s.calls?`<ol class="callouts">${s.calls.map((c,k)=>`<li><span class="number">${k+1}</span><span>${prose(c)}</span></li>`).join('')}</ol>`:''}${s.note?`<div class="notice ${i===a.steps.length-2?'warm':''}">${prose(s.note)}</div>`:''}</section>`;
 }
 function article(id){const a=manualArticles[id];if(a.audience==='parents')return parentArticle(id);return `${crumb('画面付きの手順',a.chapter)}<div class="article-meta"><span class="badge">${a.tag}</span><span>${a.role}</span><span>全${a.steps.length}ステップ</span></div><h1 class="article-title">${a.title}</h1><p class="lead">${a.summary}</p>${a.admission?`<p class="admission-back"><a href="#help/admission">← 新入園児の登録方法を選び直す</a></p>`:""}<dl class="article-intro"><div><dt>この手順でできること</dt><dd>${a.goal}</dd></div><div><dt>始める前に</dt><dd>${prose(a.before)}</dd></div></dl>${openingPath(a.path)}${uiLegend()}<div class="reader-controls"><div class="segmented" aria-label="読み方"><button data-reader="step" aria-pressed="${!allSteps}">1つずつ読む</button><button data-reader="all" aria-pressed="${allSteps}">まとめて読む</button></div><button data-print>この手順を印刷</button></div><div class="reader screen-only">${allSteps?`<div class="all-steps">${a.steps.map((_,i)=>renderStep(a,i)).join('')}</div>`:`<nav class="step-nav" aria-label="操作手順">${a.steps.map((s,i)=>`<button data-step="${i}" ${i===currentStep?'aria-current="step"':''}><span class="number">${i+1}</span><span>${s.title}</span></button>`).join('')}</nav><div>${renderStep(a,currentStep)}<div class="next-prev"><button data-step="${currentStep-1}" ${currentStep===0?'disabled':''}>← 前の手順</button><span>${currentStep+1} / ${a.steps.length}</span>${currentStep<a.steps.length-1?`<button class="primary" data-step="${currentStep+1}">次の手順へ →</button>`:`<button class="primary" data-check-jump>完了を確認する ↓</button>`}</div></div>`}</div><div class="print-only">${a.steps.map((_,i)=>renderStep(a,i,true)).join('')}</div><section class="checklist" id="completion"><h2>ここまでできたら、完了です。</h2><p>読みながら確認するためのチェックです。実際の業務データには反映されません。</p>${a.checks.map((c,i)=>`<label><input type="checkbox" data-check="${i}" ${checked[id]?.includes(i)?'checked':''}>${prose(c)}</label>`).join('')}<div class="check-progress" role="status">${completionText(id)}</div></section>${a.relatedArticles?.length?`<section class="article-related"><h2>関連する手順</h2><div class="topic-list">${a.relatedArticles.map(articleLink).join('')}</div></section>`:""}<section class="faq"><h2>うまくいかない・間違えたとき</h2>${a.faq.map(([q,ans])=>`<details><summary>${q}</summary><p>${prose(ans)}</p></details>`).join('')}</section><div class="related"><a href="#chapter/${a.chapter}">← ${titles[a.chapter]}の目次</a><span>·</span><a href="#issues">ほかの困りごとを見る</a></div><details class="source-note"><summary>この見本の対象版・参照した資料</summary><p>2026-11-01〜03の配備記録と保存済みテンプレートをもとに、架空データで画面を表示して撮影しました。園の実データ・実機の画面は撮影していません。外枠は撮影用に整理し、一括補完の画面は入力欄を縦に展開しています。保護者の承認画面は登録申請欄を抜粋しています。新規入園の入力画面は、任意のもう1人の保護者欄を開いて撮影しています。実際の園での表示・文言の最終確認は今後行います。モック作成日：2026-11-03。</p><a href="https://open.hoikuict.net/${a.source}" target="_blank" rel="noopener">${a.sourceLabel}（公開中の資料）↗</a></details>`;}
 function completionText(id){const count=(checked[id]||[]).length;return count===manualArticles[id].checks.length?'✓ すべて確認できました。':`${count} / ${manualArticles[id].checks.length} 項目を確認済み`;}
@@ -1721,7 +1754,7 @@ function bind(){main.querySelector('#search-form')?.addEventListener('submit',e=
 main.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{currentStep=+b.dataset.step;imageState={};updateReader();main.querySelector('.step-body').scrollIntoView({block:'start'});main.querySelector('.step-heading h2').setAttribute('tabindex','-1');main.querySelector('.step-heading h2').focus({preventScroll:true});}));
 main.querySelectorAll('[data-reader]').forEach(b=>b.addEventListener('click',()=>{allSteps=b.dataset.reader==='all';imageState={};updateReader();main.querySelector(`[data-reader="${allSteps?'all':'step'}"]`).focus({preventScroll:true});}));
 main.querySelectorAll('[data-state-step]').forEach(s=>s.addEventListener('change',()=>{imageState={...imageState,[s.dataset.stateStep]:s.value};const step=s.dataset.stateStep;updateReader();main.querySelector(`[data-state-step="${step}"]`).focus({preventScroll:true});}));
-main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const dialog=document.getElementById('image-dialog');document.getElementById('zoom-image').src='assets/'+b.dataset.zoom+'.jpg?v=20261103-v9';document.getElementById('zoom-image').alt=b.dataset.caption;document.getElementById('image-title').textContent='画面を拡大して確認';dialog.showModal();}));
+main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{const dialog=document.getElementById('image-dialog');document.getElementById('zoom-image').src='assets/'+b.dataset.zoom+'.jpg?v=20261103-v10';document.getElementById('zoom-image').alt=b.dataset.caption;document.getElementById('image-title').textContent='画面を拡大して確認';dialog.showModal();}));
 main.querySelector('[data-print]')?.addEventListener('click',()=>window.print());main.querySelector('[data-check-jump]')?.addEventListener('click',()=>{document.getElementById('completion').scrollIntoView();main.querySelector('[data-check]').focus({preventScroll:true});});
 main.querySelectorAll('[data-check]').forEach(c=>c.addEventListener('change',()=>{checked[currentArticle]=Array.from(main.querySelectorAll('[data-check]:checked')).map(e=>+e.dataset.check);main.querySelector('.check-progress').textContent=completionText(currentArticle);}));}
 document.getElementById('close-image').addEventListener('click',()=>document.getElementById('image-dialog').close());
