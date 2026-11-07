@@ -100,7 +100,10 @@
     </section>
   {% endif %}
 
-  <section class="status-panel no-print">
+  <section id="review-status" class="status-panel no-print">
+    {% if can_edit_document and document.document_type.value == "child_progress_record" and document.can_edit_body and request.query_params.get("review_error") == "no_recipient" %}
+      <p role="alert" class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">確認を頼める管理者がいません。園のアカウント担当者にお知らせください。</p>
+    {% endif %}
     {% if document.status.value == "rejected" %}
       <div class="mb-4" role="status">
         <h2>差戻し理由</h2>

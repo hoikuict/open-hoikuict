@@ -313,6 +313,93 @@ class ChildProgressPeriodTests(unittest.TestCase):
         self.assertEqual(invalid.status_code, 422)
         self.assertIn('data-progress-has-unsaved="true"', invalid.text)
 
+    def test_save_before_detail_keeps_evidence_and_only_opens_this_record(self):
+        log_id = str(self.log(date(2026, 9, 9), "選んだ根拠"))
+        _, new = self.form()
+        self.assertEqual(self.save(new, continue_url="/plans/documents/1").status_code, 422)
+        self.save(new)
+        page, fields = self.form()
+        document_id = int(fields.values["document_id"])
+        detail = f"/plans/documents/{document_id}"
+        self.assertIn('data-progress-navigation data-progress-detail', page.text)
+        self.assertIn('href="#progress-logs"', page.text)
+        self.assertIn('id="progress-logs"', page.text)
+        self.assertEqual(self.save(fields, continue_url=f"/plans/documents/{document_id + 1}").status_code, 422)
+        self.assertEqual(self.save(fields, continue_url=detail + "?other=1").status_code, 422)
+        data = self.payload(fields, continue_url=detail, source_log_ids=[log_id])
+        def save_json(**values):
+            return self.client.post(self.url, data={**data, **values}, headers={"Accept": "application/json"})
+        self.assertEqual(save_json(body_progress_children_overview=" ").status_code, 422)
+        self.assertEqual(save_json(body_progress_children_overview="詳細に反映").json(), {"location": detail})
+        conflict = save_json(body_progress_children_overview="競合した追記")
+        self.assertEqual(conflict.status_code, 409)
+        self.assertTrue(conflict.json()["conflict"])
+        _, reopened = self.form()
+        self.assertEqual(reopened.checked, [log_id])
+        self.assertEqual(self.rows()[0].sections[0]["body"], "詳細に反映")
+        self.assertEqual(self.save(reopened, continue_url=detail).headers["location"], detail)
+
+    def test_review_without_recipients_preserves_draft_or_rejection_and_can_retry(self):
+        from auth import get_optional_current_staff_user
+        from models import User
+        from plan_docs.db_models import PlanDocumentAction, PlanDocumentHeadRow, PlanReviewNotificationRow
+        from plan_docs.routers.documents import router as document_router
+
+        self.app.include_router(document_router, prefix="/plans")
+        self.app.dependency_overrides[get_optional_current_staff_user] = lambda: self.current_user
+        _, new = self.form()
+        self.save(new)
+        document_id = self.rows()[0].id
+        detail = f"/plans/documents/{document_id}"
+        with Session(self.engine) as session:
+            requester = User(id=self.current_user.user_id, display_name="依頼者",
+                             email="requester@example.invalid", staff_role="admin")
+            receiver = User(display_name="確認者", email="reviewer@example.invalid",
+                            staff_role="admin", is_active=False)
+            session.add_all([requester, receiver])
+            session.commit()
+            receiver_id = receiver.id
+
+        def set_active(active):
+            with Session(self.engine) as session:
+                session.get(User, receiver_id).is_active = active
+                session.commit()
+
+        def snapshot():
+            with Session(self.engine) as session:
+                return [
+                    [row.model_dump() for row in session.exec(select(model)).all()]
+                    for model in (PlanDocumentRow, PlanDocumentHeadRow, PlanRevisionRow,
+                                  PlanDocumentAction, PlanReviewNotificationRow)
+                ]
+
+        def change(status, comment=""):
+            return self.client.post(detail + "/status", data={
+                "lock_version": FormInputs(self.client.get(detail).text).values["lock_version"],
+                "status": status, "comment": comment,
+            })
+
+        for state in ("draft", "rejected"):
+            with self.subTest(state=state):
+                set_active(False)
+                before = snapshot()
+                self.assertEqual(before[0][0]["status"], state)
+                page = change("in_review")
+                self.assertEqual(page.status_code, 200)
+                self.assertIn("確認を頼める管理者がいません。園のアカウント担当者にお知らせください。", page.text)
+                self.assertIn("レビュー依頼</button>", page.text)
+                if state == "rejected":
+                    self.assertIn("追記をお願いします", page.text)
+                self.assertEqual(snapshot(), before)
+                set_active(True)
+                self.assertIn("レビューを取り下げる", change("in_review").text)
+                after = snapshot()
+                self.assertEqual(after[0][0]["status"], "in_review")
+                self.assertEqual(len(after[-1]), len(before[-1]) + 1)
+                self.assertEqual(after[-1][-1]["recipient_user_id"], receiver_id)
+                if state == "draft":
+                    self.assertIn("追記をお願いします", change("rejected", "追記をお願いします").text)
+
 
 if __name__ == "__main__":
     unittest.main()

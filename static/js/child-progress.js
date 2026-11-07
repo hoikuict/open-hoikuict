@@ -24,6 +24,8 @@
   root.querySelector('[data-progress-save-go]').disabled = form.querySelector('button[type="submit"]').disabled;
   const markDirty = () => {
     dirty = true;
+    const saved = root.querySelector('[data-progress-saved]');
+    if (saved) saved.hidden = true;
     root.querySelector('[data-progress-save-state]').textContent = '未保存の変更があります';
   };
   form.addEventListener('input', markDirty);
@@ -45,12 +47,45 @@
     dirty = false;
     window.location.assign(destination);
   });
+  const saveToDetail = async (url) => {
+    const error = root.querySelector('[data-progress-save-error]');
+    const conflict = error.querySelector('[data-progress-conflict]');
+    error.hidden = true;
+    conflict.hidden = true;
+    let message = '保存を確認できませんでした。入力内容は残っています。もう一度保存してください。';
+    root.inert = true;
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST', body: new FormData(form), headers: {Accept: 'application/json'}, redirect: 'error'
+      });
+      const result = await response.json();
+      if (response.ok && result.location === url) {
+        dirty = false;
+        window.location.assign(url);
+        return;
+      }
+      conflict.hidden = result.conflict !== true;
+      if (result.message) message = result.message;
+    } catch {
+      // An interrupted request may have reached the server. Keep the edited form open.
+    } finally {
+      root.inert = false;
+      form.querySelector('[name="continue_url"]').value = '';
+    }
+    error.querySelector('span').textContent = message;
+    error.hidden = false;
+    error.focus();
+  };
   root.querySelector('[data-progress-save-go]').addEventListener('click', () => {
     const save = form.querySelector('button[type="submit"]');
     if (save.disabled) return;
     form.querySelector('[name="continue_url"]').value = destination;
     if (!form.reportValidity()) {
       form.querySelector('[name="continue_url"]').value = '';
+      return;
+    }
+    if (destination === root.querySelector('[data-progress-detail]')?.getAttribute('href')) {
+      saveToDetail(destination);
       return;
     }
     form.requestSubmit(save);

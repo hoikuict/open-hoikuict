@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -932,16 +932,18 @@ def new_child_progress_record_form(
         duplicate_count=len(matches), saved=saved)
 
 
-def _progress_return_url(raw: str, child_id: int) -> str:
+def _progress_return_url(raw: str, child_id: int, document_id: int | None = None) -> str:
     if not raw:
         return ""
+    if document_id is not None and raw == f"/plans/documents/{document_id}":
+        return raw
     parsed = urlsplit(raw)
     if parsed.scheme or parsed.netloc or parsed.fragment or parsed.path not in {
         "/child-records/progress", f"/children/{child_id}/progress-records",
         f"/children/{child_id}/progress-records/new",
     }:
         raise HTTPException(422, "移動先を確認してください")
-    return raw
+    return parsed.geturl()
 
 
 @router.post("/{child_id}/progress-records")
@@ -957,7 +959,6 @@ async def create_child_progress_record(
     start = _parse_date(str(form.get("period_start") or ""), field_label="対象期間の開始日")
     end = _parse_date(str(form.get("period_end") or ""), field_label="対象期間の終了日")
     validate_period(start, end)
-    continue_url = _progress_return_url(str(form.get("continue_url") or ""), child_id)
     repository = SqlModelDocumentRepository(session)
     document = None
     version = None
@@ -975,6 +976,13 @@ async def create_child_progress_record(
     elif not in_period(child, start, end):
         raise HTTPException(422, "在籍期間と重ならない児童票は作成できません。退園・卒園の場合は退園日も確認してください")
     logs = _progress_logs(session, child_id=child_id, period_start=start, period_end=end, current_user=current_user)
+    continue_url = _progress_return_url(
+        str(form.get("continue_url") or ""), child_id, document.id if document else None
+    )
+    saving_to_detail = (
+        document is not None and continue_url == f"/plans/documents/{document.id}"
+        and request.headers.get("accept") == "application/json"
+    )
     available_logs = {str(log.id): log for log in logs}
     selected_ids = list(dict.fromkeys(str(value) for value in form.getlist("source_log_ids") if str(value) in available_logs))
     source_refs = [f"record.child_observation_log:{available_logs[value].public_id}" for value in selected_ids]
@@ -982,6 +990,8 @@ async def create_child_progress_record(
               for definition in section_definitions(DocumentType.CHILD_PROGRESS_RECORD)}
 
     def invalid(message, status=422, conflict_id=None):
+        if saving_to_detail:
+            return JSONResponse({"message": message, "conflict": conflict_id is not None}, status_code=status)
         return _progress_form_context(request, session=session, child=child, current_user=current_user,
             period_start=start, period_end=end, logs=logs, values=values, error=message,
             status_code=status, document=document, lock_version=version,
@@ -1038,6 +1048,8 @@ async def create_child_progress_record(
                 raise
             return invalid("同じ期間の児童票はすでに作成されています。入力内容を確認してから作成済み児童票を開いてください", 409, matches[0].id)
     destination = continue_url or _progress_form_url(child_id, start, end, document_id=saved_id, saved=1)
+    if saving_to_detail:
+        return JSONResponse({"location": destination})
     return RedirectResponse(url=destination, status_code=303)
 
 

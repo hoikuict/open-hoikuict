@@ -45,6 +45,10 @@ class InvalidStatusTransitionError(RuntimeError):
     pass
 
 
+class NoReviewRecipientsError(RuntimeError):
+    pass
+
+
 class ExecutionChangeError(RuntimeError):
     pass
 
@@ -425,13 +429,16 @@ class SqlModelDocumentRepository:
             revision = self._create_revision(document, reason="submitted", actor_ref=actor_ref)
             head.current_revision_id = revision.id
             head.review_revision_id = revision.id
-            create_review_notifications(
+            notifications = create_review_notifications(
                 self.session,
                 document=document,
                 review_revision_id=int(revision.id or 0),
                 requested_by_ref=actor_ref,
                 requested_by_name=actor_name,
             )
+            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD and not notifications:
+                self.session.rollback()
+                raise NoReviewRecipientsError
         elif status == DocumentStatus.APPROVED:
             if head.review_revision_id is None:
                 raise InvalidStatusTransitionError("レビュー対象版がありません")

@@ -29,6 +29,7 @@ from ..store import (
     DocumentRepositoryDep,
     ExecutionChangeError,
     InvalidStatusTransitionError,
+    NoReviewRecipientsError,
     SqlModelDocumentRepository,
 )
 from ..templating import render_template
@@ -472,6 +473,8 @@ def update_document_status(
             actor_name=user.name,
             comment=comment,
         )
+    except NoReviewRecipientsError:
+        return RedirectResponse(f"/plans/documents/{document_id}?review_error=no_recipient#review-status", status_code=303)
     except (ConcurrentUpdateError, InvalidStatusTransitionError) as exc:
         _raise_repository_error(exc)
     if updated is None:
