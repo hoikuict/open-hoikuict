@@ -49,6 +49,9 @@
 
 | やりたいこと | 主に読む方 | 資料の種類 |
 | --- | --- | --- |
+| [指導計画の画面を開く](manual-guide-preview/plans/index.html) | 一般職員 | 画面付きの手順 |
+| [帳票一覧で書きかけを探す](manual-guide-preview/plans/search/index.html) | 一般職員 | 画面付きの手順 |
+| [旧式の帳票を開く](manual-guide-preview/plans/legacy/index.html) | 一般職員 | 画面付きの手順 |
 | [年案](specifications.md#plans) | 職員・確認担当 | 仕様 |
 | [月案](monthly-print-export-proposal-2026-09-27.md) | 職員・確認担当 | 仕様 |
 | [週案](spec-weekly-daily-plans.md) | 職員・確認担当 | 仕様 |

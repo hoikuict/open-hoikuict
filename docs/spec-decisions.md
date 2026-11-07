@@ -248,3 +248,8 @@
 - 作成・確認：保存済みの配備テンプレート、固定文言、月間一覧の条件分岐を確認。撮り直した19枚を保存後に目視。記事・見本状態ごとの番号と説明数の照合、主要14記事の画像読込と横はみ出し、お迎え4状態、390px幅・大きな文字を確認。根拠とハッシュは `.local-dev/manual-audit-fixes-20261103/` と `tools/staff-manual-preview/audit-review-baseline.json`。公開用の変更だけを最新main 87b689fへ重ねる。
 - 状態：マニュアルの作成・ローカル確認済み。strictビルド・公開コミット・Cloudflare Pages・公開URLの確認は別途記録する。業務アプリ配備、実際の端末への通知送受信、実機での保存、紙印刷、進捗Excel更新は未実施。既存画像すべてを実機と照合済みという意味ではない。
 - 関連資料：[スクショ付きガイド](manual-guide.md)、[保護者アプリの使い方](parent-app-manual.md)。
+
+## SD-037 一般職員向けの指導計画マニュアルを公開する {#sd-037}
+
+- **確認版**　配備版 `b9cb3d4` の画面に架空データを表示して撮影した13枚を使用。自園の様式を標準の入口とし、旧式の帳票も引き続き開ける構成を案内する。
+- **公開の合意**　2026-11-08、ユーザーが確認版を見て「OK。反映しましょう」と指定した。[指導計画の画面を開く](manual-guide-preview/plans/index.html)、[帳票一覧で書きかけを探す](manual-guide-preview/plans/search/index.html)、[旧式の帳票を開く](manual-guide-preview/plans/legacy/index.html)を職員向けの目次と検索から開けるようにする。
