@@ -1,7 +1,13 @@
 {% if documents %}
   <div class="document-list">
     {% for document in documents %}
-      <a class="document-row" href="/plans/documents/{{ document.id }}">
+      <a class="document-row" href="/plans/documents/{{ document.id }}"
+        {% if searchable %}
+          data-title="{{ document.title }}" data-child="{{ document.child_name or '' }}"
+          data-owner="{{ document.owner_name }}" data-room="{{ document.classroom_label }}"
+          data-kind="{{ document.document_type_label }}" data-status="{{ document.status_label }}"
+          data-format="{{ document.plan_format_label or '' }}"
+        {% endif %}>
         <span class="document-row__type">{{ document.document_type_label }}</span>
         <span class="document-row__main">
           <strong>{{ document.title }}</strong>

@@ -49,6 +49,20 @@ class PlanNavigationTests(unittest.TestCase):
         self.user.actor_ref = None
         self.assertEqual(self.client.get("/plans/legacy/", follow_redirects=False).status_code, 303)
 
+    def test_search_options_only_include_visible_documents(self):
+        visible = self.save_legacy(DocumentType.ANNUAL_PLAN, owner_name='見本 "担任"')
+        self.save_legacy(DocumentType.MONTHLY_PLAN, classroom_ref="非表示組", owner_name="対象外の作成者")
+        self.save_legacy(DocumentType.WEEKLY_PLAN, nursery_ref="別の園", owner_name="別の園の作成者")
+        self.save_legacy(DocumentType.CHILD_PROGRESS_RECORD, child_id=999, child_name="非表示の園児")
+        page = self.client.get("/plans/documents/")
+        self.assertEqual([doc.id for doc in page.context["documents"]], [visible])
+        self.assertIn('<option value="年案">年案</option>', page.text)
+        self.assertIn('data-format="旧式"', page.text)
+        self.assertNotIn('data-owner="見本 "担任""', page.text)
+        for private_value in ("非表示組", "対象外の作成者", "別の園の作成者", "非表示の園児", '<option value="月案">'):
+            self.assertNotIn(private_value, page.text)
+        self.assertIn('id="back-to-list"', self.client.get(f"/plans/documents/{visible}").text)
+
     def test_calendar_status_and_link_match_each_format(self):
         month = self.save_legacy(DocumentType.MONTHLY_PLAN, target_month="2026-11")
         week = self.save_legacy(DocumentType.WEEKLY_PLAN, week_start_date="2026-11-02", age_class="1歳児")

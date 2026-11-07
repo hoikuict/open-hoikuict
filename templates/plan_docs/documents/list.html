@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}帳票一覧 | hoiku-plan-docs{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ static_asset_url('css/document-search.css') }}">
+  <script defer src="{{ static_asset_url('js/document-search.js') }}"></script>
+{% endblock %}
 {% block content %}
   <section class="toolbar-band">
     <div>
@@ -11,8 +16,11 @@
       <a class="button button--primary" href="/plans/">指導計画に戻る</a>
     </div>
   </section>
-  <section class="section-block">
-    {% include "plan_docs/documents/_list.html" %}
+  <section class="section-block search-panel">
+    {% include "plan_docs/documents/_search.html" %}
+    <div id="document-results">
+      {% with searchable=true %}{% include "plan_docs/documents/_list.html" %}{% endwith %}
+    </div>
   </section>
 {% endblock %}
 

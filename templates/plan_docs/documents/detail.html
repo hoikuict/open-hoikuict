@@ -2,12 +2,15 @@
 {% block title %}{{ document.title }} | hoiku-plan-docs{% endblock %}
 {% block head %}
   {{ super() }}
+  <link rel="stylesheet" href="{{ static_asset_url('css/document-search.css') }}">
+  <script defer src="{{ static_asset_url('js/document-search.js') }}"></script>
   {% if document.weekly_sheet %}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endif %}
   {% if document.document_type.value == "daily_plan" %}
     <link rel="stylesheet" href="/static/css/daily-plan-print.css">
   {% endif %}
 {% endblock %}
 {% block content %}
+  <a id="back-to-list" class="document-search-return no-print" href="/plans/documents/">‹ 帳票一覧に戻る</a>
   {% macro render_schedule(schedule) %}
     <section class="report-section report-schedule">
       <div class="report-section__heading">
