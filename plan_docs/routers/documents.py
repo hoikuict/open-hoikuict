@@ -13,7 +13,7 @@ from child_records.settings import effective_config
 from models import Child, User
 from time_utils import ensure_utc_from_local, local_naive_now, parse_local_datetime_input
 
-from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_edit
+from ..auth_adapter import CurrentUser, StaffUser, require_actor, require_admin, require_can_edit
 from ..contracts import DocumentStatus, DocumentType, normalize_status
 from ..serializers import document_to_dict
 from ..services.daily_reflections import (
@@ -238,6 +238,16 @@ def _review_details(repository: DocumentRepositoryDep, document_id: int, status:
         "decided_at": action.created_at,
         "comment": action.comment,
     }
+
+
+@router.get("/legacy/")
+def legacy_plans(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
+    require_actor(user, request)
+    classroom_refs = None if user.is_admin else user.classroom_refs
+    documents = repository.list(nursery_ref=user.nursery_ref, classroom_refs=classroom_refs)
+    legacy = [document for document in documents
+              if document.plan_format_label == "旧式" and _can_view_document(document, user, repository)]
+    return render_template(request, "legacy.html", user=user, documents=legacy)
 
 
 @router.get("/documents/")

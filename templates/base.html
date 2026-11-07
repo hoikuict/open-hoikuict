@@ -218,6 +218,9 @@
     }
   </style>
   {% endif %}
+  {% if request is defined and request and request.url.path.startswith('/plans/') %}
+  <link rel="stylesheet" href="{{ static_asset_url('css/plan-navigation.css') }}">
+  {% endif %}
   {% block head %}{% endblock %}
   {% if request is defined and request and request.url.path.startswith('/parent-portal') %}
   <link rel="manifest" href="/parent-portal/manifest.webmanifest">
@@ -398,6 +401,9 @@
 
       <main class="px-4 py-6 sm:px-6 lg:px-8{% if current_path.startswith('/plans') %} plan-docs-content{% endif %}">
   {% endif %}
+        {% if current_path.startswith('/plans/') and current_path != '/plans/' %}
+          {% include "plan_docs/_breadcrumb.html" %}
+        {% endif %}
         {% block content %}{% endblock %}
   {% if is_parent_portal %}
     </main>

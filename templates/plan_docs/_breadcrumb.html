@@ -1,0 +1,11 @@
+<nav class="plan-breadcrumb no-print" aria-label="現在の場所">
+  <a href="/plans/">指導計画</a>
+  {% if current_path == '/plans/legacy/' %}<span aria-hidden="true">›</span><span aria-current="page">旧式の帳票</span>
+  {% elif current_path in ['/plans/annual-plans/new','/plans/monthly-plans/new'] or current_path.startswith('/plans/bunrei/')
+          or (document is defined and document and document.plan_format_label == '旧式') %}
+    <span aria-hidden="true">›</span><a href="/plans/legacy/">旧式の帳票</a>
+  {% elif current_path == '/plans/documents/' %}<span aria-hidden="true">›</span><span aria-current="page">帳票一覧</span>
+  {% elif current_path.startswith(('/plans/annual-library', '/plans/monthly-library', '/plans/weekly-library', '/plans/weekly-plans/', '/plans/monthly-plans/', '/plans/daily-plans/')) or (document is defined and document and document.plan_format_label == '自園の帳票') %}
+    <span aria-hidden="true">›</span><span>自園の帳票</span>
+  {% endif %}
+</nav>

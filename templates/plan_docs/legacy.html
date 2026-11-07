@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}旧式の帳票 | 指導計画{% endblock %}
+{% block content %}
+<div class="plan-index">
+  <header><h1>旧式の帳票</h1>
+    {% if user.can_edit %}<a class="text-link" href="#old-create">旧式で新しく作る ↓</a>{% endif %}
+  </header>
+  <section><h2>保存した帳票を開く</h2>
+    <p>以前に書いた年案・月案・週案を選びます。{% if user.can_edit %}「修正」が表示されている帳票は、続きを書けます。{% endif %}</p>
+    {% include "plan_docs/documents/_list.html" %}
+  </section>
+  {% if user.can_edit %}
+  <section id="old-create"><h2>旧式で新しく作る</h2>
+    <div class="old-options">
+      {% for title, slug, kind in [('年案','annual','annual'),('月案','monthly','monthly')] %}
+      <div><h3>{{ title }}</h3><a href="/plans/{{ slug }}-plans/new">{{ title }}を手入力で作成</a><a href="/plans/bunrei/{{ kind }}">{{ title }}を文例から作成</a></div>
+      {% endfor %}
+    </div>
+    <a class="text-link" href="/plans/bunrei/facility/new">自作文例を追加</a>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

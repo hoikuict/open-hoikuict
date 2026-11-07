@@ -179,24 +179,32 @@ def calendar_page(request: Request, user: CurrentUser, repository: DocumentRepos
     monthly = request.url.path.rstrip('/').endswith('monthly-plans')
     kind = DocumentType.MONTHLY_PLAN if monthly else DocumentType.WEEKLY_PLAN
     documents = repository.list(nursery_ref=user.nursery_ref, classroom_refs=(classroom.name,), document_type=kind)
-    documents = [d for d in documents if d.age_class == f'{age}歳児' and
-                 (d.status != DocumentStatus.ARCHIVED or d.weekly_sheet or d.monthly_sheet)]
+    age_label = f'{age}歳児'
+    legacy_by_period = {}
+    for document in documents:
+        if document.plan_format_label == '旧式' and document.status != DocumentStatus.ARCHIVED:
+            if not document.age_class or document.age_class == age_label:
+                period = document.target_month if monthly else document.week_start_date
+                legacy_by_period.setdefault(period, []).append(document)
+    documents = [d for d in documents if d.age_class == age_label and d.plan_format_label == '自園の帳票']
     cards = []
     if monthly:
         for i in range(12):
             m = f'{year + (i >= 9)}-{(i+3)%12+1:02}'
-            matches = [d for d in documents if d.monthly_sheet and d.target_month == m]
+            matches = [d for d in documents if d.target_month == m]
             link = '/plans/monthly-library?' + urlencode({'classroom_id': classroom.id, 'target_month': m, 'age': age})
-            cards.append({'label': f'{int(m[5:])}月', 'key': m, 'documents': matches, 'url': link})
+            cards.append({'label': f'{int(m[5:])}月', 'key': m, 'documents': matches,
+                          'old_documents': legacy_by_period.get(m, []), 'url': link})
     else:
         for start in month_weeks(month):
             matches = [d for d in documents if d.week_start_date == start.isoformat()]
             params = {'classroom_id': classroom.id, 'month': month, 'age': age, 'week_start': start.isoformat()}
-            current = next((d for d in matches if d.weekly_sheet), None)
+            current = matches[0] if matches else None
             if current:
                 params['document_id'] = current.id
             cards.append({'label': f'{start.month}/{start.day}（月）〜{(start+timedelta(days=6)).month}/{(start+timedelta(days=6)).day}（日）',
-                          'key': start.isoformat(), 'documents': matches, 'url': '/plans/weekly-library?' + urlencode(params),
+                          'key': start.isoformat(), 'documents': matches,
+                          'old_documents': legacy_by_period.get(start.isoformat(), []), 'url': '/plans/weekly-library?' + urlencode(params),
                           'plan': current.weekly_sheet if current else None,
                           'days': [{'label': f'{(start+timedelta(days=i)).month}/{(start+timedelta(days=i)).day} {"月火水木金土日"[i]}',
                               'outside': (start+timedelta(days=i)).strftime('%Y-%m') != month,
