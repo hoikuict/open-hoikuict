@@ -3,7 +3,6 @@
 {% block content %}
 <div class="plan-index">
   <header><h1>指導計画</h1><p>{{ user.nursery_label }}　／　{{ user.classroom_label }}</p></header>
-  {% if user.actor_ref %}
   <section aria-labelledby="standard-heading">
     <h2 id="standard-heading">自園の帳票</h2>
     <p>書きたい計画を選んでください。保存した計画の続きも、ここから開けます。</p>
@@ -19,9 +18,6 @@
     <a class="text-link" href="/plans/monthly-library">月案の帳票を直接開く</a>
   </section>
   <a class="legacy-entry" href="/plans/legacy/"><div><strong>旧式の帳票</strong><span>以前の帳票を探す{% if user.can_edit %}・旧式で年案や月案を作る{% endif %}</span></div><b aria-hidden="true">›</b></a>
-  {% else %}
-    <a class="button button--primary" href="/staff/login?redirect=/plans/">職員ログイン</a>
-  {% endif %}
   {% if reflection_reminders %}
     <section class="section-block reflection-reminder-panel" aria-labelledby="reflection-reminder-heading">
       <div class="section-heading">

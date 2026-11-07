@@ -311,6 +311,12 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         self.assertIn("HX-Redirect", response.headers)
         self.assertTrue(response.headers["HX-Redirect"].startswith("/staff/login?redirect="))
 
+    def test_plan_navigation_requires_staff_login(self):
+        for path in ("/plans/", "/plans/legacy/", "/plans/documents/", "/plans/daily-plans/"):
+            response = self.client.get(path, follow_redirects=False)
+            self.assertEqual(response.status_code, 303, path)
+            self.assertTrue(response.headers["Location"].startswith("/staff/login?redirect="))
+
     def test_healthz(self):
         response = self.client.get("/healthz")
 
