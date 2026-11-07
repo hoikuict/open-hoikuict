@@ -4,6 +4,8 @@
 - 現況再確認: 2026-08-11
 - 実装状況: Phase 1・2完了、Phase 3一部実装
 
+帳票一覧の検索項目と、詳細から検索結果へ戻る操作は[帳票検索の決定記録 SD-036](spec-decisions.md#sd-036)を参照。
+
 > `plan_docs/`へのコード統合、`/plans`マウント、職員セッション統合、SQLite永続化、`/healthz`は完了している。Phase 3のうち児童票・観察ログは[児童記録仕様](child-records-spec.md)として実装し、個別指導計画の双方向参照は未実装である。本書のPhase 1・2本文は移行時の設計記録として残す。
 
 対象リポジトリ: `hoikuict/open-hoikuict`（統合先）、`hoikuict/hoiku-plan-docs`（統合元）
