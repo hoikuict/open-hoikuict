@@ -404,6 +404,9 @@ class ParentPortalTests(unittest.TestCase):
         with Session(self.engine) as session:
             other = ParentAccount(display_name="もう一人の保護者", email="parent2@example.invalid",
                                   family_id=self.main_family_id)
+            # Existing family hidden from the staff directory, with active linked children.
+            session.info["family_archive_transition"] = True
+            session.get(Family, self.main_family_id).archived_at = utc_now()
             session.add(other)
             session.flush()
             other_id = other.id
@@ -414,6 +417,8 @@ class ParentPortalTests(unittest.TestCase):
         self._login_parent(self.parent_account_id)
         day = local_today().isoformat()
         usual_url = "/parent-portal/emergency-contacts"
+        self.assertIn(f'href="{usual_url}"', self.client.get("/parent-portal/").text)
+        self.assertIn("いつもの連絡順を保存", self.client.get(usual_url).text)
         self.assertEqual(self.client.post(usual_url, data={"base_revision": 0, "emergency_label": "母の職場",
             "emergency_phone": "000-0000-0101"}, follow_redirects=False).status_code, 303)
         daily = f"/parent-portal/children/{self.child_id}/contact"
@@ -464,7 +469,13 @@ class ParentPortalTests(unittest.TestCase):
                 ParentChildLink.child_id == self.second_child_id)).one()
             session.delete(link)
             session.commit()
-        self.assertEqual(self.client.get(usual_url).status_code, 403)
+        self.assertIn(f'href="{usual_url}"', self.client.get("/parent-portal/").text)
+        unavailable = self.client.get(usual_url)
+        self.assertEqual(unavailable.status_code, 403)
+        for page in (unavailable, self.client.get(daily)):
+            self.assertIn("園でお子さまと保護者の登録を確認します", page.text)
+            self.assertNotIn("000-0000-0104", page.text)
+            self.assertNotIn('name="emergency_phone"', page.text)
         self.assertNotIn("000-0000-0104", self.client.get("/parent-portal/history").text)
         self.assertEqual(self.client.post(daily, data=payload).status_code, 403)
         self._login_parent(self.single_parent_account_id)

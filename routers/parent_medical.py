@@ -27,6 +27,22 @@ def linked_parents(child_id):
     )
 
 
+@router.get("/parent-portal/medical")
+def medical_menu(request: Request, session: Session = Depends(get_session)):
+    parent = _get_parent_account(request, session)
+    if not parent:
+        return RedirectResponse("/parent-portal/login", status_code=303)
+    children = session.exec(
+        select(Child).join(ParentChildLink).where(ParentChildLink.parent_account_id == parent.id)
+        .order_by(Child.last_name_kana, Child.first_name_kana, Child.id)
+    ).all()
+    if len(children) == 1:
+        return RedirectResponse(PARENT.format(child_id=children[0].id), status_code=303)
+    return templates.TemplateResponse(request, "parent_portal/medical_children.html", {
+        "children": children, "current_parent_user": parent, "parent_portal_mode": True,
+    }, headers={"Cache-Control": "private, no-store"})
+
+
 @router.api_route(PARENT, methods=["GET", "POST"])
 async def medical_form(request: Request, child_id: int, session: Session = Depends(get_session)):
     form = await request.form() if request.method == "POST" else None

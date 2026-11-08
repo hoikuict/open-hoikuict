@@ -2,6 +2,7 @@
 {% block title %}緊急時の連絡先{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-3xl rounded-xl border bg-white p-5"><h1 class="text-xl font-bold">緊急時の連絡先</h1>
+{% if emergency %}
 <h2 class="mt-4 font-semibold">いつもの連絡順</h2><p>ご家族で共通です。</p>
 {% if error %}<p role="alert" class="my-3 bg-rose-50 p-2">{{ error }} <a class="underline" href="/parent-portal/emergency-contacts">最新の連絡順を確認する</a></p>
 {% elif request.query_params.get('saved') %}<p role="status">いつもの連絡順を保存しました。</p>{% endif %}
@@ -10,5 +11,10 @@
   {% set initial = emergency.usual.contacts if emergency.usual else [] %}{% set base_editor = true %}
   {% include 'parent_portal/_emergency_editor.html' %}
   <button class="mt-4 rounded bg-indigo-600 p-3 text-white">いつもの連絡順を保存</button>　<a href="/parent-portal/" class="underline">ホームへ戻る</a>
-</form></div>
+</form>
+{% else %}
+{% include 'parent_portal/_emergency_unavailable.html' %}
+<a href="/parent-portal/" class="mt-4 inline-block underline">ホームへ戻る</a>
+{% endif %}
+</div>
 {% endblock %}

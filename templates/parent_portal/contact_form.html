@@ -106,7 +106,14 @@
       </div>
     </section>
 
-    {% if emergency %}{% include 'parent_portal/_daily_emergency.html' %}{% endif %}
+    {% if emergency %}
+    {% include 'parent_portal/_daily_emergency.html' %}
+    {% else %}
+    <section class="rounded-xl border bg-slate-50 p-4">
+      <h2 class="font-bold">{{ target_day.month }}月{{ target_day.day }}日の緊急連絡先</h2>
+      {% include 'parent_portal/_emergency_unavailable.html' %}
+    </section>
+    {% endif %}
     <section id="present-fields" class="space-y-6 {% if selected_mode != 'present' %}hidden{% endif %}">
       <section class="space-y-4 border-b pb-6">
         <h2 class="text-lg font-semibold">お迎え予定</h2>

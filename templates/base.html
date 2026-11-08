@@ -239,20 +239,21 @@
   {% if is_parent_portal %}
   <div class="min-h-screen">
     <nav class="no-print bg-indigo-700 px-4 py-3 text-white shadow sm:px-6">
-      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
+      <div class="relative mx-auto flex max-w-7xl flex-wrap items-center gap-4">
         <span class="text-lg font-bold">open-hoikuict</span>
         <a href="/parent-portal/" class="text-sm hover:underline">保護者ホーム</a>
-        <details class="relative ml-auto">
+        <details class="ml-auto sm:relative">
           <summary class="cursor-pointer rounded border border-indigo-300 px-4 py-2 text-sm">メニュー</summary>
-          <div class="absolute right-0 z-50 mt-2 flex w-64 flex-col gap-4 rounded-xl bg-indigo-800 p-5 shadow-lg">
+          <div class="absolute inset-x-0 top-full z-50 mt-2 flex max-h-[70vh] flex-col gap-4 overflow-y-auto rounded-xl bg-indigo-800 p-5 shadow-lg sm:left-auto sm:top-auto sm:w-64">
         {% if current_parent_user is defined and current_parent_user and current_parent_user.child_links %}
         <a href="/parent-portal/children/profile" class="text-sm hover:underline">子ども情報変更申請</a>
+        <a href="/parent-portal/medical" class="text-sm hover:underline">基本医療情報</a>
         {% endif %}
+        {% if current_parent_user %}<a href="/parent-portal/emergency-contacts" class="text-sm hover:underline">緊急時の連絡先</a>{% endif %}
         <a href="/parent-portal/history" class="text-sm hover:underline">日次連絡履歴</a>
         <a href="/parent-portal/notices" class="text-sm hover:underline">お知らせ</a>
         <a href="/parent-portal/surveys" class="text-sm hover:underline">アンケート</a>
         <a href="/parent-portal/profile" class="text-sm hover:underline">登録情報</a>
-        {% if current_parent_user and can_share_emergency(current_parent_user) %}<a href="/parent-portal/emergency-contacts" class="text-sm hover:underline">緊急時の連絡先</a>{% endif %}
         <a href="/parent-portal/push-settings" class="text-sm hover:underline">通知設定</a>
         <a href="/parent-portal/account/password" class="text-sm hover:underline">パスワード変更</a>
           </div>

@@ -12,7 +12,7 @@ from time_utils import utc_now
 
 def may_share(parent, child=None):
     family = parent.family
-    if not family or family.is_archived or (child and child.family_id != family.id):
+    if not family or (child and child.family_id != family.id):
         return False
     linked = {link.child_id for link in parent.child_links}
     enrolled = {c.id for c in family.children if c.status == ChildStatus.enrolled}

@@ -31,6 +31,10 @@ class ParentMedicalTests(unittest.TestCase):
         return self.client.post(self.url, data={"revision": revision, "action": action, **fields})
 
     def test_request_preview_send_approve_and_stale_edits(self):
+        ordinary_home = self.client.get("/parent-portal/").text
+        self.assertIn('href="/parent-portal/medical"', ordinary_home)
+        self.assertNotIn("基本医療情報を確認する", ordinary_home)
+        self.assertEqual(self.client.get("/parent-portal/medical", follow_redirects=False).headers["location"], self.url)
         for _ in range(2):
             self.assertEqual(self.client.post(self.staff + "/request", data={"parent_id": self.parent}).status_code, 200)
         self.assertIn("園から基本医療情報の記入", self.client.get("/parent-portal/").text)
@@ -44,6 +48,7 @@ class ParentMedicalTests(unittest.TestCase):
         with Session(self.fixture.engine) as session:
             self.assertEqual([r.status for r in session.exec(select(ParentMedicalResponse))], ["requested"])
         self.assertIn("園に回答を送りました", self.post("send", **info).text)
+        self.assertNotIn("基本医療情報を確認する", self.client.get("/parent-portal/").text)
         self.assertEqual(self.client.post(self.url, data={"revision": form.context["revision"], "action": "send"}).status_code, 409)
         with Session(self.fixture.engine) as session:
             record = session.exec(select(ParentMedicalResponse)).one()
@@ -69,12 +74,22 @@ class ParentMedicalTests(unittest.TestCase):
         data = {"action": "return", "note": "病院名を確認してください。"}
         self.assertEqual(self.client.post(f"{self.staff}/{record_id}", data=data).status_code, 200)
         self.assertIn(data["note"], self.client.get(self.url).text)
+        self.assertIn("園から基本医療情報の書き直し", self.client.get("/parent-portal/").text)
+        with Session(self.fixture.engine) as session:
+            session.add(ParentChildLink(child_id=self.fixture.second_child_id, parent_account_id=self.parent))
+            session.commit()
+        chooser = self.client.get("/parent-portal/medical")
+        self.assertIn("確認したいお子さまを選んで", chooser.text)
+        self.assertIn(self.url, chooser.text)
+        self.assertIn(parent_medical.PARENT.format(child_id=self.fixture.second_child_id), chooser.text)
         self.assertEqual(self.post("send", xray_answer="undecided").status_code, 200)
         self.fixture.app.dependency_overrides[get_current_staff_user] = lambda: StaffUser(role=Role.VIEW_ONLY, name="閲覧")
         self.assertEqual(self.client.post(self.staff + "/request", data={"parent_id": self.parent}).status_code, 403)
         self.assertEqual(self.client.post(f"{self.staff}/{record_id + 1}", data={"action": "approve"}).status_code, 403)
         self.fixture._login_parent(self.fixture.single_parent_account_id)
         self.assertEqual(self.client.get(self.url).status_code, 404)
+        self.assertNotIn('href="/parent-portal/medical"', self.client.get("/parent-portal/").text)
+        self.assertNotIn(self.url, self.client.get("/parent-portal/medical").text)
 
     def test_clear_hospital_conflict_and_supersession(self):
         with Session(self.fixture.engine) as session:

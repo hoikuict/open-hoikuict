@@ -1139,7 +1139,9 @@ def family_emergency_contacts(request: Request, session: Session = Depends(get_s
     if not parent:
         return RedirectResponse("/parent-portal/login", status_code=303)
     if not may_share(parent):
-        raise HTTPException(403, "ご家族の緊急連絡先は園にご確認ください。")
+        return templates.TemplateResponse(request, "parent_portal/emergency.html", {
+            "current_parent_user": parent, "parent_portal_mode": True, "emergency": None,
+        }, status_code=403, headers={"Cache-Control": "private, no-store"})
     return _usual_order_page(request, session, parent)
 
 
