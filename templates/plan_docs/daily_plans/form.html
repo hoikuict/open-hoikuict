@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}日案作成 | hoiku-plan-docs{% endblock %}
 {% block content %}
-  <link rel="stylesheet" href="/static/css/daily-example-list.css">
+  <link rel="stylesheet" href="{{ static_asset_url('css/daily-example-list.css') }}">
   <section class="form-header">
     <div>
       <p class="eyebrow">daily_plan</p>
@@ -94,7 +94,7 @@
                 </table>
               </div>
               <div class="daily-example-actions">
-                <a class="button button--secondary daily-example-copy" href="/plans/daily-plans/new?age_class={{ selected_age_class|urlencode }}&month={{ selected_month if selected_month is not none else '' }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
+                <a class="button button--secondary daily-example-copy" href="/plans/daily-plans/new?age_class={{ selected_age_class|urlencode }}&month={{ selected_month if selected_month is not none else '' }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft" target="_blank" rel="noopener">この候補を下書きへコピー</a>
                 <button class="button button--ghost close-daily-example" type="button">詳細を閉じる</button>
               </div>
             </div>
@@ -113,6 +113,15 @@
   </section>
 
   <div class="notice" id="daily-example-feedback" role="status" hidden></div>
+  <dialog id="daily-copy-choice" aria-labelledby="daily-copy-heading" aria-describedby="daily-copy-example">
+    <h2 id="daily-copy-heading">この文例をどう使いますか？</h2>
+    <p id="daily-copy-example"></p>
+    <form method="dialog">
+      <button value="append"><strong>文末に追加する</strong><span>文章は改行して続きに、活動は最後の行の下に足します。今の年齢を使います。</span></button>
+      <button value="replace"><strong>置き換える</strong><span>年齢・ねらい・内容・1日の流れを、この文例に入れ替えます。</span></button>
+      <button value="cancel" autofocus><strong>入力を続ける</strong><span>文例を取り込まず、書きかけの日案に戻ります。</span></button>
+    </form>
+  </dialog>
   <form class="form-layout" method="post" action="/plans/daily-plans" id="daily-draft">
     <input name="example_id" type="hidden" value="{{ form_values.get('example_id', '') }}">
     <input name="example_source_ref" type="hidden" value="{{ form_values.get('example_source_ref', '') }}">
@@ -263,5 +272,5 @@
       });
     })();
   </script>
-  <script src="/static/js/daily-example-search.js"></script>
+  <script src="{{ static_asset_url('js/daily-example-search.js') }}"></script>
 {% endblock %}

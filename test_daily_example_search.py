@@ -96,6 +96,23 @@ class DailyExampleSearchTests(unittest.TestCase):
     def test_invalid_month_still_returns_validation_error(self):
         self.assertEqual(self.client.get("/plans/daily-plans/new?month=invalid").status_code, 422)
 
+    def test_save_and_reopen_preserves_appended_text_and_rows(self):
+        response = self.client.post("/plans/daily-plans", data={
+            "target_date": "2026-11-11", "classroom_ref": "りす組（1歳児）", "age_class": "1歳児",
+            "daily_aims": "色を探す。\r\n形を比べる。", "daily_content": "葉を拾う。\r\n並べてみる。",
+            "timeline_row_key": ["row_1", "appended_1"], "timeline_time": ["9:30", "10:00"],
+            "timeline_children": ["園庭を歩く。", "葉を並べる。"],
+        }, follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        detail = self.client.get(response.headers["location"])
+        self.assertEqual(detail.status_code, 200)
+        document = detail.context["document"]
+        sections = {section.section_key: section.body for section in document.sections}
+        self.assertEqual(sections["daily_goal"], "色を探す。\n形を比べる。")
+        self.assertEqual(sections["daily_content"], "葉を拾う。\n並べてみる。")
+        self.assertEqual([row.start_time for row in document.schedule.rows], ["9:30", "10:00"])
+        self.assertEqual([row.row_key for row in document.schedule.rows], ["row_1", "appended_1"])
+
 
 if __name__ == "__main__":
     unittest.main()
