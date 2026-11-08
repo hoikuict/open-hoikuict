@@ -82,6 +82,7 @@
       <h2 class="text-lg font-semibold text-slate-800">家族プロフィール</h2>
       <p class="text-sm text-slate-500">家族で共有している連絡先と保護者情報です。</p>
     </div>
+    {% if emergency %}{% from 'shared/_emergency_order.html' import summary %}{{ summary(emergency, emergency_day, true) }}{% endif %}
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div><div class="text-xs font-medium text-slate-500">家族名</div><div class="mt-1 text-sm text-slate-800">{{ child.family.family_name if child.family else "-" }}</div></div>

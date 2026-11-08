@@ -55,6 +55,7 @@ from models import (
     ParentRegistrationRequest,
 )
 from time_utils import format_jst_datetime, local_today, utc_now
+from family_emergency import load_orders
 
 router = APIRouter(prefix="/children", tags=["children"])
 from template_utils import create_templates
@@ -973,6 +974,7 @@ def child_detail(
 ):
     child = _load_child(session, child_id)
     family_children = _sorted_family_children(child)
+    emergency_day = local_today()
     from parent_account_lifecycle import parent_lifecycle_states
     family_parent_accounts = (
         sorted(
@@ -1005,6 +1007,8 @@ def child_detail(
             "care_message": care_message,
             "care_error": care_error,
             "family_children": family_children,
+            "emergency_day": emergency_day,
+            "emergency": load_orders(session, child.family_id, emergency_day),
             "family_parent_accounts": family_parent_accounts,
             "parent_lifecycle_states": parent_lifecycle_states(session, family_parent_accounts),
             "family_parent_accounts_by_id": {

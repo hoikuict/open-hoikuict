@@ -540,6 +540,19 @@ class Family(SQLModel, table=True):
         return self.identity_label + ("（家庭一覧でアーカイブ済み）" if self.is_archived else "")
 
 
+class FamilyEmergencyOrder(SQLModel, table=True):
+    __tablename__ = "family_emergency_orders"
+
+    family_id: int = Field(foreign_key="families.id", primary_key=True)
+    # "usual" or the ISO date for a family's dated snapshot.
+    scope: str = Field(primary_key=True, max_length=10)
+    mode: str = Field(max_length=12)
+    contacts: list = Field(sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=1)
+    updated_by: str
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class FamilyArchiveLog(SQLModel, table=True):
     __tablename__ = "family_archive_logs"
 

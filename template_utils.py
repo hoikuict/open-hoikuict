@@ -1,4 +1,6 @@
 from fastapi.templating import Jinja2Templates
+from home_care_details import meal_dates
+from family_emergency import may_share
 from hashlib import sha256
 from pathlib import Path
 
@@ -24,4 +26,6 @@ def create_templates(directory: str = "templates") -> Jinja2Templates:
     templates.env.filters["local_datetime"] = format_local_datetime
     templates.env.globals["parent_enrollment_enabled"] = lambda: parent_auth_mode() == "local_password"
     templates.env.globals["static_asset_url"] = static_asset_url
+    templates.env.globals["meal_dates"] = meal_dates
+    templates.env.globals["can_share_emergency"] = may_share
     return templates

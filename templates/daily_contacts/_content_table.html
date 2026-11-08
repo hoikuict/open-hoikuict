@@ -48,7 +48,7 @@
       <td>{% if care.get('bedtime') or care.get('wakeup_time') %}{{ value(care.get('bedtime')) }} 〜 {{ value(care.get('wakeup_time')) }}{% else %}{{ value(none) }}{% endif %}
         {% if entry and entry.sleep_notes %}<span class="contact-sub contact-text">{{ entry.sleep_notes }}</span>{% endif %}
       </td>
-      <td>{% if entry %}{{ part('朝食・食欲', entry.breakfast_status) }}{{ part('食べた内容', care.get('breakfast_contents')) }}{% else %}{{ value(none) }}{% endif %}</td>
+      <td>{% if entry %}{% include 'shared/_contact_meals.html' %}{% else %}{{ value(none) }}{% endif %}</td>
       <td>{{ value(temperature_display(entry.temperature if entry else none)) }}</td>
       <td>
         {% if pickup and (pickup.planned_pickup_time or pickup.pickup_person or pickup.pickup_snack_confirmed) %}

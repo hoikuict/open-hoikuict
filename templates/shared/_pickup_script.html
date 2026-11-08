@@ -19,11 +19,16 @@
       root.querySelectorAll('[data-pickup-minute]').forEach(b => { b.hidden = !allowed(b.dataset.pickupMinute); b.disabled = !active || !hour.value || b.hidden; b.setAttribute('aria-pressed', String(b.dataset.pickupMinute === minute.value)); });
       [...exact.options].forEach(option => { option.hidden = !!option.value && !allowed(option.value); option.disabled = option.hidden; });
       exact.disabled = !active || !hour.value; exact.value = minute.value;
-      if ((time.value && (!closing || time.value < closing)) || (!hour.value && !minute.value && !required)) timeError.classList.add('hidden');
+      if (time.value) timeError.classList.toggle('hidden', !closing || time.value < closing);
+      else if (!hour.value && !minute.value && !required) timeError.classList.add('hidden');
     };
     root.addEventListener('click', e => {
       const button = e.target.closest('button'); if (!button || !root.contains(button)) return;
-      if (button.hasAttribute('data-pickup-hour')) { hour.value = button.dataset.pickupHour; sync(); }
+      if (button.hasAttribute('data-pickup-hour')) {
+        hour.value = button.dataset.pickupHour;
+        if (!allowed(minute.value)) minute.value = '';
+        sync();
+      }
       if (button.hasAttribute('data-pickup-minute')) { minute.value = button.dataset.pickupMinute; sync(); }
       if (button.hasAttribute('data-pickup-time-clear')) { hour.value = ''; minute.value = ''; sync(); }
       if (button.hasAttribute('data-pickup-person')) {

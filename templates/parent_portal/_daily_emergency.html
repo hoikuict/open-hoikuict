@@ -1,0 +1,25 @@
+{% from 'shared/_emergency_order.html' import numbers %}
+{% set usual = emergency.usual %}
+{% set answer = emergency.answer if emergency.answer and emergency.answer.mode != 'withdraw' else none %}
+{% set mode = form_data.get('emergency_mode', '') %}
+<section data-day-emergency class="rounded-xl border bg-slate-50 p-4">
+  <h2 class="font-bold">{{ target_day.month }}月{{ target_day.day }}日の緊急連絡先</h2>
+  <input type="hidden" name="base_revision" value="{{ form_data.get('base_revision', usual.revision if usual else 0) }}">
+  <input type="hidden" name="day_revision" value="{{ form_data.get('day_revision', emergency.answer.revision if emergency.answer else 0) }}">
+  {% if answer %}
+    <p>この日の連絡先は、ご家族から連絡済みです。{{ answer.updated_at|jst_datetime('%m/%d %H:%M') }}　{{ answer.updated_by }}</p>
+    <strong>{{ 'この日は連絡順が変わっています' if answer.mode == 'change' else 'いつもどおりです' }}</strong>
+    {{ numbers(answer.contacts) }}
+    <details {% if mode %}open{% endif %}><summary>この日の連絡先を変更</summary>
+  {% elif usual %}<p>いつもの連絡順</p>{{ numbers(usual.contacts) }}
+  {% else %}<p>いつもの連絡順は未登録です。<a class="underline" href="/parent-portal/emergency-contacts">いつもの連絡順を登録</a></p>{% endif %}
+  <div class="my-3 flex flex-wrap gap-3">
+    {% if usual %}<label><input type="radio" name="emergency_mode" value="usual" {% if mode == 'usual' %}checked{% endif %}> {{ 'いつもの順番に戻す' if answer and answer.mode == 'change' else 'いつもどおり' }}</label>{% endif %}
+    <label><input type="radio" name="emergency_mode" value="change" {% if mode == 'change' %}checked{% endif %}> 今日は変更する</label>
+    {% if answer and not usual %}<label><input type="radio" name="emergency_mode" value="withdraw" {% if mode == 'withdraw' %}checked{% endif %}> この日の回答を取り消す</label>{% endif %}
+  </div>
+  {% set candidates = usual.contacts if usual else [] %}
+  {% set initial = answer.contacts if answer and answer.mode == 'change' else candidates %}
+  {% include 'parent_portal/_emergency_editor.html' %}
+  {% if answer %}<button type="button" data-cancel-emergency class="mt-2 underline">変更をやめる</button></details>{% endif %}
+</section>
