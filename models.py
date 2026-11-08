@@ -829,6 +829,26 @@ class ChildHealthProfile(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class ParentMedicalResponse(SQLModel, table=True):
+    __tablename__ = "parent_medical_responses"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", ondelete="CASCADE", index=True)
+    parent_account_id: Optional[int] = Field(default=None, foreign_key="parent_accounts.id", ondelete="SET NULL", index=True)
+    parent_name: str
+    status: str = Field(default="requested", index=True)
+    requested_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    submitted_at: Optional[datetime] = None
+    before: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    answers: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    xray_answer: Optional[str] = None
+    xray_question: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    review_note: Optional[str] = None
+
+
 class ChildAllergy(SQLModel, table=True):
     __tablename__ = "child_allergies"
 

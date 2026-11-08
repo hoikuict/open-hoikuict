@@ -23,7 +23,9 @@
   <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ form_error }}</div>
   {% endif %}
 
+  {% include "health/_medical_consent.html" %}
   <form method="post" action="/children/{{ child.id }}/health/profile" class="space-y-6">
+    <input type="hidden" name="medical_version" value="{{ medical_version }}">
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 class="text-lg font-semibold text-slate-900">基本医療情報</h2>
       <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -40,7 +42,7 @@
           <input name="primary_doctor_phone" value="{{ form_data.primary_doctor_phone }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
         </label>
         <label class="space-y-2 text-sm text-slate-700">
-          <span class="font-medium">緊急搬送先</span>
+          <span class="font-medium">希望する搬送先（任意）</span>
           <input name="hospital_name" value="{{ form_data.hospital_name }}" class="w-full rounded-lg border border-slate-300 px-3 py-2">
         </label>
         <label class="space-y-2 text-sm text-slate-700 md:col-span-2">

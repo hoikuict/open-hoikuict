@@ -49,6 +49,7 @@ from models import (
     ParentAccountStatus,
     ParentContactType,
     ParentChildLink,
+    ParentMedicalResponse,
     ParentNotification,
     PasswordCredential,
     ProfileChangeNotification,
@@ -637,6 +638,12 @@ def parent_home(
         child_ids=child_ids,
     )
 
+    linked_ids = {link.child_id for link in current_parent_user.child_links}
+    medical_status = dict.fromkeys(linked_ids)
+    if linked_ids:
+        medical_status.update(session.exec(select(ParentMedicalResponse.child_id, ParentMedicalResponse.status)
+            .where(ParentMedicalResponse.parent_account_id == current_parent_user.id,
+                   ParentMedicalResponse.child_id.in_(linked_ids)).order_by(ParentMedicalResponse.id)).all())
     latest_updates = _load_parent_updates(session, current_parent_user)
     recent_replies = session.exec(
         select(DailyContactReply).options(selectinload(DailyContactReply.child)).where(
@@ -660,6 +667,7 @@ def parent_home(
             "reply_display_by_child_id": reply_display_by_child_id,
             "pending_request_by_child_id": pending_request_by_child_id,
             "latest_updates": latest_updates[:5],
+            "medical_status": medical_status,
             "recent_replies": recent_replies,
             "unread_notice_count": sum(1 for item in latest_updates if item["is_unread"]),
             "flash_notice": "日次連絡を保存しました。" if notice == "saved" else "",

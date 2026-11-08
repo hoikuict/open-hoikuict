@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}基本医療情報 | 保護者アプリ{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl space-y-5">
+  <a class="text-sm text-indigo-700 underline" href="/parent-portal/#child-information">保護者ホームへ</a>
+  <h1 class="text-2xl font-bold text-slate-900">{{ child.full_name }}さんの基本医療情報</h1>
+  {% if sent %}
+  <section class="space-y-3 rounded-xl border border-emerald-200 bg-white p-5" role="status">
+    <h2 class="text-lg font-semibold">園に回答を送りました</h2>
+    <p>園で内容を確認します。あとから、この画面で回答を見直せます。</p>
+    <a class="inline-block text-indigo-700 underline" href="/parent-portal/children/{{ child.id }}/medical">回答を見直す</a>
+  </section>
+  {% else %}
+  {% if latest %}<p class="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-900">{{ statuses[latest.status] }}{% if latest.status == 'returned' %}：{{ latest.review_note }}{% endif %}</p>{% endif %}
+  {% if error %}<p class="rounded-lg bg-rose-50 p-3 text-rose-800" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" class="space-y-5">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <input type="hidden" name="revision" value="{{ revision }}">
+    {% if step == 'review' %}
+    <section class="space-y-4 rounded-xl border border-slate-200 bg-white p-5" id="medical-review">
+      <h2 class="text-lg font-semibold">回答の確認</h2>
+      <p>{{ child.full_name }}さんの回答として、次の内容を園に伝えます。</p>
+      <dl class="space-y-3">
+      {% for key, label in labels.items() %}
+        <div><dt class="text-sm text-slate-600">{{ label }}</dt><dd>{{ draft[key] or ('希望なし' if key == 'hospital_name' else '未記入') }}</dd></div>
+        <input type="hidden" name="{{ key }}" value="{{ draft[key] }}">
+      {% endfor %}
+        <div><dt class="text-sm text-slate-600">レントゲン撮影の事前承諾</dt><dd><p>{{ question }}</p><strong>{{ choices.get(xray, unanswered) }}</strong></dd></div>
+      </dl>
+      {% if xray %}<input type="hidden" name="xray_answer" value="{{ xray }}">{% endif %}
+      {% if clear %}<input type="hidden" name="clear_hospital" value="yes">{% endif %}
+      <div class="flex flex-wrap gap-3">
+        <button class="rounded-lg border border-slate-300 px-4 py-3" name="action" value="edit">書き直す</button>
+        <button class="rounded-lg bg-indigo-600 px-4 py-3 text-white" name="action" value="send">この内容で回答する</button>
+      </div>
+    </section>
+    {% else %}
+    <p>登録されている内容を確認し、変わったところを直してください。変更がないときは、そのまま確認に進めます。</p>
+    {% set panel = 'space-y-3 rounded-xl border border-slate-200 bg-white p-5' %}
+    {% set field = 'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2' %}
+    <section class="{{ panel }}" id="medical-basic">
+      <h2 class="text-lg font-semibold">血液型</h2>
+      <label class="block">お子さんの血液型
+        <select name="blood_type" class="{{ field }}"><option value="">未記入</option>
+          {% for item in blood_types %}<option {% if draft.blood_type == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+          {% if draft.blood_type and draft.blood_type not in blood_types %}<option selected>{{ draft.blood_type }}</option>{% endif %}
+        </select>
+      </label>
+    </section>
+    <section class="{{ panel }}" id="medical-doctor">
+      <h2 class="text-lg font-semibold">かかりつけ医</h2>
+      {% for key in ('primary_doctor_name','primary_doctor_phone','primary_doctor_address') %}
+      <label class="block">{{ labels[key] }}<input name="{{ key }}" type="{{ 'tel' if key.endswith('phone') else 'text' }}" class="{{ field }}" value="{{ draft[key] }}"></label>
+      {% endfor %}
+    </section>
+    <section class="{{ panel }}" id="medical-hospital">
+      <h2 class="text-lg font-semibold">希望する搬送先（任意）</h2>
+      <p>希望する病院があれば、病院名を入力してください。電話番号はわかる場合に入力してください。希望がなければ空欄で送れます。</p>
+      <label class="block">病院名<input class="{{ field }}" name="hospital_name" value="{{ draft.hospital_name }}"></label>
+      <label class="block">病院の電話番号<input class="{{ field }}" name="hospital_phone" type="tel" value="{{ draft.hospital_phone }}"></label>
+      {% if baseline.hospital_name or baseline.hospital_phone %}
+      <label class="block"><input type="checkbox" name="clear_hospital" value="yes" {% if clear %}checked{% endif %}> 登録済みの搬送先の希望を取り消す</label>
+      {% endif %}
+    </section>
+    <fieldset class="{{ panel }}" aria-labelledby="xray-heading" aria-describedby="xray-question" id="medical-xray">
+      <h2 id="xray-heading" class="text-lg font-semibold">レントゲン撮影の事前承諾</h2>
+      <p id="xray-question">{{ question }}</p>
+      {% for key, label in choices.items() %}
+      <label class="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3"><input class="mt-1" type="radio" name="xray_answer" value="{{ key }}" {% if xray == key %}checked{% endif %}>{{ label }}</label>
+      {% endfor %}
+      <p class="text-sm text-slate-600">園は回答を受診先に伝えます。撮影の手続きは受診先に確認します。</p>
+    </fieldset>
+    <button class="rounded-lg bg-indigo-600 px-5 py-3 font-semibold text-white" name="action" value="preview">回答を確認する</button>
+    {% endif %}
+  </form>
+  {% endif %}
+  <a class="inline-block text-sm text-indigo-700 underline" href="/manual-guide-preview/#article/parent-app-medical">基本医療情報の書き方を見る</a>
+</div>
+{% endblock %}

@@ -70,6 +70,12 @@
             {% endif %}
           </div>
           <p class="text-sm text-gray-500">{{ child.classroom.name if child.classroom else 'クラス未設定' }}</p>
+          {% if child.id in medical_status %}
+          <div class="mt-3">
+            {% if medical_status[child.id] in ('requested', 'returned') %}<p class="mb-1 text-sm font-semibold text-amber-800">園から基本医療情報の{{ '書き直し' if medical_status[child.id] == 'returned' else '記入' }}のお願いがあります。</p>{% endif %}
+            <a href="/parent-portal/children/{{ child.id }}/medical" class="inline-block rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700">基本医療情報を確認する</a>
+          </div>
+          {% endif %}
           {% if pending_request %}
           <p class="mt-2 text-xs text-amber-700">最終申請: {{ pending_request.submitted_at|jst_datetime("%Y-%m-%d %H:%M") }} JST</p>
           {% endif %}
