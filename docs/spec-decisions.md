@@ -253,3 +253,9 @@
 
 - **確認版**　配備版 `b9cb3d4` の画面に架空データを表示して撮影した13枚を使用。自園の様式を標準の入口とし、旧式の帳票も引き続き開ける構成を案内する。
 - **公開の合意**　2026-11-08、ユーザーが確認版を見て「OK。反映しましょう」と指定した。[指導計画の画面を開く](manual-guide-preview/plans/index.html)、[帳票一覧で書きかけを探す](manual-guide-preview/plans/search/index.html)、[旧式の帳票を開く](manual-guide-preview/plans/legacy/index.html)を職員向けの目次と検索から開けるようにする。
+
+## SD-040 自園の4つの帳票の書き方を画面付きで掲載する {#sd-040}
+
+- **公開と園内への設置の合意**　2026-11-08、ユーザーが4帳票の確認版を了承し、HPへの掲載と実機への取説のコピーを希望した。HPと園のアプリに同じ画面付きガイド一式を置き、園ではログイン前の「使い方マニュアル」と職員の「指導計画」から開けるようにする。
+
+[年案](manual-guide-preview/plans/annual/index.html)・[月案](manual-guide-preview/plans/monthly/index.html)・[週案](manual-guide-preview/plans/weekly/index.html)・[日案・文例・振返り](manual-guide-preview/plans/daily/index.html)の操作を、架空の園児・職員の画面34枚で案内する。

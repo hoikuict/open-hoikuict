@@ -2599,6 +2599,12 @@ const planningGuides = [
   {title: '帳票一覧で書きかけを探す', href: 'plans/search/', summary: 'クラスや状態で絞り、下書きの続きを開く。', keywords: '指導計画 帳票検索 キーワード 修正 作成者 園児'},
   {title: '旧式の帳票を開く', href: 'plans/legacy/', summary: '以前の様式で書いた年案・月案・週案を探す。', keywords: '指導計画 過去 旧様式 修正'},
 ];
+const planningForms = [
+  {title: '年案', href: 'plans/annual/', summary: '前の年案を引き継ぎ、今年のねらいと各期の反省を書く。', keywords: '指導計画 年間 担任 下書き 承認'},
+  {title: '月案', href: 'plans/monthly/', summary: '月のねらいと、園児ごと・クラス全体の計画を書く。印刷やExcel出力もここから。', keywords: '指導計画 月間 乳児 幼児 文例 反省 PDF'},
+  {title: '週案', href: 'plans/weekly/', summary: '書きたい週を選び、週ごと・曜日ごとの活動を書く。月案とつなげる。', keywords: '指導計画 週間 文例 月案 接続 乳児 幼児'},
+  {title: '日案・文例・振返り', href: 'plans/daily/', summary: '1日の流れを書き、文例を足す。その日の振り返りを書いて承認を依頼する。', keywords: '指導計画 日案 文例コピー 文末に追加 置き換え 振返り 振り返り 反省 下書き'},
+];
 function planningLink(guide) {
   return `<a class="topic" href="${guide.href}"><span><strong>${guide.title}</strong><small>${guide.summary}</small></span><span class="badge">画面付き →</span></a>`;
 }
@@ -2606,7 +2612,12 @@ function planningSection() {
   return `<h2>指導計画の使い方</h2><div class="topic-list">${planningGuides.map(planningLink).join('')}</div>`;
 }
 function referenceLink(t){return `<a class="topic" href="${esc(t.url)}" target="_blank" rel="noopener"><span><strong>${esc(t.title)}</strong><small>${esc(t.role)} · 既存資料を別タブで開く</small></span><span class="badge reference">${esc(t.kind)} ↗</span></a>`;}
-function chapter(i){const c=manualChapters[i];return `${crumb(titles[i])}<p class="eyebrow">CHAPTER 0${i+1}</p><h1>${titles[i]}</h1><p class="lead">${c.description}</p>${i===3?planningSection():''}${Object.values(manualArticles).some(a=>a.chapter===i&&a.audience!=='parents')?`<h2>画面を見ながら進める</h2><div class="topic-list">${Object.entries(manualArticles).filter(([,a])=>a.chapter===i&&a.audience!=='parents').map(([id])=>articleLink(id)).join('')}</div>`:''}<div class="section-head"><h2>順番に読む・詳しく確認する</h2><span>現在の公開資料</span></div><div class="topic-list">${c.topics.map(referenceLink).join('')}</div><p class="source-note">この分野の既存${c.topics.length}項目を掲載しています。概要・仕様の資料は、今後の画面付き手順の整備候補です。</p>`;}
+function planningChapter(chapter) {
+  return `${crumb(titles[3])}<h1>${titles[3]}</h1><p class="lead">${chapter.description}</p>${planningSection()}
+    <h2>帳票ごとの書き方</h2><div class="topic-list">${planningForms.map(planningLink).join('')}</div>
+    <details><summary>仕様資料を開く</summary><div class="topic-list">${chapter.topics.map(referenceLink).join('')}</div></details>`;
+}
+function chapter(i){const c=manualChapters[i];if(i===3)return planningChapter(c);return `${crumb(titles[i])}<p class="eyebrow">CHAPTER 0${i+1}</p><h1>${titles[i]}</h1><p class="lead">${c.description}</p>${Object.values(manualArticles).some(a=>a.chapter===i&&a.audience!=='parents')?`<h2>画面を見ながら進める</h2><div class="topic-list">${Object.entries(manualArticles).filter(([,a])=>a.chapter===i&&a.audience!=='parents').map(([id])=>articleLink(id)).join('')}</div>`:''}<div class="section-head"><h2>順番に読む・詳しく確認する</h2><span>現在の公開資料</span></div><div class="topic-list">${c.topics.map(referenceLink).join('')}</div><p class="source-note">この分野の既存${c.topics.length}項目を掲載しています。概要・仕様の資料は、今後の画面付き手順の整備候補です。</p>`;}
 function issues(){return `${crumb('こんなときどうする？')}<p class="eyebrow">場面から探す</p><h1>いま、どんなことで困っていますか。</h1><p class="lead">機能の名前が分からなくても大丈夫。近い場面を選んでください。</p>${searchBox()}<section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents').map(card).join('')}</section>${planningSection()}<a href="#chapters">業務別の目次を見る →</a>`;}
 const helpOptions={
   admission:[['兄弟姉妹が在園している・以前在園していた','同じ家族へ追加し、保護者の閲覧対象を確認する','#article/child-sibling'],['初めて入園する家庭','共通QRで申し込み、園が確認・承認する','#article/parent-qr']],
@@ -2624,12 +2635,12 @@ function answer(id){const a=answers[id];return `<div class="diagnosis">${crumb('
 function normalize(s){return s.normalize('NFKC').toLowerCase().replace(/\s+/g,'');}
 function search(q){const n=normalize(q), terms=q.normalize('NFKC').trim().split(/[\s　]+/).filter(Boolean);const expansions=[];if(/欠席|電話|でんわ|休み/.test(n))expansions.push('phone');if(/打刻|だこく|登園|降園|補完/.test(n))expansions.push('clock');if(/ログイン|パスワード|コード/.test(n))expansions.push('password');const matches=Object.entries(manualArticles).filter(([id,a])=>expansions.includes(id)||(terms.length&&terms.every(t=>normalize(a.title+a.keywords+a.summary).includes(normalize(t)))));const links = matches.map(([id]) => articleLink(id));
   if (terms.length) {
-    for (const guide of planningGuides) {
+    for (const guide of [...planningGuides, ...planningForms]) {
       const text = normalize(guide.title + guide.keywords + guide.summary);
       if (terms.every(term => text.includes(normalize(term)))) links.push(planningLink(guide));
     }
   }
-  const refs=manualChapters.flatMap(c=>c.topics).filter(t=>terms.length&&terms.every(w=>normalize(t.title+t.role).includes(normalize(w))));return `${crumb('検索結果')}<h1>必要な手順を探す</h1>${searchBox()}<p class="search-status" role="status">${q?`「${esc(q)}」：画面付き ${links.length}件・既存資料 ${refs.length}件`:'困っていることや、やりたいことを入力してください。'}</p>${links.length?`<h2>画面を見ながら進める</h2><div class="topic-list">${links.join('')}</div>`:''}${refs.length?`<div class="section-head"><h2>現在の公開資料</h2></div><div class="topic-list">${refs.map(referenceLink).join('')}</div>`:''}${q&&!links.length&&!refs.length?`<div class="empty-result"><h2>ぴったりの手順が見つかりませんでした。</h2><p>「打刻忘れ」「職員登録」のような短い言葉で試してください。<br>この試作版で画面付きの手順があるのは職員向け12例・保護者向け11例です。</p><a href="#chapters">業務別の目次から探す →</a></div>`:''}`;}
+  const refs=manualChapters.flatMap(c=>c.topics).filter(t=>terms.length&&terms.every(w=>normalize(t.title+t.role).includes(normalize(w))));return `${crumb('検索結果')}<h1>必要な手順を探す</h1>${searchBox()}<p class="search-status" role="status">${q?`「${esc(q)}」：画面付き ${links.length}件・既存資料 ${refs.length}件`:'困っていることや、やりたいことを入力してください。'}</p>${links.length?`<h2>画面を見ながら進める</h2><div class="topic-list">${links.join('')}</div>`:''}${refs.length?`<div class="section-head"><h2>現在の公開資料</h2></div><div class="topic-list">${refs.map(referenceLink).join('')}</div>`:''}${q&&!links.length&&!refs.length?`<div class="empty-result"><h2>ぴったりの手順が見つかりませんでした。</h2><p>「打刻忘れ」「職員登録」のような短い言葉で試してください。<br>この試作版で画面付きの手順があるのは職員向け16例・保護者向け11例です。</p><a href="#chapters">業務別の目次から探す →</a></div>`:''}`;}
 function renderStep(a,i,print=false){
   const s=a.steps[i], prefix=s.imagePrefix||a.imagePrefix||(currentArticle==='phone'?'phone':'monthly');
   const selected=!print&&s.states?(imageState[i]||s.states[0][0]):'';
