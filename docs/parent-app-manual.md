@@ -205,3 +205,9 @@
 ホームの見方と毎日の連絡に加え、Android・iPhoneの通知設定を案内しています。スマートフォン側の画像は公式案内をもとにした操作の図で、実機のスクリーンショットではありません。子ども情報変更申請・登録情報・パスワード変更は入口を案内し、詳しい手順は今後確認して追加します。
 
 [作成・確認の記録](spec-decisions.md#sd-019) · [ホーム案内の修正](spec-decisions.md#sd-020) · [日次連絡の入口の修正](spec-decisions.md#sd-021) · [お休みの手順の修正](spec-decisions.md#sd-022) · [お迎えの手順の修正](spec-decisions.md#sd-023) · [通知設定の追加](spec-decisions.md#sd-024) · [画像と説明の訂正](spec-decisions.md#sd-025) · [保護者用のホーム](manual-guide-preview/index.html#parents)
+
+## お子さまの基本医療情報を園に伝える
+
+保護者ホームで、お子さまの名前のそばにある「基本医療情報を確認する」を押します。血液型や病院の情報、レントゲン撮影についてのご希望を確認して、園に回答します。希望する搬送先は空欄でも送れます。
+
+[画面を見ながら記入する](/manual-guide-preview/#article/parent-app-medical)
