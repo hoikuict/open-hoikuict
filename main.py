@@ -149,6 +149,11 @@ app = FastAPI(
 app.add_exception_handler(StarletteHTTPException, staff_auth_http_exception_handler)
 app.add_middleware(CsrfTokenMiddleware)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.mount(
+    "/manual-guide-preview",
+    StaticFiles(directory=Path(__file__).parent / "docs" / "manual-guide-preview", html=True),
+    name="manual_guide",
+)
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)

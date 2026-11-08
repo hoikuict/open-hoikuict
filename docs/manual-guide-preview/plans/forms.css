@@ -1,0 +1,17 @@
+.step { display: inline-grid; place-items: center; width: 1.8em; height: 1.8em; margin-right: .55em; border-radius: 50%; background: #e7efe6; color: #235e49; font-size: .84em; }
+.shot-note { color: #475f52; font-size: .9rem; }
+.panel figure { margin: 1.1rem 0 0; }
+.panel figure a { display: block; width: fit-content; max-width: 100%; border: 1px solid #d0dcd4; border-radius: .3rem; overflow: hidden; }
+.panel figure img { width: auto; max-width: 100%; }
+.panel figcaption { margin-top: .35rem; }
+.forms-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(19rem,100%),1fr)); gap: .8rem; list-style: none; margin: 0; padding: 0; }
+.forms-list li { padding: 0; margin: 0; }
+.forms-list a { display: block; height: 100%; background: white; border: 1px solid #cbd8cf; border-radius: .75rem; padding: 1.1rem 1.25rem; text-decoration: none; }
+.forms-list strong { text-decoration: underline; font-size: 1.13rem; }
+.forms-list span { display: block; color: #3c5045; margin-top: .25rem; }
+@media print {
+  .pages, .contents, .foot, .shot-note { display: none; }
+  .panel { padding: 1rem 0; border: 0; }
+  figure { break-inside: avoid; }
+  .panel h2 { break-after: avoid; }
+}
