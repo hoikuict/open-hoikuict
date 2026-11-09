@@ -395,7 +395,7 @@ class ParentPortalTests(unittest.TestCase):
             self.assertIsNotNone(saved.read_at)
 
     def test_family_order_and_child_meals_are_received_on_staff_screens(self):
-        from models import FamilyEmergencyOrder
+        from models import ChildEmergencyOrder
         from time_utils import local_today
         from routers import children as children_module
 
@@ -416,8 +416,10 @@ class ParentPortalTests(unittest.TestCase):
             session.commit()
         self._login_parent(self.parent_account_id)
         day = local_today().isoformat()
-        usual_url = "/parent-portal/emergency-contacts"
-        self.assertIn(f'href="{usual_url}"', self.client.get("/parent-portal/").text)
+        menu = "/parent-portal/emergency-contacts"
+        usual_url = f"/parent-portal/children/{self.child_id}/emergency-contacts"
+        self.assertIn(f'href="{menu}"', self.client.get("/parent-portal/").text)
+        self.assertIn(f'href="{usual_url}"', self.client.get(menu).text)
         self.assertIn("いつもの連絡順を保存", self.client.get(usual_url).text)
         self.assertEqual(self.client.post(usual_url, data={"base_revision": 0, "emergency_label": "母の職場",
             "emergency_phone": "000-0000-0101"}, follow_redirects=False).status_code, 303)
@@ -426,12 +428,12 @@ class ParentPortalTests(unittest.TestCase):
         payload = {"date": day, "contact_type": "present", "care_fields_version": "1",
             "meal_fields_version": "1", "dinner_appetite": "旺盛", "dinner_contents": "焼き魚",
             "breakfast_appetite": "普通", "breakfast_contents": "トースト", "emergency_mode": "change",
-            "base_revision": 1, "day_revision": 0, "emergency_label": ["祖母の携帯", "母の職場"],
+            "emergency_child_id": self.child_id, "base_revision": 1, "day_revision": 0, "emergency_label": ["祖母の携帯", "母の職場"],
             "emergency_phone": ["000-0000-0105", "000-0000-0101"]}
         self.assertEqual(self.client.post(daily, data=payload, follow_redirects=False).status_code, 303)
         self._login_parent(other_id)
         sibling = f"/parent-portal/children/{self.second_child_id}/contact"
-        self.assertIn("ご家族から連絡済み", self.client.get(sibling).text)
+        self.assertNotIn("000-0000-0105", self.client.get(sibling).text)
         self.assertNotIn(">焼き魚</textarea>", self.client.get(sibling).text)
         self.assertEqual(self.client.post(sibling, data={"date": day, "contact_type": "absent_private"},
                                          follow_redirects=False).status_code, 303)
@@ -440,10 +442,10 @@ class ParentPortalTests(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             for expected in ("食欲：旺盛", "焼き魚", "食欲：普通", "トースト"):
                 self.assertIn(expected, page.text)
-        for child_id in (self.child_id, self.second_child_id):
-            page = self.client.get(f"/children/{child_id}")
-            self.assertIn("今日は連絡順が変わっています", page.text)
-            self.assertIn("000-0000-0105", page.text)
+        page = self.client.get(f"/children/{self.child_id}")
+        self.assertIn("今日は連絡順が変わっています", page.text)
+        self.assertIn("000-0000-0105", page.text)
+        self.assertNotIn("000-0000-0105", self.client.get(f"/children/{self.second_child_id}").text)
         conflict = self.client.post(daily, data={**payload, "dinner_contents": "変更途中"})
         self.assertEqual(conflict.status_code, 409)
         self.assertIn("変更途中", conflict.text)
@@ -452,7 +454,7 @@ class ParentPortalTests(unittest.TestCase):
         self.assertEqual(bad_number.status_code, 400)
         self.assertIn("祖母の携帯", bad_number.text)
         with Session(self.engine) as session:
-            record = session.get(FamilyEmergencyOrder, (self.main_family_id, day))
+            record = session.get(ChildEmergencyOrder, (self.child_id, self.main_family_id, day, 1))
             self.assertEqual(record.revision, 1)
             self.assertEqual(record.contacts[0]["phone"], "000-0000-0105")
         self.assertEqual(self.client.post(usual_url, data={"base_revision": 1, "emergency_label": "父の携帯",
@@ -463,24 +465,78 @@ class ParentPortalTests(unittest.TestCase):
         self.assertNotIn("000-0000-0105", self.client.get(f"{sibling}?date={tomorrow}").text)
         self.assertEqual(self.client.post(daily, data={**payload, "emergency_mode": "usual",
             "base_revision": 2, "day_revision": 1}, follow_redirects=False).status_code, 303)
-        self.assertIn("今日はいつもどおりです", self.client.get(f"/children/{self.second_child_id}").text)
+        self.assertIn("今日はいつもどおりです", self.client.get(f"/children/{self.child_id}").text)
         with Session(self.engine) as session:
             link = session.exec(select(ParentChildLink).where(ParentChildLink.parent_account_id == other_id,
                 ParentChildLink.child_id == self.second_child_id)).one()
             session.delete(link)
             session.commit()
-        self.assertIn(f'href="{usual_url}"', self.client.get("/parent-portal/").text)
-        unavailable = self.client.get(usual_url)
-        self.assertEqual(unavailable.status_code, 403)
-        for page in (unavailable, self.client.get(daily)):
-            self.assertIn("園でお子さまと保護者の登録を確認します", page.text)
-            self.assertNotIn("000-0000-0104", page.text)
-            self.assertNotIn('name="emergency_phone"', page.text)
-        self.assertNotIn("000-0000-0104", self.client.get("/parent-portal/history").text)
-        self.assertEqual(self.client.post(daily, data=payload).status_code, 403)
+        self.assertEqual(self.client.get(menu, follow_redirects=False).headers["location"], usual_url)
+        self.assertIn("000-0000-0104", self.client.get(usual_url).text)
+        forbidden = self.client.get(f"/parent-portal/children/{self.second_child_id}/emergency-contacts")
+        self.assertIn(forbidden.status_code, (403, 404))
         self._login_parent(self.single_parent_account_id)
-        self.assertEqual(self.client.get(usual_url).status_code, 403)
+        self.assertIn(self.client.get(usual_url).status_code, (403, 404))
         self.assertNotIn("祖母の携帯", self.client.get("/parent-portal/history").text)
+
+    def test_child_emergency_defaults_oral_history_and_legacy_fallback(self):
+        from models import FamilyEmergencyOrder
+        from routers import children as children_module
+        from time_utils import local_today
+
+        self.app.include_router(children_module.router)
+        SQLModel.metadata.create_all(self.engine)
+        day = local_today().isoformat()
+        portal = f"/parent-portal/children/{self.child_id}/emergency-contacts"
+        staff = f"/children/{self.child_id}"
+        oral = staff + "/emergency-contacts/oral"
+        old = [{"label": "以前の連絡先", "phone": "000-0000-0030"}]
+        with Session(self.engine) as session:
+            family = session.get(Family, self.main_family_id)
+            family.shared_profile = {"guardians": [
+                {"order": 1, "relationship": "父", "first_name": "たろう", "phone": "090-0000-0002", "workplace_phone": "000-0000-0002"},
+                {"order": 2, "relationship": "母", "first_name": "はなこ", "phone": "080-0000-0001", "workplace_phone": "000-0000-0001"},
+            ]}
+            for child_id in (self.child_id, self.second_child_id):
+                session.add(ParentChildLink(parent_account_id=self.parent_account_id, child_id=child_id))
+            session.add(FamilyEmergencyOrder(family_id=family.id, scope=day, revision=2, mode="change", contacts=old, updated_by="家族"))
+            session.commit()
+        self._login_parent(self.parent_account_id)
+        for html in (self.client.get(portal).text, self.client.get(oral + "?scope=base").text):
+            positions = [html.index(f'value="{v}"') for v in ("母の職場", "父の職場", "母の携帯", "父の携帯")]
+            self.assertEqual(positions, sorted(positions))
+        with Session(self.engine) as session:
+            family = session.get(Family, self.main_family_id)
+            family.shared_profile = {"guardians": [{"order": 1, "relationship": "", "first_name": "見本", "phone": "000-0000-0003"}]}
+            session.commit()
+        form = self.client.get(portal).text
+        self.assertIn("その他の連絡先（任意）", form)
+        self.assertIn('value="見本の電話"', form)
+        base = dict(scope="base", base_revision=0, informant="お父さま",
+                    emergency_label=["保護者の携帯", ""], emergency_phone=["000-0000-0001", ""])
+        self.assertEqual(self.client.post(oral, data=base, follow_redirects=False).status_code, 303)
+        self.assertIn('value="保護者の携帯"', self.client.get(portal).text)
+        self.assertEqual(self.client.post(oral, data=base).status_code, 409)
+        self.assertIn("以前の家族登録", self.client.get(staff).text)
+        today = dict(scope="day", day=day, informant="お父さま", base_revision=1, day_revision=-2,
+                     emergency_label="祖母の携帯", emergency_phone="000-0000-0010")
+        self.assertEqual(self.client.post(oral, data={**today, "informant": ""}).status_code, 400)
+        self.assertEqual(self.client.post(oral, data=today, follow_redirects=False).status_code, 303)
+        view = self.client.get(staff).text
+        for text in ("今日は連絡順が変わっています", "祖母の携帯", "口頭・お父さまから", "台帳担当", "連絡順の変更履歴"):
+            self.assertIn(text, view)
+        sibling = self.client.get(f"/children/{self.second_child_id}").text
+        self.assertIn("以前の連絡先", sibling)
+        self.assertNotIn("祖母の携帯", sibling)
+        self.assertIn("園で口頭受付", self.client.get("/parent-portal/history").text)
+        self.assertEqual(self.client.post(oral, data=today).status_code, 409)
+        with Session(self.engine) as session:
+            self.assertEqual(session.get(FamilyEmergencyOrder, (self.main_family_id, day)).contacts, old)
+            self.assertFalse(session.exec(select(DailyContactEntry)).first())
+        self.app.dependency_overrides[children_module.get_current_staff_user] = lambda: StaffUser(role=Role.VIEW_ONLY, name="閲覧職員")
+        self.assertEqual(self.client.get(oral).status_code, 403)
+        self.assertEqual(self.client.post(oral, data=today).status_code, 403)
+        self.assertNotIn("口頭の連絡を記録", self.client.get(staff).text)
 
     def test_pickup_closing_and_meal_validation_preserve_existing_data(self):
         from models import GuardianHoursSetting

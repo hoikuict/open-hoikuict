@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}緊急連絡先の口頭受付{% endblock %}
+{% block content %}
+{% set url = '/children/' ~ child.id ~ '/emergency-contacts/oral' %}
+<div class="mx-auto max-w-3xl space-y-4 rounded-xl border bg-white p-5">
+  <a class="underline" href="/children/{{ child.id }}#family-emergency">園児詳細に戻る</a>
+  <h1 class="text-xl font-bold">{{ child.full_name }}さんの口頭連絡</h1>
+  <nav class="flex flex-wrap gap-3"><a class="rounded border px-3 py-2 {{ 'bg-indigo-100 font-bold' if target_day }}" href="{{ url }}">その日だけ</a>
+  <a class="rounded border px-3 py-2 {{ 'bg-indigo-100 font-bold' if not target_day }}" href="{{ url }}?scope=base">いつもの連絡順</a></nav>
+  {% if target_day %}<form method="get" class="flex flex-wrap items-center gap-2"><label>別の日を開く <input class="rounded border p-2" type="date" name="day" required value="{{ target_day }}"></label><button class="rounded border p-2">表示</button></form>{% endif %}
+  <h2 class="font-semibold">{{ target_day.isoformat() ~ 'の連絡順' if target_day else 'いつもの連絡順' }}</h2>
+  <p>保存すると、この園児に紐付いた保護者も連絡順を確認できます。</p>
+  {% if has_today_answer %}<p>今日の連絡順はすでに届いています。今日の分も変えるときは「その日だけ」で記録してください。</p>{% endif %}
+  {% if emergency.legacy_usual or emergency.legacy_answer %}<p>以前の家族登録を参照しています。この園児について確認して保存してください。</p>{% endif %}
+  {% if error %}<p role="alert" class="rounded bg-rose-50 p-2">{{ error }} <a class="underline" href="{{ url }}?{{ 'day=' ~ target_day if target_day else 'scope=base' }}">最新の連絡順を確認する</a></p>{% endif %}
+  <form method="post" class="space-y-4">
+    <input type="hidden" name="scope" value="{{ 'day' if target_day else 'base' }}">
+    {% if target_day %}<input type="hidden" name="day" value="{{ target_day }}">{% endif %}
+    <input type="hidden" name="base_revision" value="{{ form_data.get('base_revision', emergency.base_revision) }}">
+    <input type="hidden" name="day_revision" value="{{ form_data.get('day_revision', emergency.day_revision) }}">
+    <label class="block">伝えてくれた方<input class="block w-full rounded border p-2" name="informant" required maxlength="80" placeholder="例：お母さま" value="{{ informant }}"></label>
+    {% if target_day and emergency.usual %}<a class="underline" data-use-usual href="{{ url }}?day={{ target_day }}&amp;usual=1">いつもの連絡順を使う</a>{% endif %}
+    {% set base_editor = not target_day %}
+    {% include 'parent_portal/_emergency_editor.html' %}
+    <p>受付職員：{{ current_user.name }}</p>
+    <button class="rounded bg-indigo-600 px-4 py-2 text-white">{{ 'この日だけの連絡順を保存' if target_day else 'いつもの連絡順を保存' }}</button>
+    <a class="ml-3 underline" href="/children/{{ child.id }}#family-emergency">キャンセル</a>
+  </form>
+</div>
+{% endblock %}

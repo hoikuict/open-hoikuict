@@ -553,6 +553,22 @@ class FamilyEmergencyOrder(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class ChildEmergencyOrder(SQLModel, table=True):
+    __tablename__ = "child_emergency_orders"
+
+    child_id: int = Field(foreign_key="children.id", primary_key=True)
+    family_key: int = Field(primary_key=True)  # 0 while the child has no family assignment
+    scope: str = Field(primary_key=True, max_length=12)
+    revision: int = Field(primary_key=True)
+    mode: str
+    contacts: list = Field(sa_column=Column(JSON, nullable=False))
+    source: str
+    updated_by: str
+    actor_id: Optional[str] = None
+    informant: str = ""
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class FamilyArchiveLog(SQLModel, table=True):
     __tablename__ = "family_archive_logs"
 

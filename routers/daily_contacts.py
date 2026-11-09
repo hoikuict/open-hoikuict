@@ -227,7 +227,9 @@ def _detail_response(request, session, current_user, child_id, day, classroom_id
     draft = reply.pending_draft if reply and reply.pending_draft is not None else None
     message = draft.get("message", "") if draft is not None else (reply.message or "" if reply else "")
     return templates.TemplateResponse(request, "daily_contacts/detail.html", {
-        "emergency": load_orders(session, child.family_id, day), "emergency_day": day,
+        "emergency": load_orders(session, child, day, legacy=not entry or
+                                 (entry.extra_data or {}).get("submitted_family_id", child.family_id) == child.family_id),
+        "emergency_day": day,
         "current_user": current_user, "target_date": day, "target_date_value": day.isoformat(),
         "selected_classroom_id": classroom_id, "selected_sort": sort, "selected_view": _normalize_view(view),
         "list_url": f"/daily-contacts/?{_daily_contact_query(day, classroom_id, sort, view=view)}",

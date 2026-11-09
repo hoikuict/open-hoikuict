@@ -11,6 +11,11 @@ document.querySelectorAll('[data-order-editor]').forEach(editor => {
       row.querySelector('[data-move="down"]').disabled = i === list.children.length - 1;
     });
   }
+  editor.closest('form')?.querySelector('[data-use-usual]')?.addEventListener('click', event => {
+    event.preventDefault();
+    list.replaceChildren();
+    editor.querySelectorAll('button[data-label][data-phone]').forEach(button => button.click());
+  });
   editor.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;

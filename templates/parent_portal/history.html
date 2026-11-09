@@ -26,7 +26,7 @@
     </div>
 
     {% if item.emergency_answer %}{% from 'shared/_emergency_order.html' import summary %}
-      {{ summary({'answer': item.emergency_answer, 'usual': none}, item.target_date) }}
+      {{ summary({'answer': item.emergency_answer, 'usual': none, 'legacy_answer': item.legacy_answer}, item.target_date) }}
     {% endif %}
     {% if entry and entry.is_present_contact %}
     {% include 'parent_portal/_home_care_details.html' %}

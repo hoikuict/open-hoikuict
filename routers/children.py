@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from auth import get_current_staff_user, require_child_record_manager
+from auth import get_current_staff_user, require_can_edit, require_child_record_manager
 from child_records.access import (
     can_view_observation_records,
     can_view_progress_records,
@@ -45,6 +45,7 @@ from models import (
     CareNeedReason,
     CareTimeCategory,
     Child,
+    ChildEmergencyOrder,
     ChildSex,
     ChildCareCertification,
     ChildProfileHistory,
@@ -55,7 +56,7 @@ from models import (
     ParentRegistrationRequest,
 )
 from time_utils import format_jst_datetime, local_today, utc_now
-from family_emergency import load_orders
+from family_emergency import base_editor_context, child_orders, load_orders, save_order
 
 router = APIRouter(prefix="/children", tags=["children"])
 from template_utils import create_templates
@@ -1008,7 +1009,9 @@ def child_detail(
             "care_error": care_error,
             "family_children": family_children,
             "emergency_day": emergency_day,
-            "emergency": load_orders(session, child.family_id, emergency_day),
+            "emergency": load_orders(session, child, emergency_day),
+            "emergency_history": session.exec(child_orders(child).order_by(None).order_by(
+                ChildEmergencyOrder.updated_at.desc(), ChildEmergencyOrder.revision.desc())).all(),
             "family_parent_accounts": family_parent_accounts,
             "parent_lifecycle_states": parent_lifecycle_states(session, family_parent_accounts),
             "family_parent_accounts_by_id": {
@@ -1293,3 +1296,54 @@ def update_child(
 @router.get("/photos/{photo_id}")
 def get_profile_photo(photo_id: str, current_user=Depends(get_current_staff_user), session: Session = Depends(get_session)):
     return photo_response(session, photo_id)
+def _oral_order_page(request, session, staff, child, target_day, *, use_usual=False, attempted=None,
+                     informant="", error="", status=200):
+    state = load_orders(session, child, target_day)
+    editor = base_editor_context(child, state, True)
+    if target_day:
+        usual, answer = state["usual"], state["answer"]
+        candidates = usual.contacts if usual else []
+        initial = answer.contacts if answer and answer.mode != "withdraw" and not use_usual else candidates
+        editor = dict(candidates=candidates, initial=initial or [{"label": "", "phone": ""}])
+    today_answer = load_orders(session, child, local_today())["answer"] if not target_day else None
+    return templates.TemplateResponse(request, "children/emergency_oral.html", dict(
+        current_user=staff, child=child, emergency=state, target_day=target_day,
+        has_today_answer=today_answer and today_answer.mode != "withdraw", informant=informant,
+        form_data=attempted or {}, error=error, **editor),
+        status_code=status, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/{child_id}/emergency-contacts/oral", response_class=HTMLResponse)
+def oral_order(request: Request, child_id: int, scope: str = "day", day: Optional[date] = None,
+               usual: bool = False, session: Session = Depends(get_session), staff=Depends(get_current_staff_user)):
+    require_can_edit(staff)
+    if scope not in ("base", "day"):
+        raise HTTPException(400, "記録する連絡順を選んでください。")
+    child = _load_child(session, child_id)
+    return _oral_order_page(request, session, staff, child, None if scope == "base" else day or local_today(),
+                            use_usual=usual)
+
+
+@router.post("/{child_id}/emergency-contacts/oral")
+def save_oral_order(request: Request, child_id: int, scope: str = Form(...), day: Optional[date] = Form(None),
+                    informant: str = Form(""), base_revision: int = Form(...), day_revision: int = Form(0),
+                    emergency_label: list[str] = Form(default=[]), emergency_phone: list[str] = Form(default=[]),
+                    session: Session = Depends(get_session), staff=Depends(get_current_staff_user)):
+    require_can_edit(staff)
+    child = _load_child(session, child_id)
+    if scope not in ("base", "day") or (scope == "day") != (day is not None):
+        raise HTTPException(400, "記録する日と連絡順を選んでください。")
+    informant = informant.strip()
+    try:
+        if not informant or len(informant) > 80:
+            raise HTTPException(400, "伝えてくれた方を80文字以内で入力してください。")
+        save_order(session, child, day, "change" if day else "base", emergency_label, emergency_phone,
+                   base_revision, day_revision, author=staff.name, actor_id=staff.staff_id, source="oral", informant=informant)
+        session.commit()
+    except HTTPException as exc:
+        session.rollback()
+        return _oral_order_page(request, session, staff, child, day, informant=informant,
+                                attempted=dict(emergency_rows=list(zip(emergency_label, emergency_phone)),
+                                               base_revision=base_revision, day_revision=day_revision),
+                                error=str(exc.detail), status=exc.status_code)
+    return RedirectResponse(f"/children/{child_id}#family-emergency", status_code=303)
