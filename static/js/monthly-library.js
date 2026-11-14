@@ -10,7 +10,7 @@
   const scopeKey = c => `${c.classroom_id}/${c.target_month}/${c.age}`;
   const contents = c => JSON.stringify({fields:c.sheet.fields, owner:c.owner_name});
   function entry(context) {
-    return {context, saved:clone(context), undo:[], child:context.sheet.children[0]?.ref || '',
+    return {context, saved:clone(context), undo:[], saveFeedback:null, child:context.sheet.children[0]?.ref || '',
       field:context.sheet.children[0] ? `${context.sheet.children[0].ref}:life` : 'common:goal', page:0};
   }
   let current = entry(boot);
@@ -66,7 +66,36 @@
     q('#document-status').textContent = ctx().status;
     q('#document-link').hidden = !ctx().document_id;
     q('#document-link').href = `/plans/documents/${ctx().document_id}`;
+    renderSaveFeedback();
   }
+  function renderSaveFeedback() {
+    const box=q('#monthly-save-feedback'), feedback=current.saveFeedback;
+    const owner=q('[data-owner]');
+    const missing=feedback?.kind==='owner' && !ctx().owner_name.trim();
+    if(owner) {
+      owner.setAttribute('aria-invalid',String(missing));
+      if(missing)owner.setAttribute('aria-describedby','monthly-save-feedback');
+      else owner.removeAttribute('aria-describedby');
+    }
+    box.hidden=!feedback || !editable();
+    if(box.hidden)return;
+    const error=feedback.kind==='error' || missing;
+    box.dataset.error=String(error);box.setAttribute('role',error?'alert':'status');
+    const html=missing ? '<strong>まだ保存できません（確認が必要な項目 1件）</strong><ul><li><a href="#monthly-owner">担任名を入力してください。</a></li></ul>'
+      : feedback.kind==='owner' ? '入力がそろいました。もう一度「下書きを保存」を押してください。'
+      : '<strong>保存を完了できませんでした</strong><p>'+esc(feedback.message)+'</p>';
+    if(box.innerHTML!==html)box.innerHTML=html;
+  }
+  function showSaveFeedback(feedback) {
+    current.saveFeedback=feedback;renderSaveFeedback();
+    const box=q('#monthly-save-feedback');
+    box.focus({preventScroll:true});q('.actions').scrollIntoView({block:'center'});
+  }
+  q('#monthly-save-feedback').addEventListener('click',event=>{
+    if(!event.target.closest('a'))return;
+    event.preventDefault();const owner=q('[data-owner]');
+    owner?.scrollIntoView({block:'center'});owner?.focus({preventScroll:true});
+  });
   function autosize(el) { el.style.height = 'auto'; el.style.height = `${Math.max(el.scrollHeight, parseFloat(getComputedStyle(el).minHeight) || 0)}px`; }
   function cell(key) {
     const target = key.startsWith('child:') ? childName(key.split(':').slice(0,2).join(':')) : ctx().classroom_name;
@@ -75,7 +104,7 @@
   function common(keys) { return `<table class="common" aria-label="クラス共通欄"><thead><tr>${keys.map(k=>`<th>${esc(label(k))}</th>`).join('')}</tr></thead><tbody><tr>${keys.map(k=>`<td>${cell(k)}</td>`).join('')}</tr></tbody></table>`; }
   const monthLabel = () => `${ctx().target_month.slice(0,4)}年${Number(ctx().target_month.slice(5))}月`;
   function head() {
-    return `<table class="head" aria-label="基本情報"><tbody><tr><td rowspan="2" class="title" style="width:30%"><small>${esc(monthLabel())}</small>${individual() ? '乳児指導計画' : '月 指導計画'}</td><th>クラス</th><th>担任</th><th>園長印</th><th>主任印</th>${individual()?'<th>行事</th>':''}</tr><tr><td>${esc(ctx().classroom_name)}</td><td><input class="meta" data-owner aria-label="担任名" maxlength="100" value="${esc(ctx().owner_name)}" ${editable()?'':'readonly'}></td><td></td><td></td>${individual()?`<td>${cell('common:events')}</td>`:''}</tr></tbody></table>`;
+    return `<table class="head" aria-label="基本情報"><tbody><tr><td rowspan="2" class="title" style="width:30%"><small>${esc(monthLabel())}</small>${individual() ? '乳児指導計画' : '月 指導計画'}</td><th>クラス</th><th>担任</th><th>園長印</th><th>主任印</th>${individual()?'<th>行事</th>':''}</tr><tr><td>${esc(ctx().classroom_name)}</td><td><input id="monthly-owner" class="meta" data-owner aria-label="担任名" maxlength="100" value="${esc(ctx().owner_name)}" ${editable()?'':'readonly'}></td><td></td><td></td>${individual()?`<td>${cell('common:events')}</td>`:''}</tr></tbody></table>`;
   }
   function personalHead(first) { return `<colgroup><col style="width:12%"><col style="width:23%"><col style="width:21%"><col style="width:22%"><col style="width:22%"></colgroup><thead><tr><th rowspan="2">${first}</th><th colspan="2">個人別保育計画</th><th rowspan="2">環境構成・<br>援助活動</th><th rowspan="2">評価・反省</th></tr><tr><th>生活・健康<small>食事・睡眠・排泄・清潔</small></th><th>あそび<small>あそび・ことば</small></th></tr></thead>`; }
   function pages() {
@@ -338,6 +367,8 @@
   async function save() {
     if(saving || !editable())return;
     commitEdit();
+    if(!ctx().owner_name.trim()){showSaveFeedback({kind:'owner'});return;}
+    current.saveFeedback=null;
     const item=current,snapshot=clone(ctx());
     const payload={document_id:item.saved.document_id,lock_version:item.saved.lock_version,
       base_token:item.saved.base_token,classroom_id:snapshot.classroom_id,
@@ -351,7 +382,8 @@
       announce((remote.length ? `保存しました。ほかの担当者の${remote.length}欄の変更も取り込みました。` : '下書きを保存しました。')+
         (dirty(item) ? ' 保存中に入力した変更はまだ未保存です。' : ''));
     } catch(error) {
-      announce(error.message+' この画面の入力は残っています。',true);
+      const message=(error instanceof TypeError ? '通信結果を確認できませんでした。接続を確認して、もう一度保存してください。' : error.message)+' この画面の入力は残っています。';
+      showSaveFeedback({kind:'error',message});
       if(error.detail?.kind==='cell_conflict')showCellConflicts(item,error.detail);
     } finally {saving=false;status();}
   }

@@ -36,6 +36,15 @@
 #drive-monthly-plan #ai-progress { margin-top: 8px; }
 #drive-monthly-plan .export-note {font-size:11px;color:var(--p-muted);flex-basis:100%;text-align:right;}
 
+.monthly-feedback{flex-basis:100%;width:100%;padding:12px 14px;border:1px solid #b7c9bc;border-radius:6px;background:#edf7ef;color:#20432d;font-size:14px;line-height:1.6;overflow-wrap:anywhere;}
+.monthly-feedback[hidden]{display:none!important;}
+.monthly-feedback[data-error=true]{border-color:#cc7b28;background:#fff4df;color:#743a08;}
+.monthly-feedback p,.monthly-feedback ul{margin:6px 0 0;}
+.monthly-feedback a{color:inherit;text-decoration:underline;text-underline-offset:3px;}
+.monthly-feedback:focus{outline:2px solid #a05216;outline-offset:2px;}
+#drive-monthly-plan .actions{max-width:540px;}
+#drive-monthly-plan [data-owner][aria-invalid=true]{outline:2px solid #b45309;outline-offset:-2px;background:#fff4df;color:#743a08;}
+
 #monthly-print-root {display:none;}
   #drive-monthly-plan .export-note {font-size:11px;color:var(--p-muted);flex-basis:100%;text-align:right;}
   @page {size:A4 landscape;margin:10mm;}
