@@ -576,16 +576,16 @@ def create_daily_plan(
     selected_classroom_ref = classroom_ref or (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
     require_classroom_access(user, selected_classroom_ref)
     selected_class_name = selected_classroom_ref
-    errors: list[str] = []
+    field_errors: dict[str, str] = {}
     if not target_date:
-        errors.append("対象日を選択してください。")
+        field_errors["target_date"] = "対象日を選択してください。"
     else:
         try:
             date.fromisoformat(target_date)
         except ValueError:
-            errors.append("対象日を正しい形式で選択してください。")
+            field_errors["target_date"] = "対象日を正しい形式で選択してください。"
     if not age_class:
-        errors.append("年齢を選択してください。")
+        field_errors["age_class"] = "年齢を選択してください。"
     row_count = max(
         len(timeline_row_key),
         len(timeline_time),
@@ -609,7 +609,7 @@ def create_daily_plan(
         any(str(row[key]).strip() for key in ("time_label", "activity_name", "child_state", "support", "considerations"))
         for row in timeline_rows
     ):
-        errors.append("1日の流れを1行以上入力してください。")
+        field_errors["timeline"] = "1日の流れを1行以上入力してください。"
     selected_example = None
     if example_id:
         try:
@@ -636,7 +636,7 @@ def create_daily_plan(
             "considerations": "",
         }
     ]
-    if errors:
+    if field_errors:
         return render_template(
             request,
             "daily_plans/form.html",
@@ -644,7 +644,8 @@ def create_daily_plan(
             default_classroom_ref=selected_classroom_ref,
             age_class_options=AGE_CLASS_OPTIONS,
             weekly_documents=[],
-            errors=errors,
+            errors=list(field_errors.values()),
+            field_errors=field_errors,
             form_values=values,
             examples=[],
             selected_age_class=search_age_class if search_age_class in AGE_CLASS_OPTIONS else "",

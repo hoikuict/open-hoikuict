@@ -565,6 +565,59 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         self.assertIn('name="timeline_activity" type="hidden"', selected.text)
         self.assertNotIn('textarea name="timeline_activity"', selected.text)
 
+    def test_daily_missing_fields_render_by_save_button_without_creating_document(self):
+        self.client.cookies.update(self.staff_cookies())
+        response = self.client.post(
+            "/plans/daily-plans",
+            data={"daily_aims": "書きかけのねらい", "daily_content": "<script>見本</script>",
+                  "timeline_children": "　 \n ", "owner_name": "確認用の職員"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(set(response.context["field_errors"]), {"target_date", "age_class", "timeline"})
+        self.assertIn("書きかけのねらい", response.text)
+        self.assertIn("&lt;script&gt;見本&lt;/script&gt;", response.text)
+        self.assertIn('action="/plans/daily-plans" id="daily-draft" novalidate', response.text)
+        self.assertIn('role="alert" autofocus', response.text)
+        feedback = response.text.index('id="daily-save-feedback"')
+        save = response.text.index('>下書きを保存</button>')
+        self.assertLess(response.text.index('id="daily-timeline-rows"'), feedback)
+        for key in ("target_date", "age_class", "timeline"):
+            self.assertIn(f'data-error-field="{key}"', response.text[feedback:save])
+        with Session(self.engine) as session:
+            self.assertEqual(session.exec(select(PlanDocumentRow)).all(), [])
+
+    def test_daily_invalid_date_preserves_other_input_for_retry(self):
+        self.client.cookies.update(self.staff_cookies())
+        values = {
+            "target_date": "2026-02-30", "age_class": "3歳児", "classroom_ref": "ひよこ組",
+            "owner_name": "確認用の職員", "daily_aims": "ねらい", "daily_content": "内容",
+            "timeline_row_key": "row_1", "timeline_time": "10:00", "timeline_children": "遊ぶ",
+            "timeline_support": "援助", "timeline_considerations": "配慮",
+            "search_age_class": "3歳児", "search_month": "8", "search_query": "粘土",
+        }
+        failed = self.client.post("/plans/daily-plans", data=values)
+        self.assertEqual(failed.context["field_errors"], {"target_date": "対象日を正しい形式で選択してください。"})
+        self.assertEqual(failed.context["form_values"]["daily_content"], "内容")
+        self.assertEqual(failed.context["form_values"]["timeline_rows"][0]["support"], "援助")
+        self.assertEqual(failed.context["search_query"], "粘土")
+        values["target_date"] = "2026-02-28"
+        saved = self.client.post("/plans/daily-plans", data=values, follow_redirects=False)
+        self.assertEqual(saved.status_code, 303, saved.text)
+        self.assertTrue(saved.headers["location"].startswith("/plans/documents/"))
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(PlanDocumentRow)).all()), 1)
+
+    def test_daily_optional_fields_and_single_timeline_cell_remain_savable(self):
+        self.client.cookies.update(self.staff_cookies())
+        # An imported activity name counts even when all four visible columns are blank.
+        for day, cell in enumerate(("timeline_time", "timeline_activity", "timeline_children", "timeline_support", "timeline_considerations"), start=13):
+            with self.subTest(cell=cell):
+                saved = self.client.post("/plans/daily-plans", data={
+                    "target_date": f"2026-08-{day}", "age_class": "3歳児", "classroom_ref": "ひよこ組",
+                    "owner_name": "", "daily_aims": "", "daily_content": "", cell: "見本",
+                }, follow_redirects=False)
+                self.assertEqual(saved.status_code, 303, saved.text)
+
     def test_calendar_selection_infers_search_age_and_month_from_classroom(self):
         with Session(self.engine) as session:
             session.add(Classroom(name="りす組（1歳児）", display_order=3))
