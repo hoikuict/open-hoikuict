@@ -24,6 +24,7 @@ def _contact_fields_page(request, session, current_user, *, policy=None, revisio
     persisted, current_revision = contact_fields.get_policy(session)
     policy = policy if policy is not None else persisted
     rooms = contact_fields.classrooms(session)
+    policy = contact_fields.policy_for_rooms(policy, rooms)
     form = form or {}
     preview_age = form.get("preview_age", "0")
     preview_class = form.get("preview_class", str(rooms[0].id) if rooms else "")
@@ -32,7 +33,7 @@ def _contact_fields_page(request, session, current_user, *, policy=None, revisio
     return templates.TemplateResponse(request, "settings/parent_contact_fields.html", {
         "current_user": current_user, "policy": policy, "groups": contact_fields.GROUPS,
         "tables": contact_fields.policy_groups(policy, rooms),
-        "room_ids": ",".join(str(room.id) for room in rooms),
+        "room_ids": contact_fields.room_revision(rooms),
         "revision": current_revision if revision is None else revision,
         "error": error, "saved": saved, "conflict": status_code == 409,
         "preview_age": preview_age, "preview_class": preview_class, "preview_state": preview_state,

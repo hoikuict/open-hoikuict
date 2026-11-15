@@ -32,6 +32,7 @@ def configured(portal, *, mode="age", hidden=None, revision=1):
     with Session(portal.engine) as session:
         child = session.get(Child, portal.child_id)
         policy = fields.default_policy()
+        policy = fields.policy_for_rooms(policy, fields.classrooms(session))
         policy["mode"] = mode
         key = fields.age_group(child.birth_date, DAY) if mode == "age" else str(child.classroom_id)
         policy[mode][key] = fields.all_fields()
@@ -202,6 +203,24 @@ def test_settings_reject_changed_classes_incomplete_choices_and_csrf(setup):
     session.add(Classroom(name="追加クラス")); session.commit()
     assert client.post("/settings/parent-contact-fields", data=data).status_code == 409
     assert session.get(ParentContactFieldSetting,1) is None
+
+
+def test_reused_class_id_does_not_reuse_deleted_class_choices(setup):
+    _, client, session, _, _ = setup
+    room = Classroom(name="以前のクラス")
+    session.add(room); session.commit(); session.refresh(room)
+    room_id = room.id
+    data = settings_data(client, mode="class")
+    data[f"class_{room_id}_temperature"] = "hide"
+    assert client.post("/settings/parent-contact-fields", data=data, follow_redirects=False).status_code == 303
+    stale = settings_data(client, mode="class")
+    session.delete(room); session.commit()
+    replacement = Classroom(id=room_id, name="新しいクラス")
+    session.add(replacement); session.commit()
+    child = SimpleNamespace(classroom_id=room_id, birth_date=date(2021,5,5))
+    assert all(fields.fields_snapshot(session, child, DAY)["fields"].values())
+    assert client.get("/settings/parent-contact-fields").context["policy"]["class"][str(room_id)]["temperature"] is True
+    assert client.post("/settings/parent-contact-fields", data=stale).status_code == 409
 
 
 @pytest.mark.parametrize("role,active", [("can_edit",True),("view_only",True),("admin",False)])

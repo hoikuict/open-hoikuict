@@ -36,7 +36,22 @@ def classrooms(session):
 
 
 def default_policy():
-    return {"mode": "age", "age": {str(i): all_fields() for i in range(6)}, "class": {}}
+    return {"mode": "age", "age": {str(i): all_fields() for i in range(6)}, "class": {}, "class_versions": {}}
+
+
+def room_revision(rooms):
+    return sha256(json.dumps([(room.id, room.created_at.isoformat()) for room in rooms]).encode()).hexdigest()
+
+
+def policy_for_rooms(policy, rooms):
+    policy = deepcopy(policy)
+    versions = policy.setdefault("class_versions", {})
+    for room in rooms:
+        key, version = str(room.id), room.created_at.isoformat()
+        if versions.get(key) != version:
+            policy["class"][key] = all_fields()
+            versions[key] = version
+    return policy
 
 
 def get_policy(session):
@@ -50,10 +65,10 @@ def policy_groups(policy, rooms):
 
 
 def parse_policy(form, previous, rooms):
-    policy = deepcopy(previous)
+    policy = policy_for_rooms(previous, rooms)
     if form.get("mode") not in {"age", "class"}:
         raise ValueError("年齢ごと、クラスごとのどちらかを選んでください。")
-    if form.get("room_ids", "") != ",".join(str(room.id) for room in rooms):
+    if form.get("room_ids", "") != room_revision(rooms):
         raise HTTPException(409, "クラスが変更されました。画面を開き直してください。")
     if form["mode"] == "class" and not rooms:
         raise ValueError("クラスを登録してから、クラスごとを選んでください。")
@@ -113,6 +128,10 @@ def fields_snapshot(session, child, day, entry=None):
     policy, revision = get_policy(session)
     mode = policy["mode"]
     key = age_group(child.birth_date, day) if mode == "age" else str(child.classroom_id or "")
+    if mode == "class":
+        room = session.get(Classroom, child.classroom_id) if child.classroom_id else None
+        if room is None or policy.get("class_versions", {}).get(key) != room.created_at.isoformat():
+            key = None
     return {"version": 1, "mode": mode, "group": key, "revision": revision,
             "fields": deepcopy(policy[mode].get(key, all_fields()))}
 
