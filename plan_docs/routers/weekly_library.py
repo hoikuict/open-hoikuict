@@ -1,9 +1,8 @@
 from copy import deepcopy
-from datetime import date, timedelta
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlmodel import select
 
@@ -15,6 +14,7 @@ from ..db_models import PlanDocumentRow
 from ..services.weekly_library import (VERSION, CONTEXT_LABELS, SaveInput, blank_sheet, examples,
     month_weeks, parse_month, sheet_key, to_document, week_date)
 from ..store import ConcurrentUpdateError, DocumentRepositoryDep
+from ..services.weekly_review import owner_error
 from ..templating import render_template
 
 router = APIRouter(tags=['weekly-library'])
@@ -130,8 +130,8 @@ def save(payload: SaveInput, request: Request, user: CurrentUser, repository: Do
             classroom, document = _scope(user, repository, payload.classroom_id, item.week_start, payload.age, item.document_id)
             if (document is not None and item.document_id is None) or (document and not document.can_edit_body):
                 raise HTTPException(409, 'この週案は作成済み、または閲覧のみです。入力を保持したまま再確認してください')
-            if not item.owner_name.strip():
-                raise HTTPException(422, '作成者を入力してください')
+            if message := owner_error(item.owner_name):
+                raise HTTPException(422, f'{item.week_start}からの週：{message}')
             if set(item.sheet.context) - set(CONTEXT_LABELS) or any(len(v) > 20000 for v in item.sheet.context.values()):
                 raise HTTPException(422, '入力欄または文字数を確認してください')
             if item.sheet.parent_document_id:

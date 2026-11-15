@@ -34,6 +34,7 @@ from ..store import (
 )
 from ..templating import render_template
 from ..services.monthly_review import MonthlyReviewIncompleteError
+from ..services.weekly_review import WeeklyReviewIncompleteError
 from ..services.monthly_access import can_edit_monthly_document, EDIT_REASON
 
 
@@ -278,7 +279,8 @@ def document_detail(
     return _document_detail_response(document_id, request, user, repository)
 
 
-def _document_detail_response(document_id, request, user, repository, *, review_missing=None):
+def _document_detail_response(document_id, request, user, repository, *, review_missing=None,
+                              weekly_review_error=None):
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
     monthly_boot = None
@@ -307,6 +309,7 @@ def _document_detail_response(document_id, request, user, repository, *, review_
         document=document,
         monthly_boot=monthly_boot,
         monthly_review_missing=review_missing,
+        weekly_review_error=weekly_review_error,
         annual_boot=annual_boot,
         status_options=list(DocumentStatus),
         lock_version=head.lock_version if head else 0,
@@ -500,6 +503,13 @@ def update_document_status(
                                              review_missing=exc.missing)
         response.status_code = 422
         return response
+    except WeeklyReviewIncompleteError as exc:
+        if "application/json" in request.headers.get("accept", ""):
+            raise HTTPException(422, str(exc)) from exc
+        response = _document_detail_response(document_id, request, user, repository,
+                                             weekly_review_error=str(exc))
+        response.status_code = 422
+        return response
     except NoReviewRecipientsError:
         return RedirectResponse(f"/plans/documents/{document_id}?review_error=no_recipient#review-status", status_code=303)
     except (ConcurrentUpdateError, InvalidStatusTransitionError) as exc:
@@ -508,6 +518,9 @@ def update_document_status(
         raise HTTPException(status_code=404, detail="文書が見つかりません")
     if document.monthly_sheet is not None and "application/json" in request.headers.get("accept", ""):
         return {"document_id": updated.id, "status": updated.status.value}
+    if document.weekly_sheet is not None and "application/json" in request.headers.get("accept", ""):
+        return {"document_id": updated.id, "status": updated.status.value,
+                "lock_version": repository.lock_version(updated.id)}
     return RedirectResponse(url=f"/plans/documents/{document_id}", status_code=303)
 
 

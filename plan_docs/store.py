@@ -427,6 +427,15 @@ class SqlModelDocumentRepository:
             except MonthlyReviewIncompleteError:
                 self.session.rollback()
                 raise
+        if (status == DocumentStatus.IN_REVIEW
+                and document.document_type == DocumentType.WEEKLY_PLAN
+                and document.weekly_sheet is not None):
+            from .services.weekly_review import WeeklyReviewIncompleteError, validate_review
+            try:
+                validate_review(document)
+            except WeeklyReviewIncompleteError:
+                self.session.rollback()
+                raise
         document.status = status
         document.updated_at = utc_now()
         row.status = status.value

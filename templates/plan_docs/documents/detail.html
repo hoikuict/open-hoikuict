@@ -125,6 +125,9 @@
         <ul>{% for item in monthly_review_missing %}<li><a href="/plans/monthly-library?document_id={{ document.id }}&amp;field={{ item.key|urlencode }}">{{ item.label }}を入力してください。</a></li>{% endfor %}</ul>{% endif %}
       </section>{% endif %}
       <input name="lock_version" type="hidden" value="{{ lock_version }}">
+      {% if document.weekly_sheet %}<section id="weekly-review-feedback" class="weekly-feedback" tabindex="-1" data-document-id="{{ document.id }}" data-owner-name="{{ document.owner_name }}" {% if weekly_review_error %}role="alert" data-error="true"{% else %}hidden{% endif %}>
+        {% if weekly_review_error %}<strong>まだレビュー依頼できません</strong><p>{{ weekly_review_error }}</p><a href="/plans/weekly-library?document_id={{ document.id }}">週案を修正する</a>{% endif %}
+      </section>{% endif %}
       {% if can_edit_document and document.status.value in ["draft", "rejected"] %}
         <button class="button button--primary" name="status" value="in_review">レビュー依頼</button>
       {% endif %}
@@ -389,6 +392,7 @@
 {% endblock %}
 {% block body_end %}
   {{ super() }}
+  {% if document.weekly_sheet %}<script src="{{ static_asset_url('js/weekly-review-feedback.js') }}"></script>{% endif %}
   {% if document.document_type.value == "daily_plan" %}
     <script src="/static/js/daily-plan-print.js"></script>
   {% endif %}
