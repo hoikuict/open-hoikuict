@@ -38,7 +38,7 @@ class MonthlyValidationTests(TestCase):
         with Session(self.f.engine) as session:
             self.assertEqual(len(session.exec(select(PlanDocumentRow)).all()), 6)
 
-    def test_empty_body_save_review_withdraw_edit_for_all_ages(self):
+    def test_incomplete_draft_then_complete_review_withdraw_edit_for_all_ages(self):
         for age in range(6):
             with self.subTest(age=age):
                 result = self.save(self.f.context(age=age).json(), fields={})
@@ -49,6 +49,11 @@ class MonthlyValidationTests(TestCase):
                 self.assertEqual(detail.status_code, 200)
                 self.assertIn('monthly-review-feedback.js', detail.text)
                 self.assertIn('value="in_review">レビュー依頼', detail.text)
+                requested = self.f.client.post(url+'/status', data={'status':'in_review','lock_version':saved['lock_version']})
+                self.assertEqual(requested.status_code, 422, requested.text)
+                self.assertIn('まだレビュー依頼できません', requested.text)
+                self.assertIn('field=common%3Agoal', requested.text)
+                saved = self.save(saved, fields={item['key']: {'body':'計画本文'} for item in saved['review_fields']}).json()
                 requested = self.f.client.post(url+'/status', data={'status':'in_review','lock_version':saved['lock_version']})
                 self.assertEqual(requested.status_code, 200, requested.text)
                 self.assertIn('レビューを取り下げる', requested.text)

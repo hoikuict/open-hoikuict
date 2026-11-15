@@ -14,7 +14,9 @@
     </div></div>
     <div class="actions">
       <section id="monthly-save-feedback" class="monthly-feedback" tabindex="-1" hidden></section>
-      <button type="button" id="print-monthly">印刷用PDF</button><button type="button" id="excel-monthly">Excel出力</button><button type="button" id="undo" disabled>ひとつ戻す</button><button type="button" id="save" class="primary">下書きを保存</button>
+      <button type="button" id="print-monthly">印刷用PDF</button><button type="button" id="excel-monthly">Excel出力</button><button type="button" id="undo" disabled>ひとつ戻す</button>
+      <div class="monthly-submit-pair"><button type="button" id="save" class="primary">下書きを保存</button>{% if not detail_mode %}<button type="button" id="request-review" class="primary">レビュー依頼</button>{% endif %}</div>
+      {% if not detail_mode %}<section id="monthly-review-feedback" class="monthly-feedback" tabindex="-1" hidden></section>{% endif %}
       <small class="export-note">対象の月・年齢の全園児を出力。{% if detail_mode or not boot.editable %}保存済みの内容を出力します。{% else %}保存前の入力も含みます。{% endif %}</small>
     </div>
   </div>
@@ -35,4 +37,5 @@
   <div id="message" role="status" aria-live="polite"></div>
 </div>
 <script id="monthly-library-boot" type="application/json">{{ boot | tojson }}</script>
+<script src="{{ static_asset_url('js/monthly-review-feedback.js') }}" defer></script>
 <script src="{{ static_asset_url('js/monthly-library.js') }}" defer></script>

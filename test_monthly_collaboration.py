@@ -191,7 +191,8 @@ class MonthlyCollaborationTests(TestCase):
         self.assertEqual(self.heartbeat(viewer,uuid4()).json()['peers'],[])
 
     def test_review_transition_rejects_stale_body_but_rejected_can_edit(self):
-        a=self.saved(self.save(self.context(),{}))
+        context=self.context()
+        a=self.saved(self.save(context,{item['key']:{'body':'計画本文'} for item in context['review_fields']}))
         with Session(self.f.engine) as session:
             repo=SqlModelDocumentRepository(session)
             repo.update_status(a['document_id'],DocumentStatus.IN_REVIEW,expected_lock_version=1,actor_ref=self.a.actor_ref)

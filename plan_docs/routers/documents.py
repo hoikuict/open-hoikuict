@@ -33,6 +33,7 @@ from ..store import (
     SqlModelDocumentRepository,
 )
 from ..templating import render_template
+from ..services.monthly_review import MonthlyReviewIncompleteError
 from ..services.monthly_access import can_edit_monthly_document, EDIT_REASON
 
 
@@ -274,6 +275,10 @@ def document_detail(
     user: CurrentUser,
     repository: DocumentRepositoryDep,
 ):
+    return _document_detail_response(document_id, request, user, repository)
+
+
+def _document_detail_response(document_id, request, user, repository, *, review_missing=None):
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
     monthly_boot = None
@@ -301,6 +306,7 @@ def document_detail(
         user=user,
         document=document,
         monthly_boot=monthly_boot,
+        monthly_review_missing=review_missing,
         annual_boot=annual_boot,
         status_options=list(DocumentStatus),
         lock_version=head.lock_version if head else 0,
@@ -483,12 +489,25 @@ def update_document_status(
             actor_name=user.name,
             comment=comment,
         )
+    except MonthlyReviewIncompleteError as exc:
+        if "application/json" in request.headers.get("accept", ""):
+            from .monthly_library import _context
+            latest = _context(user, repository, document.monthly_sheet["classroom_id"],
+                              document.target_month, document.monthly_sheet["age"], document.id)
+            raise HTTPException(422, {"kind": "monthly_review_incomplete",
+                                      "missing": exc.missing, "latest": latest}) from exc
+        response = _document_detail_response(document_id, request, user, repository,
+                                             review_missing=exc.missing)
+        response.status_code = 422
+        return response
     except NoReviewRecipientsError:
         return RedirectResponse(f"/plans/documents/{document_id}?review_error=no_recipient#review-status", status_code=303)
     except (ConcurrentUpdateError, InvalidStatusTransitionError) as exc:
         _raise_repository_error(exc)
     if updated is None:
         raise HTTPException(status_code=404, detail="文書が見つかりません")
+    if document.monthly_sheet is not None and "application/json" in request.headers.get("accept", ""):
+        return {"document_id": updated.id, "status": updated.status.value}
     return RedirectResponse(url=f"/plans/documents/{document_id}", status_code=303)
 
 

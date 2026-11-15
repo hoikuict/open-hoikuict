@@ -88,3 +88,12 @@
 .conflict-actions{display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:white;padding-top:12px}
 #cell-conflict-dialog button:disabled{opacity:.45;cursor:default}
 @media print{#permission-banner,#editing-presence,#cell-conflict-dialog{display:none!important}}
+#drive-monthly-plan .monthly-submit-pair{display:flex;gap:10px;align-items:center;flex-wrap:nowrap}
+#drive-monthly-plan .monthly-submit-pair button{white-space:nowrap}
+#drive-monthly-plan #request-review{background:#14583c;border-color:#14583c;color:white;font-weight:600}
+#monthly-review-feedback{order:-1;overflow-wrap:anywhere}
+#monthly-review-feedback ul{max-height:170px;overflow:auto;scrollbar-gutter:stable}
+#monthly-review-feedback a{display:inline-block;padding:3px 0}
+#drive-monthly-plan .review-missing{outline:2px solid #b45309;outline-offset:-2px;background:#fff4df;color:#713808}
+@media(max-width:700px){#drive-monthly-plan .monthly-submit-pair{flex-basis:100%;gap:8px}#drive-monthly-plan .monthly-submit-pair button{min-height:42px}#monthly-review-feedback ul{max-height:150px}}
+@media print{#monthly-review-feedback{display:none!important}}

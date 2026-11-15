@@ -5,7 +5,6 @@
   <link rel="stylesheet" href="{{ static_asset_url('css/document-search.css') }}">
   <script defer src="{{ static_asset_url('js/document-search.js') }}"></script>
   {% if document.weekly_sheet %}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endif %}
-  {% if monthly_boot %}<script defer src="{{ static_asset_url('js/monthly-review-feedback.js') }}"></script>{% endif %}
   {% if document.document_type.value == "daily_plan" %}
     <link rel="stylesheet" href="/static/css/daily-plan-print.css">
   {% endif %}
@@ -120,7 +119,11 @@
       </div>
     {% endif %}
     <form method="post" action="/plans/documents/{{ document.id }}/status" class="status-form">
-      {% if monthly_boot %}<section id="monthly-review-feedback" class="monthly-feedback" tabindex="-1" hidden></section>{% endif %}
+      {% if monthly_boot %}<section id="monthly-review-feedback" class="monthly-feedback" tabindex="-1" {% if not monthly_review_missing %}hidden{% else %}data-error="true" role="alert"{% endif %}>
+        {% if monthly_review_missing %}<strong>まだレビュー依頼できません（未記入 {{ monthly_review_missing|length }}件）</strong>
+        <p>計画欄を入力してください。評価・反省、行事・活動は空欄でも依頼できます。</p>
+        <ul>{% for item in monthly_review_missing %}<li><a href="/plans/monthly-library?document_id={{ document.id }}&amp;field={{ item.key|urlencode }}">{{ item.label }}を入力してください。</a></li>{% endfor %}</ul>{% endif %}
+      </section>{% endif %}
       <input name="lock_version" type="hidden" value="{{ lock_version }}">
       {% if can_edit_document and document.status.value in ["draft", "rejected"] %}
         <button class="button button--primary" name="status" value="in_review">レビュー依頼</button>

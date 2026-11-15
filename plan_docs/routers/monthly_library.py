@@ -29,6 +29,7 @@ from ..templating import render_template
 
 from ..services.monthly_access import can_edit_monthly, require_monthly_edit, EDIT_REASON
 from ..services.monthly_presence import PresenceInput, heartbeat
+from ..services.monthly_review import review_fields
 from ..services.monthly_merge import baseline_token, read_baseline, merge_cells
 
 router = APIRouter(prefix="/monthly-library", tags=["monthly-library"])
@@ -94,6 +95,7 @@ def _context(user, repository, classroom_id, target_month, age, document_id=None
             "edit_reason": EDIT_REASON if not allowed else ("この状態の月案は閲覧のみです。" if document and not document.can_edit_body else "対象月の担当者として編集できます。"),
             "status": document.status_label if document else "未保存",
             "definitions": field_definitions(sheet, target_month),
+            "review_fields": review_fields(sheet, target_month),
             "ai": availability(user.nursery_ref),
             "template": TEMPLATES[min(age, 3)],
             "personal": PERSONAL, "columns": COLUMNS, "domains": DOMAINS}

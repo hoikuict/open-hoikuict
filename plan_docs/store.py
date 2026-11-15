@@ -418,6 +418,15 @@ class SqlModelDocumentRepository:
             raise InvalidStatusTransitionError("差戻し理由を入力してください")
         self._claim_lock(document_id, expected_lock_version)
         document = _document_from_row(row)
+        if (status == DocumentStatus.IN_REVIEW
+                and document.document_type == DocumentType.MONTHLY_PLAN
+                and document.monthly_sheet is not None):
+            from .services.monthly_review import MonthlyReviewIncompleteError, validate_review
+            try:
+                validate_review(self.session, document)
+            except MonthlyReviewIncompleteError:
+                self.session.rollback()
+                raise
         document.status = status
         document.updated_at = utc_now()
         row.status = status.value
