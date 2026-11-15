@@ -1595,6 +1595,26 @@ class DailyContactReply(SQLModel, table=True):
     child: Optional[Child] = Relationship(back_populates="daily_contact_replies")
 
 
+class ParentContactFieldSetting(SQLModel, table=True):
+    __tablename__ = "parent_contact_field_settings"
+    id: int = Field(default=1, primary_key=True)
+    policy: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=0)
+    updated_by_name: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentContactFieldAudit(SQLModel, table=True):
+    __tablename__ = "parent_contact_field_audits"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    previous_policy: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    policy: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    revision: int
+    changed_by_name: str
+    changed_by_user_id: uuid.UUID
+    changed_at: datetime = Field(default_factory=utc_now)
+
+
 class GuardianHoursSetting(SQLModel, table=True):
     __tablename__ = "guardian_hours_settings"
     id: int = Field(default=1, primary_key=True)

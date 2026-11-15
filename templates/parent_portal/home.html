@@ -95,9 +95,9 @@
       {% if entry %}
       <div class="mt-4 grid gap-3 text-sm text-gray-700 md:grid-cols-3">
         {% if entry.is_present_contact %}
-        <div class="rounded border border-gray-200 px-3 py-2">体温: {{ entry.temperature or "-" }}</div>
-        <div class="rounded border border-gray-200 px-3 py-2">機嫌: {{ entry.mood or "-" }}</div>
-        <div class="rounded border border-gray-200 px-3 py-2">朝食: {{ entry.breakfast_status or "-" }}</div>
+        <div class="rounded border border-gray-200 px-3 py-2">体温: {{ (entry.temperature or '-') if contact_field_enabled(entry, 'temperature') else '対象外' }}</div>
+        <div class="rounded border border-gray-200 px-3 py-2">機嫌: {{ (entry.mood or '-') if contact_field_enabled(entry, 'mood') else '対象外' }}</div>
+        <div class="rounded border border-gray-200 px-3 py-2">朝食: {{ (entry.breakfast_status or '-') if contact_field_enabled(entry, 'breakfast') else '対象外' }}</div>
         {% else %}
         <div class="rounded border border-gray-200 px-3 py-2">欠席理由: {{ entry.absence_reason_label }}</div>
         <div class="rounded border border-gray-200 px-3 py-2">

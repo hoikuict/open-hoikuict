@@ -227,7 +227,21 @@ def _family_care_project(rows):
     return [row for row in rows if row[:3] not in expected], bool(found)
 
 
+def _parent_contact_schema():
+    from models import ParentContactFieldSetting, ParentContactFieldAudit
+    with closing(sqlite3.connect(":memory:")) as connection:
+        for model in (ParentContactFieldSetting, ParentContactFieldAudit):
+            connection.execute(str(CreateTable(model.__table__).compile(dialect=dialect())))
+        return {row[:3]: _tokens(row[3]) for row in connection.execute(
+            "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'")}
+
+
 def _project(rows):
+    expected_contacts = _parent_contact_schema()
+    contact_rows = {row[:3]: _tokens(row[3]) for row in rows if row[:3] in expected_contacts}
+    if contact_rows and contact_rows != expected_contacts:
+        return None
+    rows = [row for row in rows if row[:3] not in expected_contacts]
     expected_reflections = _reflection_schema()
     reflection_rows = {row[:3]: _tokens(row[3]) for row in rows if row[:3] in expected_reflections}
     if reflection_rows and reflection_rows != expected_reflections:
@@ -292,7 +306,7 @@ def _project(rows):
     archive = _archive_project(normalized)
     if archive is None:
         return None
-    return archive[0], ({"weekly11"} if has_weekly else set()) | ({"reflections"} if reflection_rows else set()) | ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
+    return archive[0], ({"parent_contact_fields"} if contact_rows else set()) | ({"weekly11"} if has_weekly else set()) | ({"reflections"} if reflection_rows else set()) | ({"family_care"} if has_care else set()) | ({"archive"} if archive[1] else set()) | ({"spec24"} if has_spec else set()) | ({"spec25"} if has_sharing else set()) | ({"monthly27"} if has_monthly else set()) | ({"annual28"} if has_annual else set()) | ({"fee_bands"} if has_fee else set())
 
 
 def _reflection_schema():
@@ -328,6 +342,8 @@ def upgrade_copy(database, current_rows):
         with connection:
             connection.execute("BEGIN")
             expected = {}
+            if "parent_contact_fields" in missing:
+                expected.update(_parent_contact_schema())
             if "reflections" in missing:
                 expected.update(_reflection_schema())
             if "family_care" in missing:

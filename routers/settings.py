@@ -10,9 +10,66 @@ from time_utils import utc_now
 from staff_permissions import require_live_admin
 from staff_session_settings import get_staff_session_policy, parse_session_policy, save_staff_session_policy
 from template_utils import create_templates
+import parent_contact_fields as contact_fields
+from parent_contact_preview import render_preview
+from fastapi import HTTPException
+from models import ParentContactFieldAudit
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 templates = create_templates()
+
+
+def _contact_fields_page(request, session, current_user, *, policy=None, revision=None,
+                         error="", status_code=200, saved=False, form=None):
+    persisted, current_revision = contact_fields.get_policy(session)
+    policy = policy if policy is not None else persisted
+    rooms = contact_fields.classrooms(session)
+    form = form or {}
+    preview_age = form.get("preview_age", "0")
+    preview_class = form.get("preview_class", str(rooms[0].id) if rooms else "")
+    preview_state = form.get("preview_state", "empty")
+    group = preview_age if policy["mode"] == "age" else preview_class
+    return templates.TemplateResponse(request, "settings/parent_contact_fields.html", {
+        "current_user": current_user, "policy": policy, "groups": contact_fields.GROUPS,
+        "tables": contact_fields.policy_groups(policy, rooms),
+        "room_ids": ",".join(str(room.id) for room in rooms),
+        "revision": current_revision if revision is None else revision,
+        "error": error, "saved": saved, "conflict": status_code == 409,
+        "preview_age": preview_age, "preview_class": preview_class, "preview_state": preview_state,
+        "preview_html": render_preview(templates, policy, group, preview_state),
+        "latest": session.exec(select(ParentContactFieldAudit).order_by(ParentContactFieldAudit.id.desc())).first(),
+    }, status_code=status_code, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/parent-contact-fields", response_class=HTMLResponse)
+def parent_contact_fields(request: Request, saved: bool = False, session: Session = Depends(get_session),
+                          current_user=Depends(get_current_staff_user)):
+    require_live_admin(session, current_user)
+    return _contact_fields_page(request, session, current_user, saved=saved)
+
+
+@router.post("/parent-contact-fields", response_class=HTMLResponse)
+async def save_parent_contact_fields(request: Request, session: Session = Depends(get_session),
+                                     current_user=Depends(get_current_staff_user)):
+    actor = require_live_admin(session, current_user)
+    form = await request.form()
+    previous, _ = contact_fields.get_policy(session)
+    policy, revision = previous, form.get("revision", "")
+    try:
+        policy = contact_fields.parse_policy(form, previous, contact_fields.classrooms(session))
+        revision = int(revision)
+        if form.get("action") == "preview":
+            return _contact_fields_page(request, session, current_user, policy=policy, revision=revision, form=form)
+        if form.get("action") != "save":
+            raise ValueError("保存またはプレビューを選んでください。")
+        contact_fields.save_policy(session, policy, revision, actor)
+    except (ValueError, HTTPException) as exc:
+        session.rollback()
+        return _contact_fields_page(request, session, current_user, policy=policy, revision=revision, form=form,
+            error=str(exc.detail) if isinstance(exc, HTTPException) else str(exc),
+            status_code=exc.status_code if isinstance(exc, HTTPException) else 400)
+    return RedirectResponse("/settings/parent-contact-fields?saved=true", status_code=303,
+                            headers={"Cache-Control": "private, no-store"})
 
 
 @router.get("/guardian-hours", response_class=HTMLResponse)

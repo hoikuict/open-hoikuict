@@ -1,3 +1,4 @@
+import parent_contact_fields as contact_fields
 from datetime import date, datetime
 from decimal import Decimal
 import re
@@ -227,6 +228,10 @@ def _render_contact_form(
     status_code: int = 200,
 ):
     target_day = date.fromisoformat(target_date_value)
+    if entry is None:
+        entry = session.exec(select(DailyContactEntry).where(
+            DailyContactEntry.child_id == child.id, DailyContactEntry.target_date == target_day)).first()
+    snapshot = contact_fields.fields_snapshot(session, child, target_day, entry)
     emergency = (load_orders(session, child, target_day, legacy=may_share(current_parent_user, child))
                  if linked_to(current_parent_user, child) else None)
     pickup_values = {
@@ -251,6 +256,8 @@ def _render_contact_form(
             "notice": notice,
             "form_error": form_error,
             "form_data": _contact_form_data(entry, form_data),
+            "field_visibility": snapshot["fields"],
+            "contact_fields_revision": (form_data or {}).get("contact_fields_revision") or contact_fields.snapshot_token(snapshot),
             "target_day": target_day, "appetites": APPETITES, "closing_time": closing_time(session),
             "response_conflict": status_code == 409,
             "contact_revision": (form_data or {}).get("contact_revision") or (
@@ -1237,6 +1244,7 @@ def save_parent_contact(
     care_fields_version: str = Form(""),
     meal_fields_version: str = Form(""),
     contact_revision: str = Form(""),
+    contact_fields_revision: str = Form(""),
     dinner_appetite: str = Form(""),
     dinner_contents: str = Form(""),
     breakfast_appetite: str = Form(""),
@@ -1300,6 +1308,7 @@ def save_parent_contact(
 
     form_data = {
         "attendance_mode": submitted_mode,
+        "contact_fields_revision": contact_fields_revision,
         "dinner_appetite": dinner_appetite, "dinner_contents": dinner_contents, "breakfast_appetite": breakfast_appetite,
         "emergency_mode": emergency_mode, "emergency_rows": list(zip(emergency_label, emergency_phone)),
         "base_revision": base_revision, "day_revision": day_revision, "contact_revision": contact_revision,
@@ -1374,6 +1383,15 @@ def save_parent_contact(
             DailyContactEntry.target_date == day,
         )
     ).first()
+    snapshot = contact_fields.fields_snapshot(session, child, day, entry)
+    try:
+        contact_fields.check_submission(session, snapshot, contact_fields_revision, existing=entry is not None)
+    except HTTPException as exc:
+        session.rollback()
+        return _render_contact_form(request, session, current_parent_user=current_parent_user, child=child,
+            entry=entry, target_date_value=day.isoformat(), published_reply=published_reply,
+            form_error=str(exc.detail), form_data=form_data, status_code=exc.status_code)
+    contact_fields.sanitize_fields(form_data, snapshot)
     care_values = None
     if selected_contact_type == ParentContactType.present and (care_fields_version == "1" or meal_fields_version == "1"):
         try:
@@ -1386,7 +1404,7 @@ def save_parent_contact(
                 form_error=str(exc), form_data=form_data)
     if selected_contact_type in {ParentContactType.present, ParentContactType.absent_sick}:
         temperature_error = _present_temperature_error(
-            temperature if selected_contact_type == ParentContactType.present else absence_temperature,
+            form_data["temperature"] if selected_contact_type == ParentContactType.present else absence_temperature,
             check_limit=selected_contact_type == ParentContactType.present,
         )
         if temperature_error:
@@ -1456,16 +1474,16 @@ def save_parent_contact(
     normalized_absence_note = (absence_note or "").strip()
 
     if selected_contact_type == ParentContactType.present:
-        entry.temperature = (temperature or "").strip() or None
-        entry.sleep_notes = (sleep_notes or "").strip() or None
+        entry.temperature = (form_data["temperature"] or "").strip() or None
+        entry.sleep_notes = (form_data["sleep_notes"] or "").strip() or None
         if meal_fields_version != "1":
-            entry.breakfast_status = (breakfast_status or "").strip() or None
-        entry.bowel_movement_status = (bowel_movement_status or "").strip() or None
-        entry.mood = (mood or "").strip() or None
-        entry.cough = (cough or "").strip() or None
-        entry.runny_nose = (runny_nose or "").strip() or None
-        entry.medication = (medication or "").strip() or None
-        entry.condition_note = (condition_note or "").strip() or None
+            entry.breakfast_status = (form_data["breakfast_status"] or "").strip() or None
+        entry.bowel_movement_status = (form_data["bowel_movement_status"] or "").strip() or None
+        entry.mood = (form_data["mood"] or "").strip() or None
+        entry.cough = (form_data["cough"] or "").strip() or None
+        entry.runny_nose = (form_data["runny_nose"] or "").strip() or None
+        entry.medication = (form_data["medication"] or "").strip() or None
+        entry.condition_note = (form_data["condition_note"] or "").strip() or None
         entry.contact_note = (contact_note or "").strip() or None
         entry.absence_temperature = None
         entry.absence_symptoms = None
@@ -1525,7 +1543,8 @@ def save_parent_contact(
                 entry=entry, target_date_value=day.isoformat(), published_reply=published_reply,
                 form_error=str(exc.detail), form_data=form_data, status_code=exc.status_code)
     entry.updated_at = now
-    entry.extra_data = {**(entry.extra_data or {}), "submitted_family_id": child.family_id}
+    entry.extra_data = {**(entry.extra_data or {}), "submitted_family_id": child.family_id,
+                        contact_fields.SNAPSHOT_KEY: snapshot}
     session.add(entry)
     try:
         session.flush()

@@ -1,6 +1,6 @@
-<div class="col-span-full grid gap-4 md:grid-cols-2">
+<div data-meal-container {% if not field_visibility.get("dinner", true) and not field_visibility.get("breakfast", true) %}hidden{% endif %} class="col-span-full grid gap-4 md:grid-cols-2">
   {% for meal, title in meal_dates(target_day) %}
-  <section aria-labelledby="{{ meal }}-heading" class="rounded-lg border bg-slate-50 p-4">
+  <section data-contact-group="{{ meal }}" {% if not field_visibility.get(meal, true) %}hidden{% endif %} aria-labelledby="{{ meal }}-heading" class="rounded-lg border bg-slate-50 p-4">
     <h2 id="{{ meal }}-heading" class="font-semibold">{{ title }}</h2>
     <fieldset class="mt-3">
       <legend class="mb-2">食欲</legend>
