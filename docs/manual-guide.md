@@ -27,6 +27,8 @@
 
 ## 職員向けに画面付きで確認できる16の手順
 
+2026-11-16、[月案](manual-guide-preview/plans/monthly/index.html#review)・[週案](manual-guide-preview/plans/weekly/index.html#review)のレビュー依頼・未記入の修正・取り下げと、[日案の保存前の入力不足](manual-guide-preview/plans/daily/index.html#save-help)を追記しました。11月15日の変更に合わせ、画面見本13枚を更新・追加しています。[更新内容と確認の記録](spec-decisions.md#sd-058)。
+
 | 場面 | 画面付きで確認できること |
 | --- | --- |
 | [指導計画の画面を開く](manual-guide-preview/plans/index.html) | 自園の年案・月案・週案・日案を選ぶ。最近の帳票や通知を見る。 |

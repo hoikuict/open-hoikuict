@@ -2688,9 +2688,9 @@ const planningGuides = [
 ];
 const planningForms = [
   {title: '年案', href: 'plans/annual/', summary: '前の年案を引き継ぎ、今年のねらいと各期の反省を書く。', keywords: '指導計画 年間 担任 下書き 承認'},
-  {title: '月案', href: 'plans/monthly/', summary: '月のねらいと、園児ごと・クラス全体の計画を書く。印刷やExcel出力もここから。', keywords: '指導計画 月間 乳児 幼児 文例 反省 PDF'},
-  {title: '週案', href: 'plans/weekly/', summary: '書きたい週を選び、週ごと・曜日ごとの活動を書く。月案とつなげる。', keywords: '指導計画 週間 文例 月案 接続 乳児 幼児'},
-  {title: '日案・文例・振返り', href: 'plans/daily/', summary: '1日の流れを書き、文例を足す。その日の振り返りを書いて承認を依頼する。', keywords: '指導計画 日案 文例コピー 文末に追加 置き換え 振返り 振り返り 反省 下書き'},
+  {title: '月案', href: 'plans/monthly/', summary: '月の計画を書いて保存し、レビュー依頼する。未記入の直し方、依頼の取り下げ、印刷・Excel出力。', keywords: '指導計画 月間 乳児 幼児 文例 反省 PDF レビュー依頼 レビュー待ち 未記入 入力不足 担任 保存できない 取り下げ'},
+  {title: '週案', href: 'plans/weekly/', summary: '週ごと・曜日ごとに活動を書く。選んだ週のレビュー依頼、作成者の入力不足、依頼の取り下げ。', keywords: '指導計画 週間 文例 月案 接続 乳児 幼児 レビュー依頼 レビュー待ち 作成者 入力不足 保存できない 取り下げ'},
+  {title: '日案・文例・振返り', href: 'plans/daily/', summary: '1日の流れを書き、文例を足す。保存前の入力不足を直す。その日の振り返りを書いて承認を依頼する。', keywords: '指導計画 日案 文例コピー 文末に追加 置き換え 振返り 振り返り 反省 下書き 入力不足 保存できない 記入漏れ 対象日 年齢'},
 ];
 function planningLink(guide) {
   return `<a class="topic" href="${guide.href}"><span><strong>${guide.title}</strong><small>${guide.summary}</small></span><span class="badge">画面付き →</span></a>`;
