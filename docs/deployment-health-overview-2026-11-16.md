@@ -23,4 +23,4 @@
 
 証跡は `.local-dev/health-overview-rollout-20261116/` の `bundle/UPDATE.json`、`latest-status.json`、`completed-verification.json`、`public-verification.json`、`browser-verification.json`。実機の業務データと秘密設定は公開対象に含めない。
 
-main・GitHub・デモへの統合は別工程としてSD-059へ追記する。職員の実利用確認、課題一覧・Excelの更新は未実施。
+その後、未コミット作業と公開済みmain・本番履歴を統合した `dffc87a` をGitHubのmainへプッシュし、全体CI 1,500件成功を確認した。デモ互換版 `f6b74fd` は全体CI 1,525件成功後、同日11:04 JSTに公開デモへ反映・公開URLで検証済み。詳細はSD-059とローカル記録 `docs/demo-integration-2026-11-16.md`。実機のアプリ版は `0cadb56` を維持する。配備結果と案内の更新は別コミット。職員の実利用確認、課題一覧・Excelの更新は未実施。
