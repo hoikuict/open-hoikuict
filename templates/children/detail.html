@@ -83,6 +83,13 @@
       <p class="text-sm text-slate-500">家族で共有している連絡先と保護者情報です。</p>
     </div>
     {% if emergency %}{% from 'shared/_emergency_order.html' import summary %}{{ summary(emergency, emergency_day, true) }}{% endif %}
+    {% if current_user.can_edit %}<a class="mb-3 inline-block rounded border px-4 py-2 text-indigo-700" href="/children/{{ child.id }}/emergency-contacts/oral">口頭の連絡を記録</a>{% endif %}
+    {% if emergency_history %}{% from 'shared/_emergency_order.html' import numbers %}
+    <details class="mb-4"><summary>連絡順の変更履歴</summary>
+      {% for record in emergency_history %}<div class="mt-2 border-t p-2"><b>{{ 'いつもの連絡順' if record.scope == 'usual' else record.scope ~ 'の連絡順' }}</b>
+      <p>{{ record.updated_at|jst_datetime('%Y/%m/%d %H:%M') }}　{% if record.source == 'oral' %}口頭・{{ record.informant }}から／受付：{% else %}保護者アプリ・{% endif %}{{ record.updated_by }}</p>
+      {% if record.mode == 'withdraw' %}この日の回答を取り消しました。{% else %}{{ numbers(record.contacts) }}{% endif %}</div>{% endfor %}
+    </details>{% endif %}
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div><div class="text-xs font-medium text-slate-500">家族名</div><div class="mt-1 text-sm text-slate-800">{{ child.family.family_name if child.family else "-" }}</div></div>

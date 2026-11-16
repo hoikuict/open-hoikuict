@@ -94,15 +94,9 @@ def resolve_plan_docs_staff_user(
     ],
     session: Annotated[Session, Depends(get_session)],
 ) -> StaffUser:
-    if current_user is None:
-        return StaffUser(
-            role=Role.VIEW_ONLY,
-            actor_ref=None,
-            nursery_ref=_nursery_ref(),
-            classroom_refs=_classroom_refs(session),
-            name="未ログイン",
-        )
-    actor_ref = f"staff:{current_user.user_id}" if current_user.user_id is not None else None
+    if current_user is None or current_user.user_id is None:
+        _raise_login_required(request)
+    actor_ref = f"staff:{current_user.user_id}"
     return StaffUser(
         role=Role(current_user.role.value),
         actor_ref=actor_ref,

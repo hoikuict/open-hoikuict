@@ -52,6 +52,8 @@ class PlanDocumentRow(SQLModel, table=True):
     related_document_ids: list[int] = Field(default_factory=list, sa_column=Column(JSON))
     sections: list[dict] = Field(default_factory=list, sa_column=Column(JSON))
     schedule: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    weekly_sheet: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    weekly_sheet_key: Optional[str] = Field(default=None, unique=True, index=True)
     monthly_sheet: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     monthly_sheet_key: Optional[str] = Field(default=None, unique=True, index=True)
     annual_sheet: Optional[dict] = Field(default=None, sa_column=Column(JSON))

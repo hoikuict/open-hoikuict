@@ -7,7 +7,7 @@
   <div>
     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Operations</p>
     <h1 class="mt-1 text-2xl font-bold text-slate-900">{{ 'バックアップ・復元' if restore_enabled else 'バックアップ管理' }}</h1>
-    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">写真を含むDB・全種類の添付・定期実行設定を保存して検査します。取得、検査、別系統保存、復元試験の結果をそれぞれ確認してください。</p>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{% if backup_format_version == 2 %}写真を含むDB・全種類の添付・定期実行設定を保存して検査します。{% else %}写真を含むDB・添付ファイルを保存します。定期実行設定の保存と追加検査は準備中です。{% endif %}取得、検査、別系統保存、復元試験の結果をそれぞれ確認してください。</p>
   </div>
   {% if restore_enabled %}<a href="/settings/backups/restore" class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-indigo-700">復元元を選ぶ</a>{% endif %}
   <form method="post" action="/settings/backups/create">

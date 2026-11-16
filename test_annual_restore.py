@@ -9,20 +9,23 @@ import database
 from plan_docs.db_models import PlanDocumentRow
 from restore_data import inspect_backup, prepare_copy, schema, schema_compatible
 from restore_family_archive import compatible, upgrade_copy
-from scripts.backup_runtime import BackupConfig, create_backup
+from scripts.backup_runtime_v1 import BackupConfig, create_backup
 from sqlmodel import Session
 from test_restore_runtime import CURRENT_SHA, RestoreFixture
 
 
 class AnnualRestoreTests(RestoreFixture):
     def backup(self, legacy=False):
+        extra = {}
+        if 'schema_contract' in BackupConfig.__dataclass_fields__:
+            extra.update(recovery_kit_ref='test-kit', actor_ref='test-operator', baseline_ref='test-baseline')
+            if legacy:
+                extra['schema_contract'] = 'monthly-library-20260927'
         return create_backup(BackupConfig(output_root=self.paths.backups,
             database_url=os.environ["HOIKUICT_DATABASE_URL"], facility_db=self.data/"facility.sqlite",
             storage_root=self.storage, git_sha=CURRENT_SHA, app_image="sha256:"+"e"*64,
             compose_sha256="c"*64, cloudflared_image="sha256:"+"f"*64,
-            facility_ref="synthetic", quiesced=True, recovery_kit_ref="test-kit",
-            actor_ref="test-operator", baseline_ref="test-baseline",
-            **({"schema_contract":"monthly-library-20260927"} if legacy else {})))
+            facility_ref="synthetic", quiesced=True, **extra))
 
     def test_pre_annual_backup_upgrade_leaves_source_and_old_text_unchanged(self):
         with Session(self.engine) as session:

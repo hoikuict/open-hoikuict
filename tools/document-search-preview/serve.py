@@ -28,7 +28,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
-import child_records.models
+import child_records.models  # noqa: F401 -- registers SQLModel tables
 import database
 from models import Child, Classroom, StaffClassroomAssignment, User
 from plan_docs.auth_adapter import resolve_plan_docs_staff_user, StaffUser

@@ -10,11 +10,11 @@
   <h3 class="font-bold">{{ '今日の緊急連絡先' if today else 'この日の緊急連絡先' }}（{{ day.month }}月{{ day.day }}日）</h3>
   {% if answer %}
     <p class="font-semibold">{{ '今日は' if today else 'この日は' }}{{ '連絡順が変わっています' if answer.mode == 'change' else 'いつもどおりです' }}</p>
-    <small>{{ answer.updated_at|jst_datetime('%m/%d %H:%M') }}　{{ answer.updated_by }}</small>
+    <small>{{ answer.updated_at|jst_datetime('%m/%d %H:%M') }}　{% if answer.source == 'oral' %}園で口頭受付{% if today %}・{{ answer.informant }}から／受付：{{ answer.updated_by }}{% endif %}{% else %}{{ answer.updated_by }}{% endif %}{% if state.legacy_answer %}（以前の家族登録）{% endif %}</small>
     {{ numbers(answer.contacts) }}
     {% if answer.mode == 'change' and state.usual %}<details><summary>いつもの連絡順を見る</summary>{{ numbers(state.usual.contacts) }}</details>{% endif %}
   {% elif state.usual %}
-    <p>{{ '今日' if today else 'この日' }}の連絡先は未回答です。</p><strong>いつもの連絡順</strong>{{ numbers(state.usual.contacts) }}
+    <p>{{ '今日' if today else 'この日' }}の連絡先は未回答です。</p><strong>いつもの連絡順{% if state.legacy_usual %}（以前の家族登録）{% endif %}</strong>{{ numbers(state.usual.contacts) }}
   {% else %}<p>連絡順は未登録です。</p>{% endif %}
 </section>
 {% endmacro %}

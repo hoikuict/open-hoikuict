@@ -1,7 +1,7 @@
-{% macro row(label='', phone='') %}
+{% macro row(label='', phone='', optional_extra=false) %}
 <li class="mb-2 rounded-lg border bg-white p-3">
   <div class="grid gap-2 sm:grid-cols-2">
-    <label>連絡先の名前<input class="block w-full rounded border p-2" name="emergency_label" maxlength="70" placeholder="例：祖母の携帯" value="{{ label }}"></label>
+    <label>{{ 'その他の連絡先（任意）' if optional_extra else '連絡先の名前' }}<input class="block w-full rounded border p-2" name="emergency_label" maxlength="70" placeholder="例：祖母の携帯" value="{{ label }}"></label>
     <label>電話番号<input class="block w-full rounded border p-2" name="emergency_phone" type="tel" maxlength="30" value="{{ phone }}"></label>
   </div>
   <div class="mt-2 flex gap-4"><button type="button" data-move="up">上へ</button><button type="button" data-move="down">下へ</button><button type="button" data-remove>外す</button></div>
@@ -9,8 +9,8 @@
 {% endmacro %}
 <div data-order-editor>
   <p class="mb-2 text-sm">園から先に電話してほしい順に並べてください。</p>
-  <ol class="list-decimal pl-6">{% if 'emergency_rows' in form_data and (base_editor or form_data.get('emergency_mode') == 'change') %}{% for label, phone in form_data.emergency_rows %}{{ row(label, phone) }}{% endfor %}
-    {% else %}{% for item in initial %}{{ row(item.label, item.phone) }}{% endfor %}{% endif %}</ol>
+  <ol class="list-decimal pl-6">{% if 'emergency_rows' in form_data and (base_editor or form_data.get('emergency_mode') == 'change' or current_user) %}{% for label, phone in form_data.emergency_rows %}{{ row(label, phone) }}{% endfor %}
+    {% else %}{% for item in initial %}{{ row(item.label, item.phone, item.optional_extra) }}{% endfor %}{% endif %}</ol>
   <template>{{ row() }}</template>
   {% if candidates %}<details class="mb-2"><summary>{{ '台帳の電話番号から選ぶ' if base_editor else 'いつもの連絡先から選ぶ' }}</summary>
     {% for item in candidates %}<button type="button" class="m-1 rounded border p-2" data-add data-label="{{ item.label }}" data-phone="{{ item.phone }}">{{ item.label }}　{{ item.phone }}</button>{% endfor %}</details>{% endif %}

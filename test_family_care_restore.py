@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 
 from family_care_service import TABLES
 from restore_data import schema, schema_compatible, inspect_backup, prepare_copy
-from restore_family_archive import compatible, upgrade_copy, _family_care_schema
+from restore_family_archive import compatible, upgrade_copy
 import test_annual_restore
 from test_restore_runtime import RestoreFixture
 

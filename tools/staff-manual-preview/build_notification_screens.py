@@ -3,7 +3,20 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 setup = (HERE/'build_parent_app_screens.py').read_text(encoding='utf-8').split("render('app-home','home'")[0]
-exec(compile(setup, str(HERE/'build_parent_app_screens.py'), 'exec'), globals())
+context = {'__file__': str(HERE / 'build_parent_app_screens.py')}
+exec(compile(setup, str(HERE / 'build_parent_app_screens.py'), 'exec'), context)
+BASE = context['BASE']
+re = context['re']
+env = context['env']
+ChoiceLoader = context['ChoiceLoader']
+DictLoader = context['DictLoader']
+NS = context['NS']
+now = context['now']
+render = context['render']
+OUT = context['OUT']
+names = context['names']
+json = context['json']
+hashlib = context['hashlib']
 
 template = (BASE/'templates/parent_portal/push_settings.html').read_text(encoding='utf-8')
 template = re.sub(r'<script>.*?</script>', '', template, flags=re.S)

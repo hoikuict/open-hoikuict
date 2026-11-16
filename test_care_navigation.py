@@ -4,11 +4,14 @@ from datetime import date
 import pytest
 from sqlmodel import Session, select
 
-from auth import Role
 from child_care_certification_service import effective_certification
-from family_care_service import bootstrap, child_care_context
-from models import Child, ChildCareCertification, Family, FamilyCareCertification, FamilyCareChildSetting, FamilyCareAudit
-from test_family_care import case, state, payload, save, count
+from family_care_service import child_care_context
+from models import Child, ChildCareCertification, FamilyCareCertification, FamilyCareChildSetting, FamilyCareAudit
+from test_family_care import case as _case_fixture
+from test_family_care import state, payload, save, count
+
+# Re-export the shared pytest fixture without confusing it with test arguments.
+case = _case_fixture
 
 
 def individual(c, **changes):

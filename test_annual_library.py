@@ -140,6 +140,81 @@ class AnnualLibraryTests(unittest.TestCase):
             "classroom_id":1, "school_year":2026, "document_id":first["document_id"]}).json()
         self.assertEqual(reopened["sheet"], edited["sheet"])
 
+    def register_admin(self):
+        with Session(self.engine) as s:
+            admin = User(email="annual-admin@example.invalid", display_name="見本管理者", staff_role="admin")
+            s.add(admin); s.flush()
+            s.add(StaffClassroomAssignment(staff_user_id=admin.id, classroom_id=1,
+                starts_on=date(2020, 4, 1), display_order=0))
+            s.commit()
+
+    def test_new_and_copied_annual_owner_exclude_assigned_admin(self):
+        self.register_admin()
+        self.user.role = Role.ADMIN
+        self.user.name = "見本管理者"
+        imported = self.preview()
+        self.assertEqual(imported["owner_name"], "今年の担任")
+        saved = self.save(self.payload(imported))
+        with Session(self.engine) as s:
+            revision = SqlModelDocumentRepository(s).head(saved["document_id"]).current_revision_id
+        copied = self.preview(school_year=2027, previous_id=saved["document_id"], revision_id=revision)
+        self.assertEqual(copied["owner_name"], "今年の担任")
+        self.assertTrue(copied["editable"])
+
+    def test_admin_only_registration_requires_manual_owner_and_preserves_it(self):
+        self.register_admin()
+        with Session(self.engine) as s:
+            teacher = s.exec(select(User).where(User.staff_role == "can_edit")).one()
+            for assignment in s.exec(select(StaffClassroomAssignment).where(
+                    StaffClassroomAssignment.staff_user_id == teacher.id)).all():
+                s.delete(assignment)
+            s.commit()
+        self.user.role = Role.ADMIN
+        self.user.name = "見本管理者"
+        boot = self.preview()
+        self.assertEqual(boot["owner_name"], "")
+        payload = self.payload(boot)
+        for blank in ("", "  "):
+            with self.subTest(owner_name=blank):
+                payload["owner_name"] = blank
+                response = self.client.post("/plans/annual-library/save", json=payload)
+                self.assertEqual(response.status_code, 422)
+                self.assertIn("担任名を入力", response.json()["detail"])
+        with Session(self.engine) as s:
+            self.assertEqual(s.exec(select(PlanDocumentRow)).all(), [])
+        payload["owner_name"] = "手入力した担任"
+        saved = self.save(payload)
+        reopened = self.preview(document_id=saved["document_id"])
+        self.assertEqual(reopened["owner_name"], "手入力した担任")
+
+    def test_saved_admin_name_can_be_corrected_without_rewriting_history(self):
+        self.register_admin()
+        payload = self.payload(self.preview())
+        payload["owner_name"] = "今年の担任・見本管理者"
+        original = self.save(payload)
+        reopened = self.preview(document_id=original["document_id"])
+        self.assertEqual(reopened["owner_name"], "今年の担任・見本管理者")
+        payload = self.payload(reopened)
+        payload["owner_name"] = "今年の担任"
+        edited = self.save(payload)
+        self.assertEqual(self.preview(document_id=edited["document_id"])["owner_name"], "今年の担任")
+        self.assertEqual(edited["sheet"], original["sheet"])
+        with Session(self.engine) as s:
+            revisions = s.exec(select(PlanRevisionRow).where(
+                PlanRevisionRow.document_id == edited["document_id"]).order_by(PlanRevisionRow.id)).all()
+            self.assertEqual([r.snapshot["owner_name"] for r in revisions],
+                ["今年の担任・見本管理者", "今年の担任"])
+            repo = SqlModelDocumentRepository(s)
+            repo.update_status(edited["document_id"], DocumentStatus.IN_REVIEW,
+                actor_ref="staff:test", actor_name="担任", expected_lock_version=repo.lock_version(edited["document_id"]))
+            repo.update_status(edited["document_id"], DocumentStatus.APPROVED,
+                actor_ref="staff:admin", actor_name="管理者", expected_lock_version=repo.lock_version(edited["document_id"]))
+        approved = self.preview(document_id=edited["document_id"])
+        self.assertFalse(approved["editable"])
+        payload = self.payload(approved); payload["owner_name"] = "上書き不可"
+        self.assertEqual(self.client.post("/plans/annual-library/save", json=payload).status_code, 409)
+        self.assertEqual(self.preview(document_id=edited["document_id"])["owner_name"], "今年の担任")
+
     def test_duplicate_creation_and_stale_saves_are_rejected(self):
         preview = self.preview()
         first = self.save(self.payload(preview))

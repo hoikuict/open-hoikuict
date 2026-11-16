@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from auth import get_current_staff_user, require_admin
 from backup_evidence import operational_stages
+from scripts.backup_format import configured_format
 from backup_jobs import (
     BackupJobConflict,
     enqueue_backup,
@@ -81,6 +82,7 @@ def backup_settings_page(
             "message": message,
             "error": error,
             "restore_enabled": restore_enabled(),
+            "backup_format_version": configured_format(),
         },
     )
 

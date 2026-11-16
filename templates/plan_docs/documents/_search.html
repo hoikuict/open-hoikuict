@@ -1,0 +1,32 @@
+<form id="document-search" role="search" aria-label="帳票を検索" data-staff="{{ user.actor_ref }}" hidden>
+  <label class="search-keyword">キーワード
+    <input name="q" type="search" maxlength="160" autocomplete="off"
+           placeholder="帳票名・園児名・作成者名">
+  </label>
+  <div class="search-filters">
+    {% for key, title, field in [('kind','帳票の種類','document_type_label'),
+                               ('room','クラス','classroom_label'),('status','状態','status_label'),
+                               ('format','様式','plan_format_label')] %}
+      <label>{{ title }}
+        <select name="{{ key }}"><option value="">すべて</option>
+          {% for value in documents|map(attribute=field)|select|unique|sort %}
+            <option value="{{ value }}">{{ value }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% endfor %}
+  </div>
+  <div class="search-actions"><button type="submit" class="button button--primary">検索する</button>
+    <button type="reset" class="clear-search">条件をクリア</button>
+  </div>
+</form>
+<p id="search-count" role="status" aria-live="polite" aria-atomic="true"></p>
+<div id="no-matches" class="empty-state" hidden>
+  <strong>条件に合う帳票が見つかりません。</strong>
+  <span>名前の一部で探すか、絞り込みを減らしてください。</span>
+  <button type="button" class="clear-search" id="show-all">すべての帳票を表示</button>
+</div>
+<div id="search-error" class="empty-state" role="alert" hidden>
+  <strong>検索結果を表示できませんでした。</strong>
+  <button type="button" id="retry-search" class="clear-search">同じ条件でもう一度検索</button>
+</div>

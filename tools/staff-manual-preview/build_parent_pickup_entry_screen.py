@@ -5,7 +5,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 setup = (HERE/'build_parent_app_screens.py').read_text(encoding='utf-8').split("render('app-home','home'")[0]
-exec(compile(setup, str(HERE/'build_parent_app_screens.py'), 'exec'), globals())
+context = {'__file__': str(HERE / 'build_parent_app_screens.py')}
+exec(compile(setup, str(HERE / 'build_parent_app_screens.py'), 'exec'), context)
+render = context['render']
+names = context['names']
+BASE = context['BASE']
 render('app-pickup-entry', 'home', [
     'input[name=date]',
     '#child-information h3',

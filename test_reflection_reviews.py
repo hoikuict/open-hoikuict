@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from models import Classroom, User, StaffClassroomAssignment
 from plan_docs.contracts import DocumentStatus, DocumentType, Role
 from plan_docs.db_models import PlanDocumentRow, PlanDailyReflectionRow
-from plan_docs.db_models import PlanReflectionDraftRow as Draft, PlanReflectionReviewRow as Review
+from plan_docs.db_models import PlanReflectionReviewRow as Review
 from plan_docs.db_models import PlanReflectionNotificationRow as Notification
 from plan_docs.models import PlanDocument
 from plan_docs.services import reflection_reviews as service

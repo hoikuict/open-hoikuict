@@ -138,6 +138,7 @@ def _document_from_row(row: PlanDocumentRow) -> PlanDocument:
         parent_document_id=row.parent_document_id,
         related_document_ids=list(row.related_document_ids or []),
         schedule=_schedule_from_dict(row.schedule),
+        weekly_sheet=row.weekly_sheet,
         monthly_sheet=row.monthly_sheet,
         annual_sheet=row.annual_sheet,
         created_at=row.created_at,
@@ -172,6 +173,9 @@ def _row_from_document(document: PlanDocument) -> PlanDocumentRow:
         related_document_ids=list(document.related_document_ids),
         sections=list(payload["sections"]),
         schedule=payload.get("schedule"),
+        weekly_sheet=document.weekly_sheet,
+        weekly_sheet_key=(json.dumps([document.nursery_ref, document.weekly_sheet["classroom_id"],
+            document.week_start_date, document.weekly_sheet["age"]], ensure_ascii=False) if document.weekly_sheet else None),
         monthly_sheet=document.monthly_sheet,
         annual_sheet=document.annual_sheet,
         annual_sheet_key=(json.dumps([
@@ -198,6 +202,7 @@ def _apply_document_to_row(document: PlanDocument, row: PlanDocumentRow) -> None
     row.related_document_ids = list(document.related_document_ids)
     row.sections = list(payload["sections"])
     row.schedule = payload.get("schedule")
+    row.weekly_sheet = document.weekly_sheet
     row.monthly_sheet = document.monthly_sheet
     row.annual_sheet = document.annual_sheet
     row.confirmation_items = list(document.confirmation_items)
@@ -213,7 +218,7 @@ class SqlModelDocumentRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create(self, document: PlanDocument) -> PlanDocument:
+    def create(self, document: PlanDocument, *, commit: bool = True) -> PlanDocument:
         now = utc_now()
         document.created_at = now
         document.updated_at = now
@@ -232,7 +237,10 @@ class SqlModelDocumentRepository:
         revision = self._create_revision(document, reason="created")
         head.current_revision_id = revision.id
         self.session.add(head)
-        self.session.commit()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
         self.session.refresh(row)
         return _document_from_row(row)
 
@@ -323,6 +331,8 @@ class SqlModelDocumentRepository:
         confirmation_items: list[str],
         section_updates: dict[str, dict[str, object]],
         schedule_form: Mapping[str, str] | None = None,
+        weekly_document: PlanDocument | None = None,
+        commit: bool = True,
         monthly_sheet: dict | None = None,
         annual_sheet: dict | None = None,
         expected_lock_version: int,
@@ -336,6 +346,11 @@ class SqlModelDocumentRepository:
         document.title = title
         document.owner_name = owner_name
         document.confirmation_items = confirmation_items
+        if weekly_document is not None:
+            document.weekly_sheet = weekly_document.weekly_sheet
+            document.sections = weekly_document.sections
+            document.schedule = weekly_document.schedule
+            document.parent_document_id = weekly_document.parent_document_id
         if monthly_sheet is not None:
             document.monthly_sheet = monthly_sheet
         if annual_sheet is not None:
@@ -377,7 +392,10 @@ class SqlModelDocumentRepository:
         head.current_revision_id = revision.id
         head.updated_at = document.updated_at
         self.session.add(head)
-        self.session.commit()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()
         self.session.refresh(row)
         return _document_from_row(row)
 
@@ -400,6 +418,24 @@ class SqlModelDocumentRepository:
             raise InvalidStatusTransitionError("差戻し理由を入力してください")
         self._claim_lock(document_id, expected_lock_version)
         document = _document_from_row(row)
+        if (status == DocumentStatus.IN_REVIEW
+                and document.document_type == DocumentType.MONTHLY_PLAN
+                and document.monthly_sheet is not None):
+            from .services.monthly_review import MonthlyReviewIncompleteError, validate_review
+            try:
+                validate_review(self.session, document)
+            except MonthlyReviewIncompleteError:
+                self.session.rollback()
+                raise
+        if (status == DocumentStatus.IN_REVIEW
+                and document.document_type == DocumentType.WEEKLY_PLAN
+                and document.weekly_sheet is not None):
+            from .services.weekly_review import WeeklyReviewIncompleteError, validate_review
+            try:
+                validate_review(document)
+            except WeeklyReviewIncompleteError:
+                self.session.rollback()
+                raise
         document.status = status
         document.updated_at = utc_now()
         row.status = status.value

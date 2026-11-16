@@ -1,5 +1,4 @@
 """Production routes, real assignments and two independent staff identities."""
-from copy import deepcopy
 from datetime import date
 from pathlib import Path
 from unittest import TestCase
@@ -11,8 +10,8 @@ from sqlmodel import Session, select
 from models import StaffClassroomAssignment, User
 from plan_docs.auth_adapter import StaffUser
 from plan_docs.contracts import Role, DocumentStatus, DocumentType
-from plan_docs.db_models import PlanDocumentRow, PlanRevisionRow
-from plan_docs.models import PlanDocument, SectionBlock
+from plan_docs.db_models import PlanDocumentRow
+from plan_docs.models import PlanDocument
 from plan_docs.routers.plans import router as plans_router
 from plan_docs.routers.bunrei import router as bunrei_router
 from plan_docs.services.monthly_merge import wire_cell
@@ -191,7 +190,8 @@ class MonthlyCollaborationTests(TestCase):
         self.assertEqual(self.heartbeat(viewer,uuid4()).json()['peers'],[])
 
     def test_review_transition_rejects_stale_body_but_rejected_can_edit(self):
-        a=self.saved(self.save(self.context(),{}))
+        context=self.context()
+        a=self.saved(self.save(context,{item['key']:{'body':'計画本文'} for item in context['review_fields']}))
         with Session(self.f.engine) as session:
             repo=SqlModelDocumentRepository(session)
             repo.update_status(a['document_id'],DocumentStatus.IN_REVIEW,expected_lock_version=1,actor_ref=self.a.actor_ref)

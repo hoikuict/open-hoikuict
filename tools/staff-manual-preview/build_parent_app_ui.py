@@ -1,6 +1,5 @@
 """Extend the shared parent navigation and update publication metadata."""
 from pathlib import Path
-import re
 HERE=Path(__file__).resolve().parent
 p=HERE/'parent-guide.js';js=p.read_text(encoding='utf-8')
 start=js.index('function parentHome()');end=js.index('function parentScreenshot',start)

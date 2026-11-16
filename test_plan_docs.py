@@ -290,9 +290,14 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         response = self.client.get("/plans/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("文書作成", response.text)
+        self.assertIn("自園の帳票", response.text)
         self.assertIn("Test Staff", response.text)
-        self.assertIn("/plans/annual-plans/new", response.text)
+        self.assertIn('href="/plans/annual-library"', response.text)
+        self.assertIn('href="/plans/legacy/"', response.text)
+        self.assertNotIn('href="/plans/annual-plans/new"', response.text)
+        old = self.client.get("/plans/legacy/")
+        self.assertEqual(old.status_code, 200)
+        self.assertIn('href="/plans/annual-plans/new"', old.text)
         self.assertNotIn("/staff/session", response.text)
 
     def test_htmx_post_without_staff_redirects_to_staff_login(self):
@@ -305,6 +310,12 @@ class PlanDocsIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertIn("HX-Redirect", response.headers)
         self.assertTrue(response.headers["HX-Redirect"].startswith("/staff/login?redirect="))
+
+    def test_plan_navigation_requires_staff_login(self):
+        for path in ("/plans/", "/plans/legacy/", "/plans/documents/", "/plans/daily-plans/"):
+            response = self.client.get(path, follow_redirects=False)
+            self.assertEqual(response.status_code, 303, path)
+            self.assertTrue(response.headers["Location"].startswith("/staff/login?redirect="))
 
     def test_healthz(self):
         response = self.client.get("/healthz")

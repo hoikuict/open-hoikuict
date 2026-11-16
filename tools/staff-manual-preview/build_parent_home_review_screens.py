@@ -6,7 +6,12 @@ from pathlib import Path
 HERE=Path(__file__).resolve().parent
 # Reuse only the environment/context setup, before the original fixture renders.
 setup=(HERE/'build_parent_app_screens.py').read_text(encoding='utf-8').split("render('app-home','home'")[0]
-exec(compile(setup,str(HERE/'build_parent_app_screens.py'),'exec'),globals())
+context = {'__file__': str(HERE / 'build_parent_app_screens.py')}
+exec(compile(setup, str(HERE / 'build_parent_app_screens.py'), 'exec'), context)
+render = context['render']
+updates = context['updates']
+names = context['names']
+BASE = context['BASE']
 render('app-home-date','home',['main h1','input[name=date]','main form button[type=submit]'])
 render('app-home-child','home',['#child-information h3','#child-information a[href*="/contact?"]','#child-information a[href*="/pickup?"]'],script='document.body.style.paddingBottom="900px";document.querySelector("#child-information").scrollIntoView();window.scrollBy(0,-30);')
 render('app-home-unread','home',['a[href="/parent-portal/attention"]'],script='document.body.style.paddingBottom="900px";document.querySelector("a[href=\\"/parent-portal/attention\\"]").scrollIntoView();window.scrollBy(0,-40);')

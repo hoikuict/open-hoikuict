@@ -14,7 +14,7 @@ from typing import Any
 from PIL import Image
 
 
-CURRENT_CONTRACT = "development-billing-reopen-20261101"
+CURRENT_CONTRACT = "health-contact-plans-20261116"
 POLICY_VERSION = 2
 SCHEDULE_KEYS = {"schema_version", "enabled", "frequency", "run_time", "weekday", "timezone"}
 

@@ -44,7 +44,8 @@ class SaveInput(BaseModel):
     lock_version: int = Field(ge=0)
     classroom_id: int = Field(gt=0)
     school_year: int = Field(ge=1900, le=2199)
-    owner_name: str = Field(min_length=1, max_length=200)
+    # The save route supplies the same actionable message for empty and whitespace-only names.
+    owner_name: str = Field(max_length=200)
     origin: OriginInput | None = None
     source_digest: str = Field(min_length=64, max_length=64)
     fields: dict[str, CellInput] = Field(max_length=200)

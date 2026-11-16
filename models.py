@@ -553,6 +553,22 @@ class FamilyEmergencyOrder(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class ChildEmergencyOrder(SQLModel, table=True):
+    __tablename__ = "child_emergency_orders"
+
+    child_id: int = Field(foreign_key="children.id", primary_key=True)
+    family_key: int = Field(primary_key=True)  # 0 while the child has no family assignment
+    scope: str = Field(primary_key=True, max_length=12)
+    revision: int = Field(primary_key=True)
+    mode: str
+    contacts: list = Field(sa_column=Column(JSON, nullable=False))
+    source: str
+    updated_by: str
+    actor_id: Optional[str] = None
+    informant: str = ""
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class FamilyArchiveLog(SQLModel, table=True):
     __tablename__ = "family_archive_logs"
 
@@ -840,6 +856,26 @@ class ChildHealthProfile(SQLModel, table=True):
     updated_by: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentMedicalResponse(SQLModel, table=True):
+    __tablename__ = "parent_medical_responses"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="children.id", ondelete="CASCADE", index=True)
+    parent_account_id: Optional[int] = Field(default=None, foreign_key="parent_accounts.id", ondelete="SET NULL", index=True)
+    parent_name: str
+    status: str = Field(default="requested", index=True)
+    requested_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    submitted_at: Optional[datetime] = None
+    before: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    answers: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    xray_answer: Optional[str] = None
+    xray_question: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    review_note: Optional[str] = None
 
 
 class ChildAllergy(SQLModel, table=True):
@@ -1557,6 +1593,26 @@ class DailyContactReply(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
     child: Optional[Child] = Relationship(back_populates="daily_contact_replies")
+
+
+class ParentContactFieldSetting(SQLModel, table=True):
+    __tablename__ = "parent_contact_field_settings"
+    id: int = Field(default=1, primary_key=True)
+    policy: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=0)
+    updated_by_name: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ParentContactFieldAudit(SQLModel, table=True):
+    __tablename__ = "parent_contact_field_audits"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    previous_policy: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    policy: dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    revision: int
+    changed_by_name: str
+    changed_by_user_id: uuid.UUID
+    changed_at: datetime = Field(default_factory=utc_now)
 
 
 class GuardianHoursSetting(SQLModel, table=True):

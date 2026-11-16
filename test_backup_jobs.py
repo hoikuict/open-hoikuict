@@ -135,6 +135,7 @@ class BackupWorkerTests(unittest.TestCase):
             environment="test",
             cloudflared_image="cloudflared@sha256:" + "d" * 64,
             recovery_kit_ref="test-kit", baseline_ref="test-baseline",
+            format_version=2,
         )
 
         self.assertTrue(process_next_backup(settings))

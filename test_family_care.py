@@ -1,8 +1,6 @@
 from copy import deepcopy
 from datetime import date
-from types import SimpleNamespace
 from unittest.mock import patch
-import json
 
 import pytest
 from sqlmodel import Session, select
@@ -10,10 +8,9 @@ from sqlmodel import Session, select
 import test_care_certifications as legacy
 from auth import Role
 from child_care_certification_service import effective_certification
-from family_care_service import bootstrap, materialize
+from family_care_service import bootstrap
 from models import (Child, Family, ChildCareCertification, FamilyCareAudit,
-    FamilyCareCertification, FamilyCareChildSetting, FamilyCareCertificationLink,
-    ChildCareCertificationAuditLog, ExtendedCareCharge)
+    FamilyCareCertification, FamilyCareChildSetting, ChildCareCertificationAuditLog, ExtendedCareCharge)
 from routers.family_care import router
 
 

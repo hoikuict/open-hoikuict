@@ -79,10 +79,25 @@ class PlanDocument:
     parent_document_id: int | None = None
     related_document_ids: list[int] = field(default_factory=list)
     schedule: PlanSchedule | None = None
+    weekly_sheet: dict | None = None
     monthly_sheet: dict | None = None
     annual_sheet: dict | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    @property
+    def plan_format_label(self) -> str:
+        if self.document_type == DocumentType.ANNUAL_PLAN:
+            sheet = self.annual_sheet
+        elif self.document_type == DocumentType.MONTHLY_PLAN:
+            sheet = self.monthly_sheet
+        elif self.document_type == DocumentType.WEEKLY_PLAN:
+            sheet = self.weekly_sheet
+        elif self.document_type == DocumentType.DAILY_PLAN:
+            return "自園の帳票"
+        else:
+            return ""
+        return "旧式" if sheet is None else "自園の帳票"
 
     @property
     def document_type_label(self) -> str:

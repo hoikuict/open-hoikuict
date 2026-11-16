@@ -4,15 +4,16 @@
 {% set mode = form_data.get('emergency_mode', '') %}
 <section data-day-emergency class="rounded-xl border bg-slate-50 p-4">
   <h2 class="font-bold">{{ target_day.month }}月{{ target_day.day }}日の緊急連絡先</h2>
-  <input type="hidden" name="base_revision" value="{{ form_data.get('base_revision', usual.revision if usual else 0) }}">
-  <input type="hidden" name="day_revision" value="{{ form_data.get('day_revision', emergency.answer.revision if emergency.answer else 0) }}">
+  <input type="hidden" name="emergency_child_id" value="{{ child.id }}">
+  <input type="hidden" name="base_revision" value="{{ form_data.get('base_revision', emergency.base_revision) }}">
+  <input type="hidden" name="day_revision" value="{{ form_data.get('day_revision', emergency.day_revision) }}">
   {% if answer %}
-    <p>この日の連絡先は、ご家族から連絡済みです。{{ answer.updated_at|jst_datetime('%m/%d %H:%M') }}　{{ answer.updated_by }}</p>
+    <p>この日の連絡先は登録済みです。{{ answer.updated_at|jst_datetime('%m/%d %H:%M') }}　{{ '園で口頭受付' if answer.source == 'oral' else answer.updated_by }}{% if emergency.legacy_answer %}（以前の家族登録）{% endif %}</p>
     <strong>{{ 'この日は連絡順が変わっています' if answer.mode == 'change' else 'いつもどおりです' }}</strong>
     {{ numbers(answer.contacts) }}
     <details {% if mode %}open{% endif %}><summary>この日の連絡先を変更</summary>
-  {% elif usual %}<p>いつもの連絡順</p>{{ numbers(usual.contacts) }}
-  {% else %}<p>いつもの連絡順は未登録です。<a class="underline" href="/parent-portal/emergency-contacts">いつもの連絡順を登録</a></p>{% endif %}
+  {% elif usual %}<p>いつもの連絡順{% if emergency.legacy_usual %}（以前の家族登録）{% endif %}</p>{{ numbers(usual.contacts) }}
+  {% else %}<p>いつもの連絡順は未登録です。<a class="underline" href="/parent-portal/children/{{ child.id }}/emergency-contacts">いつもの連絡順を登録</a></p>{% endif %}
   <div class="my-3 flex flex-wrap gap-3">
     {% if usual %}<label><input type="radio" name="emergency_mode" value="usual" {% if mode == 'usual' %}checked{% endif %}> {{ 'いつもの順番に戻す' if answer and answer.mode == 'change' else 'いつもどおり' }}</label>{% endif %}
     <label><input type="radio" name="emergency_mode" value="change" {% if mode == 'change' %}checked{% endif %}> 今日は変更する</label>

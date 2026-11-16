@@ -11,7 +11,7 @@ import hashlib
 import json
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from child_care_certification_service import (
     certification_snapshot, create_certification, deactivate_certification,
@@ -19,7 +19,7 @@ from child_care_certification_service import (
 )
 from models import (
     CareNeedReason, CareTimeCategory, Child, ChildCareCertification,
-    ChildCareCertificationAuditLog, Family, FamilyCareAudit,
+    ChildCareCertificationAuditLog, FamilyCareAudit,
     FamilyCareCertification, FamilyCareCertificationLink, FamilyCareChildSetting,
 )
 from time_utils import local_today, utc_now

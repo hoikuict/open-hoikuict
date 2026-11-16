@@ -29,6 +29,7 @@ from ..templating import render_template
 
 from ..services.monthly_access import can_edit_monthly, require_monthly_edit, EDIT_REASON
 from ..services.monthly_presence import PresenceInput, heartbeat
+from ..services.monthly_review import review_fields
 from ..services.monthly_merge import baseline_token, read_baseline, merge_cells
 
 router = APIRouter(prefix="/monthly-library", tags=["monthly-library"])
@@ -94,6 +95,7 @@ def _context(user, repository, classroom_id, target_month, age, document_id=None
             "edit_reason": EDIT_REASON if not allowed else ("この状態の月案は閲覧のみです。" if document and not document.can_edit_body else "対象月の担当者として編集できます。"),
             "status": document.status_label if document else "未保存",
             "definitions": field_definitions(sheet, target_month),
+            "review_fields": review_fields(sheet, target_month),
             "ai": availability(user.nursery_ref),
             "template": TEMPLATES[min(age, 3)],
             "personal": PERSONAL, "columns": COLUMNS, "domains": DOMAINS}
@@ -103,14 +105,16 @@ def _context(user, repository, classroom_id, target_month, age, document_id=None
 
 @router.get("")
 def page(request: Request, user: CurrentUser, repository: DocumentRepositoryDep,
-         document_id: int | None = None):
+         document_id: int | None = None, classroom_id: int | None = None,
+         target_month: str | None = None, age: int = Query(default=0, ge=0, le=5)):
     require_actor(user, request)
     classrooms = [c for c in repository.session.exec(
         select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
         if user.can_access_classroom(c.name)]
     if not classrooms:
         raise HTTPException(403, "参照できるクラスがありません")
-    classroom_id, target_month, age = classrooms[0].id, local_today().strftime("%Y-%m"), 0
+    classroom_id = classroom_id or classrooms[0].id
+    target_month = target_month or local_today().strftime("%Y-%m")
     if document_id:
         document = repository.get(document_id)
         if not document or not document.monthly_sheet or document.nursery_ref != user.nursery_ref:

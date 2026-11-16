@@ -15,10 +15,11 @@ from restore_control import RestoreError, as_jst, atomic_json, backup_identifier
 from restore_validation import document_attachments, photo_check
 from scripts.backup_runtime import (
     BackupConfig, BackupError, _copy_attachment_tree, _copy_sqlite_database,
-    _sqlite_path_from_url, _table_counts, _verification_payload, create_backup,
+    _sqlite_path_from_url, _table_counts, _verification_payload,
     verify_backup_set,
 )
 from scripts.backup_validation import portable_schedule
+from scripts.backup_format import configured_format, create_operational_backup
 
 
 @dataclass(frozen=True)
@@ -242,7 +243,7 @@ def fresh_backup(paths: RestorePaths, *, actor_ref: str) -> str:
                           actor_ref=actor_ref, retention_class="change",
                           environment=os.getenv("HOIKUICT_ENV", "production"), facility_ref=os.getenv("HOIKU_NURSERY_REF", ""),
                           quiesced=True)
-    result = create_backup(config)
+    result = create_operational_backup(config, format_version=configured_format())
     verify_backup_set(result)
     verify_payload(result / "db/hoikuict.db", result / "db/facility.sqlite", result / "storage")
     return result.name

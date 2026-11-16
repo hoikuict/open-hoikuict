@@ -1,5 +1,4 @@
 """Allow independent sample states in the multi-form QR article."""
-import re
 from pathlib import Path
 p=Path(__file__).resolve().parent/'dist/app.js'
 js=p.read_text(encoding='utf-8')

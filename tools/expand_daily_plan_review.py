@@ -167,7 +167,7 @@ input,select,button{font:inherit;padding:8px}input{min-width:280px}.note{color:#
                 card=card.replace('<details>',f'<details data-new="{int(new)}">',1)
                 card=card.replace('<summary>',f'<summary>{label}｜',1)
                 cards.append(card)
-            body=(f'<p><a href="index.html">← 全年齢・全月の件数へ</a></p>'+notice+
+            body=('<p><a href="index.html">← 全年齢・全月の件数へ</a></p>'+notice+
                   '<div class="toolbar"><label>検索 <input id="query" type="search" placeholder="活動・ねらい・援助など"></label>'
                   '<label>表示 <select id="scope"><option value="">すべて</option><option value="1">追加候補のみ</option>'
                   '<option value="0">既存候補のみ</option></select></label><span id="count" role="status"></span></div>'

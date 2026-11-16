@@ -38,6 +38,8 @@ from time_utils import local_today
 
 
 router = APIRouter(tags=["plans"])
+from .weekly_library import router as weekly_library_router
+router.include_router(weekly_library_router)
 
 
 def _annual_documents_for_user(user: CurrentUser, repository: SqlModelDocumentRepository):
@@ -360,17 +362,7 @@ def create_monthly_plan(
 
 @router.get("/weekly-plans/new")
 def new_weekly_plan(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
-    default_classroom_ref = user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0]
-    return render_template(
-        request,
-        "weekly_plans/form.html",
-        user=user,
-        default_classroom_ref=default_classroom_ref,
-        age_class_options=AGE_CLASS_OPTIONS,
-        monthly_documents=_monthly_documents_for_user(user, repository, classroom_ref=default_classroom_ref),
-        errors=[],
-        form_values={},
-    )
+    return RedirectResponse('/plans/weekly-library', status_code=303)
 
 
 @router.post("/weekly-plans")
