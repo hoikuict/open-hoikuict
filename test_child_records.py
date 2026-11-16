@@ -279,7 +279,6 @@ class ChildRecordFeatureTests(unittest.TestCase):
             f"/children/{other_child_id}/progress-records?permission_denied=1",
         )
 
-    @patch("child_records.router.local_today", new=lambda: date(2026, 8, 10))
     def test_progress_record_entry_shows_logs_and_creates_versioned_document(self):
         # This fixture belongs to July-September; keep the form's current period
         # aligned with it regardless of the calendar date on the CI runner.

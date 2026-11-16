@@ -23,7 +23,7 @@ def parent_submit(w, **overrides):
     data = dict(date=str(w.day), attendance_mode="present", temperature="36.5", care_fields_version="1",
                 bedtime="21:00", wakeup_time="06:30", breakfast_status="完食", breakfast_contents="ごはん、卵",
                 sleep_notes="よく眠れた", stool_consistency="normal", stool_count="1",
-                pickup_fields_version="1", pickup_revision="new", planned_pickup_time="22:45",
+                pickup_fields_version="1", pickup_revision="new", planned_pickup_time="18:45",
                 pickup_person="母", snack_required="0")
     data.update(overrides)
     return w.client.post(f"/parent-portal/children/{w.child}/contact", data=data, follow_redirects=False)
@@ -52,17 +52,22 @@ def test_parent_contact_and_plan_save_together_with_all_care_fields(workbench):
     with Session(w.engine) as session:
         record = session.exec(select(AttendanceRecord)).one()
         contact = session.exec(select(DailyContactEntry)).one()
-        assert record.planned_pickup_time == "22:45" and record.pickup_person == "母"
+        assert record.planned_pickup_time == "18:45" and record.pickup_person == "母"
         assert record.check_in_at is None and record.check_out_at is None
         assert record.pickup_snack_confirmed and record.snack_required is False
         assert contact.sleep_notes == "よく眠れた" and contact.extra_data["breakfast_contents"] == "ごはん、卵"
         assert contact.extra_data["bedtime"] == "21:00"
         assert session.exec(select(AttendancePickupHistory)).one().changed_by_parent_account_id == w.parent
     page = w.client.get(f"/parent-portal/children/{w.child}/contact?date={w.day}")
-    assert page.context["pickup_values"]["planned_pickup_time"] == "22:45"
+    assert page.context["pickup_values"]["planned_pickup_time"] == "18:45"
     kiosk = w.client.get(f"/guardian/?date={w.day}&child_id={w.child}")
     assert "登園する" in kiosk.text and "降園する" not in kiosk.text
-    assert start(w).template.name == "guardian/pickup_form.html"  # Existing after-close plan must be corrected.
+    # Existing records from before the closing-time rule still need correction.
+    with Session(w.engine) as session:
+        record = session.exec(select(AttendanceRecord)).one()
+        record.planned_pickup_time = "22:45"
+        session.add(record); session.commit()
+    assert start(w).template.name == "guardian/pickup_form.html"
 
 
 @pytest.mark.parametrize("time_value,person,snack,exists", [("", "", "", False), ("17:00", "", "", True),
@@ -81,7 +86,7 @@ def test_optional_partial_plan_is_saved_and_completed_at_kiosk(workbench, time_v
     assert response.context["pickup_values"] == dict(planned_pickup_time=time_value, pickup_person=person, snack_required=snack)
 
 
-@pytest.mark.parametrize("overrides", [{"temperature": "37.5"}, {"planned_pickup_time": "24:00"},
+@pytest.mark.parametrize("overrides", [{"temperature": "37.5"}, {"planned_pickup_time": "24:00"}, {"planned_pickup_time": "22:45"},
     {"planned_pickup_time": "", "pickup_hour": "17"}, {"snack_required": "invalid"}])
 def test_invalid_contact_or_plan_saves_neither(workbench, overrides):
     w = workbench
@@ -198,7 +203,7 @@ def test_arrival_rejects_plan_changed_after_first_button(workbench):
     assert w.client.post(f"/guardian/child/{w.child}/pickup/commit", data=values).status_code == 409
     with Session(w.engine) as session:
         record = session.exec(select(AttendanceRecord)).one()
-        assert record.check_in_at is None and record.planned_pickup_time == "22:45"
+        assert record.check_in_at is None and record.planned_pickup_time == "18:45"
 
 
 def test_arrival_requires_explicit_snack_choice(workbench):
