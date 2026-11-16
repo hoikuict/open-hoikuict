@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from datetime import date, timedelta
 from uuid import uuid4
 
@@ -279,6 +280,11 @@ class ChildRecordFeatureTests(unittest.TestCase):
         )
 
     def test_progress_record_entry_shows_logs_and_creates_versioned_document(self):
+        # This fixture belongs to July-September; keep the form's current period
+        # aligned with it regardless of the calendar date on the CI runner.
+        clock = patch("child_records.router.local_today", return_value=date(2026, 8, 10))
+        clock.start()
+        self.addCleanup(clock.stop)
         created_log = self.client.post(
             f"/children/{self.child_id}/records",
             data={

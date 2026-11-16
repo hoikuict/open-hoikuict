@@ -154,6 +154,7 @@ nav:
   - 詳しい資料:
       - technical-guide.md
       - 全体像・機能:
+          - 仕様の決定・変更記録: spec-decisions.md
           - 機能と実装状況: features.md
           - 導入までの進め方: roadmap.md
           - よくある質問: faq.md
