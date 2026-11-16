@@ -289,7 +289,9 @@ def test_monthly_sheet_backup_roundtrip():
         main=fixture.data/'hoikuict.db'
         backup=create_backup(BackupConfig(output_root=fixture.paths.backups,database_url=f'sqlite:///{main}',
             facility_db=fixture.data/'facility.sqlite',storage_root=fixture.storage,git_sha=recovery.CURRENT_SHA,
-            app_image='sha256:'+'b'*64,compose_sha256='c'*64,facility_ref='synthetic',quiesced=True))
+            app_image='sha256:'+'b'*64,compose_sha256='c'*64,facility_ref='synthetic',quiesced=True,
+            cloudflared_image='sha256:'+'f'*64,recovery_kit_ref='test-kit',
+            actor_ref='test-operator',baseline_ref='test-baseline'))
         restored=prepare_copy(fixture.paths,backup.name,'monthly-roundtrip')/'data/hoikuict.db'
         with closing(sqlite3.connect(main)) as original, closing(sqlite3.connect(restored)) as recovered:
             for query in ('SELECT monthly_sheet,monthly_sheet_key FROM plan_documents',
