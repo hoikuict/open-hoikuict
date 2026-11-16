@@ -1,0 +1,34 @@
+{
+  "mock_id": "LOGIN-MANUAL-LINK-MOCK-001",
+  "date": "2026-11-03 JST",
+  "preview_url": "http://127.0.0.1:8053/",
+  "preview_server_pid": 31276,
+  "baseline": "live-baseline.json",
+  "checks": {
+    "saved_screenshot_reviewed": "manual-entry-verified.jpg",
+    "desktop_viewport": [
+      716,
+      604
+    ],
+    "mobile_viewport": [
+      390,
+      844
+    ],
+    "mobile_document_width": 390,
+    "mobile_manual_link_tap_height": 48,
+    "manual_opened_in_separate_tab": true,
+    "destination_verified": "https://open.hoikuict.net/manual-guide-preview/",
+    "destination_version": "試作版 v1.1",
+    "mock_login_does_not_navigate_or_authenticate": true,
+    "candidate_keeps_original_login_href": true,
+    "source_application_template_unchanged": true,
+    "git_diff_check": true,
+    "saved_screenshot_dimensions": [
+      862,
+      884
+    ]
+  },
+  "user_layout_review": "pending",
+  "application_implementation": "not_applied",
+  "deployment": "not_performed"
+}

@@ -1,0 +1,9 @@
+{
+  "tools\\staff-auth-print-preview\\fixtures.js": "e1f7818e893bde98b281993a87e04088eb6b4e8505732167229593a09b9d94cf",
+  "tools\\staff-auth-print-preview\\index.html": "c9e2dd1330eec1dd78c504de5961af7064a80dafd03cb318d63c2da0dc57b9ee",
+  "tools\\staff-auth-print-preview\\preview.css": "0b9d5236300a431308bf5b52175793e78eba5cc09625be1cb9a0af3a90291644",
+  "tools\\staff-auth-print-preview\\preview.js": "0f649dc70d3aae6ac3e00a77afa227fdbbb9c4c2d08b8d9268ecdb9fba8a5a05",
+  "tools\\staff-auth-print-preview\\tailwind.js": "176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15",
+  "output\\pdf\\staff-activate-handout-preview.pdf": "4ced08399324a2077d9aa5667d86d04f287782fd9836415b58bd4d4ed4e4dfd7",
+  "output\\pdf\\staff-reset-handout-preview.pdf": "e49ba3fc3f79b2a795149221b947425c7eba318d92baffb12cb41b2203b2cd9a"
+}

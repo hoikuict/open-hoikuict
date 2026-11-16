@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token }}">
+<title>欄ごとの同時保存を試す月案の見本</title>
+<style>
+  :root {color-scheme:light} body{margin:0;padding:22px;background:#f4f6f8;color:#24352e;font:15px/1.6 Meiryo,sans-serif}
+  .mock-controls{border:1px solid #abc0d6;border-top:5px solid #405f87;border-radius:8px;background:#f0f5fc;padding:16px 22px}
+  .mock-controls h1{font-size:21px;margin:0 0 5px}.mock-controls p{margin:4px 0 12px}.mock-controls small{color:#465f79}
+  .mock-row{display:flex;gap:14px;align-items:end;flex-wrap:wrap}.mock-row label{display:flex;flex-direction:column;gap:5px}
+  .mock-controls select,.mock-controls button{font:inherit;padding:8px 12px;border:1px solid #98aec6;background:white;border-radius:5px}
+  .mock-controls button{cursor:pointer}.mock-controls #mock-apply{background:#345980;color:white}.mock-controls details{margin-top:12px}
+  .quick-cases{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}.quick-cases button{font-weight:600}.quick-cases button[aria-pressed=true]{background:#345980;color:white}
+  #drive-monthly-plan textarea[readonly],#drive-monthly-plan input[readonly]{background:#f2f3f3;color:#636b67;cursor:default}
+  .mock-controls table{border-collapse:collapse;font-size:13px;width:100%;max-width:950px}.mock-controls th,.mock-controls td{padding:5px 9px;border-bottom:1px solid #c7d4e2;text-align:left}
+  #permission-banner{padding:12px 18px;margin:16px 0 0;border:1px solid #a3c8af;background:#eaf6ee;border-radius:7px}
+  #permission-banner[data-editable=false]{border-color:#cbbf9d;background:#fff8e9}#permission-title{display:block}
+  #mock-feedback{font-weight:600;color:#8b391d}#drive-monthly-plan #message[data-error=true]{position:sticky;bottom:12px;z-index:3;border:1px solid #bd6c64;box-shadow:0 3px 12px #0002}
+  #drive-monthly-plan #document-link{display:none!important}
+  .presence-cases{display:flex;gap:7px;align-items:center;flex-wrap:wrap;border-top:1px solid #c7d4e2;padding-top:12px;margin-top:10px}
+  .presence-cases button[aria-pressed=true]{background:#345980;color:white}.presence-cases small{width:100%}
+  #editing-presence{position:sticky;top:8px;z-index:2;margin:0 18px 14px;padding:12px 16px;border:1px solid #b3c8da;border-radius:7px;background:#f4f8fc;box-shadow:0 2px 7px #0001}
+  #editing-presence[data-state=same]{background:#fff5e6;border-color:#c69141}#editing-presence[data-state=offline]{background:#f3f1ef;border-color:#afa8a1}
+  #editing-presence p{margin:5px 0}#editing-presence h3{font-size:15px;margin:0 0 8px}#editing-presence .presence-person{display:inline-flex;gap:9px;align-items:center;border:1px solid #bbcede;border-radius:6px;padding:7px 11px;background:white}
+  #editing-presence .presence-dot{width:8px;height:8px;border-radius:50%;background:#247a4a}#editing-presence[data-state=offline] .presence-dot{background:#8a8074}
+  #editing-presence small{color:#536576}#presence-warning{color:#884300;font-weight:600}#presence-self{font-size:12px;margin-left:12px;color:#5e6c64}
+  #drive-monthly-plan [data-other-editor]{outline:2px solid #ca8c38;outline-offset:-2px}
+  #cell-conflict-dialog{width:min(920px,90vw);max-height:86vh;overflow:auto;border:1px solid #c49242;border-radius:10px;padding:24px;color:#263f32;font:15px/1.6 Meiryo,sans-serif}
+  #cell-conflict-dialog::backdrop{background:#14291d88}#cell-conflict-dialog h2{margin:0;font-size:21px}.conflict-field{border-top:1px solid #d4dace;padding:12px 0}.conflict-field h3{font-size:16px;margin:0 0 10px}.conflict-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.conflict-columns pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f3;padding:12px;min-height:90px;font:inherit}.conflict-columns textarea{box-sizing:border-box;width:100%;padding:12px;min-height:140px;font:inherit;margin:12px 0}
+  #cell-conflict-dialog button{font:inherit;padding:8px 12px;border:1px solid #b6c3ba;border-radius:5px;cursor:pointer}#cell-conflict-dialog button[aria-pressed=true]{background:#176846;color:white}.conflict-actions{display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:white;padding-top:12px}#cell-conflict-dialog button:disabled{opacity:.45;cursor:default}.merge-cases{margin-top:12px;padding:12px;border:1px solid #a6b8cd;border-radius:6px;background:#fff}
+  @media(max-width:650px){.conflict-columns{grid-template-columns:1fr}}
+  @media print{.mock-controls,#permission-banner,#editing-presence{display:none}body{padding:0}}
+</style>
+<section class="mock-controls" aria-label="画面見本の確認設定">
+  <small>確認用の設定 · 業務画面には表示しません</small>
+  <h1>欄ごとの同時保存を試す月案の見本</h1>
+  <p>管理者も担当割当が必要です。判定するのは<strong>月案の対象月</strong>です。職員・園児・文例は架空で、保存はこの見本の一時データだけに行います。</p>
+  <div class="merge-cases"><strong>① 入力例を用意 → ② 帳票の「下書きを保存」</strong><p>自分の選択中の欄に入力例を加え、相手の保存を再現します。違う欄なら両方を保存、同じ欄なら内容を選ぶ画面が開きます。</p><div class="quick-cases"><button type="button" data-merge-example="other">違う欄の入力例を用意</button><button type="button" data-merge-example="same">同じ欄の入力例を用意</button></div></div>
+  <p>担当者を切り替える場合はこちら：</p>
+  <div class="quick-cases"><button type="button" data-case="teacher_a" aria-pressed="{{ 'true' if actor == 'teacher_a' else 'false' }}">① 担当者 → 編集できる</button><button type="button" data-case="teacher_b" aria-pressed="{{ 'true' if actor == 'teacher_b' else 'false' }}">② 担当外 → 閲覧のみ</button><button type="button" data-case="admin_none" aria-pressed="{{ 'true' if actor == 'admin_none' else 'false' }}">③ 管理者・担当なし → 閲覧のみ</button></div>
+  <details><summary>職員・入力状態を詳しく選ぶ／担当解除を試す</summary><div class="mock-row">
+    <label>確認する職員<select id="mock-actor">{% for key, value in actors.items() %}<option value="{{ key }}" {% if key == actor %}selected{% endif %}>{{ value[0] }}</option>{% endfor %}</select></label>
+    <label>入力状態<select id="mock-dataset">{% for key,value in datasets.items() %}<option value="{{ key }}" {% if key == dataset %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+    <button type="button" id="mock-apply">この条件で開く</button>
+    <button type="button" id="mock-revoke">担当解除を再現</button>
+    <button type="button" id="mock-restore">担当を戻す</button>
+  </div></details>
+  <div class="presence-cases" aria-label="他の担当者の動きを再現">
+    <strong>同時編集の見本</strong>
+    <button type="button" data-presence-case="other" aria-pressed="true">別の欄を編集中</button>
+    <button type="button" data-presence-case="same" aria-pressed="false">同じ欄を編集中</button>
+    <button type="button" data-presence-case="none" aria-pressed="false">ほかの担当者が退出</button>
+    <button type="button" data-presence-case="offline" aria-pressed="false">接続が切れた状態</button>
+    <small>他の職員の動きは架空の再現です。下の月案に表示される職員名と注意表示を比べられます。</small>
+  </div>
+  <p id="mock-feedback" role="status" aria-live="polite"></p>
+  <details><summary>試し方・架空の担当割当を見る</summary>
+    <p>A組／B組と対象月を下の帳票で切り替えます。未保存の入力は、同じ画面で対象を戻すと再表示されます。上の確認条件を変更すると画面を開き直します。保存した見本の内容はサーバー終了まで残ります。</p>
+    <p>保存エラー：編集できる職員で入力 →「担当解除を再現」→「下書きを保存」。入力が残り、保存拒否が表示されます。「担当を戻す」で再度保存できます。</p>
+    <table><thead><tr><th>職員</th><th>クラス・担当期間</th></tr></thead><tbody>{% for key,value in actors.items() %}<tr><td>{{ value[0] }}</td><td>{% for assignment in value[2] %}{{ 'A組' if assignment[0] == 1 else 'B組' }} / {{ assignment[3] }} / {{ assignment[1] }} ～ {{ assignment[2] or '終了なし' }}<br>{% else %}割当なし{% endfor %}</td></tr>{% endfor %}</tbody></table>
+    <p>細部の提案：主担当・補助・臨時を含め、対象月と担当期間が1日以上重なれば編集可。閲覧のみの職員権限と承認済みの編集制限は維持。担当外でも保存済み内容のPDF／Excelを出力できます。AIは未接続です。</p>
+  </details>
+</section>
+<aside id="permission-banner" aria-live="polite" data-editable="{{ 'true' if boot.editable else 'false' }}"><strong id="permission-title"></strong><span id="permission-reason"></span></aside>
+<script>
+  let assignmentWasRevoked = false;
+  window.renderPreviewPermission = context => {
+    document.querySelector('#permission-banner').dataset.editable = String(context.editable && !assignmentWasRevoked);
+    document.querySelector('#permission-title').textContent = {{ actors[actor][0] | tojson }} + ' ｜ ' + context.classroom_name + ' / ' + context.target_month + (context.editable && !assignmentWasRevoked ? ' · 編集できます' : ' · 閲覧のみ');
+    document.querySelector('#permission-reason').textContent = assignmentWasRevoked ? '担当割当が解除された状態です。保存すると拒否され、未保存の入力が画面に残ります。' : context.preview_permission;
+    const note = document.querySelector('.export-note');
+    if(note) note.textContent = context.editable ? '対象の月・年齢の全園児を出力。保存前の入力も含みます。' : '対象の月・年齢の全園児を出力。保存済みの内容を出力します。';
+  };
+</script>
+{% include "plan_docs/monthly_library/_sheet.html" %}
+<script src="/preview/presence.js" defer></script>
+<script>
+  const feedback = document.querySelector('#mock-feedback');
+  async function control(action, body) {
+    const result = await fetch('/preview/' + action, {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify(body || {})});
+    if(!result.ok) throw new Error('確認条件を変更できませんでした。画面を開き直してください。');
+  }
+  async function openCase(actor, dataset, fixedScope=false) {
+    if(document.querySelector('#save-state').textContent.includes('未保存の変更') && !confirm('未保存の入力を破棄して、別の職員・入力状態を確認しますか？')) return;
+    try {
+      await control('state',{actor,dataset});
+      location.href='/preview?' + new URLSearchParams(fixedScope ? {classroom_id:1,target_month:'2026-10',age:1} : {classroom_id:document.querySelector('#classroom').value,target_month:document.querySelector('#month').value,age:document.querySelector('#age').value});
+    } catch(error) {feedback.textContent=error.message;}
+  }
+  document.querySelector('#mock-apply').onclick = () => openCase(document.querySelector('#mock-actor').value,document.querySelector('#mock-dataset').value);
+  document.querySelectorAll('[data-case]').forEach(button => button.onclick = () => openCase(button.dataset.case,'partial',true));
+  document.querySelector('#mock-revoke').onclick = async () => {
+    try {await control('revoke');assignmentWasRevoked=true;feedback.textContent='担当解除を再現しました。入力後に「下書きを保存」を押して、入力が残ることを確認してください。';document.querySelector('#permission-reason').textContent=feedback.textContent;document.querySelector('#permission-banner').dataset.editable='false';document.querySelector('#permission-title').textContent='担当割当が解除された状態です';}
+    catch(error){feedback.textContent=error.message;}
+  };
+  document.querySelector('#mock-restore').onclick = async () => {
+    try {await control('restore');assignmentWasRevoked=false;feedback.textContent='担当割当を元に戻しました。未保存の入力を続けて保存できます。閲覧のみの画面を開いていた場合は「この条件で開く」で読み直してください。';}
+    catch(error){feedback.textContent=error.message;}
+  };
+</script></html>

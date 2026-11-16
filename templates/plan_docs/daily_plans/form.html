@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}日案作成 | hoiku-plan-docs{% endblock %}
 {% block content %}
-  <link rel="stylesheet" href="/static/css/daily-example-list.css">
+  <link rel="stylesheet" href="{{ static_asset_url('css/daily-example-list.css') }}">
+  <link rel="stylesheet" href="{{ static_asset_url('css/daily-plan-validation.css') }}">
+  {% set field_errors = field_errors|default({}) %}
   <section class="form-header">
     <div>
       <p class="eyebrow">daily_plan</p>
@@ -9,13 +11,6 @@
       <p class="lead">主な活動の一覧から詳細を開いて確認し、「時間・子どもの様子・保育士の援助・配慮事項」の4列を下書きへコピーして編集できます。</p>
     </div>
   </section>
-
-  {% if errors %}
-    <section class="notice">
-      <strong>入力を確認してください</strong>
-      <span>{{ errors | join("、") }}</span>
-    </section>
-  {% endif %}
 
   <section class="form-panel daily-example-panel">
     <h2>匿名化された過去の日案例から選ぶ</h2>
@@ -94,7 +89,7 @@
                 </table>
               </div>
               <div class="daily-example-actions">
-                <a class="button button--secondary daily-example-copy" href="/plans/daily-plans/new?age_class={{ selected_age_class|urlencode }}&month={{ selected_month if selected_month is not none else '' }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft">この候補を下書きへコピー</a>
+                <a class="button button--secondary daily-example-copy" href="/plans/daily-plans/new?age_class={{ selected_age_class|urlencode }}&month={{ selected_month if selected_month is not none else '' }}&q={{ search_query|urlencode }}&example_id={{ example.id|urlencode }}&target_date={{ form_values.get('target_date', '')|urlencode }}&classroom_ref={{ form_values.get('classroom_ref', default_classroom_ref)|urlencode }}#daily-draft" target="_blank" rel="noopener">この候補を下書きへコピー</a>
                 <button class="button button--ghost close-daily-example" type="button">詳細を閉じる</button>
               </div>
             </div>
@@ -113,7 +108,16 @@
   </section>
 
   <div class="notice" id="daily-example-feedback" role="status" hidden></div>
-  <form class="form-layout" method="post" action="/plans/daily-plans" id="daily-draft">
+  <dialog id="daily-copy-choice" aria-labelledby="daily-copy-heading" aria-describedby="daily-copy-example">
+    <h2 id="daily-copy-heading">この文例をどう使いますか？</h2>
+    <p id="daily-copy-example"></p>
+    <form method="dialog">
+      <button value="append"><strong>文末に追加する</strong><span>文章は改行して続きに、活動は最後の行の下に足します。今の年齢を使います。</span></button>
+      <button value="replace"><strong>置き換える</strong><span>年齢・ねらい・内容・1日の流れを、この文例に入れ替えます。</span></button>
+      <button value="cancel" autofocus><strong>入力を続ける</strong><span>文例を取り込まず、書きかけの日案に戻ります。</span></button>
+    </form>
+  </dialog>
+  <form class="form-layout" method="post" action="/plans/daily-plans" id="daily-draft" novalidate>
     <input name="example_id" type="hidden" value="{{ form_values.get('example_id', '') }}">
     <input name="example_source_ref" type="hidden" value="{{ form_values.get('example_source_ref', '') }}">
     <input name="search_age_class" type="hidden" value="{{ selected_age_class }}">
@@ -125,7 +129,8 @@
       <div class="field-grid">
         <label>
           <span>対象日</span>
-          <input name="target_date" type="date" required value="{{ form_values.get('target_date', '') }}">
+          <input name="target_date" type="date" required value="{{ form_values.get('target_date', '') }}" id="daily-target-date" aria-describedby="daily-error-target_date" {% if field_errors.get('target_date') %}aria-invalid="true"{% endif %}>
+          <span id="daily-error-target_date" class="daily-field-error">{{ field_errors.get('target_date', '') }}</span>
         </label>
         <label>
           <span>クラス</span>
@@ -138,12 +143,13 @@
         </label>
         <label>
           <span>年齢</span>
-          <select name="age_class" required>
+          <select name="age_class" required id="daily-age-class" aria-describedby="daily-error-age_class" {% if field_errors.get('age_class') %}aria-invalid="true"{% endif %}>
             <option value="">選択してください</option>
             {% for option in age_class_options %}
               <option value="{{ option }}" {% if form_values.get('age_class') == option %}selected{% endif %}>{{ option }}</option>
             {% endfor %}
           </select>
+          <span id="daily-error-age_class" class="daily-field-error">{{ field_errors.get('age_class', '') }}</span>
         </label>
         <label>
           <span>作成者</span>
@@ -174,7 +180,7 @@
         </div>
         <button class="button button--secondary" id="add-daily-row" type="button">行を追加</button>
       </div>
-      <div class="daily-plan-grid-scroll">
+      <div class="daily-plan-grid-scroll" id="daily-timeline-input" tabindex="-1" role="group" aria-label="1日の流れ" aria-describedby="daily-error-timeline" {% if field_errors.get('timeline') %}aria-invalid="true"{% endif %}>
         <table class="daily-plan-edit-grid">
           <colgroup><col class="daily-plan-time-column"><col><col><col></colgroup>
           <thead>
@@ -200,11 +206,26 @@
           </tbody>
         </table>
       </div>
+      <p id="daily-error-timeline" class="daily-field-error">{{ field_errors.get('timeline', '') }}</p>
     </section>
 
-    <div class="form-actions">
-      <a class="button button--ghost" href="/plans/">戻る</a>
-      <button class="button button--primary" type="submit" {% if not user.can_edit %}disabled{% endif %}>下書きを保存</button>
+    <div id="daily-save-area">
+      <div id="daily-save-feedback" class="daily-validation-summary" tabindex="-1" role="alert" {% if field_errors %}autofocus{% else %}hidden{% endif %}>
+        {% if field_errors %}
+          <strong>まだ保存できません（確認が必要な項目 {{ field_errors|length }}件）</strong>
+          <p>入力内容は残っています。項目名を押すと記入欄へ移動できます。</p>
+          <ul>
+            {% set targets = {'target_date': 'daily-target-date', 'age_class': 'daily-age-class', 'timeline': 'daily-timeline-input'} %}
+            {% for field, message in field_errors.items() %}
+              <li><a href="#{{ targets[field] }}" data-error-field="{{ field }}">{{ message }}</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+      <div class="form-actions">
+        <a class="button button--ghost" href="/plans/">戻る</a>
+        <button class="button button--primary" type="submit" {% if not user.can_edit %}disabled{% endif %}>下書きを保存</button>
+      </div>
     </div>
   </form>
 
@@ -263,5 +284,6 @@
       });
     })();
   </script>
-  <script src="/static/js/daily-example-search.js"></script>
+  <script src="{{ static_asset_url('js/daily-example-search.js') }}"></script>
+  <script src="{{ static_asset_url('js/daily-plan-validation.js') }}"></script>
 {% endblock %}

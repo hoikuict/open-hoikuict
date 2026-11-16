@@ -151,6 +151,15 @@ class ServerSetupTests(unittest.TestCase):
         self.assertFalse(conf['apps']['pki']['certificate_authorities']['local']['install_trust'])
         self.assertEqual(conf['apps']['http']['servers']['lan']['listen'], ['192.168.50.20:443'])
         self.assertTrue(conf['apps']['http']['servers']['tunnel']['listen'][0].startswith('127.0.0.1:'))
+        servers = conf['apps']['http']['servers']
+        self.assertNotIn('trusted_proxies', servers['lan'])
+        self.assertEqual(servers['tunnel']['trusted_proxies'],
+                         {'source': 'static', 'ranges': ['127.0.0.1/32']})
+        self.assertEqual(servers['tunnel']['client_ip_headers'], ['CF-Connecting-IP'])
+        for server in servers.values():
+            upstream = server['routes'][0]['handle'][1]
+            self.assertEqual(upstream['headers']['request']['set']['X-Forwarded-For'],
+                             ['{http.vars.client_ip}'])
         self.assertTrue(conf['admin']['disabled'])
         markup = configuration.service_xml(self.root / 'code', self.root / 'data', INSTANCE)
         self.assertIn('Automatic', markup)

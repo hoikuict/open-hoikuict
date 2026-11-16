@@ -1,0 +1,10 @@
+<section class="space-y-2 rounded-xl border border-slate-200 bg-white p-5">
+  <h2 class="font-semibold">レントゲン撮影の事前承諾</h2>
+  {% if consent %}
+    <p>{{ consent.xray_question }}</p>
+    <p><strong>{{ choices.get(consent.xray_answer, unanswered) }}</strong></p>
+    <p class="text-sm">{{ consent.parent_name }} ／ {{ consent.submitted_at|jst_datetime('%Y-%m-%d %H:%M') }} ／ {{ statuses[consent.status] }}</p>
+    {% if consent.xray_answer == 'agree' and consent.status != 'approved' %}<p class="text-amber-800">園で確認が済むまで、事前承諾として扱えません。</p>{% endif %}
+  {% else %}<p>{{ unanswered }}</p>{% endif %}
+  <a class="inline-block text-sm text-emerald-700 underline" href="/children/{{ child.id }}/health/parent-medical">保護者への記入依頼・回答の確認</a>
+</section>

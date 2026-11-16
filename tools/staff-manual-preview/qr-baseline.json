@@ -1,0 +1,36 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "synthetic_data_only": true,
+  "business_records_written": 0,
+  "qr_contains_reserved_invalid_domain": true,
+  "screens": [
+    "qr-list",
+    "qr-settings-closed",
+    "qr-settings-open",
+    "qr-apply-empty",
+    "qr-apply-filled",
+    "qr-apply-error",
+    "qr-apply-stopped",
+    "qr-sent",
+    "qr-form-empty",
+    "qr-form-partial",
+    "qr-form-filled",
+    "qr-form-error",
+    "qr-review-new",
+    "qr-review-existing"
+  ],
+  "source_files": {
+    "parent_auth.py": "cf0dc5bea131d639e65a8140e1b26dc15ae6f29b9901630be009a49673e4f69d",
+    "parent_enrollment.py": "078a25a69c276a3a18cbc2170e79126694908bf85a69241ac6ea916d3a1f741f",
+    "parent_public_registration.py": "fd760deaaa1dd2bb5e4e35f0891f0b1adfbd4f41d9881dc68a734e7f2567d4b5",
+    "routers/parent_auth.py": "83f97b7fe506a9701db7f26d2b0e5aa7769bc7801ba4a421ffd1e404e7103040",
+    "templates/parent_accounts/list.html": "8a8905e7c9a34b61a2792f8adc70a04c4168e5bc1bbd5f1848e6a569283ac92d",
+    "templates/parent_auth/admin.html": "63e5d10586db66ca1154e5baf0212cc132f5e686da8ca9d452fed8ef5b64879f",
+    "templates/parent_auth/base.html": "7116d10ef69d0295ffcdec255fe29f13ca579b3db130a8e85a6872871a9e60a6",
+    "templates/parent_auth/enrollment.html": "9e14b923200e872b7ac2ac3eba29d0e03c1e6a078cea8ec5880880781036ba2d",
+    "templates/parent_auth/public_registration.html": "254ef543e313bd44e4081c9d4ecf00922b43bcf820db8f9014f8d6ed209743e3",
+    "templates/parent_auth/public_registration_sent.html": "c2f44392e9a0822dc17a880063b110b0a4a483c87d6257c8d479c2730706880a",
+    "templates/parent_auth/registration_qr.html": "1950478cb9a2e17eeeb0438e394eb58af30ce348f55f42a19e84da90b9073b8f",
+    "templates/settings/_back.html": "b9865cc6a0b4fa61f2cfc95689d652922ccb1edc9a321860f9222651a46bb258"
+  }
+}

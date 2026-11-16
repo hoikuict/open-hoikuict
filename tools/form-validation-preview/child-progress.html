@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>児童票の入力・保存｜記入漏れ案内の確認</title><link rel="stylesheet" href="assets/base.css"><script src="assets/tailwind.js"></script>
+<link rel="stylesheet" href="mock.css"><script id="mock-fixture" type="application/json">{"data": {}, "key": "child-progress", "kind": "child-progress", "title": "\u5150\u7ae5\u7968\u306e\u5165\u529b\u30fb\u4fdd\u5b58"}</script><script src="mock.js"></script>
+</head><body><aside class="mock-toolbar" aria-label="確認用の操作"><a href="index.html">← 対象一覧</a><strong>確認用モック · 児童票の入力・保存</strong><p>架空データです。保存・提出・通知はこの画面内の見本です。</p>
+<div class="mock-controls"><label>試す状態<select id="mock-state"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="filled">入力済み</option><option value="error">保存エラー</option></select></label><button type="button" id="mock-reset">見本に戻す</button><label>試す操作<select id="mock-operation"></select></label><button type="button" id="mock-jump">操作ボタンの位置へ</button></div><p id="mock-note">通常の保存と「保存して切り替える」の両方を試せます。対象期間・参考ログ・各本文欄は現行どおりです。</p><p id="mock-status" role="status"></p></aside>
+<main id="mock-business" class="mock-normal">
+<div class="mx-auto max-w-7xl space-y-6" data-progress-editor data-progress-has-unsaved="false">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div><p class="text-sm font-semibold text-indigo-600">見本 はな</p><h1 class="mt-1 text-2xl font-bold text-slate-900">児童票を入力</h1><p class="mt-2 text-sm text-slate-600">「<a href="#progress-logs" class="font-semibold text-indigo-700 underline">対象期間の子どもの記録</a>」から、参考にした記録を選べます。</p></div>
+    <div class="flex flex-wrap gap-2"><a href="#" data-progress-navigation class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700" data-original-href="/children/1/progress-records?target_month=2026-09">児童票一覧へ</a><a href="#" data-progress-navigation class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700" data-original-href="/child-records/progress?target_month=2026-09">作成状況へ</a></div>
+  </div>
+  <section data-progress-unsaved hidden role="alert" class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+    <p>この児童票に未保存の変更があります。</p><div class="flex flex-wrap gap-2"><button type="button" data-progress-save-go class="rounded-lg bg-indigo-600 px-4 py-2 text-white">保存して切り替える</button><button type="button" data-progress-discard class="rounded-lg border border-amber-300 bg-white px-4 py-2">保存せず切り替える</button><button type="button" data-progress-stay class="rounded-lg border border-amber-300 bg-white px-4 py-2">入力を続ける</button></div>
+  </section>
+  <div hidden role="alert" tabindex="-1" data-progress-save-error class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+    <span></span>
+    
+  </div>
+  
+<section class="rounded-xl border border-indigo-200 border-l-4 border-l-indigo-600 bg-white p-5" aria-label="対象期間の選択">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <form method="get" action="#" data-progress-period class="space-y-2" data-original-action="/children/1/progress-records/new" novalidate="">
+      <label for="progress-target-month" class="block text-xs font-semibold text-slate-600">対象月（期間の終了月）</label>
+      
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="#" data-progress-navigation aria-label="前の対象期間" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700" data-original-href="/children/1/progress-records/new?target_month=2026-06">‹</a>
+        <input id="progress-target-month" name="target_month" type="month" min="1901-01" max="2100-12" value="2026-09" required class="min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-lg font-semibold text-slate-900">
+        <a href="#" data-progress-navigation aria-label="次の対象期間" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700" data-original-href="/children/1/progress-records/new?target_month=2026-12">›</a>
+        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">表示</button>
+        <span class="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">直近の終了期間</span>
+      </div>
+      <p class="text-xs text-slate-600">2026/07/01〜2026/09/30 · 2026年度 · 3か月周期</p>
+      
+    </form>
+    <div class="space-y-1 text-right text-xs text-slate-500"><p>操作日 2026/11/15</p><a href="#" data-progress-navigation class="inline-block py-2 text-sm font-medium text-indigo-600 underline underline-offset-4" data-original-href="/children/1/progress-records/new?target_month=">直近の対象期間に戻る</a></div>
+  </div>
+</section>
+  
+  
+  
+  
+  
+
+  <form method="post" action="#" data-progress-body class="grid items-start gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,.8fr)]" data-original-action="/children/1/progress-records" novalidate="">
+    <input type="hidden" name="continue_url" value="">
+    
+    <div class="space-y-5">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="font-semibold text-slate-900">対象期間</h2>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2"><label class="text-sm font-medium text-slate-700">開始日<input type="date" name="period_start" value="2026-07-01" readonly class="mt-1 block w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2"></label><label class="text-sm font-medium text-slate-700">終了日<input type="date" name="period_end" value="2026-09-30" readonly class="mt-1 block w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2"></label></div>
+        <input type="hidden" name="cycle_key" value="fy2026:2026-07-01:2026-09-30">
+        <p class="mt-3 text-xs text-slate-500">対象年度：2026年度 · 作成日時：保存した日時を記録</p>
+      </section>
+      
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><label class="block text-sm font-semibold text-slate-800">対象期間の子どもの姿 <span class="text-rose-600">*</span><textarea name="body_progress_children_overview" rows="7" maxlength="5000" required class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-2 leading-7" placeholder="具体的な姿の要約"></textarea></label></section>
+      
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><label class="block text-sm font-semibold text-slate-800">育ちと変化<textarea name="body_progress_growth_changes" rows="5" maxlength="5000" class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-2 leading-7" placeholder="前回からの育ちや変化"></textarea></label></section>
+      
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><label class="block text-sm font-semibold text-slate-800">保育者の援助と振り返り<textarea name="body_progress_support_reflection" rows="5" maxlength="5000" class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-2 leading-7" placeholder="有効だった援助と振り返り"></textarea></label></section>
+      
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><label class="block text-sm font-semibold text-slate-800">家庭との連携<textarea name="body_progress_family_collaboration" rows="5" maxlength="5000" class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-2 leading-7" placeholder="家庭との共有や連携"></textarea></label></section>
+      
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><label class="block text-sm font-semibold text-slate-800">次の期間に大切にしたいこと<textarea name="body_progress_next_focus" rows="5" maxlength="5000" class="mt-2 block w-full rounded-xl border border-slate-300 px-3 py-2 leading-7" placeholder="次の計画につなぐ視点"></textarea></label></section>
+      
+      <div class="flex flex-wrap items-center justify-between gap-3"><span data-progress-save-state aria-live="polite" class="text-xs text-slate-500">新しい下書き</span><button type="submit" class="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300">下書きを保存</button></div>
+    </div>
+
+    <aside class="space-y-4 xl:sticky xl:top-4">
+      <section class="rounded-2xl border border-indigo-200 bg-white shadow-sm">
+        <div class="border-b border-indigo-100 bg-indigo-50 px-5 py-4"><h2 id="progress-logs" tabindex="-1" class="scroll-mt-20 font-semibold text-indigo-950">対象期間の子どもの記録</h2><p class="mt-1 text-xs text-indigo-700">2026/07/01〜2026/09/30</p><p class="mt-1 text-xs text-indigo-700">本文へ自動転記せず、選んだ記録を根拠として紐付けます。</p></div>
+        <div class="max-h-[70vh] space-y-3 overflow-y-auto p-4">
+          <label class="block cursor-pointer rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:bg-indigo-50"><span class="flex items-start gap-3"><input type="checkbox" name="source_log_ids" value="1" class="mt-1"><span class="min-w-0"><span class="flex flex-wrap items-center gap-2"><strong class="text-sm text-slate-900">2026/11/10</strong><span class="rounded-full bg-slate-100 px-2 py-0.5 text-[.7rem] text-slate-600">遊び</span></span><span class="mt-2 block whitespace-pre-wrap text-sm leading-6 text-slate-700">見本：落ち葉の色を見比べていた。</span><span class="mt-2 block text-xs leading-5 text-slate-500">振り返り：見本：発見を言葉にする姿が見られた。</span></span></span></label>
+        </div>
+      </section>
+    </aside>
+  </form>
+  
+</div>
+</main>
+<dialog id="mock-result"><h2 tabindex="-1">確認用の保存結果</h2><p></p><details><summary>仮保存した入力を確認</summary><dl></dl></details><button type="button" id="mock-edit">入力・修正へ戻る</button></dialog>
+<dialog id="mock-leave"><h2>確認用画面の移動</h2><p>未保存の見本入力を残して続けますか？</p><button type="button" data-stay>入力を続ける</button><button type="button" data-discard>見本入力を破棄して戻る</button></dialog>
+</body></html>

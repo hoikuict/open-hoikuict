@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
+<title>基本医療情報の入口｜保護者ホームの確認用モック</title>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.absolute{position:absolute}.relative{position:relative}.right-0{right:0px}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:0.25rem}.mb-3{margin-bottom:0.75rem}.mb-6{margin-bottom:1.5rem}.ml-auto{margin-left:auto}.mt-1{margin-top:0.25rem}.mt-2{margin-top:0.5rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.w-64{width:16rem}.w-full{width:100%}.max-w-2xl{max-width:42rem}.max-w-4xl{max-width:56rem}.max-w-7xl{max-width:80rem}.cursor-pointer{cursor:pointer}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.space-y-3 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.75rem * var(--tw-space-y-reverse))}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.space-y-5 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem * var(--tw-space-y-reverse))}.rounded{border-radius:0.25rem}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:0.5rem}.rounded-xl{border-radius:0.75rem}.border{border-width:1px}.border-dashed{border-style:dashed}.border-emerald-200{--tw-border-opacity:1;border-color:rgb(167 243 208 / var(--tw-border-opacity, 1))}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235 / var(--tw-border-opacity, 1))}.border-gray-300{--tw-border-opacity:1;border-color:rgb(209 213 219 / var(--tw-border-opacity, 1))}.border-indigo-300{--tw-border-opacity:1;border-color:rgb(165 180 252 / var(--tw-border-opacity, 1))}.border-slate-200{--tw-border-opacity:1;border-color:rgb(226 232 240 / var(--tw-border-opacity, 1))}.border-slate-300{--tw-border-opacity:1;border-color:rgb(203 213 225 / var(--tw-border-opacity, 1))}.border-white\/40{border-color:rgb(255 255 255 / 0.4)}.bg-amber-50{--tw-bg-opacity:1;background-color:rgb(255 251 235 / var(--tw-bg-opacity, 1))}.bg-indigo-50{--tw-bg-opacity:1;background-color:rgb(238 242 255 / var(--tw-bg-opacity, 1))}.bg-indigo-600{--tw-bg-opacity:1;background-color:rgb(79 70 229 / var(--tw-bg-opacity, 1))}.bg-indigo-700{--tw-bg-opacity:1;background-color:rgb(67 56 202 / var(--tw-bg-opacity, 1))}.bg-indigo-800{--tw-bg-opacity:1;background-color:rgb(55 48 163 / var(--tw-bg-opacity, 1))}.bg-slate-50{--tw-bg-opacity:1;background-color:rgb(248 250 252 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-white\/10{background-color:rgb(255 255 255 / 0.1)}.bg-gradient-to-r{background-image:linear-gradient(to right, var(--tw-gradient-stops))}.from-indigo-600{--tw-gradient-from:#4f46e5 var(--tw-gradient-from-position);--tw-gradient-to:rgb(79 70 229 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.to-sky-500{--tw-gradient-to:#0ea5e9 var(--tw-gradient-to-position)}.p-3{padding:0.75rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.text-2xl{font-size:1.5rem;line-height:2rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.font-semibold{font-weight:600}.text-amber-600{--tw-text-opacity:1;color:rgb(217 119 6 / var(--tw-text-opacity, 1))}.text-amber-700{--tw-text-opacity:1;color:rgb(180 83 9 / var(--tw-text-opacity, 1))}.text-amber-800{--tw-text-opacity:1;color:rgb(146 64 14 / var(--tw-text-opacity, 1))}.text-emerald-700{--tw-text-opacity:1;color:rgb(4 120 87 / var(--tw-text-opacity, 1))}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175 / var(--tw-text-opacity, 1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128 / var(--tw-text-opacity, 1))}.text-gray-800{--tw-text-opacity:1;color:rgb(31 41 55 / var(--tw-text-opacity, 1))}.text-indigo-100{--tw-text-opacity:1;color:rgb(224 231 255 / var(--tw-text-opacity, 1))}.text-indigo-600{--tw-text-opacity:1;color:rgb(79 70 229 / var(--tw-text-opacity, 1))}.text-indigo-700{--tw-text-opacity:1;color:rgb(67 56 202 / var(--tw-text-opacity, 1))}.text-indigo-900{--tw-text-opacity:1;color:rgb(49 46 129 / var(--tw-text-opacity, 1))}.text-rose-800{--tw-text-opacity:1;color:rgb(159 18 57 / var(--tw-text-opacity, 1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105 / var(--tw-text-opacity, 1))}.text-slate-800{--tw-text-opacity:1;color:rgb(30 41 59 / var(--tw-text-opacity, 1))}.text-slate-900{--tw-text-opacity:1;color:rgb(15 23 42 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.underline{-webkit-text-decoration-line:underline;text-decoration-line:underline}.shadow{--tw-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.transition{transition-property:color, background-color, border-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.hover\:border-indigo-400:hover{--tw-border-opacity:1;border-color:rgb(129 140 248 / var(--tw-border-opacity, 1))}.hover\:bg-indigo-50:hover{--tw-bg-opacity:1;background-color:rgb(238 242 255 / var(--tw-bg-opacity, 1))}.hover\:bg-indigo-600:hover{--tw-bg-opacity:1;background-color:rgb(79 70 229 / var(--tw-bg-opacity, 1))}.hover\:bg-indigo-700:hover{--tw-bg-opacity:1;background-color:rgb(67 56 202 / var(--tw-bg-opacity, 1))}.hover\:underline:hover{-webkit-text-decoration-line:underline;text-decoration-line:underline}.focus-visible\:outline:focus-visible{outline-style:solid}.focus-visible\:outline-2:focus-visible{outline-width:2px}.focus-visible\:outline-offset-2:focus-visible{outline-offset:2px}.focus-visible\:outline-indigo-600:focus-visible{outline-color:#4f46e5}@media (min-width: 640px){.sm\:px-6{padding-left:1.5rem;padding-right:1.5rem}}@media (min-width: 768px){.md\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.md\:flex-row{flex-direction:row}.md\:items-end{align-items:flex-end}.md\:items-center{align-items:center}.md\:justify-between{justify-content:space-between}}@media (min-width: 1024px){.lg\:grid-cols-\[2fr\2c 1fr\]{grid-template-columns:2fr 1fr}}
+[hidden]{display:none!important}
+.demo{border-bottom:1px solid #cbd5e1;background:#f1f5f9;color:#334155;font-size:.85rem}
+.demo>div{max-width:80rem;margin:auto;padding:.5rem 1rem;display:flex;align-items:baseline;gap:.45rem 1.2rem;flex-wrap:wrap}
+.demo details>summary{cursor:pointer;text-decoration:underline}.demo label{display:inline-flex;align-items:center;gap:.4rem;margin:.5rem .75rem .25rem 0}
+.demo select{border:1px solid #94a3b8;background:white;border-radius:.35rem;padding:.2rem}
+:focus-visible{outline:3px solid #0ea5e9;outline-offset:3px}
+#feedback{position:fixed;right:1rem;bottom:1rem;background:#1e293b;color:white;padding:.7rem 1rem;border-radius:.5rem;z-index:60}
+</style></head><body class="bg-slate-50 text-slate-800">
+<aside class="demo" aria-label="モックの設定"><div><strong>確認用モック</strong><span>架空の園児で試せます。園への送信はありません。</span>
+<details id="settings"><summary>見本を切り替える</summary>
+<label>お子さま <select id="family"><option value="1">1人</option><option value="2">2人</option><option value="0">紐付けなし</option></select></label>
+<label>園からの依頼 <select id="case"><option value="normal">通常</option><option value="requested">記入のお願い</option><option value="returned">書き直しのお願い</option><option value="pending">園で確認中</option><option value="approved">園で確認済み</option></select></label>
+<label>入力内容 <select id="sample"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="full">入力済み</option><option value="error">入力エラー</option></select></label>
+</details></div></aside>
+<nav class="no-print bg-indigo-700 px-4 py-3 text-white shadow sm:px-6">
+      <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-4">
+        <span class="text-lg font-bold">open-hoikuict</span>
+        <a href="#home" class="text-sm hover:underline">保護者ホーム</a>
+        <details class="relative ml-auto">
+          <summary class="cursor-pointer rounded border border-indigo-300 px-4 py-2 text-sm">メニュー</summary>
+          <div class="absolute right-0 z-50 mt-2 flex w-64 flex-col gap-4 rounded-xl bg-indigo-800 p-5 shadow-lg">
+        
+        <a href="#other" data-other class="text-sm hover:underline">子ども情報変更申請</a>
+        
+        <a href="#medical" data-medical-menu class="text-sm hover:underline">基本医療情報</a>
+        <a href="#other" data-other class="text-sm hover:underline">日次連絡履歴</a>
+        <a href="#other" data-other class="text-sm hover:underline">お知らせ</a>
+        <a href="#other" data-other class="text-sm hover:underline">アンケート</a>
+        <a href="#other" data-other class="text-sm hover:underline">登録情報</a>
+        <a href="#other" data-other class="text-sm hover:underline">通知設定</a>
+        <a href="#other" data-other class="text-sm hover:underline">パスワード変更</a>
+          </div>
+        </details>
+        <div class="flex items-center gap-3 text-sm">
+          
+          <span class="text-indigo-100">見本 はなこ</span>
+          <form>
+            <button type="submit" class="rounded border border-indigo-300 px-3 py-1 hover:bg-indigo-600">ログアウト</button>
+          </form>
+          
+        </div>
+      </div>
+    </nav>
+<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+<section id="home">
+<div class="mb-6 flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-500 p-6 text-white shadow-sm md:flex-row md:items-end md:justify-between">
+  <div>
+    <p class="text-sm text-indigo-100">ようこそ</p>
+    <h1 class="text-2xl font-bold">見本 はなこ さん</h1>
+    <p class="mt-2 text-sm text-indigo-100">2026-11-09 の連絡状況を確認できます。</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <form class="flex items-center gap-2">
+      <input type="date" name="date" value="2026-11-09" class="rounded border border-white/40 bg-white/10 px-3 py-2 text-sm text-white">
+      <button type="submit" class="rounded bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">日付を変更</button>
+    </form>
+
+  </div>
+</div>
+
+
+
+
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">連絡対象の園児</p>
+    <p id="count" class="mt-2 text-2xl font-bold text-gray-800">2</p>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <p class="text-sm text-gray-500">本日の送信件数</p>
+    <p class="mt-2 text-2xl font-bold text-emerald-700">0</p>
+  </div>
+  <a href="#other" data-other class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-indigo-400 hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+    <p class="text-sm text-gray-500">未読・未回答</p>
+    <p class="mt-2 text-2xl font-bold text-amber-600">0</p>
+    <p class="mt-2 text-sm font-medium text-indigo-600">詳細を見る →</p>
+  </a>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-[2fr,1fr]">
+  <section id="child-information" class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-800">園児ごとの連絡・申請</h2>
+      <a href="#other" data-other class="text-sm text-indigo-600 hover:underline">履歴を見る</a>
+    </div>
+
+    
+    
+    
+    
+    <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 data-child="1" class="text-lg font-semibold text-gray-800">見本 あおい</h3>
+            <a href="#other" data-other class="mt-4 inline-block rounded border border-indigo-300 px-4 py-3 text-sm text-indigo-700">お迎え予定を登録・変更</a>
+      
+            
+          </div>
+          <p class="text-sm text-gray-500">さくら組</p>
+          
+          <div class="mt-3" data-request="1">
+            <p class="mb-1 text-sm font-semibold text-amber-800">園から基本医療情報の記入のお願いがあります。</p>
+            <a href="#child-1" class="inline-block rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700">基本医療情報を確認する</a>
+          </div>
+          
+          
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">未送信</span>
+          
+          <a href="#other" data-other class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+            日次連絡を入力
+          </a>
+        </div>
+      </div>
+
+      
+
+      
+    </div>
+    
+    
+    
+    
+    <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 data-child="2" class="text-lg font-semibold text-gray-800">見本 ひなた</h3>
+            <a href="#other" data-other class="mt-4 inline-block rounded border border-indigo-300 px-4 py-3 text-sm text-indigo-700">お迎え予定を登録・変更</a>
+      
+            
+          </div>
+          <p class="text-sm text-gray-500">ひよこ組</p>
+          
+          <div class="mt-3" data-request="2">
+            <p class="mb-1 text-sm font-semibold text-amber-800">園から基本医療情報の記入のお願いがあります。</p>
+            <a href="#child-2" class="inline-block rounded border border-indigo-300 px-4 py-2 text-sm text-indigo-700">基本医療情報を確認する</a>
+          </div>
+          
+          
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">未送信</span>
+          
+          <a href="#other" data-other class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+            日次連絡を入力
+          </a>
+        </div>
+      </div>
+
+      
+
+      
+    </div>
+    
+  </section>
+
+  <section>
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-gray-800">新着のお知らせ</h2>
+      <div class="flex items-center gap-3 text-sm">
+        <a href="#other" data-other class="text-indigo-600 hover:underline">お知らせ一覧</a>
+        <a href="#other" data-other class="text-indigo-600 hover:underline">アンケート一覧</a>
+      </div>
+    </div>
+    <div class="space-y-3">
+      
+      <div class="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-400">表示できるお知らせはありません。</div>
+      
+    </div>
+  </section>
+</div>
+<p id="no-child" class="rounded-xl border border-dashed bg-white p-6 text-slate-600" hidden>ひもづく園児がまだありません。</p></section>
+<section id="picker" class="mx-auto max-w-4xl space-y-4" hidden>
+  <a class="text-sm text-indigo-700 underline" href="#home">保護者ホームへ</a>
+  <h1 class="text-2xl font-bold">基本医療情報</h1><p>確認するお子さまを選んでください。</p>
+  <div id="child-links" class="space-y-3"></div>
+</section>
+<section id="edit" hidden>
+<div class="mx-auto max-w-2xl space-y-5">
+  <a class="text-sm text-indigo-700 underline" href="#home">保護者ホームへ</a>
+  <h1 class="text-2xl font-bold text-slate-900">見本 あおいさんの基本医療情報</h1>
+  
+  
+  
+  <p id="case-note" class="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-900" hidden></p><form id="editor" class="space-y-5">
+    
+    
+    
+    <p>登録されている内容を確認し、変わったところを直してください。変更がないときは、そのまま確認に進めます。</p>
+    
+    
+    <section class="space-y-3 rounded-xl border border-slate-200 bg-white p-5" id="medical-basic">
+      <h2 class="text-lg font-semibold">血液型</h2>
+      <label class="block">お子さんの血液型
+        <select name="blood_type" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="">未記入</option>
+          <option >わからない</option><option >A型</option><option >B型</option><option >O型</option><option >AB型</option>
+          
+        </select>
+      </label>
+    </section>
+    <section class="space-y-3 rounded-xl border border-slate-200 bg-white p-5" id="medical-doctor">
+      <h2 class="text-lg font-semibold">かかりつけ医</h2>
+      
+      <label class="block">かかりつけ医の名前<input name="primary_doctor_name" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value=""></label>
+      
+      <label class="block">かかりつけ医の電話番号<input name="primary_doctor_phone" type="tel" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value=""></label>
+      
+      <label class="block">かかりつけ医の住所<input name="primary_doctor_address" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2" value=""></label>
+      
+    </section>
+    <section class="space-y-3 rounded-xl border border-slate-200 bg-white p-5" id="medical-hospital">
+      <h2 class="text-lg font-semibold">希望する搬送先（任意）</h2>
+      <p>希望する病院があれば、病院名を入力してください。電話番号はわかる場合に入力してください。希望がなければ空欄で送れます。</p>
+      <label class="block">病院名<input class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2" name="hospital_name" value=""></label>
+      <label class="block">病院の電話番号<input class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2" name="hospital_phone" type="tel" value=""></label>
+      
+      <label class="block"><input type="checkbox" name="clear_hospital" value="yes" > 登録済みの搬送先の希望を取り消す</label>
+      
+    </section>
+    <fieldset class="space-y-3 rounded-xl border border-slate-200 bg-white p-5" aria-labelledby="xray-heading" aria-describedby="xray-question" id="medical-xray">
+      <h2 id="xray-heading" class="text-lg font-semibold">レントゲン撮影の事前承諾</h2>
+      <p id="xray-question">保育中のけがで受診し、医師がレントゲン撮影を必要と判断したとき、園から保護者に連絡がつかない場合はどうしますか？</p>
+      
+      <label class="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3"><input class="mt-1" type="radio" name="xray_answer" value="agree" >連絡がつかない場合は、撮影を承諾します</label>
+      
+      <label class="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3"><input class="mt-1" type="radio" name="xray_answer" value="contact" >事前には承諾しません。撮影前に確認してください</label>
+      
+      <label class="flex items-start gap-3 rounded-lg border border-slate-200 px-3 py-3"><input class="mt-1" type="radio" name="xray_answer" value="undecided" >今は決めません</label>
+      
+      <p class="text-sm text-slate-600">園は回答を受診先に伝えます。撮影の手続きは受診先に確認します。</p>
+    </fieldset>
+    <p id="error" role="alert" class="text-rose-800" hidden></p><button class="rounded-lg bg-indigo-600 px-5 py-3 font-semibold text-white" name="action" value="preview">回答を確認する</button>
+    
+  </form>
+  
+  <a class="inline-block text-sm text-indigo-700 underline" href="#other" data-other>基本医療情報の書き方を見る</a>
+</div>
+</section>
+<section id="review" hidden>
+<div class="mx-auto max-w-2xl space-y-5">
+  <a class="text-sm text-indigo-700 underline" href="#home">保護者ホームへ</a>
+  <h1 class="text-2xl font-bold text-slate-900">見本 あおいさんの基本医療情報</h1>
+  
+  
+  
+  <form class="space-y-5">
+    
+    
+    
+    <section class="space-y-4 rounded-xl border border-slate-200 bg-white p-5" id="medical-review">
+      <h2 class="text-lg font-semibold">回答の確認</h2>
+      <p>見本 あおいさんの回答として、次の内容を園に伝えます。</p>
+      <dl class="space-y-3">
+      
+        <div><dt class="text-sm text-slate-600">血液型</dt><dd>未記入</dd></div>
+        
+      
+        <div><dt class="text-sm text-slate-600">かかりつけ医の名前</dt><dd>未記入</dd></div>
+        
+      
+        <div><dt class="text-sm text-slate-600">かかりつけ医の電話番号</dt><dd>未記入</dd></div>
+        
+      
+        <div><dt class="text-sm text-slate-600">かかりつけ医の住所</dt><dd>未記入</dd></div>
+        
+      
+        <div><dt class="text-sm text-slate-600">希望する搬送先（任意）</dt><dd>希望なし</dd></div>
+        
+      
+        <div><dt class="text-sm text-slate-600">搬送先の電話番号</dt><dd>未記入</dd></div>
+        
+      
+        <div><dt class="text-sm text-slate-600">レントゲン撮影の事前承諾</dt><dd><p>保育中のけがで受診し、医師がレントゲン撮影を必要と判断したとき、園から保護者に連絡がつかない場合はどうしますか？</p><strong>未回答（事前承諾なし）</strong></dd></div>
+      </dl>
+      
+      
+      <div class="flex flex-wrap gap-3">
+        <button class="rounded-lg border border-slate-300 px-4 py-3" name="action" value="edit">書き直す</button>
+        <button class="rounded-lg bg-indigo-600 px-4 py-3 text-white" name="action" value="send">この内容で回答する</button>
+      </div>
+    </section>
+    
+  </form>
+  
+  <a class="inline-block text-sm text-indigo-700 underline" href="#other" data-other>基本医療情報の書き方を見る</a>
+</div>
+</section>
+<section id="sent" hidden>
+<div class="mx-auto max-w-2xl space-y-5">
+  <a class="text-sm text-indigo-700 underline" href="#home">保護者ホームへ</a>
+  <h1 class="text-2xl font-bold text-slate-900">見本 あおいさんの基本医療情報</h1>
+  
+  <section class="space-y-3 rounded-xl border border-emerald-200 bg-white p-5" role="status">
+    <h2 class="text-lg font-semibold">園に回答を送りました</h2>
+    <p>園で内容を確認します。あとから、この画面で回答を見直せます。</p>
+    <a class="inline-block text-indigo-700 underline" href="#child-1">回答を見直す</a>
+  </section>
+  
+  <a class="inline-block text-sm text-indigo-700 underline" href="#other" data-other>基本医療情報の書き方を見る</a>
+</div>
+</section>
+</main><p role="status" id="feedback" hidden>この見本では、基本医療情報の入口と回答を試せます。</p>
+<script>
+const byId=id=>document.getElementById(id);
+const names=['','見本 あおい','見本 ひなた'];
+const statusNames={normal:'',requested:'記入のお願い',returned:'書き直しのお願い：かかりつけ医の電話番号を確認してください。',pending:'園で確認中',approved:'園で確認済み'};
+const editor=byId('editor');
+const keys=['blood_type','primary_doctor_name','primary_doctor_phone','primary_doctor_address','hospital_name','hospital_phone'];
+const answerLabel=value=>document.querySelector('#medical-xray [value="'+value+'"]')?.parentElement.textContent.trim() || '未回答（事前承諾なし）';
+let children={}, reviewed=null, restoreDraft=false, active=0, feedbackTimer;
+const familySize=()=>Number(byId('family').value);
+function seed(id){
+  const preset=byId('sample').value;
+  const values={};
+  if(preset!=='empty'){
+    values.blood_type=id===1?'わからない':'A型';
+    values.primary_doctor_name=id===1?'見本こども医院':'見本クリニック';
+  }
+  if(preset==='full') Object.assign(values,{primary_doctor_phone:'000-0000-0001',primary_doctor_address:'見本町1番地',hospital_name:'見本総合病院',hospital_phone:'000-0000-0002',xray_answer:'contact'});
+  return {values,status:id===familySize()?byId('case').value:'normal',errorSample:preset==='error'};
+}
+function reset(){
+  children={1:seed(1),2:seed(2)};reviewed=null;restoreDraft=false;
+  if(location.hash!=='#home') location.hash='home'; else render();
+}
+function home(){
+  const count=familySize();
+  byId('count').textContent=count;
+  byId('no-child').hidden=count!==0;
+  document.querySelector('[data-medical-menu]').hidden=count===0;
+  document.querySelector('nav a[data-other]').hidden=count===0;
+  const picker=byId('child-links');picker.replaceChildren();
+  for(let id=1;id<=2;id++){
+    const card=byId('child-information').querySelector('[data-child="'+id+'"]').closest('.shadow-sm');
+    card.hidden=id>count;
+    const request=card.querySelector('[data-request]');
+    const status=children[id].status;
+    request.hidden=!(status==='requested'||status==='returned');
+    request.querySelector('p').textContent='園から基本医療情報の'+(status==='returned'?'書き直し':'記入')+'のお願いがあります。';
+    if(id<=count){
+      const link=document.createElement('a');
+      link.className='block rounded-xl border border-slate-200 bg-white p-5 font-semibold text-indigo-700 shadow-sm hover:underline';
+      link.href='#child-'+id;link.textContent=names[id]+'（'+(id===1?'さくら組':'ひよこ組')+'）';picker.append(link);
+    }
+  }
+}
+function show(screen){
+  for(const id of ['home','picker','edit','review','sent']) byId(id).hidden=id!==screen;
+  document.querySelector('nav details').open=false;byId('feedback').hidden=true;
+  const heading=byId(screen).querySelector('h1');
+  heading.tabIndex=-1;heading.focus({preventScroll:true});window.scrollTo(0,0);
+}
+function openEdit(id){
+  const child=children[id], source=restoreDraft && reviewed?.id===id ? reviewed.raw : child.values;
+  for(const k of keys) editor.elements[k].value=source[k]||'';
+  for(const radio of editor.elements.xray_answer) radio.checked=radio.value===source.xray_answer;
+  editor.elements.clear_hospital.closest('label').hidden=!(child.values.hospital_name||child.values.hospital_phone);
+  editor.elements.clear_hospital.checked=!!source.clear;
+  byId('case-note').textContent=statusNames[child.status];byId('case-note').hidden=child.status==='normal';
+  byId('error').hidden=true;
+  if(child.errorSample){
+    editor.elements.hospital_phone.value='000-0000-0002';
+    byId('error').textContent='搬送先の電話番号を入力した場合は、病院名も入力してください。';byId('error').hidden=false;
+  }
+  restoreDraft=false;show('edit');
+}
+function render(){
+  home();
+  let route=location.hash.slice(1);
+  if(route==='medical'){
+    if(familySize()===2){show('picker');return;}
+    route=familySize()===1?'child-1':'home';
+  }
+  const match=/^(child|review|sent)-([12])$/.exec(route);
+  if(!match || Number(match[2])>familySize()){active=0;show('home');return;}
+  active=Number(match[2]);
+  for(const screen of ['edit','review','sent']) byId(screen).querySelector('h1').textContent=names[active]+'さんの基本医療情報';
+  if(match[1]==='review' && reviewed?.id===active){
+    const dd=byId('medical-review').querySelectorAll('dd');
+    keys.forEach((k,i)=>dd[i].textContent=reviewed.values[k]||(k==='hospital_name'?'希望なし':'未記入'));
+    dd[6].querySelector('strong').textContent=answerLabel(reviewed.values.xray_answer);
+    byId('medical-review').querySelector(':scope > p').textContent=names[active]+'さんの回答として、次の内容を園に伝えます。';show('review');
+  }else if(match[1]==='sent' && children[active].status==='pending'){
+    byId('sent').querySelector('[role=status] a').href='#child-'+active;show('sent');
+  }else openEdit(active);
+}
+editor.addEventListener('submit',event=>{
+  event.preventDefault();
+  const raw=Object.fromEntries(new FormData(editor)), original=children[active].values;
+  raw.clear=editor.elements.clear_hospital.checked;
+  const values={};for(const k of keys) values[k]=raw[k].trim()||original[k]||'';
+  values.xray_answer=raw.xray_answer||'';
+  if(raw.clear) values.hospital_name=values.hospital_phone='';
+  else if(values.hospital_name!==original.hospital_name && !raw.hospital_phone.trim()) values.hospital_phone='';
+  if(values.hospital_phone && !values.hospital_name){
+    byId('error').textContent='搬送先の電話番号を入力した場合は、病院名も入力してください。';byId('error').hidden=false;editor.elements.hospital_name.focus();return;
+  }
+  reviewed={id:active,values,raw};children[active].errorSample=false;location.hash='review-'+active;
+});
+byId('review').querySelector('form').addEventListener('submit',event=>{
+  event.preventDefault();
+  if(event.submitter?.value==='edit'){restoreDraft=true;location.hash='child-'+active;return;}
+  if(event.submitter?.value==='send' && reviewed?.id===active){
+    children[active]={values:reviewed.values,status:'pending',errorSample:false};
+    reviewed=null;location.hash='sent-'+active;
+  }
+});
+document.addEventListener('click',event=>{
+  if(event.target.closest('[data-other]') || event.target.closest('nav form')){
+    event.preventDefault();byId('feedback').hidden=false;clearTimeout(feedbackTimer);feedbackTimer=setTimeout(()=>byId('feedback').hidden=true,2800);
+  }
+  if(event.target.closest('nav a, [data-request] a')) byId('settings').open=false;
+});
+byId('home').querySelector('form').addEventListener('submit',event=>{
+  event.preventDefault();const date=event.target.elements.date.value;
+  if(date) event.target.closest('.bg-gradient-to-r').querySelector('p.mt-2').textContent=date+' の連絡状況を確認できます。';
+});
+byId('settings').addEventListener('change',reset);
+children={1:seed(1),2:seed(2)};
+window.addEventListener('hashchange',render);render();
+</script></body></html>

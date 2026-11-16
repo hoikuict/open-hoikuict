@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>保護者連絡・内容一覧のモック</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js?v=no-avatar-20260928" defer></script>
+</head>
+<body>
+  <aside class="review" aria-label="モックの確認設定">
+    <div class="review-heading"><strong>確認用モック</strong><span>架空データのみ・名前横の丸の削除は本番反映済み</span><button id="review-toggle" aria-expanded="false" aria-controls="review-settings">状態を切り替えて試す</button></div>
+    <div id="review-settings" hidden>
+      <label>連絡の状態<select id="scenario"><option value="mixed">一部入力・未提出・欠席が混在</option><option value="empty">未入力（全員未提出）</option><option value="filled">入力済み（全員提出済み）</option><option value="partial">一部入力（空欄を含む）</option><option value="error">読込エラー</option></select></label>
+      <button id="reset">初期状態に戻す</button>
+      <p>日付ごとに架空の連絡を切り替えます。一覧・詳細の閲覧用で、保存・公開・送信は行いません。新しい入力項目は追加しません。</p>
+      <p>基準：2026年9月28日配備版 f79846c31e36。名前の横の丸を削除しました。名前・クラス・提出状況・更新日時の表示を確認できます。</p>
+    </div>
+  </aside>
+  <div class="layout">
+    <!-- DEPLOYED_SIDEBAR -->
+    <main>
+      <div class="page-heading"><div><p class="breadcrumb">連絡と記録 / 日次連絡</p><h1>保護者連絡一覧</h1><p class="description">家庭での様子と連絡事項を、園児ごとにまとめて確認できます。</p></div><button id="wide" aria-pressed="false">一覧を広く表示</button></div>
+      <form id="filters" class="filters">
+        <label>日付<input id="date" type="date" value="2026-09-28" min="0001-01-01" max="9999-12-31" required></label>
+        <label>クラス<select id="classroom"><option value="">すべて</option><option value="0">ひよこ組</option><option value="1">りす組</option><option value="2">うさぎ組（対象なし）</option></select></label>
+        <label>表示順<select id="sort"><option value="classroom">クラス・園児順</option><option value="unsubmitted_first">未提出を先頭</option><option value="submitted_first">提出済みを先頭</option><option value="unsent_first">園の未送信を先頭</option></select></label>
+        <button class="primary" type="submit">表示</button><p id="filter-hint">条件を変更したら「表示」を押してください。</p>
+      </form>
+      <div class="view-bar"><nav aria-label="一覧の表示切替"><button data-view="content" aria-pressed="true">内容一覧</button><button data-view="status" aria-pressed="false">提出状況一覧</button></nav><span id="counts" role="status"></span></div>
+      <div class="table-caption"><strong id="table-title"></strong><span id="table-hint">横にスクロールできます。名前と見出しは固定表示です。</span></div>
+      <div id="results"></div>
+      <p class="legend">「未提出」は連絡が届いていない園児です。「—」は未入力、「対象外」は欠席連絡で使わない項目です。お迎え予定・補食は出欠記録の予定を表示します。</p>
+      <p id="feedback" role="status"></p>
+    </main>
+  </div>
+  <dialog id="detail" aria-labelledby="detail-title">
+    <header><div><p class="breadcrumb">連絡詳細・閲覧用モック</p><h2 id="detail-title"></h2><p id="detail-meta"></p></div><button id="close-detail">一覧へ戻る</button></header>
+    <div id="detail-body"></div>
+  </dialog>
+</body>
+</html>

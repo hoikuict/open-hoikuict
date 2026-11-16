@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}基本医療情報 | 保護者アプリ{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-2xl space-y-4 rounded-xl border bg-white p-5">
+  <h1 class="text-xl font-bold">基本医療情報</h1>
+  {% if children %}
+  <p>確認したいお子さまを選んでください。</p>
+  <ul class="space-y-2">
+    {% for child in children %}
+    <li><a class="block rounded border border-indigo-300 px-4 py-3 font-semibold text-indigo-700" href="/parent-portal/children/{{ child.id }}/medical">{{ child.full_name }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>このアカウントに登録されているお子さまがいません。園にご確認ください。</p>
+  {% endif %}
+  <a class="inline-block text-indigo-700 underline" href="/parent-portal/">保護者ホームへ</a>
+</section>
+{% endblock %}

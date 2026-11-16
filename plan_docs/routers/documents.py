@@ -13,7 +13,7 @@ from child_records.settings import effective_config
 from models import Child, User
 from time_utils import ensure_utc_from_local, local_naive_now, parse_local_datetime_input
 
-from ..auth_adapter import CurrentUser, StaffUser, require_admin, require_can_edit
+from ..auth_adapter import CurrentUser, StaffUser, require_actor, require_admin, require_can_edit
 from ..contracts import DocumentStatus, DocumentType, normalize_status
 from ..serializers import document_to_dict
 from ..services.daily_reflections import (
@@ -29,9 +29,12 @@ from ..store import (
     DocumentRepositoryDep,
     ExecutionChangeError,
     InvalidStatusTransitionError,
+    NoReviewRecipientsError,
     SqlModelDocumentRepository,
 )
 from ..templating import render_template
+from ..services.monthly_review import MonthlyReviewIncompleteError
+from ..services.weekly_review import WeeklyReviewIncompleteError
 from ..services.monthly_access import can_edit_monthly_document, EDIT_REASON
 
 
@@ -239,6 +242,16 @@ def _review_details(repository: DocumentRepositoryDep, document_id: int, status:
     }
 
 
+@router.get("/legacy/")
+def legacy_plans(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
+    require_actor(user, request)
+    classroom_refs = None if user.is_admin else user.classroom_refs
+    documents = repository.list(nursery_ref=user.nursery_ref, classroom_refs=classroom_refs)
+    legacy = [document for document in documents
+              if document.plan_format_label == "旧式" and _can_view_document(document, user, repository)]
+    return render_template(request, "legacy.html", user=user, documents=legacy)
+
+
 @router.get("/documents/")
 def list_documents(request: Request, user: CurrentUser, repository: DocumentRepositoryDep):
     classroom_refs = None if user.is_admin else user.classroom_refs
@@ -263,6 +276,11 @@ def document_detail(
     user: CurrentUser,
     repository: DocumentRepositoryDep,
 ):
+    return _document_detail_response(document_id, request, user, repository)
+
+
+def _document_detail_response(document_id, request, user, repository, *, review_missing=None,
+                              weekly_review_error=None):
     document = _visible_document(document_id, user, repository)
     head = repository.head(document_id)
     monthly_boot = None
@@ -290,6 +308,8 @@ def document_detail(
         user=user,
         document=document,
         monthly_boot=monthly_boot,
+        monthly_review_missing=review_missing,
+        weekly_review_error=weekly_review_error,
         annual_boot=annual_boot,
         status_options=list(DocumentStatus),
         lock_version=head.lock_version if head else 0,
@@ -366,6 +386,10 @@ def edit_document_form(
     _require_document_edit_access(document, user, repository, request)
     if not document.can_edit_body:
         raise HTTPException(status_code=409, detail="この状態の文書は修正できません")
+    if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
+        return RedirectResponse(
+            f"/children/{document.child_id}/progress-records/new?document_id={document.id}", status_code=303
+        )
     if document.monthly_sheet is not None:
         return RedirectResponse(f"/plans/monthly-library?document_id={document.id}", status_code=303)
     if document.weekly_sheet is not None:
@@ -468,10 +492,35 @@ def update_document_status(
             actor_name=user.name,
             comment=comment,
         )
+    except MonthlyReviewIncompleteError as exc:
+        if "application/json" in request.headers.get("accept", ""):
+            from .monthly_library import _context
+            latest = _context(user, repository, document.monthly_sheet["classroom_id"],
+                              document.target_month, document.monthly_sheet["age"], document.id)
+            raise HTTPException(422, {"kind": "monthly_review_incomplete",
+                                      "missing": exc.missing, "latest": latest}) from exc
+        response = _document_detail_response(document_id, request, user, repository,
+                                             review_missing=exc.missing)
+        response.status_code = 422
+        return response
+    except WeeklyReviewIncompleteError as exc:
+        if "application/json" in request.headers.get("accept", ""):
+            raise HTTPException(422, str(exc)) from exc
+        response = _document_detail_response(document_id, request, user, repository,
+                                             weekly_review_error=str(exc))
+        response.status_code = 422
+        return response
+    except NoReviewRecipientsError:
+        return RedirectResponse(f"/plans/documents/{document_id}?review_error=no_recipient#review-status", status_code=303)
     except (ConcurrentUpdateError, InvalidStatusTransitionError) as exc:
         _raise_repository_error(exc)
     if updated is None:
         raise HTTPException(status_code=404, detail="文書が見つかりません")
+    if document.monthly_sheet is not None and "application/json" in request.headers.get("accept", ""):
+        return {"document_id": updated.id, "status": updated.status.value}
+    if document.weekly_sheet is not None and "application/json" in request.headers.get("accept", ""):
+        return {"document_id": updated.id, "status": updated.status.value,
+                "lock_version": repository.lock_version(updated.id)}
     return RedirectResponse(url=f"/plans/documents/{document_id}", status_code=303)
 
 

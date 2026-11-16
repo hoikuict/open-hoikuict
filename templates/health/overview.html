@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}健康管理一覧 | open-hoikuict{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ static_asset_url('css/health-overview.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="mx-auto max-w-7xl space-y-6">
+<div class="health-overview mx-auto max-w-7xl space-y-6">
   <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
     <div>
       <p class="text-sm font-medium text-emerald-700">健康管理</p>
@@ -77,17 +81,18 @@
   </section>
 
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
+    <div class="health-scroll overflow-x-auto" tabindex="0" role="region" aria-label="園児の健康情報と操作の一覧">
+      <table class="health-table min-w-full text-sm">
+        <colgroup><col><col><col><col><col><col><col></colgroup>
         <thead class="bg-emerald-50 text-emerald-900">
           <tr>
-            <th class="px-4 py-3 text-left font-medium">園児</th>
-            <th class="px-4 py-3 text-left font-medium">クラス</th>
-            <th class="px-4 py-3 text-left font-medium">健康フラグ</th>
-            <th class="px-4 py-3 text-left font-medium">アレルギー</th>
-            <th class="px-4 py-3 text-left font-medium">最新測定</th>
-            <th class="px-4 py-3 text-left font-medium">健診状態</th>
-            <th class="no-print px-4 py-3 text-left font-medium">操作</th>
+            <th scope="col" class="px-4 py-3 text-left font-medium">園児</th>
+            <th scope="col" class="px-4 py-3 text-left font-medium">クラス</th>
+            <th scope="col" class="px-4 py-3 text-left font-medium">健康フラグ</th>
+            <th scope="col" class="px-4 py-3 text-left font-medium">アレルギー</th>
+            <th scope="col" class="px-4 py-3 text-left font-medium">最新測定</th>
+            <th scope="col" class="px-4 py-3 text-left font-medium">健診状態</th>
+            <th scope="col" class="no-print px-4 py-3 text-left font-medium">操作</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -95,12 +100,12 @@
           {% set child = row.child %}
           {% set profile = row.profile %}
           <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 align-top">
+            <td data-label="園児" class="px-4 py-3 align-top">
               <div class="font-medium text-slate-900">{{ child.full_name }}</div>
               <div class="mt-1 text-xs text-slate-500">{{ child.family.family_name if child.family else "家族未設定" }}</div>
             </td>
-            <td class="px-4 py-3 align-top text-slate-700">{{ child.classroom.name if child.classroom else "-" }}</td>
-            <td class="px-4 py-3 align-top">
+            <td data-label="クラス" class="px-4 py-3 align-top text-slate-700">{{ child.classroom.name if child.classroom else "-" }}</td>
+            <td data-label="健康フラグ" class="px-4 py-3 align-top">
               <div class="flex flex-wrap gap-1.5">
                 {% if row.attention_labels %}
                   {% for label in row.attention_labels %}
@@ -111,7 +116,7 @@
                 {% endif %}
               </div>
             </td>
-            <td class="px-4 py-3 align-top text-slate-700">
+            <td data-label="アレルギー" class="px-4 py-3 align-top text-slate-700">
               {% if row.active_allergy_count %}
               <div>{{ row.active_allergy_count }} 件</div>
               <div class="mt-1 flex flex-wrap gap-1">
@@ -129,7 +134,7 @@
               -
               {% endif %}
             </td>
-            <td class="px-4 py-3 align-top text-slate-700">
+            <td data-label="最新測定" class="px-4 py-3 align-top text-slate-700">
               {% if row.latest_height.value is not none or row.latest_weight.value is not none %}
               <div class="text-xs text-slate-500">
                 {% if row.latest_height.date %}{{ row.latest_height.date.isoformat() }}{% elif row.latest_weight.date %}{{ row.latest_weight.date.isoformat() }}{% endif %}
@@ -146,22 +151,23 @@
               <span class="text-slate-400">未登録</span>
               {% endif %}
             </td>
-            <td class="px-4 py-3 align-top">
+            <td data-label="健診状態" class="px-4 py-3 align-top">
               {% if row.health_check_stale %}
               <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
               {% else %}
               <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
               {% endif %}
             </td>
-            <td class="no-print px-4 py-3 align-top">
+            <td data-label="操作" class="no-print px-4 py-3 align-top">
               <div class="flex flex-col gap-2">
                 <a href="/children/{{ child.id }}/health" class="text-sm font-medium text-emerald-700 hover:underline">健康サマリー</a>
+                {% if row.medical_waiting %}<a href="/children/{{ child.id }}/health/parent-medical" class="text-sm font-semibold text-amber-800 underline">基本医療情報の回答を確認</a>{% endif %}
                 <a href="/children/{{ child.id }}/health/check-records" class="text-sm font-medium text-sky-700 hover:underline">健診記録</a>
               </div>
             </td>
           </tr>
           {% else %}
-          <tr>
+          <tr class="health-empty">
             <td colspan="7" class="px-4 py-12 text-center text-sm text-slate-400">該当する園児がありません。</td>
           </tr>
           {% endfor %}

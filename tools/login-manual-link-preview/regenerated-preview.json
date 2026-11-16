@@ -1,0 +1,14 @@
+{
+  "id": "LOGIN-MANUAL-LINK-MOCK-001",
+  "date": "2026-11-03 JST",
+  "baseline_record": "docs/deployment-billing-reopen-2026-11-01.md",
+  "recorded_production_commit": "d75b28d2f14a5660922e51d9a177b2ce259de652",
+  "source_template": "C:\\python\\open-hoikuict\\.local-dev\\backup-v2-rollout-20261101\\source\\templates\\portal\\login_prompt.html",
+  "matches_workspace": false,
+  "source_sha256": "5c7ca10ca64505b26937d00c715006d457df4b3a296058d621823a7f7f11ac02",
+  "candidate_sha256": "5b947feb5b518471a08764ba2fbd72307aadb19ac406d90bd268e840911aba22",
+  "mock_sha256": "19c4f575a3d04caaedf355559871c2883fe7d505563e65b670e3f4f3bfa6966f",
+  "manual_url": "https://open.hoikuict.net/manual-guide-preview/",
+  "application_template_modified_by_this_script": false,
+  "approved_deployment_record": "docs/deployment-login-manual-link-2026-11-03.md"
+}

@@ -1,0 +1,21 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "synthetic_data_only": true,
+  "network_disabled": true,
+  "push_or_business_writes": 0,
+  "actual_template_images": [
+    "push-menu",
+    "push-enable",
+    "push-registered",
+    "push-preferences",
+    "push-test"
+  ],
+  "illustrations": [
+    "push-iphone-allow",
+    "push-iphone-add",
+    "push-android-check",
+    "push-iphone-check",
+    "push-android-allow"
+  ],
+  "source_sha256": "0e709633440877c446398a7010867d278ad529ccbd7a120a36838aa5473d1042"
+}

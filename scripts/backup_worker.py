@@ -21,7 +21,8 @@ from backup_jobs import (
     write_worker_heartbeat,
 )
 from backup_schedule import BackupScheduleError, due_schedule_slot, load_backup_schedule
-from scripts.backup_runtime import BackupConfig, create_backup, verify_backup_set
+from scripts.backup_runtime import BackupConfig, verify_backup_set
+from scripts.backup_format import configured_format, create_operational_backup
 
 
 logger = logging.getLogger("open_hoikuict.backup_worker")
@@ -44,6 +45,7 @@ class BackupWorkerSettings:
     facility_ref: str = ""
     recovery_kit_ref: str = ""
     baseline_ref: str = ""
+    format_version: int = 1
 
 
 def _compose_sha_from_environment() -> str:
@@ -70,6 +72,7 @@ def settings_from_environment() -> BackupWorkerSettings:
         facility_ref=os.getenv("HOIKU_NURSERY_REF", ""),
         recovery_kit_ref=os.getenv("HOIKUICT_BACKUP_RECOVERY_KIT_REF", ""),
         baseline_ref=os.getenv("HOIKUICT_BACKUP_BASELINE_REF", ""),
+        format_version=configured_format(),
     )
 
 
@@ -79,7 +82,7 @@ def process_next_backup(settings: BackupWorkerSettings) -> bool:
         return False
     logger.info("backup job started: %s", job["job_id"])
     try:
-        backup_path = create_backup(
+        backup_path = create_operational_backup(
             BackupConfig(
                 output_root=settings.output_root,
                 database_url=settings.database_url,
@@ -96,7 +99,8 @@ def process_next_backup(settings: BackupWorkerSettings) -> bool:
                 recovery_kit_ref=settings.recovery_kit_ref,
                 baseline_ref=settings.baseline_ref,
                 actor_ref=job["job_id"],
-            )
+            ),
+            format_version=settings.format_version,
         )
         verification = verify_backup_set(backup_path)
         provenance_warnings: list[str] = []

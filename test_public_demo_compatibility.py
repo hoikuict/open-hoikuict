@@ -315,6 +315,48 @@ class PublicDemoCompatibilityTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("職員ログイン", response.text)
 
+    def test_contact_field_settings_and_health_actions_remain_session_local(self):
+        from csrf import CSRF_COOKIE_NAME
+        from models import ParentContactFieldAudit, ParentContactFieldSetting
+        import parent_contact_fields as fields
+
+        with TestClient(main.app, base_url="https://testserver") as client:
+            first_id = self._login_admin(client)
+            manager = get_demo_session_manager()
+            page = client.get("/settings/parent-contact-fields")
+            self.assertEqual(page.status_code, 200)
+            with Session(manager.get_engine(first_id)) as session:
+                rooms = fields.classrooms(session)
+                policy = fields.policy_for_rooms(fields.default_policy(), rooms)
+            form = {"mode": "age", "revision": "0", "action": "save",
+                    "room_ids": self._form_token(page, "room_ids")}
+            for mode, columns in fields.policy_groups(policy, rooms):
+                for key, _ in columns:
+                    for group in fields.GROUPS:
+                        form[f"{mode}_{key}_{group}"] = "hide" if group == "temperature" else "show"
+            saved = client.post("/settings/parent-contact-fields", data=form,
+                headers={"X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME)}, follow_redirects=False)
+            self.assertEqual(saved.status_code, 303, saved.text)
+            health = client.get("/health")
+            self.assertEqual(health.status_code, 200)
+            self.assertIn('data-label="操作"', health.text)
+            self.assertIn("健康サマリー", health.text)
+            self.assertIn("健診記録", health.text)
+            self.assertIn("/static/css/health-overview.css?v=", health.text)
+            with Session(manager.get_engine(first_id)) as session:
+                setting = session.get(ParentContactFieldSetting, 1)
+                self.assertEqual(setting.revision, 1)
+                self.assertFalse(setting.policy["age"]["0"]["temperature"])
+            client.cookies.clear()
+            second_id = self._login_admin(client)
+            self.assertNotEqual(first_id, second_id)
+            self.assertEqual(client.get("/settings/parent-contact-fields").status_code, 200)
+            with Session(manager.get_engine(second_id)) as session:
+                self.assertIsNone(session.get(ParentContactFieldSetting, 1))
+                self.assertEqual(session.exec(select(ParentContactFieldAudit)).all(), [])
+            self.assertEqual(client.get("/settings/backups").status_code, 404)
+            self.assertEqual(client.get("/settings/backups/restore").status_code, 404)
+
     def test_annual_weekly_and_reflections_stay_in_their_demo_session(self):
         from csrf import CSRF_COOKIE_NAME
         from test_annual_library import source_fixture

@@ -57,6 +57,7 @@ class LocalStaffAuthenticationTests(unittest.TestCase):
                 "HOIKUICT_LOGIN_THROTTLE_HMAC_KEY": "t" * 40,
                 "HOIKUICT_COOKIE_SECURE": "0",
                 "HOIKUICT_CSRF_ENFORCE": "0",
+                "HOIKUICT_STAFF_RECOVERY_BASE_URL": "https://staff.example.invalid",
             },
         )
         self.environment.start()

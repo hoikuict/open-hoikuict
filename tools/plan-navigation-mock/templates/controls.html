@@ -1,0 +1,22 @@
+<aside class="trial-bar no-print" aria-label="モックの確認条件">
+  <span>確認用モック · 架空データ</span>
+  <details><summary>場面を切り替える</summary>
+    <div>{% for key, label in preview_modes.items() %}
+      <a href="/mock/scenes/{{ key }}" {% if key == scene(request) %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}</div>
+  </details>
+</aside>
+{% set path = request.url.path %}
+{% if path != '/plans/' %}
+<nav class="plan-breadcrumb no-print" aria-label="現在の場所">
+  <a href="/plans/">指導計画</a>
+  {% if path == '/plans/legacy/' %}<span aria-hidden="true">›</span><span aria-current="page">旧式の帳票</span>
+  {% elif path in ['/plans/annual-plans/new','/plans/monthly-plans/new'] or path.startswith('/plans/bunrei/')
+          or (document is defined and document and format_name(document) == '旧式') %}
+    <span aria-hidden="true">›</span><a href="/plans/legacy/">旧式の帳票</a>
+  {% elif path == '/plans/documents/' %}<span aria-hidden="true">›</span><span aria-current="page">帳票一覧</span>
+  {% elif not path.startswith('/plans/documents/') or (document is defined and document and format_name(document) == '自園の帳票') %}
+    <span aria-hidden="true">›</span><span>自園の帳票</span>
+  {% endif %}
+</nav>
+{% endif %}

@@ -1,6 +1,6 @@
 import unittest
-from datetime import date, timedelta
 from unittest.mock import patch
+from datetime import date, timedelta
 from uuid import uuid4
 
 from fastapi import FastAPI
@@ -281,6 +281,11 @@ class ChildRecordFeatureTests(unittest.TestCase):
 
     @patch("child_records.router.local_today", new=lambda: date(2026, 8, 10))
     def test_progress_record_entry_shows_logs_and_creates_versioned_document(self):
+        # This fixture belongs to July-September; keep the form's current period
+        # aligned with it regardless of the calendar date on the CI runner.
+        clock = patch("child_records.router.local_today", return_value=date(2026, 8, 10))
+        clock.start()
+        self.addCleanup(clock.stop)
         created_log = self.client.post(
             f"/children/{self.child_id}/records",
             data={
@@ -295,7 +300,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
         )
         self.assertEqual(created_log.status_code, 303)
 
-        form = self.client.get(f"/children/{self.child_id}/progress-records/new")
+        form = self.client.get(f"/children/{self.child_id}/progress-records/new", params={"target_month": "2026-09"})
         self.assertEqual(form.status_code, 200)
         self.assertIn("児童票を入力", form.text)
         self.assertIn("水を別の容器へ移し", form.text)
@@ -321,7 +326,7 @@ class ChildRecordFeatureTests(unittest.TestCase):
             follow_redirects=False,
         )
         self.assertEqual(response.status_code, 303)
-        self.assertRegex(response.headers["location"], r"/plans/documents/\d+")
+        self.assertIn(f"/children/{self.child_id}/progress-records/new?", response.headers["location"])
         with Session(self.engine) as session:
             document = session.exec(
                 select(PlanDocumentRow).where(
@@ -338,10 +343,10 @@ class ChildRecordFeatureTests(unittest.TestCase):
                 document.sections[0]["source_refs"][0],
             )
 
-        record_list = self.client.get(f"/children/{self.child_id}/progress-records")
+        record_list = self.client.get(f"/children/{self.child_id}/progress-records", params={"target_month": "2026-09"})
         self.assertEqual(record_list.status_code, 200)
-        self.assertIn("現在の児童票を開く", record_list.text)
-        dashboard = self.client.get("/child-records/progress")
+        self.assertIn("続きを入力", record_list.text)
+        dashboard = self.client.get("/child-records/progress", params={"target_month": "2026-09"})
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn("児童票作成状況", dashboard.text)
         self.assertIn("下書き", dashboard.text)

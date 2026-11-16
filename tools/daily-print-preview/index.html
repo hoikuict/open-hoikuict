@@ -1,0 +1,9 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>日案の印刷確認｜余白を詰める案</title><link rel="stylesheet" href="preview.css"></head><body>
+<header><div><span class="eyebrow">日案の印刷 · 確認用モック</span><h1>A4の1ページに、必要な内容を。</h1><p>架空の22行で確認できます。入力内容はこの画面内だけに保持されます。</p></div><button id="print">印刷見本を印刷</button></header>
+<nav aria-label="見本の確認操作"><div class="switches"><button data-view="compact" aria-pressed="true">余白を詰めた印刷</button><button data-view="original" aria-pressed="false">現在の印刷</button><button data-view="screen" aria-pressed="false">業務画面</button></div>
+<label>記入状態 <select id="state"><option value="empty">未入力（振り返り）</option><option value="partial">一部入力</option><option value="filled">入力済み・実施変更あり</option><option value="error">入力エラー</option></select></label><button id="reset">入力を戻す</button></nav>
+<section class="guide"><strong id="page-status" role="status">読み込み中</strong><span id="view-description">本文・4列・振り返り・実施変更を残し、余白だけを整理します。</span><small>A4縦／上下左右8mm。印刷ダイアログは「ヘッダーとフッター」をオフにしてください。</small></section>
+<div class="stage"><div class="paper-wrap"><iframe id="preview" title="日案の印刷見本" src="empty.html?view=compact"></iframe></div></div>
+<footer>確認用の印刷案です。本番の印刷画面はまだ変更していません。</footer><script src="preview.js"></script></body></html>

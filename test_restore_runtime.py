@@ -55,6 +55,7 @@ class RestoreFixture(unittest.TestCase):
             "HOIKUICT_BACKUP_CLOUDFLARED_IMAGE": "sha256:" + "f" * 64,
             "HOIKUICT_BACKUP_RECOVERY_KIT_REF": "test-kit",
             "HOIKUICT_BACKUP_BASELINE_REF": "test-baseline",
+            "HOIKUICT_BACKUP_FORMAT_VERSION": "2",
             "HOIKUICT_COOKIE_SECURE": "false", "HOIKUICT_STAFF_AUTH_MODE": "local_password",
         })
         self.environment.start()

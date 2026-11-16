@@ -1,0 +1,81 @@
+# スクショ付きの使い方ガイド（試作版）
+
+職員と保護者が、画面を見ながら手順を確認できるマニュアルを作っています。
+
+[画面付きの使い方ガイドを開く](manual-guide-preview/index.html){ .md-button .md-button--primary }
+
+**「仕事の流れから読む」と「こんなときどうする？」の2つの入口**から、必要な手順を探せます。困っていることを短い言葉で検索することもできます。
+
+## 保護者の方へ
+
+[保護者用のマニュアルを開く](manual-guide-preview/index.html#parents){ .md-button .md-button--primary }
+
+「園に着いたとき（登園）」「お迎えのとき（降園）」を、短い文と画面で案内します。押し間違い・押し忘れ・通信が切れたときの案内もあります。[文字で読む手順](parent-attendance-manual.md) · [作成の記録](spec-decisions.md#sd-018)。
+
+[保護者アプリの使い方](manual-guide-preview/index.html#parent-app)では、ホームの見方、朝の連絡、欠席、お迎え予定、お知らせ、アンケート、履歴と返信を案内します。[文字で読むアプリの手順](parent-app-manual.md) · [追加の記録](spec-decisions.md#sd-019)。
+
+通知を受け取りたい方は、[Android用](manual-guide-preview/index.html#article/parent-app-notifications-android)・[iPhone用](manual-guide-preview/index.html#article/parent-app-notifications-iphone)の手順を選んでください。初期設定からテスト通知、届かないときの確認まで案内します。スマートフォン側は公式手順に基づく操作図で、実機のスクリーンショットではありません。[追加の記録](spec-decisions.md#sd-024)。
+
+## 新入園児は、ご家庭の状況から選べます
+
+[新入園児の登録方法を選ぶ](manual-guide-preview/index.html#help/admission){ .md-button }
+
+- **兄弟姉妹が在園している・以前在園していた家庭**：既存の家族とアカウントを確認し、同じ家族へ園児を追加します。利用中の保護者には閲覧対象を追加し、初めてアカウントを作る保護者だけ共通QRで受け付けます。
+- **初めて入園する家庭**：共通QRの配布、保護者の申請・入力、園の確認・承認、利用開始までを案内します。
+
+[共通QRを基本の受付とする修正](spec-decisions.md#sd-017) · [家庭別の案内を追加した記録](spec-decisions.md#sd-016)。
+
+## 職員向けに画面付きで確認できる21の手順
+
+2026-11-09、健康管理の5ページをローカル確認版に追加しました。[作成と確認の記録](spec-decisions.md#sd-041)
+
+2026-11-16、[月案](manual-guide-preview/plans/monthly/index.html#review)・[週案](manual-guide-preview/plans/weekly/index.html#review)のレビュー依頼・未記入の修正・取り下げと、[日案の保存前の入力不足](manual-guide-preview/plans/daily/index.html#save-help)を公開サイトへ反映しました。11月15日の変更に合わせ、画面見本13枚を更新・追加しています。公開URLで表示・画像拡大・検索を確認しました。[修正・公開・確認の記録](spec-decisions.md#sd-058)
+
+| 場面 | 画面付きで確認できること |
+| --- | --- |
+| [健康管理で園児を探す](manual-guide-preview/health/index.html) | 条件を絞り、園児の健康サマリーや健診記録を開く。 |
+| [園児ひとりの健康情報を見る](manual-guide-preview/health/summary/index.html) | 測定日や登録されたアレルギーを確かめる。 |
+| [健康プロフィールを書く](manual-guide-preview/health/profile/index.html) | かかりつけ医と重点管理項目を入力し、保存する。 |
+| [アレルギーを登録・更新する](manual-guide-preview/health/allergies/index.html) | 品目・期限の入力、解除・再有効化を確認する。 |
+| [健診記録を追加・訂正する](manual-guide-preview/health/checks/index.html) | 測定値を追加し、グラフや訂正履歴を見る。 |
+| [指導計画の画面を開く](manual-guide-preview/plans/index.html) | 自園の年案・月案・週案・日案を選ぶ。最近の帳票や通知を見る。 |
+| [帳票一覧で書きかけを探す](manual-guide-preview/plans/search/index.html) | クラスや状態で絞り、下書きの続きを開く。 |
+| [年案を引き継いで書く](manual-guide-preview/plans/annual/index.html) | 引き継ぐ年案を選び、今年のねらい・各期の計画と反省を書く。 |
+| [月案を書く・印刷する](manual-guide-preview/plans/monthly/index.html) | 乳児・幼児の書き方を選び、計画を保存する。印刷する前に用紙の見え方を確かめる。 |
+| [週案を書く](manual-guide-preview/plans/weekly/index.html) | 週とクラスを選び、週のねらいや曜日ごとの活動を書く。 |
+| [日案を書く・文例を使う・振り返る](manual-guide-preview/plans/daily/index.html) | 文例を使って1日の流れを書き、振り返りを保存して管理者に見てもらう。 |
+| [旧式の帳票を開く](manual-guide-preview/plans/legacy/index.html) | 以前の様式で書いた年案・月案・週案を探す。 |
+| [共通QRで初回登録を受け付ける（基本の受付）](manual-guide-preview/index.html#article/parent-qr) | QRの配布、メール申請、全入力項目、既存・新規の承認先、利用開始 |
+| [兄弟姉妹が在園している・以前在園していた](manual-guide-preview/index.html#article/child-sibling) | 家族情報の引継ぎ、新入園児の登録、既存保護者の閲覧対象の追加 |
+| [個別に案内する：園児・家族がまだ未登録](manual-guide-preview/index.html#article/child-new-invite) | 個別案内が必要な場合の招待、初回入力、承認、初回ログイン |
+| [職員を登録して使い始める](manual-guide-preview/index.html#article/staff) | 職員追加・権限・担当クラス・有効化コード・本人の初回ログイン |
+| [園で直接入力して園児台帳へ登録する](manual-guide-preview/index.html#article/child) | 家族選択、園児・保護者の全入力項目、保存後の確認 |
+| [個別に案内する：登録済み園児の保護者](manual-guide-preview/index.html#article/parent) | 相手を指定した招待メール・本人の入力・園の承認・パスワード設定 |
+| [電話で欠席連絡を受けた](manual-guide-preview/index.html#article/phone) | 対象の園児と日付を確認し、受付を記録して履歴を確かめる |
+| [登園・降園の打刻が抜けている](manual-guide-preview/index.html#help/clock) | 状況を選び、実際の時刻を確認して管理者が空欄をまとめて補う |
+| [パスワードを忘れてログインできない](manual-guide-preview/index.html#help/password) | 管理者に再設定コードを発行してもらい、本人が再設定する |
+
+本文中のメニュー・画面名、ボタン名、入力欄の名前を、色・枠・太字で区別しています。種類の説明は記事冒頭にまとめ、文章中には名称だけを表示します。枠内の名前をアプリの画面で探してください。[名称の表示について](spec-decisions.md#sd-015)。
+
+画像を押すと拡大できます。「1つずつ読む」「まとめて読む」の切り替え、入力途中・エラーなどの画面例、完了時のチェックも試せます。
+
+通知の固定文言と登録情報の説明を訂正しました。お迎え予定・一括補完は、保存時と保存後の見本を分けています。Androidの2種類の通知許可を区別し、画像の番号に対応する説明と、番号が文字やチェック欄に重ならない表示を見直しました。[今回の訂正・確認範囲](spec-decisions.md#sd-025)。
+
+2026-11-08に、指導計画の3ページと架空の帳票を使った画面見本13枚を追加しました。[追加の記録](spec-decisions.md#sd-037)。
+
+同日、自園の年案・月案・週案・日案の書き方を、34枚の画面とともに確認版に追加しました。[帳票ごとの手順を追加した記録](spec-decisions.md#sd-040)。
+
+2026-11-03更新：試作版v1.8.1、画面見本・操作図は計123枚です。「保護者アプリの画面を見る」を、説明と画像が対応する5手順に修正しました。[修正の記録](spec-decisions.md#sd-020)。「朝の体調や連絡を送る」の最初の手順では、③が「日次連絡を入力」を指す専用画像に修正しました。[修正の記録](spec-decisions.md#sd-021)。「お休みの連絡をする」も入口の番号と、私用・病欠の説明を合わせました。[修正の記録](spec-decisions.md#sd-022)。「お迎えの予定を入れる・変える」は、③が「お迎え予定を登録・変更」を指す専用画像に修正しました。[修正の記録](spec-decisions.md#sd-023)。保護者向けに登園6手順・降園4手順を追加しました。共通QRは8手順、兄弟姉妹がいる家庭は7手順。個別招待は補助の手順として残しています。未入力・途中・入力済み・エラーに加え、受付中／停止中、新しい家族／登録済み園児への承認を画面で確認できます。
+
+## 確認しながら、少しずつ増やしています
+
+2026年11月は、実際の画面と手順を確認し、説明とスクショを直しながら対象の業務を広げます。現時点で画面付きの手順があるのは、職員向け21例と保護者向け11例です。既存の7分野・33項目は、ガイド内から現在の公開資料へ進めます。
+
+!!! note "試作版の画面について"
+    アプリ内の画面は保存済みの配備版をもとに、架空の園児・職員のデータで表示して撮影しました。実データは使っていません。撮影用の外枠を整理し、一括補完の入力欄は全体が分かるよう縦に展開しています。保護者の承認画面は登録申請欄を抜粋しています。園の画面や利用できる操作は、更新状況や権限によって異なります。
+
+このガイドは手順の見せ方を試すものです。園への保存・連絡送信・打刻・パスワード変更は行いません。チェックを付けても業務記録は変わらず、ページを読み込み直すとチェックはリセットされます。
+
+マニュアル内のQRは説明専用です。実際の申請には、園の「共通QR・申請受付」から配布したQRを使ってください。
+
+[現在公開しているマニュアルの目次](manual-index.md) · [試作・公開の方針記録](spec-decisions.md#sd-012)

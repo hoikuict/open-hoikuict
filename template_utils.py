@@ -1,4 +1,6 @@
 from fastapi.templating import Jinja2Templates
+from home_care_details import meal_dates
+from parent_contact_fields import contact_field_enabled
 from hashlib import sha256
 from pathlib import Path
 
@@ -25,4 +27,6 @@ def create_templates(directory: str = "templates") -> Jinja2Templates:
     templates.env.globals["parent_enrollment_enabled"] = lambda: parent_auth_mode() == "local_password"
     templates.env.globals["is_public_demo"] = is_public_demo
     templates.env.globals["static_asset_url"] = static_asset_url
+    templates.env.globals["meal_dates"] = meal_dates
+    templates.env.globals["contact_field_enabled"] = contact_field_enabled
     return templates

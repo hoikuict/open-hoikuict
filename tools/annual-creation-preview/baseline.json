@@ -1,0 +1,19 @@
+{
+  "baseline_commit": "0291f13ca33771e7d03bf533f396590645b00b8f",
+  "fictional_data_only": true,
+  "database_connections": false,
+  "external_requests": false,
+  "field_counts": {
+    "0": 73,
+    "1": 59,
+    "2": 33,
+    "3": 39,
+    "4": 49,
+    "5": 45
+  },
+  "source_hashes": {
+    "templates/plan_docs/annual_library/_sheet.html": "0e5c32e603b04d5d478a31228c56b4dc174add859f9c55a907c258dd7e3e083c",
+    "static/js/annual-library.js": "4a9b3098334e18e6b3056d88847a5c4d824abe546bc10b7d29cc5f5302c5bc1a",
+    "static/css/annual-library.css": "7089c2610e407ea074d1dfb743a879640e7c3778c1540f493f81010c5556222e"
+  }
+}

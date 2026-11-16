@@ -46,6 +46,10 @@ Copy-Item .env.beta.example .env.beta.local
 
 ## 初期管理者を作る {#bootstrap}
 
+職員へのQR付き案内では、`HOIKUICT_STAFF_RECOVERY_BASE_URL` が設定されていればそのURL、なければ `HOIKUICT_PARENT_REGISTRATION_BASE_URL` を使います。どちらも未設定の場合、印刷できないコードを発行しないよう管理画面にエラーを表示します。本番はHTTPS、URLはパス・クエリー・フラグメント・ユーザー情報を含まない施設のURLにします。本人の端末からアクセスできるURLを指定してください。
+
+用紙の園名は任意の `HOIKUICT_FACILITY_NAME` で指定できます。省略時は `open-hoikuict` と表示します。この項目は用紙の表示だけに使い、職員データや認証設定を変更しません。[実装と配備の状態](staff-auth-print-implementation-2026-11-01.md)を確認してください。
+
 新しい空のβ用DBに、最初の管理者を作成します。CLIは `main.py` のdotenv読込を通らないため、**CLIをimportする前にβ用設定を読み込みます**。
 
 ```powershell

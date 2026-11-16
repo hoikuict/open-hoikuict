@@ -81,3 +81,8 @@ node_modules/
 /output/pdf/monthly-plan-preview.pdf
 /outputs/monthly-print-export-20260927/
 /tools/parent-notice-order-preview/preview.png
+
+# Local preview logs and generated PDF review outputs
+/debug.log
+/tools/**/server*.log
+/output/pdf/

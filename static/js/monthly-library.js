@@ -10,12 +10,12 @@
   const scopeKey = c => `${c.classroom_id}/${c.target_month}/${c.age}`;
   const contents = c => JSON.stringify({fields:c.sheet.fields, owner:c.owner_name});
   function entry(context) {
-    return {context, saved:clone(context), undo:[], child:context.sheet.children[0]?.ref || '',
+    return {context, saved:clone(context), undo:[], saveFeedback:null, reviewFeedback:null, child:context.sheet.children[0]?.ref || '',
       field:context.sheet.children[0] ? `${context.sheet.children[0].ref}:life` : 'common:goal', page:0};
   }
   let current = entry(boot);
   cache.set(scopeKey(boot), current);
-  let before = null, showHistory = false, mode = 'original', keyword = '', saving = false, switching = false;
+  let before = null, showHistory = false, mode = 'original', keyword = '', saving = false, switching = false, reviewing = false, reviewSubmitting = false;
   let searchSequence = 0, historySequence = 0, searchTimer, candidateRows = [], searchController;
   let historyData = null;
   const aiCandidates = new Map();
@@ -25,7 +25,7 @@
   const ctx = () => current.context, individual = () => ctx().age < 3;
   const fields = () => ctx().sheet.fields;
   const dirty = item => contents(item.context) !== contents(item.saved);
-  const editable = () => ctx().editable;
+  const editable = () => ctx().editable && !reviewSubmitting;
   const body = key => fields()[key]?.body || '';
   const label = key => ctx().definitions[key]?.label || '';
   const childName = ref => ctx().sheet.children.find(c => c.ref === ref)?.name || '';
@@ -56,7 +56,9 @@
   function status() {
     q('#undo').disabled = !editable() || !current.undo.length;
     q('#save').hidden = false;
-    q('#save').disabled = saving || !editable();
+    q('#save').disabled = saving || reviewing || !editable();
+    const review=q('#request-review');
+    if(review){review.disabled=reviewing || saving || !editable();review.textContent=reviewing?'依頼中…':'レビュー依頼';}
     q('#save').textContent = !editable() ? '閲覧のみ' : saving ? '保存中…' : '下書きを保存';
     q('#permission-banner').textContent = ctx().edit_reason || (!editable() ? '閲覧中です。修正は月案の編集画面から行います。' : '');
     q('.export-note').textContent = '対象の月・年齢の全園児を出力。' + (editable() ? '保存前の入力も含みます。' : '保存済みの内容を出力します。');
@@ -66,6 +68,97 @@
     q('#document-status').textContent = ctx().status;
     q('#document-link').hidden = !ctx().document_id;
     q('#document-link').href = `/plans/documents/${ctx().document_id}`;
+    renderSaveFeedback();renderReviewFeedback();
+  }
+  function renderSaveFeedback() {
+    const box=q('#monthly-save-feedback'), feedback=current.saveFeedback;
+    const owner=q('[data-owner]');
+    const missing=feedback?.kind==='owner' && !ctx().owner_name.trim();
+    if(owner) {
+      owner.setAttribute('aria-invalid',String(missing));
+      if(missing)owner.setAttribute('aria-describedby','monthly-save-feedback');
+      else owner.removeAttribute('aria-describedby');
+    }
+    box.hidden=!feedback || !editable();
+    if(box.hidden)return;
+    const error=feedback.kind==='error' || missing;
+    box.dataset.error=String(error);box.setAttribute('role',error?'alert':'status');
+    const html=missing ? '<strong>まだ保存できません（確認が必要な項目 1件）</strong><ul><li><a href="#monthly-owner">担任名を入力してください。</a></li></ul>'
+      : feedback.kind==='owner' ? '入力がそろいました。もう一度「下書きを保存」を押してください。'
+      : '<strong>保存を完了できませんでした</strong><p>'+esc(feedback.message)+'</p>';
+    if(box.innerHTML!==html)box.innerHTML=html;
+  }
+  function showSaveFeedback(feedback) {
+    current.saveFeedback=feedback;renderSaveFeedback();
+    const box=q('#monthly-save-feedback');
+    box.focus({preventScroll:true});q('.actions').scrollIntoView({block:'center'});
+  }
+  q('#monthly-save-feedback').addEventListener('click',event=>{
+    if(!event.target.closest('a'))return;
+    event.preventDefault();const owner=q('[data-owner]');
+    owner?.scrollIntoView({block:'center'});owner?.focus({preventScroll:true});
+  });
+  const reviewUI=window.MonthlyReview;
+  function renderReviewFeedback() {
+    const box=q('#monthly-review-feedback');if(!box)return;
+    const feedback=current.reviewFeedback;
+    box.hidden=!feedback || !ctx().editable;
+    const items=feedback?.kind==='missing' ? reviewUI.missing(ctx()) : [];
+    const keys=new Set(items.map(item=>item.key));
+    all('[data-cell],[data-owner]').forEach(el=>{
+      const key=el.dataset.cell || '@owner', invalid=keys.has(key);
+      el.classList.toggle('review-missing',invalid);
+      if(invalid){el.setAttribute('aria-invalid','true');el.setAttribute('aria-describedby','monthly-review-feedback');}
+      else if(el.getAttribute('aria-describedby')==='monthly-review-feedback'){el.removeAttribute('aria-describedby');el.removeAttribute('aria-invalid');}
+    });
+    if(box.hidden)return;
+    if(feedback.kind==='missing')reviewUI.renderMissing(box,items);
+    else reviewUI.message(box,'レビュー依頼を完了できませんでした',feedback.message);
+  }
+  function showReviewFeedback(feedback) {
+    current.reviewFeedback=feedback;renderReviewFeedback();
+    q('#monthly-review-feedback').focus({preventScroll:true});q('.actions').scrollIntoView({block:'center'});
+  }
+  function focusReviewField(key) {
+    if(key!=='@owner' && !ctx().definitions[key])return;
+    if(key.startsWith('child:'))selectChild(key.split(':').slice(0,2).join(':'));
+    if(key!=='@owner'){current.field=key;highlight();panel();}
+    renderReviewFeedback();
+    const target=key==='@owner' ? q('[data-owner]') : selectedCell();
+    target?.scrollIntoView({block:'center'});target?.focus({preventScroll:true});
+  }
+  q('#monthly-review-feedback')?.addEventListener('click',event=>{
+    const link=event.target.closest('[data-review-field]');if(!link)return;
+    event.preventDefault();focusReviewField(link.dataset.reviewField);
+  });
+  async function requestReview() {
+    if(reviewing || saving || !editable())return;
+    commitEdit();current.saveFeedback=null;
+    if(reviewUI.missing(ctx()).length){showReviewFeedback({kind:'missing'});return;}
+    current.reviewFeedback=null;reviewing=true;status();
+    try {
+      const saved=await save();if(!saved)return;
+      if(dirty(current)) {
+        showReviewFeedback({kind:'error',message:'下書きは保存しましたが、保存中に追加された入力はまだ未保存です。内容を確認し、もう一度「レビュー依頼」を押してください。'});return;
+      }
+      if(reviewUI.missing(ctx()).length){showReviewFeedback({kind:'missing'});return;}
+      // Keep the revision being submitted stable; typing during the draft save remains supported.
+      reviewSubmitting=true;
+      all('[data-cell],[data-owner]').forEach(el=>el.readOnly=true);
+      status();
+      await reviewUI.request(saved.document_id,'in_review',saved.lock_version);
+      ctx().editable=false;ctx().status='レビュー待ち';reviewing=false;
+      reviewUI.openDetail(saved.document_id);
+    } catch(error) {
+      if(error.detail?.kind==='monthly_review_incomplete') {
+        if(error.detail.latest)adoptMerged(current,error.detail.latest,current.saved);
+        showReviewFeedback({kind:'missing'});
+      } else showReviewFeedback({kind:'error',message:'下書きは保存しましたが、レビュー依頼の完了を確認できませんでした。'+(error instanceof TypeError ? '通信状態を確認し、承認・文書情報で依頼の状態を確認してください。' : error.message)});
+    } finally {
+      reviewing=false;reviewSubmitting=false;
+      all('[data-cell],[data-owner]').forEach(el=>el.readOnly=!editable());
+      status();
+    }
   }
   function autosize(el) { el.style.height = 'auto'; el.style.height = `${Math.max(el.scrollHeight, parseFloat(getComputedStyle(el).minHeight) || 0)}px`; }
   function cell(key) {
@@ -75,7 +168,7 @@
   function common(keys) { return `<table class="common" aria-label="クラス共通欄"><thead><tr>${keys.map(k=>`<th>${esc(label(k))}</th>`).join('')}</tr></thead><tbody><tr>${keys.map(k=>`<td>${cell(k)}</td>`).join('')}</tr></tbody></table>`; }
   const monthLabel = () => `${ctx().target_month.slice(0,4)}年${Number(ctx().target_month.slice(5))}月`;
   function head() {
-    return `<table class="head" aria-label="基本情報"><tbody><tr><td rowspan="2" class="title" style="width:30%"><small>${esc(monthLabel())}</small>${individual() ? '乳児指導計画' : '月 指導計画'}</td><th>クラス</th><th>担任</th><th>園長印</th><th>主任印</th>${individual()?'<th>行事</th>':''}</tr><tr><td>${esc(ctx().classroom_name)}</td><td><input class="meta" data-owner aria-label="担任名" maxlength="100" value="${esc(ctx().owner_name)}" ${editable()?'':'readonly'}></td><td></td><td></td>${individual()?`<td>${cell('common:events')}</td>`:''}</tr></tbody></table>`;
+    return `<table class="head" aria-label="基本情報"><tbody><tr><td rowspan="2" class="title" style="width:30%"><small>${esc(monthLabel())}</small>${individual() ? '乳児指導計画' : '月 指導計画'}</td><th>クラス</th><th>担任</th><th>園長印</th><th>主任印</th>${individual()?'<th>行事</th>':''}</tr><tr><td>${esc(ctx().classroom_name)}</td><td><input id="monthly-owner" class="meta" data-owner aria-label="担任名" maxlength="100" value="${esc(ctx().owner_name)}" ${editable()?'':'readonly'}></td><td></td><td></td>${individual()?`<td>${cell('common:events')}</td>`:''}</tr></tbody></table>`;
   }
   function personalHead(first) { return `<colgroup><col style="width:12%"><col style="width:23%"><col style="width:21%"><col style="width:22%"><col style="width:22%"></colgroup><thead><tr><th rowspan="2">${first}</th><th colspan="2">個人別保育計画</th><th rowspan="2">環境構成・<br>援助活動</th><th rowspan="2">評価・反省</th></tr><tr><th>生活・健康<small>食事・睡眠・排泄・清潔</small></th><th>あそび<small>あそび・ことば</small></th></tr></thead>`; }
   function pages() {
@@ -115,7 +208,7 @@
     q('#template').textContent = '様式：'+ctx().template[1];
     q('#template').href = 'https://docs.google.com/spreadsheets/d/'+ctx().template[2]+'/edit';
     all('textarea.cell').forEach(autosize);
-    renderHistory(); highlight();
+    renderHistory(); highlight();renderReviewFeedback();
   }
   function pickers() {
     q('#classroom').value=ctx().classroom_id; q('#month').value=ctx().target_month; q('#age').value=ctx().age;
@@ -247,7 +340,7 @@
     current.page=pageFor(ref); pickers(); paper(); panel(); loadHistory(); selectedCell()?.focus({preventScroll:true});
   }
   async function switchScope() {
-    if(saving || switching) { pickers(); return; }
+    if(saving || reviewing || switching) { pickers(); return; }
     commitEdit();
     const desired={classroom_id:Number(q('#classroom').value),target_month:q('#month').value,age:Number(q('#age').value)};
     if(!/^\d{4}-\d{2}$/.test(desired.target_month)){pickers();return;}
@@ -292,7 +385,7 @@
       [...new Set([...Object.keys(latest.sheet.fields),...Object.keys(relativeTo.sheet.fields)])].some(key=>!sameCell(latest.sheet.fields[key],relativeTo.sheet.fields[key]));
     item.saved=clone(latest);item.context=result;if(importedChanges)item.undo=[];before=null;
     if(item===current) {
-      paper();panel(false);status();
+      pickers();paper();panel(false);status();
       const target=ownerFocus ? q('[data-owner]') : all('[data-cell]').find(el=>el.dataset.cell===focusedKey);
       if(target && selection){target.focus({preventScroll:true});target.setSelectionRange(...selection);}
     }
@@ -336,8 +429,10 @@
     document.body.append(dialog);dialog.showModal();
   }
   async function save() {
-    if(saving || !editable())return;
+    if(saving || !editable())return null;
     commitEdit();
+    if(!ctx().owner_name.trim()){showSaveFeedback({kind:'owner'});return null;}
+    current.saveFeedback=null;
     const item=current,snapshot=clone(ctx());
     const payload={document_id:item.saved.document_id,lock_version:item.saved.lock_version,
       base_token:item.saved.base_token,classroom_id:snapshot.classroom_id,
@@ -350,9 +445,12 @@
       const remote=data.merged_remote_fields || [];
       announce((remote.length ? `保存しました。ほかの担当者の${remote.length}欄の変更も取り込みました。` : '下書きを保存しました。')+
         (dirty(item) ? ' 保存中に入力した変更はまだ未保存です。' : ''));
+      return data;
     } catch(error) {
-      announce(error.message+' この画面の入力は残っています。',true);
+      const message=(error instanceof TypeError ? '通信結果を確認できませんでした。接続を確認して、もう一度保存してください。' : error.message)+' この画面の入力は残っています。';
+      showSaveFeedback({kind:'error',message});
       if(error.detail?.kind==='cell_conflict')showCellConflicts(item,error.detail);
+      return null;
     } finally {saving=false;status();}
   }
   const presenceTab=crypto.randomUUID();
@@ -438,7 +536,8 @@
     if(!button)return;
     if(button.id==='print-monthly'){exportMonthly('pdf');return;}
     if(button.id==='excel-monthly'){exportMonthly('xlsx');return;}
-    if(button.id==='save'){save();return;}
+    if(button.id==='save'){if(!reviewing)save();return;}
+    if(button.id==='request-review'){requestReview();return;}
     if(button.id==='generate'){generateAI();return;}
     if(button.id==='history-toggle'){commitEdit();showHistory=!showHistory;loadHistory();return;}
     if(button.dataset.child){selectChild(button.dataset.child);return;}
@@ -502,7 +601,7 @@
     }else if(el.hasAttribute('data-owner')){ctx().owner_name=el.value;status();}
   });
   window.addEventListener('beforeunload',event=>{
-    if(saving || [...cache.values()].some(dirty)){event.preventDefault();event.returnValue='';}
+    if(saving || reviewing || [...cache.values()].some(dirty)){event.preventDefault();event.returnValue='';}
   });
   // Direct browser printing also uses plain text, all roster pages and no application chrome.
   window.addEventListener('beforeprint',()=>{
@@ -529,6 +628,8 @@
   window.addEventListener('afterprint',()=>document.querySelector('#monthly-print-root')?.remove());
 
   render();
+  const initialField=new URLSearchParams(location.search).get('field');
+  if(initialField)focusReviewField(initialField);
   refreshPresence();
   new ResizeObserver(()=>all('textarea.cell').forEach(autosize)).observe(q('.paper'));
 })();

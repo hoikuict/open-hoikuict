@@ -8,9 +8,12 @@
 {% if monthly %}<label>年度<input name="year" type="number" min="1900" max="2198" value="{{ year }}" required></label>{% else %}<label>表示月<input name="month" type="month" min="1900-01" max="2199-12" value="{{ month }}" required></label>{% endif %}<button class="button" type="submit">表示</button><a class="button" href="{{ previous_url }}">前の{{ '年度' if monthly else '月' }}</a><a class="button" href="{{ next_url }}">次の{{ '年度' if monthly else '月' }}</a></form>
 <h2>{{ year|string + '年度' if monthly else month }}・{{ classroom.name }}・{{ age }}歳児</h2>
 <div class="{{ 'month-grid' if monthly else 'week-list' }}">
-{% for card in cards %}<article class="calendar-card" data-period="{{ card.key }}"><div class="calendar-card-heading"><h3>{{ card.label }}</h3><span class="status">{{ card.documents[0].status_label if card.documents else '未作成' }}</span><a class="button button--primary" href="{{ card.url }}">{{ '計画を開く' if card.documents else ('＋ 作成' if user.can_edit else '帳票を確認') }}</a></div>
-{% if monthly %}{% if card.documents %}<p>{{ card.documents[0].monthly_sheet.fields.get('common:goal', {}).get('body', '') }}</p>{% else %}<p>この月の計画はまだありません。</p>{% endif %}
+{% for card in cards %}<article class="calendar-card" data-period="{{ card.key }}"><div class="calendar-card-heading"><h3>{{ card.label }}</h3><span class="status">自園の帳票 · {{ card.documents[0].status_label if card.documents else '未作成' }}</span><a class="button button--primary" href="{{ card.url }}">{{ '自園の帳票を開く' if card.documents else ('自園の帳票で作成' if user.can_edit else '帳票を確認') }}</a></div>
+{% if monthly %}{% if card.documents %}<p>{{ card.documents[0].monthly_sheet.fields.get('common:goal', {}).get('body', '') }}</p>{% else %}<p>この月の自園の帳票はまだありません。</p>{% endif %}
 {% else %}<p>ねらい：{{ card.plan.aim if card.plan and card.plan.aim else '未入力' }}</p>{% if card.plan and age < 3 %}<p>今週の活動：{{ card.plan.activity or '未入力' }}<br><small>週全体の計画です。各日への割り当てはありません。</small></p>{% endif %}<div class="calendar-days-scroll" tabindex="0" role="region" aria-label="{{ card.label }}の活動"><div class="calendar-days">{% for day in card.days %}<div class="{{ 'outside' if day.outside else '' }}"><strong>{{ day.label }}</strong><p>{{ day.activity or '—' }}</p></div>{% endfor %}</div></div>{% endif %}
-{% for d in card.documents %}{% if not monthly and not d.weekly_sheet %}<p><a href="/plans/documents/{{ d.id }}">以前の形式の週案：{{ d.title }}（{{ d.status_label }}）</a></p>{% endif %}{% endfor %}</article>{% endfor %}
+{% for document in card.old_documents %}
+  <p class="old-in-calendar"><a href="/plans/documents/{{ document.id }}">旧式を開く · {{ document.title }}</a>
+    <small>{{ document.status_label }}</small></p>
+{% endfor %}</article>{% endfor %}
 </div><p class="field-note">{{ '月を選ぶと、新しい月案帳票へ月・クラス・年齢を引き継ぎます。' if monthly else '週は月曜始まり。月をまたぐ週も同じ計画を表示します。' }}</p>
 {% endblock %}

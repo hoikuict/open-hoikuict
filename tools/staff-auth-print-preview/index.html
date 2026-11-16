@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>確認用：職員のQR付き案内</title>
+  
+  
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { font-size: 11px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 4px 8px; }
+      thead { background-color: #f1f5f9 !important; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+  
+  
+  
+  <meta name="csrf-token" content="">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<link rel="stylesheet" href="preview.css"><script src="tailwind.js"></script><script src="fixtures.js"></script><script src="preview.js" defer></script></head>
+
+
+
+
+
+
+
+<body class="bg-slate-50 text-slate-800"><div id="preview-toolbar" class="no-print">
+      <div class="preview-heading"><strong>確認用モック · 職員のQR付き案内</strong><span>架空データ／本番への登録・保存・送信なし／見本時刻 2026/11/01 10:00</span></div>
+      <div class="preview-controls">
+        <label>用途<select id="preview-action"><option value="activate">初回設定</option><option value="reset">パスワード再設定</option></select></label>
+        <label>画面<select id="preview-view"><option value="issued">発行後・印刷用の案内</option><option value="admin">管理者・コード発行</option><option value="recipient">本人・設定画面</option></select></label>
+        <label>状態<select id="preview-state"><option value="filled">入力済み</option><option value="empty">未入力</option><option value="partial">一部入力</option><option value="error">エラー</option><option value="expired">期限切れ</option><option value="urlmissing">施設URL未設定</option></select></label>
+        <button type="button" id="try-recipient">QRの先の画面を試す</button>
+      </div><p id="preview-status" role="status">まず印刷の見え方を確認し、「管理者・コード発行」から操作も試せます。</p>
+    </div>
+  
+  <div class="min-h-screen lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
+    <aside
+      id="staff-sidebar"
+      class="no-print fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col border-r border-slate-200 bg-white shadow-xl transition-transform duration-200 lg:static lg:w-auto lg:translate-x-0 lg:shadow-none"
+    >
+      <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div>
+          <a href="/" class="text-lg font-bold text-slate-900">open-hoikuict</a>
+          <p class="mt-1 text-xs font-medium uppercase tracking-[0.2em] text-indigo-600">Staff Console</p>
+        </div>
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 lg:hidden"
+          data-sidebar-close
+          aria-label="メニューを閉じる"
+        >
+          閉じる
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-4 py-5">
+        <div class="rounded-2xl bg-slate-900 px-4 py-4 text-white">
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">ログイン中</p>
+          <p class="mt-2 text-base font-semibold">見本 管理者</p>
+          
+          <p class="mt-1 text-sm text-slate-300">管理者</p>
+          
+        </div>
+        <a href="/staff/login?redirect=/" class="mt-3 block rounded-xl bg-slate-900 px-3 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800">職員を選択する</a>
+
+        <nav class="mt-6 space-y-6">
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">基本業務</p>
+            <div class="mt-3 space-y-1">
+              <a href="/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">ホーム</a>
+              <a href="/children" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">園児一覧</a>
+              
+              <a href="/families/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">家族・兄弟姉妹の管理</a>
+              
+              <a href="/child-records/progress" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">児童票作成状況</a>
+              <a href="/plans/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">指導計画</a>
+              <a href="/health" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">健康管理</a>
+              <a href="/attendance" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">出欠一覧</a>
+              <a href="/attendance-checks/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">出欠確認</a>
+              <a href="/attendance-checks/roster" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">子どもの名前一覧</a>
+              <a href="/extended-care-fees/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">延長保育料金</a>
+              <a href="/billing/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">請求入力</a>
+              <a href="/guardian/setup" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">保護者キオスク</a>
+            </div>
+          </div>
+
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">連絡と記録</p>
+            <div class="mt-3 space-y-1">
+              <a href="/daily-contacts" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">日次連絡</a>
+              <a href="/staff-rooms/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">連絡タイムライン</a>
+              <a href="/document-reviews/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">文書の確認依頼</a>
+              <a href="/meeting-notes/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">議事録</a>
+              <a href="/records/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">経緯レコード</a>
+              <a href="/event-series/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">行事シリーズ</a>
+              <a href="/notices" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">お知らせ管理</a>
+              <a href="/surveys/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">アンケート管理</a>
+              <a href="/staff-surveys/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">アンケート</a>
+            </div>
+          </div>
+
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">アカウント</p>
+            <div class="mt-3 space-y-1">
+              <a href="/parent-accounts" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">保護者アカウント</a>
+              <a href="/child-change-requests" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">プロフィール変更申請</a>
+              <a href="/data-transfers/" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">データ入出力</a>
+              <a href="/parent-portal/login" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">保護者画面確認</a>
+            </div>
+          </div>
+          <div>
+            <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">カレンダー</p>
+            <div class="mt-3 space-y-1">
+              <a href="/calendar" class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">カレンダー</a>
+            </div>
+          </div>
+          <div class="border-t border-slate-200 pt-4">
+            <a href="/settings" aria-current="page" class="block rounded-xl px-3 py-2.5 text-sm font-medium bg-indigo-50 text-indigo-700">設定</a>
+          </div>
+        </nav>
+      </div>
+
+      
+      <div class="border-t border-slate-200 px-4 py-4">
+        <p class="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">認証</p>
+        <div class="mt-3 space-y-2">
+          <form method="post" action="/staff/logout">
+            <input type="hidden" name="redirect_to" value="/">
+            <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+              ログアウト
+            </button>
+          </form>
+        </div>
+      </div>
+      
+    </aside>
+
+    <div id="staff-sidebar-backdrop" class="no-print fixed inset-0 z-30 hidden bg-slate-900/40 lg:hidden"></div>
+
+    <div class="min-w-0">
+      <header class="no-print sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 lg:hidden">
+        <div class="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            data-sidebar-open
+            aria-label="メニューを開く"
+          >
+            メニュー
+          </button>
+          <div class="text-right">
+            <p class="text-sm font-semibold text-slate-900">見本 管理者</p>
+            
+            <p class="text-xs text-slate-500">管理者</p>
+            
+          </div>
+        </div>
+      </header>
+
+      <main class="px-4 py-6 sm:px-6 lg:px-8">
+  
+        <div id="mock-view"></div>
+  
+      </main>
+    </div>
+  </div>
+  
+
+  
+  
+  
+  
+  
+</body>
+</html>

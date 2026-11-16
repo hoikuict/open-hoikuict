@@ -1,0 +1,16 @@
+{
+  "app_commit": "3392880660909e8471a8b437c6c002aa583fb220",
+  "template_sha256": "6929762bc9b5d1f765e28038560aed6609d454b012487ae6800523a4fdff2b9f",
+  "base_sha256": "275f7d523dd54bb28aa9f65b3b6da2e386e438b5034a1fe559dbcc2fceedf75c",
+  "fictional_data_only": true,
+  "business_fields_preserved": true,
+  "timeline_rows": 22,
+  "production_connections": false,
+  "saves_to_database": false,
+  "states": [
+    "empty",
+    "partial",
+    "filled",
+    "error"
+  ]
+}

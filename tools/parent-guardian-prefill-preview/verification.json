@@ -1,0 +1,32 @@
+{
+  "verified": true,
+  "checks": [
+    {
+      "kind": "invite",
+      "fields": 9,
+      "states": 6
+    },
+    {
+      "kind": "add",
+      "fields": 9,
+      "states": 6
+    },
+    {
+      "kind": "current",
+      "fields": 9,
+      "states": 6
+    },
+    {
+      "kind": "new",
+      "fields": 28,
+      "states": 6
+    }
+  ],
+  "unchangedSubmission": true,
+  "validationRetainsEdits": true,
+  "cancelAndReopen": true,
+  "mobileWidth": 390,
+  "errors": [],
+  "external": [],
+  "writes": []
+}

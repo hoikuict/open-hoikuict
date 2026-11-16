@@ -1,0 +1,41 @@
+{
+  "verified": true,
+  "repository": "https://github.com/hoikuict/open-hoikuict",
+  "branch": "codex/parent-guardian-registration-20261101",
+  "app_commit": "c4e3d449ea17256b384badfcf6094e82ae7b49d3",
+  "head_commit": "e9b965a6fb31836c6828d1a45d123d3232996e2b",
+  "remote_commit": "e9b965a6fb31836c6828d1a45d123d3232996e2b",
+  "working_tree_clean": true,
+  "pushed_at": "2026-11-01T00:20:08.057690+00:00",
+  "main_changed": false,
+  "documentation_files": 24,
+  "documentation_checks": {
+    "production_branch": {
+      "strict_build": "passed",
+      "existing_link_notices": [
+        "INFO    -  Doc file 'chromebook-guardian-kiosk.md' contains a link 'truenas-beginner-installation-guide.md#18-バックアップと更新の基本', but the doc 'truenas-beginner-installation-guide.md' does not contain an anchor '#18-バックアップと更新の基本'.",
+        "INFO    -  Doc file 'truenas-fresh-install.md' contains a link 'truenas-dockge-cloudflare-pilot-runbook.md#8-cloudflareの準備', but the doc 'truenas-dockge-cloudflare-pilot-runbook.md' does not contain an anchor '#8-cloudflareの準備'."
+      ]
+    },
+    "workspace": {
+      "strict_build": "passed",
+      "existing_link_notices": []
+    },
+    "workspace_only_preexisting_omitted_nav_downgraded_to_info": true
+  },
+  "ci": {
+    "url": "https://github.com/hoikuict/open-hoikuict/actions/runs/41256291273",
+    "result": "failure",
+    "failed_step": "Lint",
+    "test_step": "skipped",
+    "errors": 50,
+    "same_as_baseline": true
+  },
+  "baseline_comparison": {
+    "app_commit": "c4e3d449ea17256b384badfcf6094e82ae7b49d3",
+    "compared_to_commit": "c8990b8888c071a896ff58c2f81ada13fb1099e6",
+    "existing_diagnostics": 50,
+    "identical": true,
+    "changed_files_lint": "passed"
+  }
+}

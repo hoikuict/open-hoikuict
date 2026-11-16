@@ -1,0 +1,390 @@
+{
+  "verified": true,
+  "repository": "https://github.com/hoikuict/open-hoikuict",
+  "branch": "codex/parent-guardian-registration-20261101",
+  "app_commit": "70fb5dbcbc7577066682b7c7eb8dd017d42c5ec9",
+  "head_commit": "c257fb86fdc33afd758028778a5689a7f5d70ae0",
+  "remote_commit": "c257fb86fdc33afd758028778a5689a7f5d70ae0",
+  "working_tree_clean": true,
+  "pushed_at": "2026-10-31T23:54:49.543029+00:00",
+  "main_changed": false,
+  "documentation_files": 55,
+  "documentation_checks": {
+    "production_branch": {
+      "strict_build": "passed",
+      "existing_link_notices": [
+        "INFO    -  Doc file 'chromebook-guardian-kiosk.md' contains a link 'truenas-beginner-installation-guide.md#18-バックアップと更新の基本', but the doc 'truenas-beginner-installation-guide.md' does not contain an anchor '#18-バックアップと更新の基本'.",
+        "INFO    -  Doc file 'truenas-fresh-install.md' contains a link 'truenas-dockge-cloudflare-pilot-runbook.md#8-cloudflareの準備', but the doc 'truenas-dockge-cloudflare-pilot-runbook.md' does not contain an anchor '#8-cloudflareの準備'."
+      ]
+    },
+    "workspace": {
+      "strict_build": "passed",
+      "existing_link_notices": []
+    },
+    "workspace_only_preexisting_omitted_nav_downgraded_to_info": true,
+    "whitespace_only_cleanup_after_build": "docs/documentation.md EOF"
+  },
+  "ci": {
+    "baseline_commit": "c8990b8888c071a896ff58c2f81ada13fb1099e6",
+    "pushed_commit": "c257fb86fdc33afd758028778a5689a7f5d70ae0",
+    "baseline_errors": 50,
+    "current_errors": 50,
+    "identical": true,
+    "ci_run": "https://github.com/hoikuict/open-hoikuict/actions/runs/41254468236",
+    "ci_status": "failure",
+    "failed_step": "Lint",
+    "github_test_step": "skipped",
+    "diagnostics": [
+      [
+        "family_care_service.py",
+        "F401",
+        "`models.Family` imported but unused",
+        22,
+        37
+      ],
+      [
+        "family_care_service.py",
+        "F401",
+        "`sqlmodel.Session` imported but unused",
+        14,
+        22
+      ],
+      [
+        "initial_ledger_import.py",
+        "F401",
+        "`datetime.datetime` imported but unused",
+        6,
+        28
+      ],
+      [
+        "plan_docs/routers/weekly_library.py",
+        "F401",
+        "`datetime.date` imported but unused",
+        2,
+        22
+      ],
+      [
+        "plan_docs/routers/weekly_library.py",
+        "F401",
+        "`fastapi.responses.RedirectResponse` imported but unused",
+        6,
+        31
+      ],
+      [
+        "routers/daily_contacts.py",
+        "F601",
+        "Dictionary key literal `\"temperature_display\"` repeated",
+        216,
+        13
+      ],
+      [
+        "routers/daily_contacts.py",
+        "F811",
+        "Redefinition of unused `re` from line 2",
+        4,
+        8
+      ],
+      [
+        "routers/daily_contacts.py",
+        "F811",
+        "Redefinition of unused `unicodedata` from line 3",
+        5,
+        8
+      ],
+      [
+        "test_care_navigation.py",
+        "F401",
+        "`auth.Role` imported but unused",
+        7,
+        18
+      ],
+      [
+        "test_care_navigation.py",
+        "F401",
+        "`family_care_service.bootstrap` imported but unused",
+        9,
+        33
+      ],
+      [
+        "test_care_navigation.py",
+        "F401",
+        "`models.Family` imported but unused",
+        10,
+        51
+      ],
+      [
+        "test_care_navigation.py",
+        "F401",
+        "`test_family_care.case` imported but unused",
+        11,
+        30
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        20,
+        53
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        36,
+        51
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        47,
+        53
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        68,
+        58
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        77,
+        50
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        84,
+        59
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        100,
+        56
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        120,
+        53
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        135,
+        59
+      ],
+      [
+        "test_care_navigation.py",
+        "F811",
+        "Redefinition of unused `case` from line 11",
+        145,
+        60
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F401",
+        "`sqlmodel.select` imported but unused",
+        7,
+        31
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F401",
+        "`test_spec_changes_20260917.workbench` imported but unused",
+        12,
+        40
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        26,
+        65
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        55,
+        69
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        73,
+        56
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        87,
+        41
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        98,
+        56
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        112,
+        54
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        133,
+        49
+      ],
+      [
+        "test_daily_contact_content_list.py",
+        "F811",
+        "Redefinition of unused `workbench` from line 12",
+        149,
+        69
+      ],
+      [
+        "test_family_care.py",
+        "F401",
+        "`family_care_service.materialize` imported but unused",
+        13,
+        44
+      ],
+      [
+        "test_family_care.py",
+        "F401",
+        "`json` imported but unused",
+        5,
+        8
+      ],
+      [
+        "test_family_care.py",
+        "F401",
+        "`models.FamilyCareCertificationLink` imported but unused",
+        15,
+        54
+      ],
+      [
+        "test_family_care.py",
+        "F401",
+        "`types.SimpleNamespace` imported but unused",
+        3,
+        19
+      ],
+      [
+        "test_family_care_restore.py",
+        "F401",
+        "`restore_family_archive._family_care_schema` imported but unused",
+        8,
+        62
+      ],
+      [
+        "test_family_deletion.py",
+        "F401",
+        "`sqlmodel.select` imported but unused",
+        19,
+        56
+      ],
+      [
+        "test_initial_ledger_import.py",
+        "F401",
+        "`initial_ledger_import.DATASET` imported but unused",
+        20,
+        44
+      ],
+      [
+        "test_monthly_collaboration.py",
+        "F401",
+        "`copy.deepcopy` imported but unused",
+        2,
+        18
+      ],
+      [
+        "test_monthly_collaboration.py",
+        "F401",
+        "`plan_docs.db_models.PlanRevisionRow` imported but unused",
+        14,
+        50
+      ],
+      [
+        "test_monthly_collaboration.py",
+        "F401",
+        "`plan_docs.models.SectionBlock` imported but unused",
+        15,
+        44
+      ],
+      [
+        "test_parent_account_access_controls.py",
+        "F401",
+        "`local_auth.AuthenticationFailed` imported but unused",
+        9,
+        24
+      ],
+      [
+        "test_parent_account_access_controls.py",
+        "F401",
+        "`models.User` imported but unused",
+        10,
+        100
+      ],
+      [
+        "test_parent_account_access_controls.py",
+        "F401",
+        "`parent_auth.complete_parent_action_password` imported but unused",
+        12,
+        26
+      ],
+      [
+        "test_parent_account_access_controls.py",
+        "F401",
+        "`parent_auth.exchange_parent_action_code` imported but unused",
+        13,
+        5
+      ],
+      [
+        "test_parent_account_access_controls.py",
+        "F401",
+        "`parent_auth.issue_parent_password_code` imported but unused",
+        13,
+        34
+      ],
+      [
+        "test_parent_account_lifecycle.py",
+        "F401",
+        "`models.AuthSession` imported but unused",
+        17,
+        5
+      ],
+      [
+        "test_reflection_reviews.py",
+        "F401",
+        "`plan_docs.db_models.PlanReflectionDraftRow` imported but unused",
+        14,
+        59
+      ],
+      [
+        "test_weekly_library.py",
+        "F401",
+        "`plan_docs.contracts.DocumentStatus` imported but unused",
+        9,
+        33
+      ]
+    ]
+  }
+}

@@ -45,6 +45,20 @@
 .plan-docs-content #daily-draft .daily-plan-grid-scroll { min-width: 0; max-width: 100%; }
 .plan-docs-content #daily-draft .daily-plan-grid-scroll { contain: inline-size paint; }
 .plan-docs-content #daily-draft { scroll-margin-top: 20px; }
+.plan-docs-content #daily-copy-choice {
+  width: min(32rem, calc(100% - 2rem)); max-height: 90vh; margin: auto; overflow: auto;
+  padding: clamp(1rem, 3vw, 1.65rem); border: 1px solid var(--plan-line); border-radius: .9rem;
+  background: white; color: #243a31;
+}
+#daily-copy-choice::backdrop { background: rgb(15 30 27 / .52); }
+#daily-copy-choice form { display: grid; gap: .65rem; margin-top: 1rem; }
+#daily-copy-choice button {
+  display: grid; gap: .15rem; padding: .65rem .9rem; border: 1px solid #b7cbc4;
+  border-radius: .55rem; background: white; color: inherit; text-align: left;
+}
+#daily-copy-choice button:hover { background: #eef6f3; }
+#daily-copy-choice button:focus-visible { outline: 3px solid var(--plan-primary); outline-offset: 1px; }
+#daily-copy-choice button span { font-size: .9rem; }
 @media (max-width: 780px) {
   .plan-docs-content .daily-example-summary,
   .plan-docs-content .daily-example-list-heading { grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }

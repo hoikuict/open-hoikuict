@@ -1,0 +1,94 @@
+{
+  "date": "2026-11-15",
+  "source_commit": "9549c0c88a2f50028f8c5a01944f88b8e7197a13",
+  "checks": [
+    {
+      "check": "other_week_owner_only_change_blocks_jump_preserves_body_and_save",
+      "passed": true
+    },
+    {
+      "check": "age_0_blank_body_and_default_owner",
+      "inputs": 24,
+      "owner": "見本 はなこ",
+      "passed": true
+    },
+    {
+      "check": "age_1_blank_body_and_default_owner",
+      "inputs": 24,
+      "owner": "見本 はなこ",
+      "passed": true
+    },
+    {
+      "check": "age_2_blank_body_and_default_owner",
+      "inputs": 24,
+      "owner": "見本 はなこ",
+      "passed": true
+    },
+    {
+      "check": "age_3_blank_body_and_default_owner",
+      "inputs": 20,
+      "owner": "見本 はなこ",
+      "passed": true
+    },
+    {
+      "check": "age_4_blank_body_and_default_owner",
+      "inputs": 20,
+      "owner": "見本 はなこ",
+      "passed": true
+    },
+    {
+      "check": "age_5_blank_body_and_default_owner",
+      "inputs": 20,
+      "owner": "見本 はなこ",
+      "passed": true
+    },
+    {
+      "check": "existing_detail_review_withdraw_edit_journey",
+      "passed": true
+    },
+    {
+      "check": "saved_owner_whitespace_validation_failure_retention_retry_and_full_report",
+      "passed": true
+    },
+    {
+      "check": "missing_month_week_links_correction_save",
+      "passed": true
+    },
+    {
+      "check": "responsive_feedback_and_button",
+      "feedbackHeight": 76.78125,
+      "overflow": false,
+      "visibleTogether": true,
+      "width": 390,
+      "passed": true
+    },
+    {
+      "check": "responsive_feedback_and_button",
+      "feedbackHeight": 121.5625,
+      "overflow": false,
+      "visibleTogether": true,
+      "width": 320,
+      "passed": true
+    },
+    {
+      "check": "restore_and_cancel_stay_or_discard",
+      "passed": true
+    },
+    {
+      "check": "calendar_previous_next_month",
+      "passed": true
+    },
+    {
+      "check": "calendar_selected_week_cross_month_and_parent_link",
+      "passed": true
+    },
+    {
+      "name": "candidate_copy_preserves_owner_and_monthly_link",
+      "passed": true,
+      "activity": "落ち葉の色や形を楽しむ。",
+      "owner": "見本 はなこ",
+      "parent": "900"
+    }
+  ],
+  "console_errors": []
+}

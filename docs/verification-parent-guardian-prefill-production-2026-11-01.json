@@ -1,0 +1,361 @@
+{
+  "verified": true,
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-11-01T00:18:52.707301+00:00",
+    "app_commit": "c4e3d449ea17256b384badfcf6094e82ae7b49d3",
+    "image_id": "sha256:1127b154cb73285e6f2ae915fa746b2eba366d62ea0963e00153963bee929c55",
+    "image_changes": [
+      "parent_enrollment.py",
+      "routers/parent_auth.py",
+      "templates/parent_auth/enrollment.html",
+      "test_parent_guardian_prefill.py",
+      "test_parent_guardian_registration.py",
+      "test_parent_enrollment.py",
+      "test_guardian_preservation.py"
+    ],
+    "packages": {
+      "aiohappyeyeballs": "2.7.1",
+      "aiohttp": "3.14.4",
+      "aiosignal": "1.4.0",
+      "annotated-doc": "0.0.5",
+      "annotated-types": "0.8.0",
+      "anyio": "4.15.1",
+      "argon2-cffi": "25.1.0",
+      "argon2-cffi-bindings": "26.1.0",
+      "attrs": "26.1.0",
+      "babel": "2.18.0",
+      "backrefs": "8.0",
+      "certifi": "2026.10.19",
+      "cffi": "2.1.1",
+      "charset-normalizer": "3.5.1",
+      "click": "8.5.0",
+      "colorama": "0.4.6",
+      "cryptography": "50.0.1",
+      "fastapi": "0.135.1",
+      "frozenlist": "1.8.0",
+      "ghp-import": "2.1.0",
+      "greenlet": "3.5.6",
+      "h11": "0.16.0",
+      "http-ece": "1.2.1",
+      "httpcore": "1.0.9",
+      "httptools": "0.8.0",
+      "httpx": "0.28.1",
+      "icalendar": "7.3.0",
+      "idna": "3.20",
+      "jinja2": "3.1.6",
+      "lxml": "6.1.3",
+      "markdown": "3.10.3",
+      "markupsafe": "3.0.3",
+      "mergedeep": "1.3.4",
+      "mkdocs": "1.6.1",
+      "mkdocs-get-deps": "0.2.2",
+      "mkdocs-material": "9.7.7",
+      "mkdocs-material-extensions": "1.3.1",
+      "multidict": "6.9.1",
+      "packaging": "26.3",
+      "paginate": "0.5.7",
+      "pathspec": "1.1.1",
+      "pillow": "13.0.0",
+      "pip": "26.2",
+      "platformdirs": "4.11.11",
+      "propcache": "0.5.4",
+      "py-vapid": "1.9.4",
+      "pycparser": "3.0",
+      "pydantic": "2.13.5",
+      "pydantic-core": "2.46.5",
+      "pygments": "2.21.0",
+      "pymdown-extensions": "12.0.1",
+      "python-dateutil": "2.9.0.post0",
+      "python-docx": "1.2.0",
+      "python-dotenv": "1.2.4",
+      "python-multipart": "0.0.32",
+      "pywebpush": "2.3.0",
+      "pyyaml": "6.0.3",
+      "pyyaml-env-tag": "1.1",
+      "qrcode": "8.2",
+      "reportlab": "4.4.9",
+      "requests": "2.34.2",
+      "six": "1.17.0",
+      "sqlalchemy": "2.0.54",
+      "sqlmodel": "0.0.37",
+      "starlette": "1.3.1",
+      "typing-extensions": "4.16.0",
+      "typing-inspection": "0.4.4",
+      "tzdata": "2026.4",
+      "urllib3": "2.8.0",
+      "uvicorn": "0.41.0",
+      "uvloop": "0.22.1",
+      "watchdog": "6.0.0",
+      "watchfiles": "1.2.0",
+      "websockets": "16.0",
+      "xlsxwriter": "3.2.9",
+      "yarl": "1.25.1"
+    },
+    "tests": {
+      "passed": 281,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "failures": [],
+      "skips": [],
+      "pytest": "9.0.3",
+      "verified": true
+    },
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-parent-guardian-prefill-20261101-c4e3d44",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/parent-guardian-prefill-20261101-c4e3d449ea17",
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "f284d6dd0d961c4e0dab392536731410d163a99b68b72527245f42a07807758a",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "annual_age_layouts": 6,
+      "confirmation_routes": true,
+      "reflection_markup_escaped": true,
+      "real_save_apis": true,
+      "existing_search_and_print_verified": true,
+      "business_records_written": 0
+    },
+    "migration": {
+      "verified": true,
+      "required": false,
+      "added_tables": []
+    },
+    "annual": {
+      "verified": true,
+      "classes": 6,
+      "excluded_admin_assignments": 12,
+      "saved_documents_preserved": 3,
+      "editable_documents_checked": 3,
+      "business_records_written": 0
+    },
+    "weekly": {
+      "verified": true,
+      "class_age_scopes": 36,
+      "corpus_records": 533,
+      "corpus_sha256": "17571db385a487d93aef2d50c1ac5509cac4e3f7dae9a01ed6b2cb7beef6ad7e",
+      "by_age": {
+        "0": 6,
+        "1": 0,
+        "2": 0,
+        "3": 190,
+        "4": 158,
+        "5": 179
+      },
+      "business_records_written": 0,
+      "calendars_and_new_monthly_rendered": true
+    },
+    "handout": {
+      "verified": true,
+      "cases": [
+        "activate",
+        "reset_password"
+      ],
+      "configured_public_origin": true,
+      "qr_contains_url_only": true,
+      "business_records_written": 0,
+      "business_records_read": 0,
+      "facility_name_uses_application_default": true
+    },
+    "guardian": {
+      "verified": true,
+      "cases": [
+        {
+          "kind": "add",
+          "fields": 9,
+          "required": 6,
+          "prefilled": false
+        },
+        {
+          "kind": "invite",
+          "fields": 9,
+          "required": 6,
+          "prefilled": true
+        },
+        {
+          "kind": "new",
+          "fields": 28,
+          "required": 13,
+          "prefilled": false
+        },
+        {
+          "kind": "public",
+          "fields": 28,
+          "required": 13,
+          "prefilled": false
+        }
+      ],
+      "business_records_written": 0,
+      "business_records_read": 0,
+      "only_selected_guardian": true
+    }
+  },
+  "services": {
+    "app": {
+      "status": "running",
+      "image_id": "sha256:1127b154cb73285e6f2ae915fa746b2eba366d62ea0963e00153963bee929c55",
+      "health": "healthy"
+    },
+    "backup-worker": {
+      "status": "running",
+      "image_id": "sha256:1127b154cb73285e6f2ae915fa746b2eba366d62ea0963e00153963bee929c55",
+      "health": null
+    },
+    "restore-worker": {
+      "status": "running",
+      "image_id": "sha256:1127b154cb73285e6f2ae915fa746b2eba366d62ea0963e00153963bee929c55",
+      "health": null
+    },
+    "cloudflared": {
+      "status": "running",
+      "image_id": "sha256:79d7f1cf5d9a3208a005a080e402c84cfb74a4f86204ca60ec337af1c14e44c3",
+      "health": null
+    }
+  },
+  "installed_packages": {
+    "aiohappyeyeballs": "2.7.1",
+    "aiohttp": "3.14.4",
+    "aiosignal": "1.4.0",
+    "annotated-doc": "0.0.5",
+    "annotated-types": "0.8.0",
+    "anyio": "4.15.1",
+    "argon2-cffi": "25.1.0",
+    "argon2-cffi-bindings": "26.1.0",
+    "attrs": "26.1.0",
+    "babel": "2.18.0",
+    "backrefs": "8.0",
+    "certifi": "2026.10.19",
+    "cffi": "2.1.1",
+    "charset-normalizer": "3.5.1",
+    "click": "8.5.0",
+    "colorama": "0.4.6",
+    "cryptography": "50.0.1",
+    "fastapi": "0.135.1",
+    "frozenlist": "1.8.0",
+    "ghp-import": "2.1.0",
+    "greenlet": "3.5.6",
+    "h11": "0.16.0",
+    "http-ece": "1.2.1",
+    "httpcore": "1.0.9",
+    "httptools": "0.8.0",
+    "httpx": "0.28.1",
+    "icalendar": "7.3.0",
+    "idna": "3.20",
+    "jinja2": "3.1.6",
+    "lxml": "6.1.3",
+    "markdown": "3.10.3",
+    "markupsafe": "3.0.3",
+    "mergedeep": "1.3.4",
+    "mkdocs": "1.6.1",
+    "mkdocs-get-deps": "0.2.2",
+    "mkdocs-material": "9.7.7",
+    "mkdocs-material-extensions": "1.3.1",
+    "multidict": "6.9.1",
+    "packaging": "26.3",
+    "paginate": "0.5.7",
+    "pathspec": "1.1.1",
+    "pillow": "13.0.0",
+    "pip": "26.2",
+    "platformdirs": "4.11.11",
+    "propcache": "0.5.4",
+    "py-vapid": "1.9.4",
+    "pycparser": "3.0",
+    "pydantic": "2.13.5",
+    "pydantic-core": "2.46.5",
+    "pygments": "2.21.0",
+    "pymdown-extensions": "12.0.1",
+    "python-dateutil": "2.9.0.post0",
+    "python-docx": "1.2.0",
+    "python-dotenv": "1.2.4",
+    "python-multipart": "0.0.32",
+    "pywebpush": "2.3.0",
+    "pyyaml": "6.0.3",
+    "pyyaml-env-tag": "1.1",
+    "qrcode": "8.2",
+    "reportlab": "4.4.9",
+    "requests": "2.34.2",
+    "six": "1.17.0",
+    "sqlalchemy": "2.0.54",
+    "sqlmodel": "0.0.37",
+    "starlette": "1.3.1",
+    "typing-extensions": "4.16.0",
+    "typing-inspection": "0.4.4",
+    "tzdata": "2026.4",
+    "urllib3": "2.8.0",
+    "uvicorn": "0.41.0",
+    "uvloop": "0.22.1",
+    "watchdog": "6.0.0",
+    "watchfiles": "1.2.0",
+    "websockets": "16.0",
+    "xlsxwriter": "3.2.9",
+    "yarl": "1.25.1"
+  },
+  "prior_release_metadata_preserved": true,
+  "all_mounts_preserved": true,
+  "source_release_verified": true,
+  "public_http": {
+    "verified": true,
+    "health": "ok",
+    "verified_assets": {
+      "static/js/annual-library.js": "876a3f07dd906a2734f4aab2c966900cfe9a0c1d647d367022172b51c8e0a0c0",
+      "static/css/annual-library.css": "31fd0f9c37bfa5206637d65921b6581ab4917b74183ba453904985bddbd1ab82",
+      "static/js/weekly-library.js": "6661e4e9dec4ff4327de0f835f5a8af118c631a521b798999dc31d8146bc74c6",
+      "static/js/daily-example-search.js": "651068174e38f137e36175df882ce4281188a4f280b12980bae8b74b14a91c3a",
+      "static/css/daily-plan-print.css": "20cb0a78a4831683e6a3e478618dd5431b82db4b93c580ff6893e8f509708739",
+      "static/css/staff-auth-handout.css": "63f09f73af60a5acbf0b8fcf8c32a968b0f4176142e7aaec9c3bb05a9b42aa7b",
+      "static/js/staff-auth-handout.js": "80a5bcf028c0649babe089e4930892f323c249b9aec579154bd2d02f0e6df798",
+      "static/js/parent-guardian-registration.js": "829a24c6aad29279c5d5f231d1f372f60e77f34a82c0c0732f232507ee73e3e2"
+    },
+    "protected_routes": [
+      {
+        "path": "/plans/annual-library",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/plans/monthly-plans/",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/plans/weekly-plans/",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/parent-portal/",
+        "login_path": "/parent-portal/login"
+      }
+    ],
+    "handout_destinations": [
+      {
+        "path": "/staff/activate",
+        "status": 200
+      },
+      {
+        "path": "/staff/reset-password",
+        "status": 200
+      }
+    ],
+    "business_write_requests": 0
+  },
+  "approved_mock": "PARENT-GUARDIAN-PREFILL-MOCK-001",
+  "approval": "この内容で実装（推奨）",
+  "deployment_authorization": "同じ登録機能に対する先の実機反映・GitHubプッシュ依頼を継続",
+  "source_hashes": {
+    "parent_enrollment.py": "6f6279c34d9fce3ec7596dea641b8fbf3e59d204804f4c27ebb1fa74c024d2d6",
+    "routers/parent_auth.py": "8bb4af7ee1b85a13185d8938ba951965df8de5beae67a7e1f19d6b8bc04922d2",
+    "templates/parent_auth/enrollment.html": "4a35e411e1c81e6136d087b0eafd0de996aacfb8f694080fccba6a162a7ed3a7",
+    "test_parent_guardian_prefill.py": "af490f812113aea11d2af5ea7085ce2e03d590bc76e2c0b9eda89da22f803f45",
+    "test_parent_guardian_registration.py": "33eb87255e1c5e40d8e2329608768243f8c1d53c6b450dd72b79c5660defdc44",
+    "test_parent_enrollment.py": "92bc82a565579c36a3c7c71fdad704862df00b56f1d90f37a52ebd4bbea90c4e",
+    "test_guardian_preservation.py": "bf5af49c208fb084ef3cacec2446c035eba5948f83d6f16940b6952b97d8649d"
+  },
+  "baseline_commit": "70fb5dbcbc7577066682b7c7eb8dd017d42c5ec9",
+  "baseline_image": "sha256:f4f179ee47c96dbf56651e212d504582e53f38d2eab18b0c844f02423a6a49d7",
+  "deployment_guard_tests_passed": 7,
+  "whole_suite_rerun": false,
+  "real_parent_mail_or_login_performed": false
+}

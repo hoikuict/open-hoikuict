@@ -1,0 +1,19 @@
+{
+  "commit": "c8990b8888c071a896ff58c2f81ada13fb1099e6",
+  "source_path": "/mnt/main/open-hoikuict-pilot/releases/staff-handout-20261101-c8990b8888c0",
+  "hashes": {
+    "routers/parent_auth.py": "83f0f896c7f1d6c93c223e0d74ff9f2d32a5419ca5b5535beb8e8ac15a9aff48",
+    "parent_enrollment.py": "1df676a461f40a0ac73999a33863d7ae30b3e03a851e61ea1f2623cf11245af7",
+    "templates/parent_auth/base.html": "7116d10ef69d0295ffcdec255fe29f13ca579b3db130a8e85a6872871a9e60a6",
+    "templates/parent_auth/enrollment.html": "5ef22db85ba8afa8d9186d287eafcf8a3510064dfd05180981dc11190168d845",
+    "templates/parent_auth/enrollment_select.html": "072f37458b7c7c908badb9c9e173b6dfee8863858518dfd24c341b850825f5ea",
+    "templates/parent_auth/enrollment_invite.html": "330981e528ad2d306c09734bdea7a474e7cac33bb74a6667124f584487720023",
+    "templates/parent_auth/admin.html": "abe5e382bcc5ab60c916ee77628a57fdc62d89b213c898a6f37e6bf226437a5c"
+  },
+  "verified_live": true,
+  "business_records_accessed": false,
+  "source_copy": "C:\\python\\open-hoikuict\\.local-dev\\staff-handout-rollout-20261101\\source",
+  "fictional_mock_only": true,
+  "matches_saved_source": true,
+  "line_endings": "Live baseline files are CRLF; normalized source is identical."
+}

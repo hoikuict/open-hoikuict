@@ -1,0 +1,149 @@
+{
+  "date": "2026-11-15",
+  "version": "r2",
+  "source_commit": "9549c0c88a2f50028f8c5a01944f88b8e7197a13",
+  "checks": [
+    {
+      "check": "editor_owner_missing_jump_correct_review",
+      "passed": true
+    },
+    {
+      "check": "detail_review_and_withdraw_route",
+      "passed": true
+    },
+    {
+      "check": "only_selected_week_reviewed_other_unsaved_input_survives_detail_return",
+      "passed": true,
+      "chosenOnly": {
+        "body": "別の週に書いた試用内容",
+        "other": false,
+        "selected": true
+      },
+      "otherText": "別の週に書いた試用内容",
+      "otherError": "まだ保存できません（確認が必要な項目 1件）\n10/26からの週の作成者を入力してください。"
+    },
+    {
+      "check": "review_error_preserves_input_and_retry",
+      "passed": true
+    },
+    {
+      "check": "age_0_save_both_review_routes_withdraw_return",
+      "passed": true
+    },
+    {
+      "check": "age_1_save_both_review_routes_withdraw_return",
+      "passed": true
+    },
+    {
+      "check": "age_2_save_both_review_routes_withdraw_return",
+      "passed": true
+    },
+    {
+      "check": "age_3_save_both_review_routes_withdraw_return",
+      "passed": true
+    },
+    {
+      "check": "age_4_save_both_review_routes_withdraw_return",
+      "passed": true
+    },
+    {
+      "check": "age_5_save_both_review_routes_withdraw_return",
+      "passed": true
+    },
+    {
+      "check": "review_blocks_missing_month_and_week",
+      "passed": true
+    },
+    {
+      "check": "empty_plan_draft_still_allowed",
+      "passed": true
+    },
+    {
+      "check": "review_layout_390",
+      "passed": true,
+      "geometry": {
+        "cancel": {
+          "bottom": 765.1875,
+          "height": 40,
+          "right": 149.75,
+          "x": 27,
+          "y": 725.1875
+        },
+        "doc": 375,
+        "feedback": {
+          "bottom": 715.1875,
+          "height": 99.171875,
+          "right": 348,
+          "x": 27,
+          "y": 616.015625
+        },
+        "revert": {
+          "bottom": 765.1875,
+          "height": 40,
+          "right": 283.75,
+          "x": 159.75,
+          "y": 725.1875
+        },
+        "review": {
+          "bottom": 818.1875,
+          "height": 43,
+          "right": 348,
+          "x": 191.5,
+          "y": 775.1875
+        },
+        "save": {
+          "bottom": 818.1875,
+          "height": 43,
+          "right": 183.5,
+          "x": 27,
+          "y": 775.1875
+        },
+        "width": 390
+      }
+    },
+    {
+      "check": "review_layout_320",
+      "passed": true,
+      "geometry": {
+        "cancel": {
+          "bottom": 664.453125,
+          "height": 40,
+          "right": 149.75,
+          "x": 27,
+          "y": 624.453125
+        },
+        "doc": 305,
+        "feedback": {
+          "bottom": 614.453125,
+          "height": 121.5625,
+          "right": 278,
+          "x": 27,
+          "y": 492.890625
+        },
+        "revert": {
+          "bottom": 714.453125,
+          "height": 40,
+          "right": 151,
+          "x": 27,
+          "y": 674.453125
+        },
+        "review": {
+          "bottom": 767.453125,
+          "height": 43,
+          "right": 278,
+          "x": 156.5,
+          "y": 724.453125
+        },
+        "save": {
+          "bottom": 767.453125,
+          "height": 43,
+          "right": 148.5,
+          "x": 27,
+          "y": 724.453125
+        },
+        "width": 320
+      }
+    }
+  ],
+  "console_errors": []
+}

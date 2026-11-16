@@ -37,12 +37,14 @@ from child_profile_history import (
     record_child_profile_history,
 )
 from database import get_session
+from parent_medical_service import current_values, lock_child, require_current, revision, staff_medical_context
 from models import (
     AllergenCategory,
     AllergySeverity,
     Child,
     ChildAllergy,
     ChildHealthProfile,
+    ParentMedicalResponse,
     Classroom,
     HealthCheckRecord,
     HealthCheckCorrection,
@@ -201,6 +203,9 @@ def health_overview(
 
     child_ids = [child.id for child in children if child.id is not None]
     profiles_by_child_id = load_health_profiles_for_children(session, child_ids)
+    pending_medical = set(session.exec(select(ParentMedicalResponse.child_id).distinct().where(
+        ParentMedicalResponse.child_id.in_(child_ids), ParentMedicalResponse.status == "pending"
+    )).all())
     allergies_by_child_id = load_allergies_for_children(session, child_ids, include_inactive=False)
     checks_by_child_id = load_health_checks_for_children(session, child_ids)
     today_date = local_today()
@@ -234,6 +239,7 @@ def health_overview(
                 "latest_weight": latest_measurement_summary(chart_records, "weight_kg"),
                 "health_check_stale": health_check_is_stale(check_records),
                 "attention_labels": attention_labels,
+                "medical_waiting": child.id in pending_medical,
             }
         )
 
@@ -387,6 +393,7 @@ def health_summary(
             "profile": profile,
             "allergies": allergies,
             "expired_allergies": expired_allergies,
+            **staff_medical_context(session, child_id),
             "latest_record": latest_record,
             "latest_height": latest_measurement_summary(chart_records, "height_cm"),
             "latest_weight": latest_measurement_summary(chart_records, "weight_kg"),
@@ -422,6 +429,8 @@ def health_profile_form(
             "child": child,
             "profile": profile,
             "form_data": _profile_form_data(profile),
+            **staff_medical_context(session, child_id),
+            "medical_version": revision(child_id, None, current_values(session, child_id), None, None),
             "notice": "健康プロフィールを更新しました。" if notice == "updated" else "",
             "form_error": "",
         },
@@ -431,6 +440,7 @@ def health_profile_form(
 @child_router.post("/profile")
 def update_health_profile(
     child_id: int,
+    medical_version: Optional[str] = Form(None),
     blood_type: str = Form(""),
     primary_doctor_name: str = Form(""),
     primary_doctor_phone: str = Form(""),
@@ -461,8 +471,11 @@ def update_health_profile(
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
+    lock_child(session, child_id)
     child = _load_child(session, child_id)
     profile = get_or_create_child_health_profile(session, child, actor_name=current_user.name)
+    if medical_version is not None:
+        require_current(revision(child_id, None, current_values(session, child_id), None, None), medical_version)
     now = utc_now()
 
     def _none_if_blank(value: str) -> Optional[str]:

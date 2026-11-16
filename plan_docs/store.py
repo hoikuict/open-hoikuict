@@ -45,6 +45,10 @@ class InvalidStatusTransitionError(RuntimeError):
     pass
 
 
+class NoReviewRecipientsError(RuntimeError):
+    pass
+
+
 class ExecutionChangeError(RuntimeError):
     pass
 
@@ -358,6 +362,11 @@ class SqlModelDocumentRepository:
             section.body = str(item.get("body") or "")
             section.needs_confirmation = bool(item.get("needs_confirmation"))
             section.editor_note = str(item.get("editor_note") or "").strip() or None
+            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
+                if "source_refs" in item:
+                    section.source_refs = list(item["source_refs"])
+                if "evidence_tags" in item:
+                    section.evidence_tags = list(item["evidence_tags"])
         if document.schedule and schedule_form is not None:
             for schedule_row in document.schedule.rows:
                 label = schedule_form.get(f"rowlabel__{schedule_row.row_key}")
@@ -409,6 +418,24 @@ class SqlModelDocumentRepository:
             raise InvalidStatusTransitionError("差戻し理由を入力してください")
         self._claim_lock(document_id, expected_lock_version)
         document = _document_from_row(row)
+        if (status == DocumentStatus.IN_REVIEW
+                and document.document_type == DocumentType.MONTHLY_PLAN
+                and document.monthly_sheet is not None):
+            from .services.monthly_review import MonthlyReviewIncompleteError, validate_review
+            try:
+                validate_review(self.session, document)
+            except MonthlyReviewIncompleteError:
+                self.session.rollback()
+                raise
+        if (status == DocumentStatus.IN_REVIEW
+                and document.document_type == DocumentType.WEEKLY_PLAN
+                and document.weekly_sheet is not None):
+            from .services.weekly_review import WeeklyReviewIncompleteError, validate_review
+            try:
+                validate_review(document)
+            except WeeklyReviewIncompleteError:
+                self.session.rollback()
+                raise
         document.status = status
         document.updated_at = utc_now()
         row.status = status.value
@@ -420,13 +447,16 @@ class SqlModelDocumentRepository:
             revision = self._create_revision(document, reason="submitted", actor_ref=actor_ref)
             head.current_revision_id = revision.id
             head.review_revision_id = revision.id
-            create_review_notifications(
+            notifications = create_review_notifications(
                 self.session,
                 document=document,
                 review_revision_id=int(revision.id or 0),
                 requested_by_ref=actor_ref,
                 requested_by_name=actor_name,
             )
+            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD and not notifications:
+                self.session.rollback()
+                raise NoReviewRecipientsError
         elif status == DocumentStatus.APPROVED:
             if head.review_revision_id is None:
                 raise InvalidStatusTransitionError("レビュー対象版がありません")

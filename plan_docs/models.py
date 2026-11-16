@@ -86,6 +86,20 @@ class PlanDocument:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
+    def plan_format_label(self) -> str:
+        if self.document_type == DocumentType.ANNUAL_PLAN:
+            sheet = self.annual_sheet
+        elif self.document_type == DocumentType.MONTHLY_PLAN:
+            sheet = self.monthly_sheet
+        elif self.document_type == DocumentType.WEEKLY_PLAN:
+            sheet = self.weekly_sheet
+        elif self.document_type == DocumentType.DAILY_PLAN:
+            return "自園の帳票"
+        else:
+            return ""
+        return "旧式" if sheet is None else "自園の帳票"
+
+    @property
     def document_type_label(self) -> str:
         return DOCUMENT_TYPE_LABELS.get(self.document_type, self.document_type.value)
 

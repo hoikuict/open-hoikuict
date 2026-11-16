@@ -1,0 +1,52 @@
+"""Notification guide fixtures: deployed HTML + fictional states, no push APIs."""
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+setup = (HERE/'build_parent_app_screens.py').read_text(encoding='utf-8').split("render('app-home','home'")[0]
+context = {'__file__': str(HERE / 'build_parent_app_screens.py')}
+exec(compile(setup, str(HERE / 'build_parent_app_screens.py'), 'exec'), context)
+BASE = context['BASE']
+re = context['re']
+env = context['env']
+ChoiceLoader = context['ChoiceLoader']
+DictLoader = context['DictLoader']
+NS = context['NS']
+now = context['now']
+render = context['render']
+OUT = context['OUT']
+names = context['names']
+json = context['json']
+hashlib = context['hashlib']
+
+template = (BASE/'templates/parent_portal/push_settings.html').read_text(encoding='utf-8')
+template = re.sub(r'<script>.*?</script>', '', template, flags=re.S)
+env.loader = ChoiceLoader([DictLoader({'parent_portal/push_settings.html': template}), env.loader])
+common = dict(push_available=True, development_mode=False, preference=NS(push_enabled=True, attendance_confirmation_enabled=True), email_preference=NS(attendance_confirmation_enabled=False), active_subscriptions=[])
+start = 'document.querySelector("#push-supported").textContent="対応";'
+unregistered = start+'document.querySelector("#permission-status").textContent="未確認";document.querySelector("#subscription-status").textContent="未登録";'
+registered = start+'document.querySelector("#permission-status").textContent="許可";document.querySelector("#subscription-status").textContent="この端末は登録済み";document.querySelector("#disable-push").disabled=false;document.querySelector("#test-push").disabled=false;'
+device = [NS(device_label='このスマートフォン（見本）',last_seen_at=now,updated_at=now)]
+render('push-menu','home',['nav summary','nav a[href="/parent-portal/push-settings"]'],script='document.querySelector("nav details").open=true;')
+render('push-enable','push_settings',['#enable-push'],script=unregistered,**common)
+render('push-registered','push_settings',['dl > div:has(#permission-status)','dl > div:has(#subscription-status)'],script=registered,**{**common,'active_subscriptions':device})
+render('push-preferences','push_settings',['label:has(#push-enabled)','label:has(#attendance-enabled)','#preference-form button','#preference-message'],script=registered+'document.querySelector("#preference-message").textContent="保存しました。";document.body.style.paddingBottom="600px";document.querySelector("#preference-form").closest("section").scrollIntoView();window.scrollBy(0,-32);',**{**common,'active_subscriptions':device})
+render('push-test','push_settings',['#test-push','#test-push-message'],script=registered+'document.querySelector("#test-push-message").textContent="送信を受け付けました。端末に通知が表示されるか確認してください。";',**{**common,'active_subscriptions':device})
+
+def diagram(name, platform, title, content):
+    html = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+    *{box-sizing:border-box}body{margin:0;background:#f7f8f5;color:#243c35;font:18px/1.7 "Yu Gothic","Meiryo",sans-serif}header{padding:14px 25px;background:#e6eee5;font-size:13px;display:flex;justify-content:space-between}main{padding:24px 28px}h1{font-size:25px;line-height:1.5;margin:6px 0 24px}.card{background:white;border:1px solid #cdd9d0;border-radius:15px;padding:20px 22px;margin:12px 0}.line{display:flex;gap:14px;align-items:center;margin:12px 0}.num{background:#b74620;color:white;border-radius:50%;width:29px;height:29px;display:inline-flex;justify-content:center;align-items:center;flex-shrink:0;font-size:18px;font-weight:bold}.label{font-size:21px;font-weight:bold}.tap{display:inline-block;padding:9px 22px;background:#ebe8fd;border:2px solid #b9a8e9;border-radius:9px;color:#423395;font-weight:bold}.on{color:#226a50;background:#e5f3e9;border-radius:30px;padding:3px 16px;font-weight:bold}.note{font-size:15px;color:#54685f}.arrow{text-align:center;color:#698271;font-size:23px;margin:0}.dialog{text-align:center;border:2px solid #c9d5ce;border-radius:18px;padding:24px 20px;margin:18px 0;background:white}.dialog p{font-size:22px}.row{display:flex;justify-content:space-around;align-items:center;gap:12px}.muted{color:#697b73}footer{border-top:1px solid #d6dfd7;font-size:13px;padding:16px 28px;color:#5b6d63}
+    </style><header><strong>操作の図</strong><span>実機のスクリーンショットではありません</span></header><main><small>PLATFORM</small><h1>TITLE</h1>CONTENT</main><footer>機種やバージョンによって、名前や見た目が違うことがあります。</footer></html>'''
+    if name == 'push-iphone-check':
+        html=html.replace('</style>','.card{padding:14px 18px;margin:10px 0}p{margin:10px 0}main{padding:20px 28px}h1{margin-bottom:16px}</style>')
+    (OUT/'screens'/f'{name}.html').write_text(html.replace('PLATFORM',platform).replace('TITLE',title).replace('CONTENT',content),encoding='utf-8')
+    names.append(name)
+
+for os,label in [('iphone','iPhone / ホーム画面から開いたアプリ')]:
+    diagram(f'push-{os}-allow',label,'通知してよいか聞かれたら', '<p>園のアプリからの通知を許可します。</p><div class="dialog"><p>園のアプリ<br><strong>通知を送ってもよいですか？</strong></p><div class="row"><span class="muted">許可しない</span><span class="tap"><span class="num">1</span> 許可</span></div></div><p class="note">確認する文の例です。実際の画面では、園のアドレスやアプリ名などが出ます。</p><div class="card">すでに許可している場合は、<br>この確認が出ないこともあります。</div>')
+diagram('push-iphone-add','iPhone / Safari','園のアプリをホーム画面に追加', '<div class="card"><div class="line"><span class="num">1</span><span>Safariで園のページを開き、<br><b>共有</b>を押す</span></div><p class="note">ページメニューの中にある場合もあります。</p></div><p class="arrow">↓</p><div class="card"><div class="line"><span class="num">2</span><span class="label">ホーム画面に追加</span></div><p class="note">一覧を下へ動かすと見つかります。</p></div><p class="arrow">↓</p><div class="card"><div class="line"><span class="num">3</span><span>ウェブアプリとして開く <span class="on">オン</span></span></div><p class="note">この項目が出る場合は、オンにします。</p><div class="line"><span class="num">4</span><span class="tap">追加</span></div></div><p>次は、ホーム画面にできた<br><b>「保護者ポータル」</b>のアイコンから開きます。</p><p class="note">追加するときに名前を変えた場合は、その名前のアイコンです。</p>')
+diagram('push-android-check','Android / Chrome','届かないときは、2か所を確認', '<div class="card"><div class="line"><span class="num">1</span><span class="label">Chromeで、園のページを開く</span></div><p>アドレスバー左のページ情報<br>↓<br><b>権限 → 通知</b><br>↓<br><span class="on">許可</span></p><p class="note">園のページの通知を許可します。</p></div><div class="card"><div class="line"><span class="num">2</span><span class="label">スマホの「設定」を開く</span></div><p><b>通知 → アプリの通知 → Chrome</b><br>↓<br><span class="on">通知をオン</span></p></div><p class="note">直したら、園のアプリの「通知設定」に戻り、端末の登録とテスト通知を確かめます。</p>')
+diagram('push-iphone-check','iPhone','通知が届かないときの確認', '<div class="card"><div class="line"><span class="num">1</span><span class="label">iPhoneの「設定」を開く</span></div><p><b>通知</b><br>↓<br><b>保護者ポータル</b><br>（ホーム画面に追加したアプリ）</p></div><p class="arrow">↓</p><div class="card"><div class="line"><span class="num">2</span><span class="label">通知を許可</span><span class="on">オン</span></div><p class="note">追加したときに名前を変えていれば、その名前を探します。</p></div><div class="card"><div class="line"><span class="num">3</span><span class="label">集中モードも確認</span></div><p>おやすみモードなどで、<br>通知を止めていないか確かめます。</p></div><p class="note">直したらホーム画面のアイコンから開き、もう一度テスト通知を確かめます。</p>')
+diagram('push-android-allow','Android / Chrome','2つの確認が出ることがあります','<div class="card"><strong>園のページからの通知</strong><p class="note">Chromeが、園のページの通知を許可するか聞きます。</p><div class="row"><span class="muted">ブロック</span><span class="tap"><span class="num">1</span> 許可</span></div></div><div class="card"><strong>Chromeアプリからの通知</strong><p class="note">Android 13以降では、Chrome自体の通知を許可する確認も出ることがあります。</p><div class="row"><span class="muted">許可しない</span><span class="tap"><span class="num">2</span> 許可</span></div></div><p>どちらの確認も、出たら<b>「許可」</b>を押します。</p><p class="note">すでに許可している場合は、片方だけ出たり、どちらも出なかったりします。確認の順番や文は、スマホによって違います。</p>')
+assert len(names)==10,names
+(HERE/'notification-baseline.json').write_text(json.dumps(dict(source_commit='285b67e7c0bec04afb40ac526626781182280779',synthetic_data_only=True,network_disabled=True,push_or_business_writes=0,actual_template_images=names[:5],illustrations=names[5:],source_sha256=hashlib.sha256((BASE/'templates/parent_portal/push_settings.html').read_bytes()).hexdigest()),ensure_ascii=False,indent=2),encoding='utf-8')
+print('Built 5 deployed-template fixtures and 5 labeled operation diagrams.')

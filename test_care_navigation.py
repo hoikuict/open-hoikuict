@@ -7,10 +7,11 @@ from sqlmodel import Session, select
 from child_care_certification_service import effective_certification
 from family_care_service import child_care_context
 from models import Child, ChildCareCertification, FamilyCareCertification, FamilyCareChildSetting, FamilyCareAudit
-import test_family_care as care_fixtures
+from test_family_care import case as _case_fixture
 from test_family_care import state, payload, save, count
 
-case = care_fixtures.case
+# Re-export the shared pytest fixture without confusing it with test arguments.
+case = _case_fixture
 
 
 def individual(c, **changes):

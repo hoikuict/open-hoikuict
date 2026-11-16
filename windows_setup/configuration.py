@@ -91,7 +91,12 @@ def caddy_config(lan: dict, root: Path, instance: str, public: dict | None = Non
         return {"match": [{"host": names}], "handle": [
             {"handler": "headers", "response": {"set": {"X-HoikuICT-Instance": [instance]}}},
             {"handler": "reverse_proxy", "upstreams": [{"dial": "127.0.0.1:" + str(endpoints["gateway"])}],
-             "headers": {"request": {"set": {"X-Forwarded-Proto": ["https"]}}}},
+             # Forward only Caddy's validated client address, never an incoming
+             # X-Forwarded-For chain. On LAN this is the direct peer address.
+             "headers": {"request": {"set": {
+                 "X-Forwarded-Proto": ["https"],
+                 "X-Forwarded-For": ["{http.vars.client_ip}"],
+             }}}},
         ], "terminal": True}
     issuer = ({"module": "acme", "email": lan["mailFrom"], "challenges": {
         "http": {"disabled": True}, "tls-alpn": {"disabled": True},
@@ -107,6 +112,11 @@ def caddy_config(lan: dict, root: Path, instance: str, public: dict | None = Non
                 "lan": {"listen": [lan["ip"] + ":443"], "routes": [route([host])],
                         "tls_connection_policies": [{}], "automatic_https": {"disable_redirects": True}},
                 "tunnel": {"listen": ["127.0.0.1:" + str(endpoints["tunnel"])],
+                           # Only the loopback cloudflared ingress may supply
+                           # Cloudflare's visitor address. Never trust LAN peers.
+                           "trusted_proxies": {"source": "static", "ranges": ["127.0.0.1/32"]},
+                           "client_ip_headers": ["CF-Connecting-IP"],
+                           "trusted_proxies_strict": 1,
                            "routes": [route(list(dict.fromkeys([host, public_host])))],
                            "automatic_https": {"disable": True}},
             }},

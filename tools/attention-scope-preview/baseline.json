@@ -1,0 +1,12 @@
+{
+  "commit": "4581393839d40d0e4eddbf71b9b4b28a7ba461ea",
+  "normalized_sha256": {
+    "templates/base.html": "275f7d523dd54bb28aa9f65b3b6da2e386e438b5034a1fe559dbcc2fceedf75c",
+    "templates/portal/index.html": "a7c814d41e0db5d38e7d2759cce369a4d543821c1c09a1c4d0f83f7e0ffb29c5",
+    "templates/portal/attention.html": "ab1ebc483a40b0377bf17fdcb45d822495022afa57ee723a23443f3655658d23",
+    "templates/portal/_returned_documents.html": "a472ed6eaf96ede7bc6f2bea21fca46f97a15ba4d9eb3ef4820967cb2685ccc7",
+    "templates/guardian/_monitor_alert.html": "e33a554aa2ffd60ba04b074b36581f351314e7b34761965d4cabf1231573c604",
+    "routers/staff_portal.py": "40fb3e3a0e2c72d7a6fb95bb2c90376980c3bdb64987b58638be3e7c7bb80af8",
+    "staff_portal_service.py": "961eea1d287d8effc9412287a8540187c83239e6f1f14ee118cb7b0c787b67f1"
+  }
+}

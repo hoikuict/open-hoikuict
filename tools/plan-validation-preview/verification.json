@@ -1,0 +1,73 @@
+{
+  "date_jst": "2026-11-15",
+  "type": "offline_mock_only",
+  "browser": "Chromium in-app browser via CUA",
+  "sizes": [
+    {
+      "width": 1366,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 320,
+      "height": 740
+    }
+  ],
+  "observed_passes": [
+    "partial input: two reasons next to save",
+    "empty input: three reasons next to save",
+    "date and age links focus inputs",
+    "whitespace-only timeline rejected",
+    "repaired reasons clear without saving",
+    "optional fields may remain empty",
+    "save then edit retains text",
+    "simulated failure then retry succeeds",
+    "add and delete timeline row",
+    "example copy cancel retains rows",
+    "example replacement can be saved",
+    "error box and save button simultaneously visible at tested widths",
+    "no page horizontal overflow at mobile widths",
+    "no JavaScript error logs"
+  ],
+  "source_field_names_preserved": [
+    "age_class",
+    "classroom_ref",
+    "daily_aims",
+    "daily_content",
+    "example_id",
+    "example_source_ref",
+    "month",
+    "owner_name",
+    "q",
+    "search_age_class",
+    "search_month",
+    "search_query",
+    "target_date",
+    "timeline_activity",
+    "timeline_children",
+    "timeline_considerations",
+    "timeline_row_key",
+    "timeline_support",
+    "timeline_time"
+  ],
+  "limitations": [
+    "no production DB/API/notification operations",
+    "deployed source based on records, live server not rechecked",
+    "mock save failure is simulated",
+    "source inventory other than PV-01 not browser-reproduced",
+    "copy append and leave mock controls not browser-tested this turn"
+  ],
+  "sha256": {
+    "build.py": "8d829b3bd2ba258aeeb3311138b38433e0584c0ff915702cc37d08ef79c1ffc0",
+    "shell.html.j2": "83c6d551a6a549f2c78d8a47c3ce170578df560c4c4ba1414db01570b77d0841",
+    "index.html": "bb25a7d03a8cb2bc988265f50a8721f79d030ea875c1dd5cfa6fb5de87c3631f",
+    "mock.js": "8da9182ce0bc671ab19634c4bc8f900f4ac22397600ec226377f31d6f6260367",
+    "mock.css": "0563b61651c5bb900eaab9211251b5ca437590d1bd197d8e89883e70062cb06f",
+    "deployed-form.css": "3d992c1d59bfc165a1a61eaeb44088e0d8a06acad763949929ca559f539cb76e",
+    "daily-example-list.css": "29fd79efbddd0a59f789877e1124e75fe169087a79d527e9266181cd0db62840",
+    "baseline.json": "9b430909c28fb7f9b575423c7be05a168c65cccb232b53299a965262dbb4b6a3"
+  }
+}

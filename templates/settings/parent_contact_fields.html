@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}保護者の連絡項目 | open-hoikuict{% endblock %}
+{% block content %}
+<style>
+  [data-contact-settings] [hidden]{display:none!important}
+  .contact-matrix{overflow-x:auto;max-width:100%;border:1px solid #e2e8f0;border-radius:8px}
+  .contact-matrix table{width:100%;border-collapse:collapse}
+  .contact-matrix th,.contact-matrix td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;white-space:nowrap}
+  .contact-matrix th:first-child{position:sticky;left:0;background:#f8fafc;text-align:left;z-index:1}
+  .contact-matrix select{padding:8px 4px;border:1px solid #cbd5e1;border-radius:6px;background:white;min-width:112px}
+</style>
+<div class="max-w-6xl space-y-5" data-contact-settings>
+  <a href="/settings" class="text-indigo-600">設定へ戻る</a>
+  <div><h1 class="text-2xl font-bold">保護者の連絡項目</h1>
+    <p class="mt-2 text-sm text-slate-600">この施設で使う分け方を選び、保護者に表示する項目を設定します。</p></div>
+  {% if saved %}<p role="status" class="rounded border border-emerald-200 bg-emerald-50 p-4">保存しました。新しく作成する連絡から反映されます。</p>{% endif %}
+  {% if error %}<p role="alert" class="rounded border border-rose-200 bg-rose-50 p-4">{{ error }}</p>{% endif %}
+  {% if conflict %}<p><a href="/settings/parent-contact-fields" class="text-indigo-600 underline">最新の設定を開く</a></p>{% endif %}
+  <form method="post" action="/settings/parent-contact-fields" class="space-y-5" id="contact-settings-form">
+    <input type="hidden" name="revision" value="{{ revision }}">
+    <input type="hidden" name="room_ids" value="{{ room_ids }}">
+    <fieldset class="rounded-xl border bg-white p-5">
+      <legend class="font-bold">1. 分け方</legend>
+      <div class="flex flex-wrap gap-6">
+        {% for value,label in [('age','年齢ごと'),('class','クラスごと')] %}
+        <label class="flex items-center gap-2"><input type="radio" name="mode" value="{{ value }}" {% if policy.mode == value %}checked{% endif %}>{{ label }}</label>
+        {% endfor %}
+      </div>
+      <p class="mt-3 text-sm text-slate-600">選んだ分け方の表を使います。切り替えても、もう一方の表の設定は残ります。</p>
+    </fieldset>
+    <section class="space-y-3"><h2 class="font-bold">2. 表示する項目</h2>
+      {% for mode, columns in tables %}
+      <div data-method="{{ mode }}" {% if policy.mode != mode %}hidden{% endif %}>
+        <p class="mb-3 text-sm text-slate-600">{% if mode == 'age' %}連絡日の年度の4月1日時点の年齢です。年度途中に生まれた園児は0歳児です。{% else %}現在の所属クラスで分けます。混合クラスも同じ項目を使います。{% endif %}</p>
+        {% if columns %}<div class="contact-matrix" tabindex="0" role="region" aria-label="{{ '年齢' if mode == 'age' else 'クラス' }}ごとの項目表（横にスクロールできます）">
+          <table><caption class="sr-only">{{ '年齢' if mode == 'age' else 'クラス' }}ごとの表示設定</caption>
+            <thead><tr><th scope="col">項目</th>{% for key,label in columns %}<th scope="col">{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>{% for group, details in groups.items() %}<tr><th scope="row">{{ details[0] }}</th>
+              {% for key,label in columns %}{% set shown = policy[mode].get(key, {}).get(group, true) %}
+              <td><select name="{{ mode }}_{{ key }}_{{ group }}" aria-label="{{ label }}の{{ details[0] }}">
+                <option value="show" {% if shown %}selected{% endif %}>表示する</option>
+                <option value="hide" {% if not shown %}selected{% endif %}>表示しない</option>
+              </select></td>{% endfor %}
+            </tr>{% endfor %}</tbody>
+          </table></div>{% else %}<p>クラスが未登録です。<a href="/classrooms/" class="text-indigo-600 underline">クラス管理</a>から登録してください。</p>{% endif %}
+      </div>{% endfor %}
+      <div class="rounded-lg bg-slate-50 p-4 text-sm leading-relaxed">
+        <p>出欠・緊急連絡先・お迎え予定・園への連絡事項・欠席の入力欄は、どの年齢・クラスでも表示します。病欠の体温・症状は必須です。</p>
+        <p class="mt-2">保存済みの連絡は、入力したときの項目で修正できます。設定前の連絡は全項目を表示します。</p>
+        <p class="mt-2">該当する年齢・クラスがない園児と、新しく登録したクラスは全項目を表示します。</p>
+      </div>
+    </section>
+    <section id="preview" class="space-y-3 rounded-xl border bg-white p-5">
+      <h2 class="font-bold">3. 保護者画面で確認</h2><p class="text-sm text-slate-600">架空の園児で、保存前の設定を確認できます。ここから連絡は送信されません。</p>
+      <div class="flex flex-wrap items-end gap-3">
+        {% for mode,columns in tables %}<label data-method="{{ mode }}" {% if policy.mode != mode %}hidden{% endif %}>{{ '年齢' if mode == 'age' else 'クラス' }}
+          <select name="preview_{{ mode }}" class="block rounded border p-2">{% for key,label in columns %}<option value="{{ key }}" {% if key == (preview_age if mode == 'age' else preview_class) %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endfor %}
+        <label>入力状態<select name="preview_state" class="block rounded border p-2">{% for key,label in [('empty','未入力'),('filled','入力済み'),('partial','一部入力'),('error','エラー')] %}<option value="{{ key }}" {% if preview_state == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <button type="submit" name="action" value="preview" formaction="/settings/parent-contact-fields#preview" class="rounded border border-indigo-600 px-4 py-2 text-indigo-700">プレビューを更新</button>
+      </div>
+      <p id="preview-dirty" role="status" class="text-sm text-amber-800" hidden>設定を変更しました。「プレビューを更新」で確認できます。まだ保存していません。</p>
+      <iframe title="保存前の保護者画面の見本" sandbox="allow-scripts" srcdoc="{{ preview_html }}" class="w-full rounded border" style="height:680px"></iframe>
+    </section>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="submit" name="action" value="save" class="rounded bg-indigo-600 px-5 py-3 text-white">設定を保存</button>
+      <a href="/settings/parent-contact-fields" class="rounded border bg-white px-5 py-3">変更を取り消す</a>
+      <span class="text-sm text-slate-500">「設定を保存」を押すまで、保護者画面には反映されません。</span>
+    </div>
+  </form>
+  {% if latest %}<p class="text-sm text-slate-500">最終保存：{{ latest.changed_at|jst_datetime('%Y-%m-%d %H:%M') }} ／ {{ latest.changed_by_name }}</p>{% endif %}
+</div>
+{% endblock %}
+{% block body_end %}
+<script>
+(() => {
+ const form = document.getElementById('contact-settings-form');
+ const sync = () => document.querySelectorAll('[data-method]').forEach(el => {el.hidden = el.dataset.method !== form.elements.mode.value;});
+ form.addEventListener('change', () => {sync();document.getElementById('preview-dirty').hidden = false;});
+ sync();
+})();
+</script>
+{% endblock %}

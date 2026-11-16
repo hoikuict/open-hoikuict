@@ -1,0 +1,32 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "synthetic_data_only": true,
+  "business_records_written": 0,
+  "screens": [
+    "admission-sibling-select",
+    "admission-sibling-empty",
+    "admission-sibling-partial",
+    "admission-sibling-filled",
+    "admission-sibling-error",
+    "admission-access",
+    "admission-new-entry",
+    "admission-new-invite",
+    "admission-new-form-empty",
+    "admission-new-form-partial",
+    "admission-new-form-filled",
+    "admission-new-form-error",
+    "admission-new-review"
+  ],
+  "source_files": {
+    "parent_enrollment.py": "078a25a69c276a3a18cbc2170e79126694908bf85a69241ac6ea916d3a1f741f",
+    "routers/children.py": "f78e408b790f9da5b28daa48e69bf72fb9fd06958eecc0117c94923501145631",
+    "templates/children/_profile_inputs.html": "84691f04794ec589d8ed02dc237969bd51b3183fbc031a752b1b6df20f2d9ee7",
+    "templates/children/form.html": "337f8e921776df28a54c2869d4de095349f61307f778f73b1dc4863b451ef3b6",
+    "templates/parent_accounts/form.html": "c56ac497f14dd428e0fe1500a2d7b003dc64ce764b428bd464b8c6f6af6b50c1",
+    "templates/parent_auth/admin.html": "63e5d10586db66ca1154e5baf0212cc132f5e686da8ca9d452fed8ef5b64879f",
+    "templates/parent_auth/base.html": "7116d10ef69d0295ffcdec255fe29f13ca579b3db130a8e85a6872871a9e60a6",
+    "templates/parent_auth/enrollment.html": "9e14b923200e872b7ac2ac3eba29d0e03c1e6a078cea8ec5880880781036ba2d",
+    "templates/parent_auth/enrollment_invite.html": "8695f2dabdfe914ee9fed31d4e8a2328db5c6a803b4a9c3204d657883a9cffe5",
+    "templates/parent_auth/enrollment_select.html": "072f37458b7c7c908badb9c9e173b6dfee8863858518dfd24c341b850825f5ea"
+  }
+}

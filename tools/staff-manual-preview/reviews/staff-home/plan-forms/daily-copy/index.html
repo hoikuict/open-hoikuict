@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,follow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>日案例を下書きに取り込む｜操作モック</title>
+  <link rel="stylesheet" href="form.css"><link rel="stylesheet" href="mock.css">
+  <script src="mock.js" defer></script>
+</head>
+<body><main class="plan-docs-content">
+  <aside class="trial" aria-label="モックの試し方">
+    <div class="trial-heading"><strong>日案例のコピーを試す</strong><a href="../daily-findings.html">改善案の記録へ</a></div>
+    <p>架空の下書きで試せます。保存した内容はこのページを閉じると消えます。</p>
+    <div class="trial-controls">
+      <label>下書きの見本<select id="scenario"><option value="partial">一部入力</option><option value="filled">入力済み</option><option value="empty">未入力</option><option value="error">入力エラー</option></select></label>
+      <button class="button" id="reset" type="button">見本に戻す</button>
+      <button class="button button--primary" id="try-copy" type="button">「落ち葉を集める」を試す</button>
+    </div>
+  </aside>
+  <div id="editor">
+  
+  <section class="form-header">
+    <div>
+      <p class="eyebrow">daily_plan</p>
+      <h1>日案を作成</h1>
+      <p class="lead">主な活動の一覧から詳細を開いて確認し、「時間・子どもの様子・保育士の援助・配慮事項」の4列を下書きへコピーして編集できます。</p>
+    </div>
+  </section>
+
+  
+
+  <section class="form-panel daily-example-panel">
+    <h2>匿名化された過去の日案例から選ぶ</h2>
+    <p class="field-note">主な活動を選ぶと詳細が開きます。内容を確認し、必要な候補を下書きへコピーできます。</p>
+    
+    
+    <p class="field-note">年齢・月は、それぞれ「すべて」で絞り込みを外せます。</p>
+    <form id="example-search" class="form-layout compact">
+      <input name="target_date" type="hidden" value="2026-11-11">
+      <input name="classroom_ref" type="hidden" value="そら組">
+      <div class="field-grid">
+        <label>
+          <span>年齢</span>
+          <select name="age_class">
+            <option value="" selected>すべて</option>
+            
+              <option value="0歳児" >0歳児</option>
+            
+              <option value="1歳児" >1歳児</option>
+            
+              <option value="2歳児" >2歳児</option>
+            
+              <option value="3歳児" >3歳児</option>
+            
+              <option value="4歳児" >4歳児</option>
+            
+              <option value="5歳児" >5歳児</option>
+            
+          </select>
+        </label>
+        <label>
+          <span>月</span>
+          <select name="month">
+            <option value="" selected>すべて</option>
+            
+              <option value="1" >1月</option>
+            
+              <option value="2" >2月</option>
+            
+              <option value="3" >3月</option>
+            
+              <option value="4" >4月</option>
+            
+              <option value="5" >5月</option>
+            
+              <option value="6" >6月</option>
+            
+              <option value="7" >7月</option>
+            
+              <option value="8" >8月</option>
+            
+              <option value="9" >9月</option>
+            
+              <option value="10" >10月</option>
+            
+              <option value="11" >11月</option>
+            
+              <option value="12" >12月</option>
+            
+          </select>
+        </label>
+        <label>
+          <span>キーワード</span>
+          <input name="q" type="search" value="" placeholder="活動、時間、援助、配慮など">
+        </label>
+      </div>
+      <button class="button button--secondary" type="submit">日案例を検索</button>
+    </form>
+
+    
+      <div class="daily-example-list-heading"><strong>主な活動　2件</strong><span>年齢・月</span><span>詳細</span></div>
+      <div class="daily-example-list">
+        
+          <details class="daily-example-card">
+            <summary class="daily-example-summary">
+              <span class="daily-example-activity">落ち葉を集める</span>
+              <span class="daily-example-age-month">4歳児 / 11月</span>
+              <span class="daily-example-toggle" aria-hidden="true"></span>
+            </summary>
+            <div class="daily-example-detail">
+              <div class="daily-example-detail-heading"><span>落ち葉を集める</span><span>時系列 2行</span></div>
+              <div class="daily-example-purpose">
+                <div><h3>ねらい</h3><p>拾った葉っぱを友だちと見せ合う。</p></div>
+                <div><h3>内容</h3><p>集めた葉っぱを並べて、色や形を見比べる。</p></div>
+              </div>
+              <div class="daily-plan-grid-scroll daily-plan-grid-preview" tabindex="0" role="region" aria-label="落ち葉を集めるの1日の流れ">
+                <table class="daily-plan-edit-grid">
+                  <thead>
+                    <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
+                  </thead>
+                  <tbody>
+                    
+                      <tr>
+                        <td>10:00</td>
+                        <td>落ち葉の色や形を見比べる。</td>
+                        <td>気づいた違いを一緒に言葉にする。</td>
+                        <td>歩く場所を確かめる。</td>
+                      </tr>
+                    
+                      <tr>
+                        <td>10:30</td>
+                        <td>気に入った葉っぱを紹介する。</td>
+                        <td>友だちの話を聞く時間を作る。</td>
+                        <td>座る場所を整える。</td>
+                      </tr>
+                    
+                  </tbody>
+                </table>
+              </div>
+              <div class="daily-example-actions">
+                <button type="button" class="button button--secondary daily-example-copy" data-copy="leaves">この候補を下書きへコピー</button>
+                <button class="button button--ghost close-daily-example" type="button">詳細を閉じる</button>
+              </div>
+            </div>
+          </details>
+        
+          <details class="daily-example-card">
+            <summary class="daily-example-summary">
+              <span class="daily-example-activity">粘土で遊ぶ</span>
+              <span class="daily-example-age-month">3歳児 / 8月</span>
+              <span class="daily-example-toggle" aria-hidden="true"></span>
+            </summary>
+            <div class="daily-example-detail">
+              <div class="daily-example-detail-heading"><span>粘土で遊ぶ</span><span>時系列 1行</span></div>
+              <div class="daily-example-purpose">
+                <div><h3>ねらい</h3><p>やわらかい粘土の感触を楽しむ。</p></div>
+                <div><h3>内容</h3><p>丸めたり伸ばしたりして好きな形を作る。</p></div>
+              </div>
+              <div class="daily-plan-grid-scroll daily-plan-grid-preview" tabindex="0" role="region" aria-label="粘土で遊ぶの1日の流れ">
+                <table class="daily-plan-edit-grid">
+                  <thead>
+                    <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
+                  </thead>
+                  <tbody>
+                    
+                      <tr>
+                        <td>10:15</td>
+                        <td>粘土を手のひらで丸める。</td>
+                        <td>子どもの動きに合わせて声をかける。</td>
+                        <td>用具を使う場所を確かめる。</td>
+                      </tr>
+                    
+                  </tbody>
+                </table>
+              </div>
+              <div class="daily-example-actions">
+                <button type="button" class="button button--secondary daily-example-copy" data-copy="clay">この候補を下書きへコピー</button>
+                <button class="button button--ghost close-daily-example" type="button">詳細を閉じる</button>
+              </div>
+            </div>
+          </details>
+        
+      </div>
+      
+      
+    
+  </section>
+
+  <div class="notice" id="daily-example-feedback" role="status" hidden></div>
+  
+  <form class="form-layout" novalidate id="daily-draft">
+    <input name="example_id" type="hidden" value="">
+    <input name="example_source_ref" type="hidden" value="">
+    <input name="search_age_class" type="hidden" value="">
+    <input name="search_month" type="hidden" value="">
+    <input name="search_query" type="hidden" value="">
+
+    <section class="form-panel">
+      <h2>下書きの基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>対象日</span>
+          <input name="target_date" type="date" required value="2026-11-11">
+        </label>
+        <label>
+          <span>クラス</span>
+          
+          <select name="classroom_ref">
+            
+              <option value="そら組" selected>そら組</option>
+            
+              <option value="さくら組" >さくら組</option>
+            
+          </select>
+        </label>
+        <label>
+          <span>年齢</span>
+          <select name="age_class" required>
+            <option value="">選択してください</option>
+            
+              <option value="0歳児" >0歳児</option>
+            
+              <option value="1歳児" >1歳児</option>
+            
+              <option value="2歳児" >2歳児</option>
+            
+              <option value="3歳児" selected>3歳児</option>
+            
+              <option value="4歳児" >4歳児</option>
+            
+              <option value="5歳児" >5歳児</option>
+            
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="見本 はなこ">
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <h2>ねらい・内容</h2>
+      <div class="daily-plan-purpose-grid">
+        <label>
+          <span>ねらい</span>
+          <textarea name="daily_aims" rows="4" placeholder="この日に大切にしたい育ちや経験"></textarea>
+        </label>
+        <label>
+          <span>内容</span>
+          <textarea name="daily_content" rows="4" placeholder="ねらいにつながる活動や経験の内容"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <div class="report-section__heading">
+        <div>
+          <h2>1日の流れ</h2>
+          <p class="field-note">候補からコピーした各セルは、この下書き専用の値です。追加・削除・書き換えができます。</p>
+        </div>
+        <button class="button button--secondary" id="add-daily-row" type="button">行を追加</button>
+      </div>
+      <div class="daily-plan-grid-scroll">
+        <table class="daily-plan-edit-grid">
+          <colgroup><col class="daily-plan-time-column"><col><col><col></colgroup>
+          <thead>
+            <tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr>
+          </thead>
+          <tbody id="daily-timeline-rows">
+            
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <a class="button button--ghost" href="../daily-findings.html">戻る</a>
+      <button class="button button--primary" type="submit" >下書きを保存</button>
+    </div>
+  </form>
+
+  <template id="daily-row-template">
+    <tr class="daily-timeline-row">
+      <td>
+        <input name="timeline_row_key" type="hidden" value="">
+        <input name="timeline_activity" type="hidden" value="">
+        <input aria-label="時刻" name="timeline_time" type="text" value="" placeholder="10:00〜10:45 / 随時">
+        <div class="daily-row-actions">
+          <button class="button button--secondary insert-daily-row" type="button">下に行を追加</button>
+          <button class="button button--ghost remove-daily-row" type="button">削除</button>
+        </div>
+      </td>
+      <td><label><span class="visually-hidden">子どもの様子</span><textarea name="timeline_children" rows="4"></textarea></label></td>
+      <td><label><span class="visually-hidden">保育士の援助</span><textarea name="timeline_support" rows="4"></textarea></label></td>
+      <td><label><span class="visually-hidden">配慮事項</span><textarea name="timeline_considerations" rows="4"></textarea></label></td>
+    </tr>
+  </template>
+  <script>
+    (() => {
+      document.querySelector(".daily-example-panel")?.addEventListener("click", (event) => {
+        const closeButton = event.target.closest(".close-daily-example");
+        if (!closeButton) return;
+        const card = closeButton.closest(".daily-example-card");
+        card.open = false;
+        card.querySelector("summary").focus();
+      });
+      const body = document.getElementById("daily-timeline-rows");
+      const template = document.getElementById("daily-row-template");
+      const addButton = document.getElementById("add-daily-row");
+      const assignKey = (row) => {
+        const key = row.querySelector('[name="timeline_row_key"]');
+        if (key && !key.value) key.value = `row_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      };
+      addButton?.addEventListener("click", () => {
+        const row = template.content.firstElementChild.cloneNode(true);
+        assignKey(row);
+        body.appendChild(row);
+        row.querySelector('[name="timeline_time"]')?.focus();
+      });
+      body?.addEventListener("click", (event) => {
+        const insertButton = event.target.closest(".insert-daily-row");
+        if (insertButton) {
+          const currentRow = insertButton.closest(".daily-timeline-row");
+          const row = template.content.firstElementChild.cloneNode(true);
+          assignKey(row);
+          currentRow.after(row);
+          row.querySelector('[name="timeline_time"]')?.focus();
+          return;
+        }
+        const removeButton = event.target.closest(".remove-daily-row");
+        if (!removeButton) return;
+        removeButton.closest(".daily-timeline-row")?.remove();
+        if (!body.querySelector(".daily-timeline-row")) addButton.click();
+      });
+    })();
+  </script>
+  
+</div>
+  <section id="saved" class="form-panel" hidden aria-labelledby="saved-title">
+    <h1 id="saved-title" tabindex="-1">保存した下書き</h1><p id="saved-scope"></p>
+    <h2>ねらい</h2><p id="saved-aim"></p><h2>内容</h2><p id="saved-content"></p>
+    <h2>1日の流れ</h2><div class="daily-plan-grid-scroll"><table class="daily-plan-edit-grid"><thead><tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr></thead><tbody id="saved-rows"></tbody></table></div>
+    <p><button type="button" class="button" id="edit">修正</button></p>
+  </section>
+  <dialog id="choice" aria-labelledby="choice-heading" aria-describedby="choice-example">
+    <h2 id="choice-heading">この文例をどう使いますか？</h2>
+    <p id="choice-example"></p>
+    <button type="button" data-mode="append"><strong>文末に追加する</strong><span>文章は改行して続きに、活動は最後の行の下に足します。今の年齢を使います。</span></button>
+    <button type="button" data-mode="replace"><strong>置き換える</strong><span>年齢・ねらい・内容・1日の流れを、この文例に入れ替えます。</span></button>
+    <button type="button" data-mode="cancel" autofocus><strong>入力を続ける</strong><span>文例を取り込まず、書きかけの日案に戻ります。</span></button>
+  </dialog>
+  <script id="example-data" type="application/json">[{"activity_blocks": [{"child_state": "\u843d\u3061\u8449\u306e\u8272\u3084\u5f62\u3092\u898b\u6bd4\u3079\u308b\u3002", "considerations": "\u6b69\u304f\u5834\u6240\u3092\u78ba\u304b\u3081\u308b\u3002", "support": "\u6c17\u3065\u3044\u305f\u9055\u3044\u3092\u4e00\u7dd2\u306b\u8a00\u8449\u306b\u3059\u308b\u3002", "time_and_activity": "10:00"}, {"child_state": "\u6c17\u306b\u5165\u3063\u305f\u8449\u3063\u3071\u3092\u7d39\u4ecb\u3059\u308b\u3002", "considerations": "\u5ea7\u308b\u5834\u6240\u3092\u6574\u3048\u308b\u3002", "support": "\u53cb\u3060\u3061\u306e\u8a71\u3092\u805e\u304f\u6642\u9593\u3092\u4f5c\u308b\u3002", "time_and_activity": "10:30"}], "age_class": "4\u6b73\u5150", "aims": ["\u62fe\u3063\u305f\u8449\u3063\u3071\u3092\u53cb\u3060\u3061\u3068\u898b\u305b\u5408\u3046\u3002"], "content": "\u96c6\u3081\u305f\u8449\u3063\u3071\u3092\u4e26\u3079\u3066\u3001\u8272\u3084\u5f62\u3092\u898b\u6bd4\u3079\u308b\u3002", "id": "leaves", "main_activity": "\u843d\u3061\u8449\u3092\u96c6\u3081\u308b", "month": 11, "title": "\u843d\u3061\u8449\u3092\u96c6\u3081\u308b"}, {"activity_blocks": [{"child_state": "\u7c98\u571f\u3092\u624b\u306e\u3072\u3089\u3067\u4e38\u3081\u308b\u3002", "considerations": "\u7528\u5177\u3092\u4f7f\u3046\u5834\u6240\u3092\u78ba\u304b\u3081\u308b\u3002", "support": "\u5b50\u3069\u3082\u306e\u52d5\u304d\u306b\u5408\u308f\u305b\u3066\u58f0\u3092\u304b\u3051\u308b\u3002", "time_and_activity": "10:15"}], "age_class": "3\u6b73\u5150", "aims": ["\u3084\u308f\u3089\u304b\u3044\u7c98\u571f\u306e\u611f\u89e6\u3092\u697d\u3057\u3080\u3002"], "content": "\u4e38\u3081\u305f\u308a\u4f38\u3070\u3057\u305f\u308a\u3057\u3066\u597d\u304d\u306a\u5f62\u3092\u4f5c\u308b\u3002", "id": "clay", "main_activity": "\u7c98\u571f\u3067\u904a\u3076", "month": 8, "title": "\u7c98\u571f\u3067\u904a\u3076"}]</script>
+</main></body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "login_prompt_displayed": true,
+  "matches_template_except_clock": false,
+  "url": "https://hikarinomori.hoikuict.net/",
+  "matches_template_except_clock_and_hosting_beacon": true,
+  "observed_difference": "One Cloudflare analytics script inserted before body end; unified diff showed no other differences after clock normalization."
+}

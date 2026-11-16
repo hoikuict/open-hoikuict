@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}基本医療情報の記入依頼・回答 | open-hoikuict{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-5">
+  <a class="text-sm text-emerald-700 underline" href="/children/{{ child.id }}/health/profile">健康プロフィールへ</a>
+  <h1 class="text-2xl font-bold">{{ child.full_name }}さんの基本医療情報</h1>
+  {% if current_user.can_edit %}
+  <section class="space-y-3 rounded-xl border bg-white p-5">
+    <h2 class="text-lg font-semibold">保護者に記入をお願いする</h2>
+    {% if parents %}
+    <form method="post" action="/children/{{ child.id }}/health/parent-medical/request" class="space-y-3">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+      <p class="text-sm">依頼は、選んだ方の保護者ホームに表示されます。</p>
+      <label class="block">宛先 <select class="rounded border px-3 py-2" name="parent_id" required><option value="">保護者を選んでください</option>{% for parent in parents %}<option value="{{ parent.id }}">{{ parent.display_name }}（{{ parent.email }}）</option>{% endfor %}</select></label>
+      <button class="rounded-lg bg-emerald-700 px-4 py-2 text-white">記入をお願いする</button>
+    </form>
+    {% else %}<p>この園児に紐付いた、有効な保護者アカウントがありません。</p>{% endif %}
+  </section>
+  {% endif %}
+  <h2 class="text-lg font-semibold">依頼と回答の履歴</h2>
+  {% for item in records %}
+  <section class="space-y-3 rounded-xl border bg-white p-5">
+    <h3 class="font-semibold">{{ item.parent_name }} ／ {{ statuses[item.status] }}</h3>
+    {% if item.requested_by %}<p class="text-sm">依頼 {{ item.created_at|jst_datetime('%Y-%m-%d %H:%M') }} ／ {{ item.requested_by }}</p>{% endif %}
+    {% if item.submitted_at %}
+    <p class="text-sm">回答 {{ item.submitted_at|jst_datetime('%Y-%m-%d %H:%M') }}</p>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+      <thead><tr><th class="p-2">項目</th><th class="p-2">{{ '現在の内容' if item.status == 'pending' else '回答前の内容' }}</th><th class="p-2">保護者からの回答</th></tr></thead>
+      <tbody>{% for key, label in labels.items() %}<tr class="border-t"><th class="p-2">{{ label }}</th><td class="p-2">{{ (current if item.status == 'pending' else item.before).get(key) or '未記入' }}</td><td class="p-2">{{ item.answers.get(key) or ('希望なし' if key == 'hospital_name' else '未記入') }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="text-sm">{{ item.xray_question }}</p><p class="font-semibold">{{ choices.get(item.xray_answer, unanswered) }}</p>
+    {% endif %}
+    {% if item.reviewed_at %}<p class="text-sm">確認 {{ item.reviewed_at|jst_datetime('%Y-%m-%d %H:%M') }} ／ {{ item.reviewed_by }}</p>{% endif %}
+    {% if item.review_note %}<p>書き直しのお願い：{{ item.review_note }}</p>{% endif %}
+    {% if item.status == 'pending' and current_user.can_manage_child_records %}
+    <form method="post" action="/children/{{ child.id }}/health/parent-medical/{{ item.id }}" class="space-y-2">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+      <button name="action" value="approve" class="rounded-lg bg-emerald-700 px-4 py-2 text-white">確認して反映する</button>
+    </form>
+    <form method="post" action="/children/{{ child.id }}/health/parent-medical/{{ item.id }}" class="space-y-2">
+      <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+      <label class="block text-sm">書き直してほしい内容<textarea class="block w-full rounded border p-2" name="note" rows="2" required maxlength="500"></textarea></label>
+      <button name="action" value="return" class="rounded-lg border px-4 py-2">書き直しをお願いする</button>
+    </form>
+    {% endif %}
+  </section>
+  {% else %}<p>まだ依頼や回答はありません。</p>{% endfor %}
+</div>
+{% endblock %}

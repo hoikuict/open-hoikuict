@@ -9,9 +9,10 @@ from sqlmodel import Session
 from auth import Role
 from models import AttendanceRecord, Child, ChildStatus, DailyContactEntry, DailyContactReply, DailyContactReplyStatus, ParentContactType
 from routers import daily_contacts
-import test_spec_changes_20260917 as contact_fixtures
+from test_spec_changes_20260917 import workbench as _workbench_fixture
 
-workbench = contact_fixtures.workbench
+# Re-export the shared pytest fixture without confusing it with test arguments.
+workbench = _workbench_fixture
 
 
 def add_contact(w, **values):

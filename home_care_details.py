@@ -1,5 +1,27 @@
 """Optional structured home-care fields alongside the original free-text notes."""
 import re
+from datetime import date, timedelta
+
+APPETITES = ("旺盛", "普通", "あまりない", "ない")
+MEAL_KEYS = ("dinner_appetite", "dinner_contents", "breakfast_appetite")
+
+
+def meal_dates(day: date):
+    previous = day - timedelta(days=1) if day > date.min else day
+    return (("dinner", f"{previous.month}月{previous.day}日の夕食（前日）"),
+            ("breakfast", f"{day.month}月{day.day}日の朝食（当日）"))
+
+
+def validate_meals(values):
+    result = {key: values[key].strip() for key in MEAL_KEYS}
+    result["breakfast_contents"] = values["breakfast_contents"].strip()
+    if any(result[key] not in ("", *APPETITES) for key in ("dinner_appetite", "breakfast_appetite")):
+        raise ValueError("食欲は表示された四つから選んでください。")
+    if len(result["dinner_contents"]) > 1000:
+        raise ValueError("夕食の内容は1000文字以内で入力してください。")
+    if len(result["breakfast_contents"]) > 1000:
+        raise ValueError("朝食の内容は1000文字以内で入力してください。")
+    return result
 
 CARE_KEYS = ("bedtime", "wakeup_time", "breakfast_contents", "stool_consistency", "stool_count")
 STOOL_LABELS = {"none": "なし", "normal": "普通", "hard": "硬い", "soft": "軟らかい", "watery": "水様", "mixed": "複数の性状", "unknown": "不明"}
@@ -40,8 +62,6 @@ def care_display_items(extra: dict | None) -> list[tuple[str, str]]:
             except (ValueError, TypeError):
                 pass
         items.append(("就寝・起床", sleep))
-    if values.get("breakfast_contents"):
-        items.append(("朝食の内容", values["breakfast_contents"]))
     if values.get("stool_consistency"):
         items.append(("排便の性状（前日夕方から）", STOOL_LABELS.get(values["stool_consistency"], "不明")))
     if values.get("stool_count") not in (None, ""):

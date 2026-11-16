@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>確認用：在園児の保護者登録 | open-hoikuict</title>
+  <style>
+    body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.wrap{max-width:34rem;margin:0 auto;padding:3rem 1rem}.card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1.5rem;box-shadow:0 8px 24px #0f172a12}h1{font-size:1.5rem;margin:0 0 .5rem}p{line-height:1.65}.muted{color:#64748b;font-size:.9rem}.error{padding:.75rem;border-radius:.5rem;background:#fef2f2;color:#b91c1c}.success{padding:.75rem;border-radius:.5rem;background:#ecfdf5;color:#047857}label{display:block;font-weight:650;margin-top:1rem}input,select,textarea{box-sizing:border-box;width:100%;margin-top:.4rem;padding:.75rem;border:1px solid #cbd5e1;border-radius:.55rem;font:inherit}button,.button{display:inline-block;margin-top:1.25rem;padding:.75rem 1rem;border:0;border-radius:.55rem;background:#4338ca;color:#fff;font-weight:700;text-decoration:none;cursor:pointer}.secondary{background:#475569}.row{display:flex;gap:.75rem;flex-wrap:wrap}.code{font:700 2rem ui-monospace,monospace;letter-spacing:.25em;padding:1rem;background:#f1f5f9;text-align:center}.password-visibility{display:flex;align-items:center;gap:.55rem;font-weight:500}.password-visibility input{width:auto;margin:0;padding:0}.password-visibility span{line-height:1.4}a{color:#4338ca}
+  </style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<link rel="stylesheet" href="preview.css"><script src="fixtures.js"></script><script src="preview.js" defer></script></head>
+<body><header class="preview-toolbar">
+<strong>確認用モック · 在園児の保護者登録</strong><p>架空データのみ／実装前の提案／保存・メール送信は行いません</p>
+<div class="preview-controls"><label>画面の比較<select id="preview-kind">
+<option value="add">修正案：新しい保護者を追加</option><option value="invite">修正案：登録済みの保護者を招待</option>
+<option value="current">比較：現在の在園児向け画面</option><option value="new">比較：新入園向け画面</option></select></label>
+<label>入力状態<select id="preview-state"><option value="empty">未入力</option><option value="filled">入力済み</option>
+<option value="partial">一部入力</option><option value="error">入力エラー</option><option value="expired">期限切れ</option></select></label>
+<button type="button" class="secondary" id="start-over">入力画面へ戻す</button></div>
+<p id="preview-scope" role="status"></p></header><main class="wrap"><section class="card"><div id="mock-view"></div></section></main>
+
+</body>
+</html>

@@ -1,0 +1,170 @@
+[
+  {
+    "id": "staff",
+    "images": [
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/staff-new-filled.jpg",
+        "width": 1280
+      },
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/staff-class.jpg",
+        "width": 1280
+      },
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/staff-code.jpg",
+        "width": 1280
+      },
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/staff-activate.jpg",
+        "width": 1280
+      },
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/staff-password.jpg",
+        "width": 1280
+      }
+    ],
+    "overflow": false,
+    "steps": 6,
+    "title": "新しい職員を登録して、使い始めてもらう"
+  },
+  {
+    "id": "child",
+    "images": [
+      {
+        "height": 2596,
+        "loaded": true,
+        "src": "assets/child-new-filled.jpg",
+        "width": 1265
+      }
+    ],
+    "overflow": false,
+    "steps": 4,
+    "title": "園児を1人登録して、台帳に載せる"
+  },
+  {
+    "id": "parent",
+    "images": [
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/parent-select.jpg",
+        "width": 1280
+      },
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/parent-invite.jpg",
+        "width": 1280
+      },
+      {
+        "height": 1274,
+        "loaded": true,
+        "src": "assets/parent-form-filled.jpg",
+        "width": 1265
+      },
+      {
+        "height": 1018,
+        "loaded": true,
+        "src": "assets/parent-review.jpg",
+        "width": 1265
+      },
+      {
+        "height": 850,
+        "loaded": true,
+        "src": "assets/parent-password.jpg",
+        "width": 1280
+      }
+    ],
+    "overflow": false,
+    "steps": 6,
+    "title": "在園児の保護者を招待して、使い始めてもらう"
+  },
+  {
+    "id": "phone",
+    "images": [
+      {
+        "height": 741,
+        "loaded": true,
+        "src": "assets/phone-empty.jpg",
+        "width": 1265
+      },
+      {
+        "height": 741,
+        "loaded": true,
+        "src": "assets/phone-filled.jpg",
+        "width": 1265
+      },
+      {
+        "height": 839,
+        "loaded": true,
+        "src": "assets/phone-saved.jpg",
+        "width": 1265
+      }
+    ],
+    "overflow": false,
+    "steps": 3,
+    "title": "電話で欠席連絡を受けた"
+  },
+  {
+    "id": "clock",
+    "images": [
+      {
+        "height": 807,
+        "loaded": true,
+        "src": "assets/monthly-list.jpg",
+        "width": 1265
+      },
+      {
+        "height": 1202,
+        "loaded": true,
+        "src": "assets/monthly-filled.jpg",
+        "width": 1265
+      },
+      {
+        "height": 1501,
+        "loaded": true,
+        "src": "assets/monthly-confirm.jpg",
+        "width": 1265
+      }
+    ],
+    "overflow": false,
+    "steps": 4,
+    "title": "登園・降園の打刻が抜けている"
+  },
+  {
+    "id": "password",
+    "images": [
+      {
+        "height": 720,
+        "loaded": true,
+        "src": "assets/staff-list.jpg",
+        "width": 1280
+      },
+      {
+        "height": 720,
+        "loaded": true,
+        "src": "assets/password-admin.jpg",
+        "width": 1280
+      },
+      {
+        "height": 720,
+        "loaded": true,
+        "src": "assets/password-person.jpg",
+        "width": 1280
+      }
+    ],
+    "overflow": false,
+    "steps": 4,
+    "title": "パスワードを忘れてログインできない"
+  }
+]

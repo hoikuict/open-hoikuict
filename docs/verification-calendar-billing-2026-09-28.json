@@ -1,0 +1,513 @@
+{
+  "environment": {
+    "python": "3.13.7",
+    "database": "isolated SQLite; billing uses WAL, foreign_keys=ON, busy_timeout=15000",
+    "scope": "current working tree, synthetic fixtures, HTTP through FastAPI TestClient"
+  },
+  "permission_downgrade": {
+    "auth": "real local_password, fresh login after admin permissions POST",
+    "principal": "view_only",
+    "membership_after_sync": {
+      "personal": "owner",
+      "shared": "editor"
+    },
+    "cases": [
+      {
+        "case": "personal_own",
+        "status": {
+          "move": 200,
+          "resize": 200,
+          "delete": 303,
+          "update": 403,
+          "create": 403
+        },
+        "database_changes_verified": true
+      },
+      {
+        "case": "shared_own",
+        "status": {
+          "move": 200,
+          "resize": 200,
+          "delete": 303,
+          "update": 403,
+          "create": 403
+        },
+        "database_changes_verified": true
+      },
+      {
+        "case": "shared_other",
+        "status": {
+          "move": 200,
+          "resize": 200,
+          "delete": 303,
+          "update": 403,
+          "create": 403
+        },
+        "database_changes_verified": true
+      }
+    ]
+  },
+  "recurrence_moves": [
+    {
+      "method": "move",
+      "original": "2026-09-21 09:00 JST",
+      "destination": "2026-09-22 09:00 JST",
+      "saved_override_verified": true,
+      "displayed_occurrence_counts": {
+        "day": 0,
+        "week": 1,
+        "month": 1,
+        "origin_day": 0,
+        "search_target": 0,
+        "search_origin": 1,
+        "search_both": 1
+      }
+    },
+    {
+      "method": "move",
+      "original": "2026-09-21 09:00 JST",
+      "destination": "2026-09-29 09:00 JST",
+      "saved_override_verified": true,
+      "displayed_occurrence_counts": {
+        "day": 0,
+        "week": 0,
+        "month": 1,
+        "origin_day": 0,
+        "search_target": 0,
+        "search_origin": 1,
+        "search_both": 1
+      }
+    },
+    {
+      "method": "move",
+      "original": "2026-09-21 09:00 JST",
+      "destination": "2026-11-03 09:00 JST",
+      "saved_override_verified": true,
+      "displayed_occurrence_counts": {
+        "day": 0,
+        "week": 0,
+        "month": 0,
+        "origin_day": 0,
+        "search_target": 0,
+        "search_origin": 1,
+        "search_both": 1
+      }
+    },
+    {
+      "method": "edit_one",
+      "original": "2026-09-21 09:00 JST",
+      "destination": "2026-09-22 09:00 JST",
+      "saved_override_verified": true,
+      "displayed_occurrence_counts": {
+        "day": 0,
+        "week": 1,
+        "month": 1,
+        "origin_day": 0,
+        "search_target": 0,
+        "search_origin": 1,
+        "search_both": 1
+      }
+    },
+    {
+      "method": "edit_one",
+      "original": "2026-09-21 09:00 JST",
+      "destination": "2026-09-29 09:00 JST",
+      "saved_override_verified": true,
+      "displayed_occurrence_counts": {
+        "day": 0,
+        "week": 0,
+        "month": 1,
+        "origin_day": 0,
+        "search_target": 0,
+        "search_origin": 1,
+        "search_both": 1
+      }
+    },
+    {
+      "method": "edit_one",
+      "original": "2026-09-21 09:00 JST",
+      "destination": "2026-11-03 09:00 JST",
+      "saved_override_verified": true,
+      "displayed_occurrence_counts": {
+        "day": 0,
+        "week": 0,
+        "month": 0,
+        "origin_day": 0,
+        "search_target": 0,
+        "search_origin": 1,
+        "search_both": 1
+      }
+    }
+  ],
+  "concurrent_transfers": [
+    {
+      "stage": "fee",
+      "repetition": 1,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        303,
+        500
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: fee_items.code"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "fee",
+      "repetition": 2,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        303,
+        500
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: fee_items.code"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "fee",
+      "repetition": 3,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        500,
+        303
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: fee_items.code"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "claim",
+      "repetition": 1,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        303,
+        500
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: billing_claims.billing_cycle_id, billing_claims.family_id"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "claim",
+      "repetition": 2,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        500,
+        303
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: billing_claims.billing_cycle_id, billing_claims.family_id"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "claim",
+      "repetition": 3,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        303,
+        500
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: billing_claims.billing_cycle_id, billing_claims.family_id"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "line",
+      "repetition": 1,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        500,
+        303
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: billing_charge_lines.source_reference"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "line",
+      "repetition": 2,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        500,
+        303
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: billing_charge_lines.source_reference"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "line",
+      "repetition": 3,
+      "synchronization": "before INSERT, after both requests read missing row",
+      "distinct_connections_at_insert": 2,
+      "statuses": [
+        303,
+        500
+      ],
+      "db_errors": [
+        {
+          "type": "IntegrityError",
+          "message": "UNIQUE constraint failed: billing_charge_lines.source_reference"
+        }
+      ],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "natural",
+      "repetition": 1,
+      "synchronization": "request start only",
+      "distinct_connections_at_insert": null,
+      "statuses": [
+        303,
+        303
+      ],
+      "db_errors": [],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "natural",
+      "repetition": 2,
+      "synchronization": "request start only",
+      "distinct_connections_at_insert": null,
+      "statuses": [
+        303,
+        303
+      ],
+      "db_errors": [],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    },
+    {
+      "stage": "natural",
+      "repetition": 3,
+      "synchronization": "request start only",
+      "distinct_connections_at_insert": null,
+      "statuses": [
+        303,
+        303
+      ],
+      "db_errors": [],
+      "snapshot": {
+        "claims": 1,
+        "lines": 1,
+        "logs": 1,
+        "claim_total": 350,
+        "line_amount": 350,
+        "line_locked": true,
+        "charge_amounts": [
+          100,
+          250
+        ],
+        "charge_line_links_valid": true,
+        "foreign_key_violations": 0
+      },
+      "retry_status": 303,
+      "retry_message": "転送済みの内容と一致しているため、変更はありませんでした。"
+    }
+  ]
+}

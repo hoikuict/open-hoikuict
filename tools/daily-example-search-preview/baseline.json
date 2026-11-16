@@ -1,0 +1,7 @@
+{
+  "app_commit": "ae885472c82c48e343d8eceeaecac1375c29b928",
+  "form_sha256": "6f9fa3417859598b9f4d4062c91ca73f34a3f0092618232d264522c5415712ae",
+  "synthetic_data_only": true,
+  "production_connections": false,
+  "scope": "日案例検索で年齢・月の指定をそれぞれ外す"
+}

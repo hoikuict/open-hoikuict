@@ -1,0 +1,39 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "deployment_record": "docs/deployment-login-manual-link-2026-11-03.md",
+  "synthetic_data_only": true,
+  "business_records_written": 0,
+  "network_disabled": true,
+  "automatic_return_paused_for_screenshots": true,
+  "screens": [
+    "terminal-classes",
+    "terminal-names",
+    "terminal-arrival",
+    "terminal-pickup-empty",
+    "terminal-pickup-partial",
+    "terminal-pickup-filled",
+    "terminal-pickup-error",
+    "terminal-pickup-extra",
+    "terminal-confirm",
+    "terminal-arrival-done",
+    "terminal-departure-empty",
+    "terminal-departure-filled",
+    "terminal-departure-error",
+    "terminal-departure-done",
+    "terminal-already",
+    "terminal-offline"
+  ],
+  "source_files": {
+    "assets/guardian/terminal.js": "2174b565907b088c1dbe652995ba520b5d924354654f51f1e9e8bf31113fd10a",
+    "guardian_arrival.py": "ea367f0042876fb5e0d0909f753d84ec61f7c6426be684956090c09cf3aa08eb",
+    "guardian_terminal.py": "be257fd66c332354d553cc1896ecfa3733ed8b3136500ed65a3764db0094c054",
+    "routers/guardian.py": "e5f968e0b0669168c25a1d4be0638165eb3b1eb04fe5005590f71e80eb0a3789",
+    "templates/guardian/kiosk.html": "173518153a3626b8a9af99296f8fd05df2945062c082c9fd98ca58f343c104ac",
+    "templates/guardian/pickup_confirm.html": "bb6a5e42a08d673b2ed53b83054bda1e2208dc172138317b72e090f132f3b316",
+    "templates/guardian/pickup_done.html": "cf9917e1d91044ed904a5318a3b4b90f067c4aacce1b64df34df86ffd63318bb",
+    "templates/guardian/pickup_form.html": "0b5b3b9cb9844902fdd3b962dfc91dfa627e220b8aeed499c538d280ccc06c45",
+    "templates/guardian/terminal_base.html": "056f219d578bc21924a2c9a46ec60c23e8218b65fd2e443c5115e249c1417069",
+    "templates/shared/_pickup_fields.html": "f19fa2e323cebed4068e42e2ac5ca21e5c144170a035818936c52f14dc27bb29",
+    "templates/shared/_pickup_script.html": "c4c22b84973d5a9a5e7d5ea91caf00b489da0cfc633f90aa44783b6a94ea6507"
+  }
+}

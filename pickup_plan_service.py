@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from models import AttendancePickupHistory, AttendanceRecord
+from guardian_hours import closing_time
 from time_utils import ensure_utc, utc_now
 
 
@@ -37,6 +38,10 @@ def save_pickup_plan(session: Session, *, child_id: int, day, revision: str, pla
     time, person = planned_pickup_time.strip(), pickup_person.strip()
     if (time or not allow_partial) and not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", time):
         raise HTTPException(400, "お迎え予定時刻を時・分で入力してください")
+    if source == "parent_portal" and time:
+        closing = closing_time(session)
+        if time >= closing:
+            raise HTTPException(400, f"お迎え予定は閉園（{closing}）より前の時刻を選んでください。")
     if (not person and not allow_partial) or len(person) > 100 or any(ord(c) < 32 for c in person):
         raise HTTPException(400, "お迎え予定者を100文字以内で入力してください")
     old_time = record.planned_pickup_time if record else None

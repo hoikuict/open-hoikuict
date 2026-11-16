@@ -1,0 +1,249 @@
+{
+  "source_commit": "8f7bf89d9860300980a4cef781b0561ff845375c",
+  "pages": [
+    {
+      "key": "weekly-0",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "monthly-0",
+      "original_fields_retained": 6
+    },
+    {
+      "key": "monthly-review-0",
+      "original_fields_retained": 7
+    },
+    {
+      "key": "weekly-1",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "monthly-1",
+      "original_fields_retained": 6
+    },
+    {
+      "key": "monthly-review-1",
+      "original_fields_retained": 7
+    },
+    {
+      "key": "weekly-2",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "monthly-2",
+      "original_fields_retained": 6
+    },
+    {
+      "key": "monthly-review-2",
+      "original_fields_retained": 7
+    },
+    {
+      "key": "weekly-3",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "monthly-3",
+      "original_fields_retained": 6
+    },
+    {
+      "key": "monthly-review-3",
+      "original_fields_retained": 7
+    },
+    {
+      "key": "weekly-4",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "monthly-4",
+      "original_fields_retained": 6
+    },
+    {
+      "key": "monthly-review-4",
+      "original_fields_retained": 7
+    },
+    {
+      "key": "weekly-5",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "monthly-5",
+      "original_fields_retained": 6
+    },
+    {
+      "key": "monthly-review-5",
+      "original_fields_retained": 7
+    },
+    {
+      "key": "annual-0",
+      "original_fields_retained": 4
+    },
+    {
+      "key": "annual-1",
+      "original_fields_retained": 4
+    },
+    {
+      "key": "annual-2",
+      "original_fields_retained": 4
+    },
+    {
+      "key": "annual-3",
+      "original_fields_retained": 4
+    },
+    {
+      "key": "annual-4",
+      "original_fields_retained": 4
+    },
+    {
+      "key": "annual-5",
+      "original_fields_retained": 4
+    },
+    {
+      "key": "legacy-weekly",
+      "original_fields_retained": 13
+    },
+    {
+      "key": "legacy-annual",
+      "original_fields_retained": 15
+    },
+    {
+      "key": "legacy-monthly",
+      "original_fields_retained": 10
+    },
+    {
+      "key": "bunrei",
+      "original_fields_retained": 13
+    },
+    {
+      "key": "daily-reflection",
+      "original_fields_retained": 16
+    },
+    {
+      "key": "document-edit",
+      "original_fields_retained": 13
+    },
+    {
+      "key": "reflection-request",
+      "original_fields_retained": 1
+    },
+    {
+      "key": "reflection-decision",
+      "original_fields_retained": 1
+    },
+    {
+      "key": "child-progress",
+      "original_fields_retained": 11
+    },
+    {
+      "key": "child-log",
+      "original_fields_retained": 27
+    },
+    {
+      "key": "child-log-correction",
+      "original_fields_retained": 30
+    },
+    {
+      "key": "health-check",
+      "original_fields_retained": 14
+    },
+    {
+      "key": "health-correction",
+      "original_fields_retained": 17
+    },
+    {
+      "key": "allergy",
+      "original_fields_retained": 15
+    },
+    {
+      "key": "allergy-edit",
+      "original_fields_retained": 15
+    },
+    {
+      "key": "institutional-new",
+      "original_fields_retained": 13
+    },
+    {
+      "key": "institutional-edit",
+      "original_fields_retained": 10
+    },
+    {
+      "key": "document-request",
+      "original_fields_retained": 3
+    },
+    {
+      "key": "document-decision",
+      "original_fields_retained": 1
+    },
+    {
+      "key": "meeting-markings",
+      "original_fields_retained": 18
+    }
+  ],
+  "input_contracts_match": true,
+  "external_connections_blocked": true,
+  "native_form_submissions_blocked": true,
+  "artifact_sha256": {
+    "allergy-edit.html": "a47d96248629836d55b368e9c1e192629fe43d63098288f0bb4833c848e528ef",
+    "allergy.html": "4921dfc732c2987445fc6e972309e2d5702210773a1b126686008b2a69116586",
+    "annual-0.html": "e01010d7462736d2d81bcc42f3db5c9d0b89a4065de219f982cddf8bd2d9a7bc",
+    "annual-1.html": "bee109503e09cbaa1db24c794718ab6b914427ecd279d87fc04710d392318105",
+    "annual-2.html": "44638ba60efb35980e87322f8f6af06bfe2ac4986c423feaee01f471c05f7b56",
+    "annual-3.html": "8392bd916f44b04231e3479d566f5887759f9d0eedbdf49a3b1f3458aedd2dc6",
+    "annual-4.html": "16647fc979e6bed29779b87c87195d971b2f0f62e8c112c3b56278338dd18103",
+    "annual-5.html": "e71ae2f67f7a3bc6ef4e1c8efa723df7bc0d7f9a47b127a2f435981441d061db",
+    "assets/annual-library.css": "a7abc3e7c8a6fc2536b09ab1be97ffa0c7c3eb6b4d00724765f996b94020a876",
+    "assets/annual-library.js": "a48cf0a70e00796c22f68aefa2b8b8a9a274496c3f037b9219dd3472bb865367",
+    "assets/base.css": "0be6fee8672aded0aa48d3402ac6ae8bbb452e2e0e60bf580abadc2670c77a16",
+    "assets/daily-example-list.css": "e5af8bd4f2a5bc13b6438eb6e59ebeacf8ce30e3221baab91bc58bba02aee706",
+    "assets/daily-plan-print.css": "66edff9f625240a7369e6f4a1cc1052a66ac427db1c637a685f6446ddaac720b",
+    "assets/document-search.css": "7c8ce33404978ab1563f7d428f697cbf0e5585c0c66ffb0dc7dc129e4f935169",
+    "assets/monthly-library.css": "2fb36e11174f0c586fdac58eac19f8accc25f74744bc10da58c442a9e1bdf85d",
+    "assets/monthly-library.js": "4f2b9f13f7ee2a285c178aabd1aa1e8eae56f2c0f2a6861978f78e2de006992c",
+    "assets/reflection-review.css": "397965729768c600830e3d98cfa075e8c3b1b0801f058cf49fc36e024f9d18d1",
+    "assets/tailwind.js": "176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15",
+    "assets/weekly-library.css": "d1e0fb44dbdcc8db0a8fe1fe768f3a8391636e3197b9b0f1e48e4eb75640ede0",
+    "assets/weekly-library.js": "61e7a06612a2c91162b7c580113a14f542820cc68f7d5a430417ccd6c3e93ac1",
+    "build.py": "6d6533a37d56931ebc47dd5e83ab8a7099c695ddef283a9678d9f1040a3378d7",
+    "bunrei.html": "1a542b45090827107dce46b6a57aee80f2a2810842377524e55f717258c322fe",
+    "catalog-ui.js": "e7ab704626c948f537633e73020abd13c39954b8a536ddea7acbb447b21a39bf",
+    "catalog.js": "c2779c9d9b05e5d98c6772d9b9a0537ac91ea8962092012ab3aabd0d67050e83",
+    "child-log-correction.html": "34d05e9593c9a55beb81eb91902f9f0c4d9f7016a5210b6b7b380bfbc04f3565",
+    "child-log.html": "d010134f35c89dfc66ef6f243d2957fa87a4bbfbbe299922afe35441d551c462",
+    "child-progress.html": "d5fc9e8270d34e2a8b1b4c1ca7bebb7244266e52308ae69f4e07cf58ca90427c",
+    "daily-reflection.html": "19b0ada80a6e78ad3bfa8c39b1c13ca341bc7ed48645cee46891805b50891176",
+    "document-decision.html": "5fe3285ab2f8ebe3bd056c1ec7d42f268d9411e76bd5a62af4cf2bc61f2d9060",
+    "document-edit.html": "3490b706b96ddd56f385f8c7f49dc6e4eabf589fce6063458b3c4a70d2bc3994",
+    "document-request.html": "419cd7f9a3174413d5a7a1fa13776a9891ec5bc5e596397866ca1d877c30e217",
+    "health-check.html": "03cd666e5e6c56c17594c868a1f664bb5f1a3b64087c783b92cd8aba89d118d2",
+    "health-correction.html": "e5e9977abfb85c1874d969eb261080aeb3343228450fef0ddcd9cd3d8891b61a",
+    "index.html": "6ab6817d532e4f6f1945f6ce99d6f690d97580601cc7e1848c691edf4534fa45",
+    "institutional-edit.html": "604ec7a42284bf408c4d5ae9e372b41fcfa4a8d31f3b9d6809c33b764ab76be9",
+    "institutional-new.html": "516e312d938e9a09922d4ffa89f0bd5aaf15e54ce4d9e17c6591856668f1505d",
+    "legacy-annual.html": "2b1fe28a48ee1b9d18b5073c497e0bb765abbd438f2f887ef001bf6c074c7ab7",
+    "legacy-monthly.html": "47b33aade2397e723c4a259774fa71cfb38c5f670fe7363b8276b6c1f64cd3b1",
+    "legacy-weekly.html": "7f6e78b378067047dc88f822975268b6556d1396c5faaa699adcb9fc509a80a8",
+    "meeting-markings.html": "8298e485dff3239de2a037495b0cbf883cad0f8e07e21e5d846676614c915ba2",
+    "mock.css": "f3f555fe17669c3b1b0ab6865b651db47cff11a153259e16d121f5265162b83c",
+    "mock.js": "70f1e0720ff73dcdfce7de13b80e46c45d8f0174f06ddc0292fd86e7e895728b",
+    "monthly-0.html": "6261306f85ce1ec5300e145e6fcccb615c25c495f638a82ce09d39453c418ee9",
+    "monthly-1.html": "29ead9ee3648a8e3c34d959cb19155495fb0fd309d71f8c53826d5344d888f58",
+    "monthly-2.html": "c07883a012dbe93da2080f8692715c8d18403ef37623a666179f14003ee94807",
+    "monthly-3.html": "ed8b73edaeab2daf975dea64b571601d23592c0f1a40ea70388e3494196549c3",
+    "monthly-4.html": "c8f4bb8925be2d8edf5cab1abc86f2d6a6c8d1c39b444af7e3e031cc8ae6b92d",
+    "monthly-5.html": "efd5552f96c3a763221b6d613e103945b06d006bacbdbe6dd47c40aa555407bd",
+    "monthly-review-0.html": "2c455305998812167242b21af7eeb89e5c096cc437a43c9ea0221999897d4507",
+    "monthly-review-1.html": "fd2f00e559b27600673f247ba544ac11e8b3bf7c100917de9a995469ead930a8",
+    "monthly-review-2.html": "fc8d4893a4df1f91b3b00c288d8da8eabb49d5737730807bfee69fd15698adf4",
+    "monthly-review-3.html": "04130daa7731875ab7635d0d7aa59495f4cea35e9cc4bb129ff8996a25625e55",
+    "monthly-review-4.html": "91b71aae9e5101497caaeddb176c0b499728ec3eb6422a5c7570aa5b92a61bfd",
+    "monthly-review-5.html": "3a459e12eab7c64dcd0517ac17d7ab8e1e7c6e90cd877cd49795d0c30eefd0d3",
+    "reflection-decision.html": "0533344da27ab0fbfeacc72b10a1be0aabcb1f9a21eb63edd73c380310df6361",
+    "reflection-request.html": "208e5093023840c239ab4693b9ce800b3718bd3e64fd438a53e459b6ef7653fc",
+    "verify.py": "0742a678292b8a47393305c6ba6d884f98dd888289a1a652b18eff85210f9a4c",
+    "weekly-0.html": "b534dcc89cd3df323a158b061e613ed1f4d0ae973bee812bd726fe4543a38496",
+    "weekly-1.html": "b9b1a6406bc10f8764dd76b853aaf333a7b027f98999830f62fef1602a1914b5",
+    "weekly-2.html": "bf96620e9c96a50dc86fbb705ca36b8375c94f5e3ed8b1640f78430d27858f06",
+    "weekly-3.html": "0bde7a19439da44f2ecebd2828c5641139a796ae02029023b186777ddd1d0d92",
+    "weekly-4.html": "8b259ccd74b6163417a2491c8ae96c401f7535227aefe9e13ff02474a69758c1",
+    "weekly-5.html": "9a0cbc4044b090aa1681936d7bc430639376f37fc883d52a497365e5c3436f27"
+  }
+}

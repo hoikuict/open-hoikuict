@@ -162,6 +162,7 @@ def _migrate_packaged_demo_snapshot(connection: sqlite3.Connection) -> None:
         },
         "extended_care_fee_rules": {"fee_bands_json": "TEXT"},
         "extended_care_charges": {"fee_breakdown_json": "TEXT"},
+        "zengin_exports": {"canceled_by": "VARCHAR", "canceled_at": "DATETIME"},
     }
     for table_name, additions in workflow_columns.items():
         columns = {
@@ -1177,6 +1178,10 @@ def _migrate_zengin_workflow() -> None:
     with engine.begin() as conn:
         profile_cols = _table_columns("family_billing_profiles")
         export_cols = _table_columns("zengin_exports")
+        if export_cols:
+            for name, sql_type in (("canceled_by", "VARCHAR"), ("canceled_at", "DATETIME")):
+                if name not in export_cols:
+                    conn.execute(text(f"ALTER TABLE zengin_exports ADD COLUMN {name} {sql_type}"))
         if profile_cols and "new_code_consumed_by_export_id" not in profile_cols:
             conn.execute(
                 text(

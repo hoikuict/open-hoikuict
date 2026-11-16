@@ -23,7 +23,8 @@ def normalize_photo(upload: UploadFile | None) -> bytes | None:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(content)) as source:
+            # Restrict decoder selection before parsing any image headers.
+            with Image.open(BytesIO(content), formats=("JPEG", "PNG", "WEBP")) as source:
                 if source.format not in {"JPEG", "PNG", "WEBP"}:
                     raise ValueError("写真はJPEG・PNG・WebP形式で選択してください。")
                 if source.width * source.height > MAX_IMAGE_PIXELS:

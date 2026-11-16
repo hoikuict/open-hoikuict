@@ -65,6 +65,7 @@ from routers.notices import router as notices_router
 from routers.parent_accounts import router as parent_accounts_router
 from routers.parent_portal import mock_login_router as parent_portal_mock_login_router
 from routers.parent_portal import router as parent_portal_router
+from routers.parent_medical import router as parent_medical_router
 from routers.parent_auth import router as parent_local_auth_router
 from routers.parent_push import router as parent_push_router
 from routers.parent_push import settings_router as parent_push_settings_router
@@ -243,6 +244,11 @@ async def public_demo_middleware(request: Request, call_next):
     return response
 
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.mount(
+    "/manual-guide-preview",
+    StaticFiles(directory=Path(__file__).parent / "docs" / "manual-guide-preview", html=True),
+    name="manual_guide",
+)
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
@@ -263,6 +269,7 @@ app.include_router(restores_router)
 app.include_router(guardian_router)
 app.include_router(parent_accounts_router)
 app.include_router(parent_portal_router)
+app.include_router(parent_medical_router)
 app.include_router(parent_push_router)
 app.include_router(parent_push_settings_router)
 app.include_router(calendar_router)

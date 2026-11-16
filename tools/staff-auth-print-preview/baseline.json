@@ -1,0 +1,26 @@
+{
+  "recorded_production_commit": "5aabf64b559b10318b015e628e9109bcfb076631",
+  "source": "C:\\python\\open-hoikuict\\.local-dev\\dependency-rollout-20261023\\source",
+  "live_server_checked": false,
+  "source_sha256": {
+    "templates/base.html": "1bc8a77d8ec62d5dc0f92d9b60b713db3fed22f5d67366d07a6e41327ca51d55",
+    "routers/staff_auth.py": "24656d0970d295840fe3016545c433da860f1c54d75d38ab82691f3521489966",
+    "local_auth.py": "45c3b8b1a5881881f1ae641ea78c414480939738d496dc252cba58a917ddf641",
+    "templates/staff_auth/authentication.html": "a41497748e1f34b07c4a891b2588e198e43c9d3e8077fae916f6bed22f7d6ff4",
+    "templates/staff_auth/action_code.html": "c7cef450e68b630c64dc3d4a07a459e27f267a32eb3083fc00599800bdd55a96",
+    "templates/staff_auth/activate.html": "6e43e60eb03f5800bf3c2441efcf3127e59a6871a3434499d9914d399970ac8b",
+    "templates/staff_auth/activate_confirm.html": "abaa5c48a48e867e53280ff8b28adbe16bd04a29a3defce1bd7b3522d9929a37",
+    "templates/staff_auth/reset_password.html": "9605d75dc798576da0f18bed29590f2e12694ac37401de2e8542839645cc2f20"
+  },
+  "main_matches_source_ignoring_line_endings": {
+    "templates/base.html": true,
+    "routers/staff_auth.py": true,
+    "local_auth.py": true,
+    "templates/staff_auth/authentication.html": true,
+    "templates/staff_auth/action_code.html": true,
+    "templates/staff_auth/activate.html": true,
+    "templates/staff_auth/activate_confirm.html": true,
+    "templates/staff_auth/reset_password.html": true
+  },
+  "mock_only": true
+}

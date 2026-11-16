@@ -1,0 +1,33 @@
+{
+  "date_jst": "2026-11-15",
+  "recorded_deployed_commit": "b6bc359740e2e070e359151a7ff0ac4dc1c1a3a6",
+  "live_server_rechecked": false,
+  "synthetic_data_only": true,
+  "production_connections": false,
+  "source_sha256": {
+    "templates/plan_docs/daily_plans/form.html": "e9d60d1f53971df50470a07ee4d9227ba629188959736a4fb2143276d49276e3",
+    "templates/base.html": "da9860b52e3e8b04e06383b8e95331160996e4790124db6fe5a3ef36e5babfca",
+    "plan_docs/routers/plans.py": "06b25541674d876c3d6e068cf3b7005d9efbbd3b0bb858b2d40448594966a4f1",
+    "static/js/daily-example-search.js": "32bc09635b6b220cdb34457452d28ef8f21f9cc2a20edf03872eaecafb507974",
+    "templates/plan_docs/weekly_library/sheet.html": "9a3d03b8eb66c8fe36d42c4e6e92fd10ef6e5c47bbccbb2dd336e343c83f871c",
+    "templates/plan_docs/annual_library/_sheet.html": "3b051445b183c4691ab730d6742a38226920a295ae2838c732dfcf648e9813bc",
+    "templates/plan_docs/monthly_library/_sheet.html": "dec320a79c5bc7b583509fbc6b0695dfbfbd73be3a13f3a3ca68297c5eb55cd2",
+    "templates/plan_docs/documents/detail.html": "3efbbe0d6f4abbe736e4b741050089188ddeea234775af0937ca64ac1f3a204e",
+    "templates/plan_docs/documents/edit.html": "6cb9d7a51ed9a083fc2588c0d8405a0b08851c75730c90fe31f83670f17a5ed5",
+    "templates/plan_docs/reflections/review.html": "a3ab17472f78fa554bd713de74d90828dbe75187558dd929514090a0daf872a0",
+    "templates/plan_docs/bunrei/facility_new.html": "ae7b1e2950b8f64b11698f89f7d681f4b0f8fcfc02c50b7711f420c440081534",
+    "templates/plan_docs/weekly_plans/form.html": "7fc12b4dd4d62e7b3c56743a3ab8c1b1c2f31c733e885a6f75fa8b3309c08ed2",
+    "plan_docs/routers/annual_library.py": "77968b47cad9182a658679796c328d6dd38f19d59c9b053556ff117db60cd59a",
+    "plan_docs/routers/monthly_library.py": "7ecd1e7ca0291b6555baf76a20cd44c6a40989345e36bcbe456b9e380fca5df6",
+    "plan_docs/routers/weekly_library.py": "9114f219f91c49ebcb60b7e4f51d06643149b69bcd90385e6890402266f39667",
+    "plan_docs/routers/documents.py": "933065b7770d6557972599550fb1c1283f51ffbaa0c3da8a4d7f4a76abce1556",
+    "plan_docs/routers/reflections.py": "679095fd5f93bb5463618b83f508664e10576a513ae3fb69188c602f30217ca5",
+    "plan_docs/routers/bunrei.py": "949f7698b719f5e7496839b89e6e34abbd703259966e4bfb71e70c3ff49d1bf4",
+    "plan_docs/services/reflection_reviews.py": "eb754ccbfc9e5b710c8af3362795cdf9034e27d6d7c4e975fe64297f9e8e1542",
+    "static/js/annual-library.js": "876a3f07dd906a2734f4aab2c966900cfe9a0c1d647d367022172b51c8e0a0c0",
+    "static/js/monthly-library.js": "6c323f690c733327c529d4183329467fe92148298845cfa840438167b0b3d76d",
+    "static/js/weekly-library.js": "6661e4e9dec4ff4327de0f835f5a8af118c631a521b798999dc31d8146bc74c6",
+    "static/js/daily-reflection-review.js": "16bc16f8180f6c5f327b8c83cec78a879c9c691fc4000d87cfc5f8eb8e012b1a"
+  },
+  "original_form_sha256": "e9d60d1f53971df50470a07ee4d9227ba629188959736a4fb2143276d49276e3"
+}

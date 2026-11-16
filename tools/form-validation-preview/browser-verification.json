@@ -1,0 +1,615 @@
+{
+  "prototype": "r1",
+  "verified_at_utc": "2026-11-14T22:53:02.437Z",
+  "source_commit": "8f7bf89d9860300980a4cef781b0561ff845375c",
+  "static_manifest": null,
+  "primary_filled_operations": [
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "旧式の週案（旧POSTの再表示）｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "旧式の年案｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "旧式の月案｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "園文例の追加・ファイル取込｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "日案の振り返り・実施変更｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "保存済み帳票の修正｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "反省の承認依頼確認｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "反省の承認・差し戻し｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "文書の確認依頼｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "文書の確認・差し戻し｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "児童票の入力・保存｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "子どもの記録の追加｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "子どもの記録の訂正・無効化｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "健診・身体測定の追加｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "健診・身体測定の訂正｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "アレルギー情報の追加・更新｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "アレルギー情報の更新｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "行事反省・経緯レコードの作成｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "行事反省・経緯レコードの改訂｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "議事録のマーキング・コメント・昇格｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "週案 · 0歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "月案 · 0歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "週案 · 1歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "月案 · 1歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "週案 · 2歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "月案 · 2歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "週案 · 3歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "月案 · 3歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "週案 · 4歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "月案 · 4歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "週案 · 5歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "月案 · 5歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "年案・年間反省 · 0歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "年案・年間反省 · 1歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "年案・年間反省 · 2歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "年案・年間反省 · 3歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "年案・年間反省 · 4歳児｜記入漏れ案内の確認"
+    },
+    {
+      "alerts": [],
+      "dialog": true,
+      "page": "年案・年間反省 · 5歳児｜記入漏れ案内の確認"
+    }
+  ],
+  "empty_operations": [
+    {
+      "page": "legacy-weekly.html",
+      "operation": "週案帳票を作成",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 2件）対象週を選択してください。年齢を選択してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "legacy-annual.html",
+      "operation": "年案帳票を作成",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "legacy-monthly.html",
+      "operation": "月案帳票を作成",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "bunrei.html",
+      "operation": "園文例として追加",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）本文を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "bunrei.html",
+      "operation": "ファイルから取り込む",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）ファイルを選択してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "daily-reflection.html",
+      "operation": "アーカイブ",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "daily-reflection.html",
+      "operation": "下書き保存",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "daily-reflection.html",
+      "operation": "承認確認へ進む",
+      "alerts": [
+        "まだ進めません（確認が必要な項目 1件）振り返りを入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "daily-reflection.html",
+      "operation": "訂正記録を追加",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 3件）訂正理由を入力してください。訂正後の活動を入力してください。訂正後の内容を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "daily-reflection.html",
+      "operation": "実施変更を記録",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 3件）変更時刻を入力してください。変更後の活動を入力してください。変更後の環境・援助・安全上の対応を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "document-edit.html",
+      "operation": "修正を保存",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "reflection-request.html",
+      "operation": "管理者へ承認を依頼",
+      "alerts": [
+        "まだ進めません（確認が必要な項目 1件）振り返りが未入力です。入力画面へ戻って記入してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "reflection-decision.html",
+      "operation": "承認する",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "reflection-decision.html",
+      "operation": "差し戻す",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）承認・差戻しのコメント（差戻し時は必須）を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "reflection-decision.html",
+      "operation": "依頼を取り下げる",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "document-request.html",
+      "operation": "管理者に確認を依頼する",
+      "alerts": [
+        "まだ進めません（確認が必要な項目 1件）件名を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "document-decision.html",
+      "operation": "確認済みにする",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "document-decision.html",
+      "operation": "差し戻す",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）確認コメントを入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "child-progress.html",
+      "operation": "保存して切り替える",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）対象期間の子どもの姿を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "child-progress.html",
+      "operation": "下書きを保存",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）対象期間の子どもの姿を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "child-log.html",
+      "operation": "記録を保存",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 3件）観察日・出来事の日を選択してください。子どもの姿を入力してください。園独自の必須項目（見本）を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "child-log-correction.html",
+      "operation": "訂正を保存",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 4件）観察日・出来事の日を選択してください。子どもの姿を入力してください。園独自の必須項目（見本）を入力してください。訂正理由を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "child-log-correction.html",
+      "operation": "無効化する",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）無効化理由を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "health-check.html",
+      "operation": "記録を追加する",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）測定日を選択してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "health-correction.html",
+      "operation": "訂正を保存する",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 2件）訂正理由を入力してください。測定日を選択してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "allergy.html",
+      "operation": "追加する",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）アレルゲン名を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "allergy.html",
+      "operation": "解除する",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "allergy-edit.html",
+      "operation": "更新する",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）アレルゲン名を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "allergy-edit.html",
+      "operation": "解除する",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "institutional-new.html",
+      "operation": "経緯レコードを作成",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 4件）タイトルを入力してください。由来を選択してください。きっかけ・背景を入力してください。何を防ぐ・実現するためかを入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "institutional-edit.html",
+      "operation": "改訂を保存",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 5件）タイトルを入力してください。由来を選択してください。きっかけ・背景を入力してください。何を防ぐ・実現するためかを入力してください。変更理由を入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "meeting-markings.html",
+      "operation": "保存",
+      "alerts": [],
+      "saved": true
+    },
+    {
+      "page": "meeting-markings.html",
+      "operation": "マーキングを保存",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）抜き書きを入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "meeting-markings.html",
+      "operation": "追加",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 1件）コメントを入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "meeting-markings.html",
+      "operation": "昇格する",
+      "alerts": [
+        "まだ保存できません（確認が必要な項目 3件）タイトルを入力してください。対象年度を入力してください。何を防ぐ・実現するためかを入力してください。"
+      ],
+      "saved": false
+    },
+    {
+      "page": "meeting-markings.html",
+      "operation": "対応済みにする",
+      "alerts": [],
+      "saved": true
+    }
+  ],
+  "responsive": [
+    {
+      "key": "weekly-0",
+      "width": 1366,
+      "alert": "まだ保存できません（確認が必要な項目 3件）表示月を選択してください。対象週を選択してください。10/26からの週の作成者を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "monthly-3",
+      "width": 1366,
+      "alert": "まだ保存できません（確認が必要な項目 1件）担任名を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "annual-3",
+      "width": 1366,
+      "alert": "まだ保存できません（確認が必要な項目 1件）担任名を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "child-log",
+      "width": 1366,
+      "alert": "まだ保存できません（確認が必要な項目 3件）観察日・出来事の日を選択してください。子どもの姿を入力してください。園独自の必須項目（見本）を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "health-correction",
+      "width": 1366,
+      "alert": "まだ保存できません（確認が必要な項目 2件）訂正理由を入力してください。測定日を選択してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "document-decision",
+      "width": 1366,
+      "alert": "まだ保存できません（確認が必要な項目 1件）確認コメントを入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "weekly-0",
+      "width": 390,
+      "alert": "まだ保存できません（確認が必要な項目 3件）表示月を選択してください。対象週を選択してください。10/26からの週の作成者を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "monthly-3",
+      "width": 390,
+      "alert": "まだ保存できません（確認が必要な項目 1件）担任名を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "annual-3",
+      "width": 390,
+      "alert": "まだ保存できません（確認が必要な項目 1件）担任名を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "child-log",
+      "width": 390,
+      "alert": "まだ保存できません（確認が必要な項目 3件）観察日・出来事の日を選択してください。子どもの姿を入力してください。園独自の必須項目（見本）を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "health-correction",
+      "width": 390,
+      "alert": "まだ保存できません（確認が必要な項目 2件）訂正理由を入力してください。測定日を選択してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "document-decision",
+      "width": 390,
+      "alert": "まだ保存できません（確認が必要な項目 1件）確認コメントを入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "weekly-0",
+      "width": 320,
+      "alert": "まだ保存できません（確認が必要な項目 3件）表示月を選択してください。対象週を選択してください。10/26からの週の作成者を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "monthly-3",
+      "width": 320,
+      "alert": "まだ保存できません（確認が必要な項目 1件）担任名を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "annual-3",
+      "width": 320,
+      "alert": "まだ保存できません（確認が必要な項目 1件）担任名を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "child-log",
+      "width": 320,
+      "alert": "まだ保存できません（確認が必要な項目 3件）観察日・出来事の日を選択してください。子どもの姿を入力してください。園独自の必須項目（見本）を入力してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "health-correction",
+      "width": 320,
+      "alert": "まだ保存できません（確認が必要な項目 2件）訂正理由を入力してください。測定日を選択してください。",
+      "near": true,
+      "visible": true
+    },
+    {
+      "key": "document-decision",
+      "width": 320,
+      "alert": "まだ保存できません（確認が必要な項目 1件）確認コメントを入力してください。",
+      "near": true,
+      "visible": true
+    }
+  ],
+  "manual_checks": [
+    "週案の別週リンクから作成者を修正し、2件→1件→仮保存へ進めた",
+    "月案の不足欄への移動・修正後保存・通信エラー後の再試行",
+    "年案反省は空の下書きを保存でき、承認確認では空欄を拒否し片欄への記入で進めた",
+    "日案反省は空の下書きを保存でき、承認確認では本文を要求した",
+    "児童票の通常保存と保存して切り替えるが同じ本文不足を案内した",
+    "健診の身長300を拒否し105への修正後に仮保存できた",
+    "行事反省は年度不足、限定公開はリンク先不足を案内した",
+    "月案で架空の文例を反映したあと仮保存できた",
+    "承認依頼確認の不足理由から日案反省の入力ページへ戻れた"
+  ],
+  "console_errors": [],
+  "screenshots": [
+    "verified-weekly.jpg",
+    "verified-mobile.jpg"
+  ],
+  "production_operations": 0,
+  "limitations": [
+    "静的モックの検証。実アプリのサーバー検証・権限・競合・添付の再表示は実装時に別途確認する。",
+    "議事録本文は簡易入力の見本。書式・写真・共同編集を再現しない。"
+  ],
+  "historical_result_note": "r1時点の検証。週案の通常状態はr1.1で訂正。static-verification.jsonは最新r1.1のため、この旧結果には対応しない。",
+  "superseded_weekly_evidence": "weekly-owner-verification-r1-1.json"
+}

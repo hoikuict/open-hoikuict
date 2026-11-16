@@ -1,11 +1,19 @@
 {% if documents %}
   <div class="document-list">
     {% for document in documents %}
-      <a class="document-row" href="/plans/documents/{{ document.id }}">
+      <a class="document-row" href="/plans/documents/{{ document.id }}"
+        {% if searchable %}
+          data-title="{{ document.title }}" data-child="{{ document.child_name or '' }}"
+          data-owner="{{ document.owner_name }}" data-room="{{ document.classroom_label }}"
+          data-kind="{{ document.document_type_label }}" data-status="{{ document.status_label }}"
+          data-format="{{ document.plan_format_label or '' }}"
+        {% endif %}>
         <span class="document-row__type">{{ document.document_type_label }}</span>
         <span class="document-row__main">
           <strong>{{ document.title }}</strong>
-          <small>クラス: {{ document.classroom_label }} / 作成者: {{ document.owner_name }}</small>
+          <small>{% if document.plan_format_label %}
+            <span class="format-label{% if document.plan_format_label == '旧式' %} old{% endif %}">{{ document.plan_format_label }}</span>
+          {% endif %}クラス: {{ document.classroom_label }} / 作成者: {{ document.owner_name }}</small>
         </span>
         <span class="status status--{{ document.status.value }}">{{ document.status_label }}</span>
       </a>
@@ -14,7 +22,7 @@
 {% else %}
   <div class="empty-state">
     <strong>まだ帳票がありません。</strong>
-    <span>年案または月案の作成から始められます。</span>
+    <span>保存すると、ここに表示されます。</span>
   </div>
 {% endif %}
 
