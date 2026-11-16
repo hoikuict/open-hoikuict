@@ -1,0 +1,40 @@
+/* Health overview: approved r2 layout. Scope rules to this screen. */
+.health-overview { min-width: 0; }
+.health-overview .health-scroll:focus-visible { outline: 3px solid #818cf8; outline-offset: 2px; }
+.health-overview .health-table{width:100%;min-width:0;table-layout:fixed}
+.health-overview col:nth-child(1){width:16%}.health-overview col:nth-child(2){width:8%}.health-overview col:nth-child(3){width:13%}.health-overview col:nth-child(4){width:17%}.health-overview col:nth-child(5){width:16%}.health-overview col:nth-child(6){width:12%}.health-overview col:nth-child(7){width:18%}
+.health-overview .health-table th,.health-overview .health-table td{padding:9px 12px;overflow-wrap:anywhere}
+.health-overview .health-table th{white-space:nowrap}
+.health-overview .health-table td:nth-child(3) span,.health-overview .health-table td:nth-child(4) span{max-width:100%}
+.health-overview .health-table td:nth-child(5) span{display:inline-block;white-space:nowrap;font-variant-numeric:tabular-nums}
+.health-overview .health-table td:nth-child(6)>span{display:inline-block;white-space:nowrap;padding-inline:8px}
+.health-overview .health-table td:last-child>div{flex-direction:row;flex-wrap:wrap;gap:2px 12px}
+.health-overview .health-table td:last-child a{display:inline-block;padding:3px 0}
+.health-overview .health-table td:last-child a[href$="parent-medical"]{flex-basis:100%;order:1}
+.health-overview .health-table tbody tr:nth-child(even){background:#f8fafc}
+.health-overview .health-table tbody tr:hover{background:#eff6ff}
+@media screen and (max-width:1100px){.health-overview .health-table th,.health-overview .health-table td{padding:9px 8px}.health-overview .health-table th{font-size:13px}}
+@media screen and (max-width:719px){
+ .health-overview .health-scroll{overflow:visible}
+ .health-overview .health-table,.health-overview .health-table tbody{display:block;width:100%;min-width:0}
+ .health-overview .health-table colgroup{display:none}
+ .health-overview .health-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .health-overview .health-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:8px}
+ .health-overview .health-table tbody td{display:block;min-width:0;padding:8px}
+ .health-overview .health-table td::before{content:attr(data-label);display:block;margin-bottom:5px;font-size:12px;font-weight:500;color:#64748b}
+ .health-overview .health-table td:first-child{font-size:16px}
+ .health-overview .health-table td:last-child{grid-column:1/-1;border-top:1px solid #e2e8f0;margin-top:4px;padding-top:10px}
+ .health-overview .health-table td:last-child>div{gap:8px}
+ .health-overview .health-table td:last-child a{border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;background:white}
+ .health-overview .health-table td:last-child a[href$="parent-medical"]{flex-basis:auto}
+ .health-overview .health-table tr.health-empty{display:block}
+ .health-overview .health-table tr.health-empty td{border:0}
+ .health-overview .health-table tr.health-empty td::before{display:none}
+}
+
+@media print {
+  .health-overview .health-table { min-width: 0; font-size: 10px; }
+  .health-overview .health-table th, .health-overview .health-table td { padding: 6px; }
+  .health-overview col:last-child { display: none; }
+  .health-overview .health-scroll { overflow: visible; }
+}
