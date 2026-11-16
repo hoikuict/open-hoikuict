@@ -2,6 +2,7 @@
 import json
 import hashlib
 import re
+import shutil
 from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
@@ -66,7 +67,7 @@ class MonthlyExportTests(unittest.TestCase):
     def test_rendered_asset_url_changes_when_content_changes(self):
         root = Path(self.fixture.temp.name) / 'versioned-assets'
         for name in ('js', 'css'):
-            (root / name).mkdir(parents=True)
+            shutil.copytree(Path(__file__).parent / 'static' / name, root / name)
             (root / name / f'monthly-library.{name}').write_bytes(b'original asset')
         with patch('template_utils._STATIC_ROOT', root):
             before = self.client.get('/plans/monthly-library').text
@@ -132,6 +133,10 @@ class MonthlyExportTests(unittest.TestCase):
         self.assertEqual(self.post(payload | {'fields':self.payload['fields']}).status_code, 422)
 
     def test_stale_or_locked_draft_cannot_export_as_current(self):
+        from plan_docs.services.monthly_review import review_fields
+        # A valid review request needs the same completed planning fields as the UI.
+        for item in review_fields(self.context['sheet'], self.payload['target_month']):
+            self.payload['fields'].setdefault(item['key'], {'body': '架空の計画'})
         payload = self.saved()
         current = self.payload | {'document_id':payload['document_id'], 'lock_version':0}
         self.assertEqual(self.post(current).status_code, 409)
