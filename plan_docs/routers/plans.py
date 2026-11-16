@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from ..services.monthly_access import require_monthly_edit, classroom_id_for_ref
+
 import calendar
 from datetime import date
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
@@ -335,6 +337,7 @@ def create_monthly_plan(
     selected_classroom_ref = classroom_ref or class_name or (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
     selected_class_name = class_name or selected_classroom_ref
     require_classroom_access(user, selected_classroom_ref)
+    require_monthly_edit(repository.session, user, classroom_id_for_ref(repository.session, selected_classroom_ref), target_month)
     document = generate_monthly_plan(
         {
             "target_month": target_month,
@@ -456,8 +459,8 @@ def new_daily_plan(
     request: Request,
     user: CurrentUser,
     repository: DocumentRepositoryDep,
-    age_class: str = "",
-    month: int | None = None,
+    age_class: str | None = None,
+    month: int | Literal[""] | None = None,
     q: str = "",
     example_id: str = "",
     target_date: str = "",
@@ -474,12 +477,13 @@ def new_daily_plan(
             inferred_month = date.fromisoformat(target_date).month
         except ValueError:
             inferred_month = None
-    selected_month = (
+    # An empty query value means "all"; an omitted value keeps calendar defaults.
+    selected_month = None if month == "" else (
         month
         if month is not None and 1 <= month <= 12
         else (inferred_month or local_today().month)
     )
-    selected_age_class = (
+    selected_age_class = "" if age_class == "" else (
         age_class
         if age_class in AGE_CLASS_OPTIONS
         else _age_class_from_classroom_ref(default_classroom_ref)
@@ -501,7 +505,9 @@ def new_daily_plan(
     values = {
         "target_date": target_date,
         "classroom_ref": default_classroom_ref,
-        "age_class": selected_age_class,
+        "age_class": selected_example.age_class if selected_example else (
+            selected_age_class or _age_class_from_classroom_ref(default_classroom_ref)
+        ),
         "daily_aims": "\n".join(selected_example.aims) if selected_example else "",
         "daily_content": selected_example.content if selected_example else "",
         "example_id": selected_example.id if selected_example else "",
@@ -543,6 +549,7 @@ def new_daily_plan(
         errors=[],
         form_values=values,
         examples=examples,
+        selected_age_class=selected_age_class,
         selected_month=selected_month,
         search_query=q,
         corpus_info=corpus_info,
@@ -569,21 +576,24 @@ def create_daily_plan(
     timeline_considerations: Annotated[list[str], Form()] = [],
     example_id: Annotated[str, Form()] = "",
     example_source_ref: Annotated[str, Form()] = "",
+    search_age_class: Annotated[str, Form()] = "",
+    search_month: Annotated[str, Form()] = "",
+    search_query: Annotated[str, Form()] = "",
 ):
     require_can_edit(user, request)
     selected_classroom_ref = classroom_ref or (user.classroom_refs[0] if user.classroom_refs else DEFAULT_CLASSROOM_REFS[0])
     require_classroom_access(user, selected_classroom_ref)
     selected_class_name = selected_classroom_ref
-    errors: list[str] = []
+    field_errors: dict[str, str] = {}
     if not target_date:
-        errors.append("対象日を選択してください。")
+        field_errors["target_date"] = "対象日を選択してください。"
     else:
         try:
             date.fromisoformat(target_date)
         except ValueError:
-            errors.append("対象日を正しい形式で選択してください。")
+            field_errors["target_date"] = "対象日を正しい形式で選択してください。"
     if not age_class:
-        errors.append("年齢を選択してください。")
+        field_errors["age_class"] = "年齢を選択してください。"
     row_count = max(
         len(timeline_row_key),
         len(timeline_time),
@@ -607,7 +617,7 @@ def create_daily_plan(
         any(str(row[key]).strip() for key in ("time_label", "activity_name", "child_state", "support", "considerations"))
         for row in timeline_rows
     ):
-        errors.append("1日の流れを1行以上入力してください。")
+        field_errors["timeline"] = "1日の流れを1行以上入力してください。"
     selected_example = None
     if example_id:
         try:
@@ -634,7 +644,7 @@ def create_daily_plan(
             "considerations": "",
         }
     ]
-    if errors:
+    if field_errors:
         return render_template(
             request,
             "daily_plans/form.html",
@@ -642,11 +652,13 @@ def create_daily_plan(
             default_classroom_ref=selected_classroom_ref,
             age_class_options=AGE_CLASS_OPTIONS,
             weekly_documents=[],
-            errors=errors,
+            errors=list(field_errors.values()),
+            field_errors=field_errors,
             form_values=values,
             examples=[],
-            selected_month=local_today().month,
-            search_query="",
+            selected_age_class=search_age_class if search_age_class in AGE_CLASS_OPTIONS else "",
+            selected_month=int(search_month) if search_month.isdecimal() and 1 <= int(search_month) <= 12 else None,
+            search_query=search_query,
             corpus_info={},
             corpus_error="",
         )

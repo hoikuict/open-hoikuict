@@ -1,0 +1,20 @@
+{
+  "initially_collapsed": true,
+  "main_activity_list": true,
+  "missing_activity_fallback": true,
+  "keyboard_toggle": true,
+  "multiple_details": true,
+  "opening_preserves_draft": true,
+  "aims_content_and_four_columns": true,
+  "copy_edit_save": true,
+  "row_add_delete": true,
+  "search_empty_state": true,
+  "view_only_save_disabled": true,
+  "viewport_widths": [
+    1440,
+    760,
+    390
+  ],
+  "browser_errors": [],
+  "fictional_data_only": true
+}

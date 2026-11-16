@@ -1,0 +1,42 @@
+{
+  "revision": "r1.1",
+  "source_commit": "8f7bf89d9860300980a4cef781b0561ff845375c",
+  "checked_at_utc": "2026-11-14T22:59:17.519Z",
+  "source_rule": "weekly_library.py:58 — new document uses user.name; existing document retains document.owner_name",
+  "ages": [
+    {
+      "age": 0,
+      "owner": "見本 はなこ",
+      "saved": true
+    },
+    {
+      "age": 1,
+      "owner": "見本 はなこ",
+      "saved": true
+    },
+    {
+      "age": 2,
+      "owner": "見本 はなこ",
+      "saved": true
+    },
+    {
+      "age": 3,
+      "owner": "見本 はなこ",
+      "saved": true
+    },
+    {
+      "age": 4,
+      "owner": "見本 はなこ",
+      "saved": true
+    },
+    {
+      "age": 5,
+      "owner": "見本 はなこ",
+      "saved": true
+    }
+  ],
+  "empty_state_keeps_login_name": true,
+  "explicit_cleared_state_errors": 2,
+  "fixing_second_week_leaves_one_error": true,
+  "errors": []
+}

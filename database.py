@@ -11,6 +11,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from family_support import bootstrap_family_data, sync_parent_child_links, sync_family_to_children
 from time_utils import local_today, utc_now
 import family_archive_guard  # noqa: F401 -- requires audited archive-state transitions
+import family_care_sync  # noqa: F401 -- preserve recognition when family membership changes
 
 DATABASE_URL = os.getenv("HOIKUICT_DATABASE_URL", "sqlite:///./hoikuict.db")
 _database_url = make_url(DATABASE_URL)
@@ -85,6 +86,7 @@ def create_db_and_tables() -> None:
     _migrate_survey_tables()
     _migrate_plan_document_child_record_columns()
     _migrate_monthly_sheet_columns()
+    _migrate_annual_sheet_columns()
     _migrate_plan_document_action_columns()
     _migrate_plan_review_notification_columns()
     _migrate_parent_push_delivery_columns()
@@ -567,6 +569,21 @@ def _migrate_monthly_sheet_columns() -> None:
         )
 
 
+def _migrate_annual_sheet_columns() -> None:
+    """Add annual sheets without converting any existing plan or period."""
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(plan_documents)")}
+        if not columns:
+            return
+        for name, kind in (("annual_sheet", "JSON"), ("annual_sheet_key", "VARCHAR")):
+            if name not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE plan_documents ADD COLUMN {name} {kind}")
+        conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_annual_sheet_key "
+            "ON plan_documents(annual_sheet_key) WHERE annual_sheet_key IS NOT NULL"
+        )
+
+
 def _migrate_plan_document_child_record_columns() -> None:
     try:
         with engine.connect() as conn:
@@ -737,6 +754,10 @@ def _migrate_zengin_workflow() -> None:
     with engine.begin() as conn:
         profile_cols = _table_columns("family_billing_profiles")
         export_cols = _table_columns("zengin_exports")
+        if export_cols:
+            for name, sql_type in (("canceled_by", "VARCHAR"), ("canceled_at", "DATETIME")):
+                if name not in export_cols:
+                    conn.execute(text(f"ALTER TABLE zengin_exports ADD COLUMN {name} {sql_type}"))
         if profile_cols and "new_code_consumed_by_export_id" not in profile_cols:
             conn.execute(
                 text(
@@ -839,6 +860,7 @@ def _migrate_care_certification_and_extended_care_columns() -> None:
         charge_cols = _table_columns("extended_care_charges")
 
         rule_additions = {
+            "fee_bands_json": "TEXT",
             "care_time_category": "VARCHAR(32)",
             "normal_start_time": "VARCHAR",
             "normal_end_time": "VARCHAR",
@@ -856,6 +878,7 @@ def _migrate_care_certification_and_extended_care_columns() -> None:
                 conn.execute(text(f"ALTER TABLE extended_care_fee_rules ADD COLUMN {column_name} {column_sql}"))
 
         charge_additions = {
+            "fee_breakdown_json": "TEXT",
             "certification_id": "INTEGER REFERENCES child_care_certifications(id)",
             "care_time_category_snapshot": "VARCHAR(32)",
             "calculation_version": "VARCHAR(32) DEFAULT 'legacy_v1' NOT NULL",

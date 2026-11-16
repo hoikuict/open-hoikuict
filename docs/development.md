@@ -58,6 +58,8 @@ CIと同じ環境指定で実行します。
 $env:HOIKUICT_ENV = "development"
 $env:HOIKUICT_ENABLE_MOCK_AUTH = "1"
 $env:HOIKUICT_KIOSK_ACCESS_MODE = "open"
+python -m pip check
+python -m pip_audit --strict
 python -m ruff check .
 python -m pytest -q --ignore=gen_bunnrei
 ```
@@ -68,11 +70,30 @@ macOS / Linuxでは次を使います。
 export HOIKUICT_ENV=development
 export HOIKUICT_ENABLE_MOCK_AUTH=1
 export HOIKUICT_KIOSK_ACCESS_MODE=open
+python -m pip check
+python -m pip_audit --strict
 python -m ruff check .
 python -m pytest -q --ignore=gen_bunnrei
 ```
 
 ローカルβ用に設定した認証モードなどが残る場合は、新しいシェルで実行します。`pyproject.toml` がテスト探索範囲とRuffの検査規則を定め、`.github/workflows/ci.yml` がCIの実行条件です。変更した機能は関連テストで確認し、リリース時は全体の確認結果を記録します。
+
+CIはインストール済みの実行用・開発用依存関係を `pip-audit --strict` で監査します。変更がない期間にも毎週実行し、DependabotもPython依存関係とGitHub Actionsを毎週確認します。監査で見つかった問題は、対象バージョンと利用経路を確認して更新し、互換性検査とテストを再実行します。
+
+Windowsのプロキシ検証は、固定ダイジェストを検証した実物のCaddyと復旧用ゲートウェイを通して実行します。架空アカウントと一時DBを使い、IPv4・IPv6・WebSocketでの接続元引継ぎ、偽装ヘッダーの無視、職員・保護者のIP別ログイン制限を確認します。
+
+```powershell
+python scripts/build_windows_components.py --output .local-dev/ci-windows-components
+$env:HOIKUICT_TEST_CADDY = (Resolve-Path .local-dev/ci-windows-components/caddy.exe).Path
+$env:HOIKUICT_ENV = "test"
+$env:PYTHON_DOTENV_DISABLED = "1"
+$env:HOIKUICT_DATABASE_URL = "sqlite://"
+python -m pytest -q test_windows_proxy.py
+```
+
+この検証はWindows CIで必須です。ローカルで `HOIKUICT_TEST_CADDY` が未指定の場合はスキップします。Windowsサービス、証明書ストア、DNS、業務DBは変更しません。
+
+導入キットを再作成するときは、更新後の `requirements.txt` からライブラリーを入れ直します。`scripts/build_beta_bundle.py` は指定されたライブラリーのバージョンを検査し、必須パッケージの欠落や古い固定バージョンを検出した場合、配布物の作成前に停止します。
 
 ## データを作り直すとき
 

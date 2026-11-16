@@ -1,0 +1,124 @@
+{
+  "revision": "r2",
+  "surface": "Codex in-app browser",
+  "layoutChecks": [
+    {
+      "requestedWidth": 1366,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 1351,
+      "regionScrollWidth": 1278,
+      "regionWidth": 1278,
+      "rowLayout": "table-row",
+      "rows": 16,
+      "tableWidth": 1278,
+      "width": 1366,
+      "passed": true
+    },
+    {
+      "requestedWidth": 1024,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 1009,
+      "regionScrollWidth": 975,
+      "regionWidth": 975,
+      "rowLayout": "table-row",
+      "rows": 16,
+      "tableWidth": 975,
+      "width": 1024,
+      "passed": true
+    },
+    {
+      "requestedWidth": 847,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 832,
+      "regionScrollWidth": 798,
+      "regionWidth": 798,
+      "rowLayout": "table-row",
+      "rows": 16,
+      "tableWidth": 798,
+      "width": 847,
+      "passed": true
+    },
+    {
+      "requestedWidth": 768,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 753,
+      "regionScrollWidth": 719,
+      "regionWidth": 719,
+      "rowLayout": "table-row",
+      "rows": 16,
+      "tableWidth": 719,
+      "width": 768,
+      "passed": true
+    },
+    {
+      "requestedWidth": 720,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 705,
+      "regionScrollWidth": 671,
+      "regionWidth": 671,
+      "rowLayout": "table-row",
+      "rows": 16,
+      "tableWidth": 671,
+      "width": 720,
+      "passed": true
+    },
+    {
+      "requestedWidth": 719,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 704,
+      "regionScrollWidth": 670,
+      "regionWidth": 670,
+      "rowLayout": "grid",
+      "rows": 16,
+      "tableWidth": 670,
+      "width": 719,
+      "passed": true
+    },
+    {
+      "requestedWidth": 390,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 375,
+      "regionScrollWidth": 349,
+      "regionWidth": 349,
+      "rowLayout": "grid",
+      "rows": 16,
+      "tableWidth": 349,
+      "width": 390,
+      "passed": true
+    },
+    {
+      "requestedWidth": 320,
+      "actions": 33,
+      "allActionsWithinViewport": true,
+      "pageWidth": 305,
+      "regionScrollWidth": 279,
+      "regionWidth": 279,
+      "rowLayout": "grid",
+      "rows": 16,
+      "tableWidth": 279,
+      "width": 320,
+      "passed": true
+    }
+  ],
+  "interactionChecks": [
+    {
+      "name": "summary opens child snapshot",
+      "passed": true
+    },
+    {
+      "name": "check records destination retained",
+      "passed": true
+    },
+    {
+      "name": "conditional medical entry works",
+      "passed": true
+    }
+  ]
+}

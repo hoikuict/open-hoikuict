@@ -1,0 +1,16 @@
+{
+  "baseline.json": "1ab5797bc9ed6fb12e6052a1c81c1d6987ed2598f3658d7f4436afaa38ae2d4c",
+  "fixtures.js": "1dc11f31667852ee497290f28344a34e1d4f9ca1f2d27172720f0ec98161eef1",
+  "index.html": "46f1290a31ae4ad3149fbe3bfb0bd4d9d6330840b4db3e5d4829d0bb3b6a55eb",
+  "preview.css": "7aa60ce7bd8b3b01b970994abcc34d0e401b2147b6134e9a4ee2dca342890352",
+  "preview.js": "454c0340dcca2dcf3800140c6fe4eb275eca1c93b4dd6454b9c9ab3d6fb4853d",
+  "verification.json": "304e31ba366de548fe1397ac48499aa14ed79e1a890cc7ee0e973981e00daf67",
+  "verified-add-desktop.png": "93aafe941fe737e0b75fd6679416f2e9d762bcb1c561361e6726642a45beae60",
+  "verified-add-mobile.png": "0767b1500323c56fe0623c7a9739e4b561355f67e0b3d904b06ae907b7b10f9c",
+  "verified-current-desktop.png": "385cdba03b8078ef87986018a7f76c3e0789320d2d8abf5ffbb43b528ca7be14",
+  "verified-current-mobile.png": "f8f7f39c8c18ea09969d7682f6aed787d9095706d978626dd268e210743dcf30",
+  "verified-invite-desktop.png": "65b3289f8bc7ed1559ac67ef07f2409b4b17a7587d2774ad15a635cff54325a3",
+  "verified-invite-mobile.png": "a0b61af10842bdc90ca8ca2255343aae691eddbeaf2d50905e61dd4788f07beb",
+  "verified-new-desktop.png": "d8c08dbc380c637d5a97eefc8ee6c1255920995c538731029afb98ab4ecf1d1d",
+  "verified-new-mobile.png": "02d02aeee48d4db80b1e1f8a7d51fef661c3cfbbd7c3eaff13883118e785a4d7"
+}

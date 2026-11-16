@@ -1,0 +1,125 @@
+{
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-10-11T05:07:47.226985+00:00",
+    "app_commit": "5b142edd546a4a1761b8dc5aa3cf82d685a5241c",
+    "image_id": "sha256:b91f94e0729adfb405bf6a42193124a2391eadc98aad06da19ba31358098ab06",
+    "image_changes": [
+      "database.py",
+      "plan_docs/db_models.py",
+      "plan_docs/models.py",
+      "plan_docs/routers/documents.py",
+      "plan_docs/routers/monthly_library.py",
+      "plan_docs/routers/plans.py",
+      "plan_docs/routers/weekly_library.py",
+      "plan_docs/serializers.py",
+      "plan_docs/services/weekly_library.py",
+      "plan_docs/store.py",
+      "restore_family_archive.py",
+      "static/css/weekly-library.css",
+      "static/js/weekly-library.js",
+      "templates/plan_docs/documents/detail.html",
+      "templates/plan_docs/home.html",
+      "templates/plan_docs/weekly_library/_report.html",
+      "templates/plan_docs/weekly_library/calendar.html",
+      "templates/plan_docs/weekly_library/sheet.html",
+      "test_monthly_library.py",
+      "test_weekly_library.py",
+      "test_weekly_restore.py"
+    ],
+    "tests": {
+      "passed": 119,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "pytest": "8.4.2",
+      "verified": true
+    },
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-weekly-calendars-20261011-5b142ed-r2",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/weekly-calendars-5b142edd546a",
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "f284d6dd0d961c4e0dab392536731410d163a99b68b72527245f42a07807758a",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "annual_age_layouts": 6,
+      "confirmation_routes": true,
+      "reflection_markup_escaped": true,
+      "real_save_apis": true,
+      "existing_search_and_print_verified": true,
+      "business_records_written": 0
+    },
+    "migration": {
+      "verified": true,
+      "added_columns": [
+        "weekly_sheet",
+        "weekly_sheet_key"
+      ],
+      "existing_table_count": 133,
+      "all_existing_rows_preserved": true,
+      "idempotent": true,
+      "old_backup_restore_verified": true,
+      "source_backup_unchanged": true
+    },
+    "weekly": {
+      "verified": true,
+      "class_age_scopes": 36,
+      "corpus_records": 533,
+      "corpus_sha256": "17571db385a487d93aef2d50c1ac5509cac4e3f7dae9a01ed6b2cb7beef6ad7e",
+      "by_age": {
+        "0": 6,
+        "1": 0,
+        "2": 0,
+        "3": 190,
+        "4": 158,
+        "5": 179
+      },
+      "business_records_written": 0,
+      "calendars_and_new_monthly_rendered": true
+    }
+  },
+  "public_verification": {
+    "verified": true,
+    "asset_hashes": {
+      "static/css/weekly-library.css": "309b264aacb6e032916037ee3172bf069743a92e6008d1de578f1a544b9fa649",
+      "static/js/weekly-library.js": "6661e4e9dec4ff4327de0f835f5a8af118c631a521b798999dc31d8146bc74c6"
+    },
+    "protected_routes": [
+      {
+        "path": "/plans/weekly-plans/",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/plans/monthly-plans/",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/plans/weekly-library",
+        "login_path": "/staff/login"
+      }
+    ],
+    "existing_daily_document": {
+      "id": 17,
+      "table_rows": 23,
+      "internal_print_borders": false,
+      "print_reflection_visible": true
+    },
+    "daily_october_zero_age_candidates": 10,
+    "browser_errors": [],
+    "business_write_requests": [],
+    "health": "ok"
+  },
+  "local_browser_verification": {
+    "checks": 23,
+    "errors": [],
+    "verified": true
+  },
+  "deployment_guard_tests": 12,
+  "independent_record_image_compose_verification": true,
+  "baseline_commit": "a9706b69137f1c14e2177be14f5806e7eae79a6a"
+}

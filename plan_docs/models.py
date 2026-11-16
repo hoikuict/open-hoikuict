@@ -80,6 +80,7 @@ class PlanDocument:
     related_document_ids: list[int] = field(default_factory=list)
     schedule: PlanSchedule | None = None
     monthly_sheet: dict | None = None
+    annual_sheet: dict | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 

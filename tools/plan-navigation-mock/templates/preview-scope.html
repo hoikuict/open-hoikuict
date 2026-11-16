@@ -1,0 +1,17 @@
+<script>
+  for (const link of document.querySelectorAll('#staff-sidebar a[href]')) {
+    if (link.pathname.startsWith('/plans/')) continue;
+    link.removeAttribute('href');
+    link.setAttribute('aria-disabled', 'true');
+    link.title = 'このモックで試せるのは指導計画です';
+  }
+  const logout = document.querySelector('#staff-sidebar form[action="/staff/logout"] button');
+  if (logout) logout.disabled = true;
+  document.addEventListener('click', event => {
+    const link = event.target.closest('a[href]');
+    if (link && link.origin !== location.origin) {
+      event.preventDefault();
+      window.alert('確認用の架空データです。外部の原本はありません。');
+    }
+  }, true);
+</script>

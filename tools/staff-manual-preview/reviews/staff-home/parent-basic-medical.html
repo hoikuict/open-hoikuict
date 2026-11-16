@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'none'">
+  <title>基本医療情報の確認｜保護者の画面見本</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #1e293b; font: 1rem/1.65 "Yu Gothic UI", Meiryo, sans-serif; }
+    header { background: #4338ca; color: white; padding: .8rem max(1rem, calc((100% - 44rem)/2)); font-weight: bold; }
+    main { max-width: 46rem; margin: auto; padding: 1.4rem 1rem 3rem; }
+    h1 { font-size: clamp(1.4rem, 4vw, 2rem); margin: 1rem 0 0; }
+    h2, legend { font-size: 1.1rem; font-weight: bold; }
+    h2, p { margin: .3rem 0 .8rem; }
+    fieldset, .panel { min-width: 0; margin: 1.1rem 0; padding: 1rem 1.3rem; border: 1px solid #d6dce5; background: white; border-radius: .7rem; }
+    label { display: block; margin: .7rem 0; font-weight: 600; }
+    input:not([type="checkbox"]):not([type="radio"]), select { display: block; width: 100%; padding: .6rem; border: 1px solid #94a3b8; border-radius: .35rem; background: white; color: inherit; font: inherit; }
+    input[type="checkbox"], input[type="radio"] { width: 1.1rem; height: 1.1rem; vertical-align: middle; }
+    .preview { display: flex; gap: .35rem 1rem; flex-wrap: wrap; align-items: center; font-size: .9rem; color: #475569; }
+    .preview label { margin: 0; } .preview select { display: inline-block; width: auto; padding: .2rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+    button { border: 1px solid #a5abc1; border-radius: .5rem; padding: .65rem 1rem; background: white; color: #312e81; cursor: pointer; font: inherit; font-weight: bold; }
+    button.primary { background: #4338ca; color: white; border-color: #4338ca; }
+    :focus-visible { outline: 3px solid #0369a1; outline-offset: 2px; }
+    small { color: #475569; } #error { color: #9f1239; font-weight: 600; }
+    dl { margin: 0; } dt { font-weight: bold; } dd { margin: .1rem 0 .7rem; overflow-wrap: anywhere; } [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>保護者アプリ</header>
+  <main>
+    <aside class="preview"><span>架空の園児の画面見本です。回答は園に送られません。</span>
+      <label>見本の切り替え <select id="sample"><option value="partial">一部入力済み</option><option value="empty">未入力</option><option value="full">入力済み</option><option value="error">入力エラー</option></select></label>
+    </aside>
+    <h1>見本 あおいさんの基本医療情報</h1>
+    <form id="editor" novalidate>
+      <p>登録されている内容を確認し、変わったところを直してください。</p>
+      <fieldset><legend>血液型</legend>
+        <label>お子さんの血液型<select id="blood"><option value="">未記入</option><option>わからない</option><option>A型</option><option>B型</option><option>O型</option><option>AB型</option></select></label>
+      </fieldset>
+      <fieldset><legend>かかりつけ医</legend>
+        <label>かかりつけ医の名前<input id="doctor"></label>
+        <label>かかりつけ医の電話番号<input id="doctorPhone" type="tel"></label>
+        <label>かかりつけ医の住所<input id="address"></label>
+      </fieldset>
+      <fieldset><legend>希望する搬送先（任意）</legend>
+        <p>希望する病院があれば、病院名を入力してください。電話番号はわかる場合に入力してください。希望がなければ空欄で送れます。</p>
+        <label>病院名<input id="hospital"></label>
+        <label>病院の電話番号<input id="hospitalPhone" type="tel"></label>
+        <label id="clearRow" hidden><input type="checkbox" id="clearHospital"> 登録済みの搬送先の希望を取り消す</label>
+      </fieldset>
+      <fieldset id="xray" aria-describedby="xrayQuestion"><legend>レントゲン撮影の事前承諾</legend>
+        <p id="xrayQuestion">保育中のけがで受診し、医師がレントゲン撮影を必要と判断したとき、園から保護者に連絡がつかない場合はどうしますか？</p>
+        <label><input type="radio" name="xrayConsent" value="agree"> 連絡がつかない場合は、撮影を承諾します</label>
+        <label><input type="radio" name="xrayConsent" value="contact"> 事前には承諾しません。撮影前に確認してください</label>
+        <label><input type="radio" name="xrayConsent" value="undecided"> 今は決めません</label>
+        <small>園は回答を受診先に伝えます。撮影の手続きは受診先に確認します。</small>
+      </fieldset>
+      <p id="error" role="alert"></p>
+      <button class="primary" type="submit">回答を確認する</button>
+    </form>
+    <section class="panel" id="review" hidden aria-labelledby="reviewTitle">
+      <h2 id="reviewTitle" tabindex="-1">回答の確認</h2><p>見本 あおいさんの回答として、次の内容を園に伝えます。</p>
+      <dl id="values"></dl>
+      <div class="actions"><button type="button" id="back">書き直す</button><button type="button" class="primary" id="finish">この内容で回答する（見本）</button></div>
+    </section>
+    <section class="panel" id="done" hidden><h2 id="doneTitle" tabindex="-1">回答の見本はここまでです</h2><button type="button" id="restart">もう一度試す</button></section>
+  </main>
+  <script>
+    const byId = id => document.getElementById(id);
+    const fields = {blood:"血液型",doctor:"かかりつけ医の名前",doctorPhone:"かかりつけ医の電話番号",address:"かかりつけ医の住所",hospital:"希望する搬送先（任意）",hospitalPhone:"搬送先の電話番号"};
+    const partial = {blood:"わからない", doctor:"見本こどもクリニック"};
+    const full = {...partial, doctorPhone:"000-0000-0001", address:"見本町1番地", hospital:"見本総合病院", hospitalPhone:"000-0000-0002", xrayConsent:"contact"};
+    const samples = {empty:{}, partial, full, error:partial};
+    let initial;
+    function show(section) {
+      for (const id of ["editor", "review", "done"]) byId(id).hidden = id !== section;
+    }
+    function syncClear() {
+      for (const key of ["hospital","hospitalPhone"]) byId(key).disabled = byId("clearHospital").checked;
+    }
+    function loadSample() {
+      const name = byId("sample").value;
+      initial = samples[name];
+      for (const key of Object.keys(fields)) byId(key).value = initial[key] || "";
+      for (const choice of byId("editor").elements.xrayConsent) choice.checked = choice.value === initial.xrayConsent;
+      byId("clearRow").hidden = !initial.hospital;
+      byId("clearHospital").checked = false;
+      syncClear();
+      byId("error").textContent = "";
+      show("editor");
+      if (name === "error") {
+        byId("hospitalPhone").value = "000-0000-0002";
+        reviewAnswer();
+      }
+    }
+    function reviewAnswer() {
+      const values = {};
+      for (const key of Object.keys(fields)) values[key] = byId(key).value.trim() || initial[key] || "";
+      if (byId("clearHospital").checked) values.hospital = values.hospitalPhone = "";
+      if (values.hospitalPhone && !values.hospital) {
+        byId("error").textContent = "搬送先の電話番号を入力した場合は、病院名も入力してください。";
+        byId("hospital").focus();
+        return;
+      }
+      byId("error").textContent = "";
+      const list = byId("values");
+      list.replaceChildren();
+      for (const [key, label] of Object.entries(fields)) {
+        const dt = document.createElement("dt"), dd = document.createElement("dd");
+        dt.textContent = label;
+        dd.textContent = values[key] || (key === "hospital" ? "希望の記入なし" : "未記入");
+        list.append(dt, dd);
+      }
+      const choice = byId("xray").querySelector("input:checked");
+      const xrayTitle = document.createElement("dt");
+      xrayTitle.textContent = byId("xray").querySelector("legend").textContent;
+      const xrayAnswer = document.createElement("dd");
+      xrayAnswer.append(byId("xrayQuestion").textContent, document.createElement("br"));
+      xrayAnswer.append(choice ? choice.labels[0].textContent.trim() : "未回答（事前承諾なし）");
+      list.append(xrayTitle, xrayAnswer);
+      show("review");
+      byId("reviewTitle").focus();
+    }
+    byId("sample").addEventListener("change", loadSample);
+    byId("clearHospital").addEventListener("change", syncClear);
+    byId("editor").addEventListener("submit", event => { event.preventDefault(); reviewAnswer(); });
+    byId("back").addEventListener("click", () => { show("editor"); byId("hospital").disabled ? byId("clearHospital").focus() : byId("hospital").focus(); });
+    byId("finish").addEventListener("click", () => { show("done"); byId("doneTitle").focus(); });
+    byId("restart").addEventListener("click", () => { loadSample(); byId("sample").focus(); });
+    loadSample();
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from io import StringIO
@@ -21,6 +22,7 @@ from models import (
     ExtendedCareFeeRule,
 )
 from time_utils import local_today, utc_now
+from extended_care_bands import evaluate_plan, rule_plan
 
 
 LOCKED_STATUSES = {
@@ -46,6 +48,7 @@ class ChargeComputation:
     evening_extended_minutes: int = 0
     evening_billable_units: int = 0
     evening_amount: int = 0
+    fee_breakdown_json: Optional[str] = None
 
 
 @dataclass(slots=True)
@@ -165,6 +168,7 @@ def validate_fee_rule(
     evening_grace_minutes: Optional[int] = None,
     evening_rounding_minutes: Optional[int] = None,
     evening_unit_price: Optional[int] = None,
+    fee_bands_json: Optional[str] = None,
     rule_id: Optional[int] = None,
 ) -> list[str]:
     errors: list[str] = []
@@ -192,7 +196,7 @@ def validate_fee_rule(
                 errors.append("通常保育終了時刻は開始時刻より後にしてください。")
         except ValueError:
             errors.append("通常保育開始・終了時刻は HH:MM 形式で入力してください。")
-        if not morning_enabled and not evening_enabled:
+        if not morning_enabled and not evening_enabled and fee_bands_json is None:
             errors.append("朝延長または夕延長のいずれかを有効にしてください。")
         if not 0 <= morning_grace_minutes <= 120:
             errors.append("朝猶予時間は 0 以上 120 以下で入力してください。")
@@ -250,6 +254,8 @@ def get_active_rule_for_date(
 
 
 def calculate_charge(record: AttendanceRecord, rule: ExtendedCareFeeRule) -> ChargeComputation:
+    if rule.care_time_category is not None and rule.fee_bands_json is not None:
+        return _calculate_band_charge(record, rule)
     if rule.care_time_category is not None:
         return _calculate_category_charge(record, rule)
     if record.check_out_at is None:
@@ -287,6 +293,31 @@ def calculate_charge(record: AttendanceRecord, rule: ExtendedCareFeeRule) -> Cha
         evening_billable_units=billable_units,
         evening_amount=auto_amount,
     )
+
+
+def _calculate_band_charge(record: AttendanceRecord, rule: ExtendedCareFeeRule) -> ChargeComputation:
+    if not record.check_in_at or not record.check_out_at:
+        raise ValueError("登園・降園打刻がないため計算できません。")
+    if record.check_in_at.date() != record.attendance_date or record.check_out_at.date() != record.attendance_date:
+        raise ValueError("日付をまたぐ利用は時間帯設定の対象外です。確認してください。")
+    result = evaluate_plan(rule_plan(rule), record.attendance_date.isoformat(),
+                           record.check_in_at.strftime("%H:%M"), record.check_out_at.strftime("%H:%M"))
+    if result["warnings"]:
+        raise ValueError(" / ".join(result["warnings"]))
+    normal_start = datetime.combine(record.attendance_date, _parse_rule_time(rule.normal_start_time))
+    normal_end = datetime.combine(record.attendance_date, _parse_rule_time(rule.normal_end_time))
+    values = {}
+    for side in ("morning", "evening"):
+        rows = [row for row in result["lines"] if row["side"] == side]
+        values.update({side + "_extended_minutes": sum(row["billableMinutes"] for row in rows),
+                       side + "_billable_units": sum(row["units"] for row in rows),
+                       side + "_amount": sum(row["amount"] for row in rows)})
+    return ChargeComputation(charge_start_at=normal_end + timedelta(minutes=rule.evening_grace_minutes or 0),
+        actual_check_in_at=_floor_to_minute(record.check_in_at), actual_check_out_at=_floor_to_minute(record.check_out_at),
+        normal_start_at=normal_start, normal_end_at=normal_end,
+        extended_minutes=values["morning_extended_minutes"] + values["evening_extended_minutes"],
+        billable_units=values["morning_billable_units"] + values["evening_billable_units"], auto_amount=result["total"],
+        fee_breakdown_json=json.dumps(result, ensure_ascii=False), **values)
 
 
 def _calculate_category_charge(record: AttendanceRecord, rule: ExtendedCareFeeRule) -> ChargeComputation:
@@ -358,8 +389,13 @@ def recalculate_attendance_charge(
     if existing and existing.status in LOCKED_STATUSES and not include_locked:
         return existing
 
-    rule, certification, _ = resolve_calculation_context(session, record)
+    rule, certification, issue = resolve_calculation_context(session, record)
     if rule is None or rule.id is None:
+        # A draft calculated with older punches must not masquerade as a valid
+        # amount after a new punch falls outside explicitly configured bands.
+        if existing and existing.status not in LOCKED_STATUSES and issue.startswith("時間帯設定："):
+            session.delete(existing)
+            return None
         return existing
 
     computed = calculate_charge(record, rule)
@@ -380,7 +416,8 @@ def recalculate_attendance_charge(
     charge.auto_amount = computed.auto_amount
     charge.certification_id = certification.id if certification else None
     charge.care_time_category_snapshot = certification.care_time_category if certification else None
-    charge.calculation_version = "category_v1" if certification else "legacy_v1"
+    charge.calculation_version = "bands_v1" if rule.fee_bands_json is not None else "category_v1" if certification else "legacy_v1"
+    charge.fee_breakdown_json = computed.fee_breakdown_json
     charge.actual_check_in_at = computed.actual_check_in_at
     charge.normal_start_at = computed.normal_start_at
     charge.normal_end_at = computed.normal_end_at
@@ -450,6 +487,11 @@ def resolve_calculation_context(
         return None, certification, "登園打刻がないため朝延長を計算できません"
     if rule.evening_enabled and record.check_out_at is None:
         return None, certification, "降園打刻がないため夕延長を計算できません"
+    if rule.fee_bands_json is not None:
+        try:
+            _calculate_band_charge(record, rule)
+        except ValueError as exc:
+            return None, certification, f"時間帯設定：{exc}"
     return rule, certification, ""
 
 
@@ -494,7 +536,7 @@ def recalculate_period(
         ).first()
         before_snapshot = _charge_recalculation_snapshot(before)
         charge = recalculate_attendance_charge(session, record, include_locked=include_locked)
-        if charge is not None and _charge_recalculation_snapshot(charge) != before_snapshot:
+        if _charge_recalculation_snapshot(charge) != before_snapshot:
             updated += 1
     return updated
 
@@ -518,6 +560,7 @@ def _charge_recalculation_snapshot(charge: Optional[ExtendedCareCharge]) -> tupl
         charge.certification_id,
         charge.care_time_category_snapshot,
         charge.calculation_version,
+        charge.fee_breakdown_json,
         charge.morning_extended_minutes,
         charge.morning_amount,
         charge.evening_extended_minutes,

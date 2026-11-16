@@ -1,0 +1,34 @@
+{
+  "mockOnly": true,
+  "checks": [
+    "activate: A4 PDF generated, print and navigation cancel preserve code",
+    "activate: original input fields, blank/partial/error states, issue and recipient completion",
+    "reset: A4 PDF generated, print and navigation cancel preserve code",
+    "reset: original input fields, blank/partial/error states, issue and recipient completion",
+    "390 px mobile without overflow; no JS exceptions, external requests, or write requests"
+  ],
+  "errors": [],
+  "external": [],
+  "writes": [],
+  "liveServerChecked": false,
+  "pdf": [
+    {
+      "file": "output\\pdf\\staff-activate-handout-preview.pdf",
+      "pages": 1,
+      "size_points": [
+        594.95996,
+        841.91998
+      ],
+      "text_verified": true
+    },
+    {
+      "file": "output\\pdf\\staff-reset-handout-preview.pdf",
+      "pages": 1,
+      "size_points": [
+        594.95996,
+        841.91998
+      ],
+      "text_verified": true
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "defaults_preserved": true,
+  "filter_cases": 4,
+  "keyword_only": true,
+  "search_keeps_unsaved_draft": true,
+  "failed_search_keeps_draft_and_results": true,
+  "copy_sets_candidate_age": true,
+  "copy_preserves_filters_and_basic_fields": true,
+  "copy_edit_save": true,
+  "row_controls": true,
+  "empty_results": true,
+  "viewport_widths": [
+    1440,
+    760,
+    390
+  ],
+  "browser_errors": [],
+  "fictional_data_only": true
+}

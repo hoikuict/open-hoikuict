@@ -1,0 +1,2853 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>健康管理一覧・余白の見直し r2（モック）</title><script src="tailwind.js"></script><link rel="stylesheet" href="preview.css?v=r2"></head>
+<body><aside class="preview-controls" aria-label="モックの確認用操作"><div class="preview-heading"><strong>健康管理一覧 · レイアウト確認 r2</strong><span>架空データのモック／本番への保存・送信なし</span></div>
+<div class="preview-options"><div class="view-toggle" role="group" aria-label="レイアウト"><button type="button" data-layout="proposed" aria-pressed="true">変更案</button><button type="button" data-layout="current" aria-pressed="false">現行の配置</button></div>
+<label>見本の状態 <select id="scenario"><option value="filled">入力済み（長文・複数項目あり）</option><option value="empty">未入力（測定・アレルギー未登録）</option><option value="partial">一部入力（身長のみを含む）</option><option value="error">読み込みエラー</option></select></label><a href="#list-anchor" id="jump-list">一覧へ移動</a></div>
+<p id="layout-note">操作欄まで画面幅に収め、狭い画面では園児ごとに全項目と操作をまとめて表示します。</p></aside>
+<main id="business-screen" class="proposed"></main>
+<div id="load-error" hidden role="alert"><h1>一覧を読み込めませんでした</h1><p>これは確認用のエラー表示です。再読み込みで架空データの一覧へ戻ります。</p><button type="button" id="retry">再読み込み</button></div>
+<dialog id="preview-detail" aria-labelledby="detail-title"><div class="detail-header"><h2 id="detail-title"></h2><button type="button" id="close-detail">閉じる</button></div><p class="detail-note">遷移先の確認用です。このモックでは編集・登録は行いません。</p><div id="detail-content"></div><p id="detail-route"></p></dialog>
+<template id="scenario-filled"><div class="mx-auto max-w-7xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-emerald-700">健康管理</p>
+      <h1 class="text-2xl font-bold text-slate-900">健康管理一覧</h1>
+      <p class="mt-1 text-sm text-slate-500">健診の期限切れ、重点管理項目、アレルギー対応が必要な園児を横断で確認できます。</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="#preview-detail" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-route="/children">園児一覧</a>
+      <button onclick="window.print()" class="no-print rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">印刷</button>
+    </div>
+  </div>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">表示園児数</p>
+      <p class="mt-3 text-3xl font-bold text-slate-900" data-count="0">18</p>
+      <p class="mt-2 text-sm text-slate-500">現在の条件に一致</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">対応が必要</p>
+      <p class="mt-3 text-3xl font-bold text-rose-700" data-count="1">6</p>
+      <p class="mt-2 text-sm text-slate-500">アラートあり</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">重点管理項目</p>
+      <p class="mt-3 text-3xl font-bold text-amber-700" data-count="2">3</p>
+      <p class="mt-2 text-sm text-slate-500">登録のある園児</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">期限切れアレルギー</p>
+      <p class="mt-3 text-3xl font-bold text-violet-700" data-count="3">1</p>
+      <p class="mt-2 text-sm text-slate-500">更新確認が必要</p>
+    </div>
+  </section>
+
+  <section class="no-print rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form action="#" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4" id="health-filters">
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">在籍状況</span>
+        <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-status">
+          <option value="enrolled" selected>在園のみ</option>
+          <option value="all">すべて</option>
+          <option value="graduated">卒園のみ</option>
+          <option value="withdrawn">退園のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">アラート</span>
+        <select name="attention" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-attention">
+          <option value="all" selected>すべて</option>
+          <option value="needs_attention">対応が必要のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">クラス</span>
+        <select name="classroom_id" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-classroom_id">
+          <option value="" selected>すべて</option>
+          
+          <option value="1">ひよこ</option>
+          
+          <option value="2">りす</option>
+          
+          <option value="3">うさぎ</option>
+          
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">検索</span>
+        <input name="q" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="園児名 / クラス / 家族名" id="filter-q">
+      </label>
+      <div class="md:col-span-2 xl:col-span-4 flex justify-end gap-3">
+        <a href="#preview-detail" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-route="/health">リセット</a>
+        <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">絞り込む</button>
+      </div>
+    </form>
+  </section>
+
+  <p class="scroll-hint">現行の配置は、横にスクロールして操作欄を確認できます。</p><section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto health-scroll" tabindex="0" role="region" aria-label="園児の健康情報と操作の一覧">
+      <table class="min-w-full text-sm health-table">
+        <colgroup><col><col><col><col><col><col><col></colgroup><thead class="bg-emerald-50 text-emerald-900">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium" scope="col">園児</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">クラス</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">健康フラグ</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">アレルギー</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">最新測定</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">健診状態</th>
+            <th class="no-print px-4 py-3 text-left font-medium" scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">青空 はる</div>
+              <div class="mt-1 text-xs text-slate-500">青空家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">73.4 cm</span>
+                
+                
+                <span>9.1 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/1/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/1/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">若葉 そう</div>
+              <div class="mt-1 text-xs text-slate-500">若葉家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">肘内障</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">74.9 cm</span>
+                
+                
+                <span>9.5 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/2/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/2/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">花野 めい</div>
+              <div class="mt-1 text-xs text-slate-500">花野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">76.4 cm</span>
+                
+                
+                <span>9.9 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/3/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/3/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">小川 りく</div>
+              <div class="mt-1 text-xs text-slate-500">小川家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">77.9 cm</span>
+                
+                
+                <span>10.3 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/4/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/4/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">星見 ひなた</div>
+              <div class="mt-1 text-xs text-slate-500">星見家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/5/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/5/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">森野 あおい</div>
+              <div class="mt-1 text-xs text-slate-500">森野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アレルギー</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              <div>1 件</div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">卵</span>
+                
+                
+              </div>
+              
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">80.9 cm</span>
+                
+                
+                <span>11.1 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/6/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/6/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">朝日 ゆう</div>
+              <div class="mt-1 text-xs text-slate-500">朝日家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">82.4 cm</span>
+                
+                
+                <span>11.5 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/7/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/7/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">野原 なお</div>
+              <div class="mt-1 text-xs text-slate-500">野原家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">83.9 cm</span>
+                
+                
+                <span>11.9 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/8/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/8/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">水野 さき</div>
+              <div class="mt-1 text-xs text-slate-500">水野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">85.4 cm</span>
+                
+                
+                <span>12.3 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/9/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/9/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">風見 そら</div>
+              <div class="mt-1 text-xs text-slate-500">風見家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">86.9 cm</span>
+                
+                
+                <span>12.7 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/10/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/10/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">月野 あかり</div>
+              <div class="mt-1 text-xs text-slate-500">月野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">熱性けいれん</span>
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">与薬</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">88.4 cm</span>
+                
+                
+                <span>13.1 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/11/health">健康サマリー</a>
+                <a href="#preview-detail" class="text-sm font-semibold text-amber-800 underline" data-original-route="/children/11/health/parent-medical">基本医療情報の回答を確認</a>
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/11/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">山吹 けい</div>
+              <div class="mt-1 text-xs text-slate-500">山吹家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">89.9 cm</span>
+                
+                
+                <span>13.5 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/12/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/12/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">白石 れん</div>
+              <div class="mt-1 text-xs text-slate-500">白石家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">91.4 cm</span>
+                
+                
+                <span>13.9 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/13/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/13/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="3" data-priority="true" data-expired="true">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">春野 こと</div>
+              <div class="mt-1 text-xs text-slate-500">春野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アレルギー</span>
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">エピペン</span>
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アレルギー期限切れ</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              <div>5 件</div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">牛乳</span>
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">小麦</span>
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">魚卵（たらこ・いくらなど、加工食品に含まれる場合も確認）</span>
+                
+                
+                <span class="text-xs text-slate-500">ほか 2 件</span>
+                
+              </div>
+              
+              <div class="mt-1 text-xs font-medium text-rose-700">期限切れ 1 件</div>
+              
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">92.9 cm</span>
+                
+                
+                <span>14.3 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/14/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/14/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">夏目 いと</div>
+              <div class="mt-1 text-xs text-slate-500">夏目家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">94.4 cm</span>
+                
+                
+                <span>14.7 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/15/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/15/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">秋山 まお</div>
+              <div class="mt-1 text-xs text-slate-500">秋山家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">95.9 cm</span>
+                
+                
+                <span>15.1 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/16/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/16/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="graduated" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">冬木 あん</div>
+              <div class="mt-1 text-xs text-slate-500">冬木家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">97.4 cm</span>
+                
+                
+                <span>15.5 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/17/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/17/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="withdrawn" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">虹野 つむぎ</div>
+              <div class="mt-1 text-xs text-slate-500">虹野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">98.9 cm</span>
+                
+                
+                <span>15.9 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/18/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/18/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</template>
+<template id="scenario-empty"><div class="mx-auto max-w-7xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-emerald-700">健康管理</p>
+      <h1 class="text-2xl font-bold text-slate-900">健康管理一覧</h1>
+      <p class="mt-1 text-sm text-slate-500">健診の期限切れ、重点管理項目、アレルギー対応が必要な園児を横断で確認できます。</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="#preview-detail" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-route="/children">園児一覧</a>
+      <button onclick="window.print()" class="no-print rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">印刷</button>
+    </div>
+  </div>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">表示園児数</p>
+      <p class="mt-3 text-3xl font-bold text-slate-900" data-count="0">18</p>
+      <p class="mt-2 text-sm text-slate-500">現在の条件に一致</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">対応が必要</p>
+      <p class="mt-3 text-3xl font-bold text-rose-700" data-count="1">6</p>
+      <p class="mt-2 text-sm text-slate-500">アラートあり</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">重点管理項目</p>
+      <p class="mt-3 text-3xl font-bold text-amber-700" data-count="2">3</p>
+      <p class="mt-2 text-sm text-slate-500">登録のある園児</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">期限切れアレルギー</p>
+      <p class="mt-3 text-3xl font-bold text-violet-700" data-count="3">1</p>
+      <p class="mt-2 text-sm text-slate-500">更新確認が必要</p>
+    </div>
+  </section>
+
+  <section class="no-print rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form action="#" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4" id="health-filters">
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">在籍状況</span>
+        <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-status">
+          <option value="enrolled" selected>在園のみ</option>
+          <option value="all">すべて</option>
+          <option value="graduated">卒園のみ</option>
+          <option value="withdrawn">退園のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">アラート</span>
+        <select name="attention" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-attention">
+          <option value="all" selected>すべて</option>
+          <option value="needs_attention">対応が必要のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">クラス</span>
+        <select name="classroom_id" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-classroom_id">
+          <option value="" selected>すべて</option>
+          
+          <option value="1">ひよこ</option>
+          
+          <option value="2">りす</option>
+          
+          <option value="3">うさぎ</option>
+          
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">検索</span>
+        <input name="q" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="園児名 / クラス / 家族名" id="filter-q">
+      </label>
+      <div class="md:col-span-2 xl:col-span-4 flex justify-end gap-3">
+        <a href="#preview-detail" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-route="/health">リセット</a>
+        <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">絞り込む</button>
+      </div>
+    </form>
+  </section>
+
+  <p class="scroll-hint">現行の配置は、横にスクロールして操作欄を確認できます。</p><section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto health-scroll" tabindex="0" role="region" aria-label="園児の健康情報と操作の一覧">
+      <table class="min-w-full text-sm health-table">
+        <colgroup><col><col><col><col><col><col><col></colgroup><thead class="bg-emerald-50 text-emerald-900">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium" scope="col">園児</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">クラス</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">健康フラグ</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">アレルギー</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">最新測定</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">健診状態</th>
+            <th class="no-print px-4 py-3 text-left font-medium" scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">青空 はる</div>
+              <div class="mt-1 text-xs text-slate-500">青空家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/1/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/1/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">若葉 そう</div>
+              <div class="mt-1 text-xs text-slate-500">若葉家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/2/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/2/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">花野 めい</div>
+              <div class="mt-1 text-xs text-slate-500">花野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/3/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/3/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">小川 りく</div>
+              <div class="mt-1 text-xs text-slate-500">小川家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/4/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/4/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">星見 ひなた</div>
+              <div class="mt-1 text-xs text-slate-500">星見家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/5/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/5/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">森野 あおい</div>
+              <div class="mt-1 text-xs text-slate-500">森野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/6/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/6/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">朝日 ゆう</div>
+              <div class="mt-1 text-xs text-slate-500">朝日家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/7/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/7/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">野原 なお</div>
+              <div class="mt-1 text-xs text-slate-500">野原家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/8/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/8/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">水野 さき</div>
+              <div class="mt-1 text-xs text-slate-500">水野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/9/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/9/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">風見 そら</div>
+              <div class="mt-1 text-xs text-slate-500">風見家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/10/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/10/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">月野 あかり</div>
+              <div class="mt-1 text-xs text-slate-500">月野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/11/health">健康サマリー</a>
+                <a href="#preview-detail" class="text-sm font-semibold text-amber-800 underline" data-original-route="/children/11/health/parent-medical">基本医療情報の回答を確認</a>
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/11/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">山吹 けい</div>
+              <div class="mt-1 text-xs text-slate-500">山吹家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/12/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/12/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">白石 れん</div>
+              <div class="mt-1 text-xs text-slate-500">白石家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/13/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/13/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="3" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">春野 こと</div>
+              <div class="mt-1 text-xs text-slate-500">春野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/14/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/14/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">夏目 いと</div>
+              <div class="mt-1 text-xs text-slate-500">夏目家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/15/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/15/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">秋山 まお</div>
+              <div class="mt-1 text-xs text-slate-500">秋山家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/16/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/16/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="graduated" data-attention="true" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">冬木 あん</div>
+              <div class="mt-1 text-xs text-slate-500">冬木家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/17/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/17/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="withdrawn" data-attention="true" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">虹野 つむぎ</div>
+              <div class="mt-1 text-xs text-slate-500">虹野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/18/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/18/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</template>
+<template id="scenario-partial"><div class="mx-auto max-w-7xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-emerald-700">健康管理</p>
+      <h1 class="text-2xl font-bold text-slate-900">健康管理一覧</h1>
+      <p class="mt-1 text-sm text-slate-500">健診の期限切れ、重点管理項目、アレルギー対応が必要な園児を横断で確認できます。</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="#preview-detail" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-route="/children">園児一覧</a>
+      <button onclick="window.print()" class="no-print rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">印刷</button>
+    </div>
+  </div>
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">表示園児数</p>
+      <p class="mt-3 text-3xl font-bold text-slate-900" data-count="0">18</p>
+      <p class="mt-2 text-sm text-slate-500">現在の条件に一致</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">対応が必要</p>
+      <p class="mt-3 text-3xl font-bold text-rose-700" data-count="1">6</p>
+      <p class="mt-2 text-sm text-slate-500">アラートあり</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">重点管理項目</p>
+      <p class="mt-3 text-3xl font-bold text-amber-700" data-count="2">3</p>
+      <p class="mt-2 text-sm text-slate-500">登録のある園児</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">期限切れアレルギー</p>
+      <p class="mt-3 text-3xl font-bold text-violet-700" data-count="3">1</p>
+      <p class="mt-2 text-sm text-slate-500">更新確認が必要</p>
+    </div>
+  </section>
+
+  <section class="no-print rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <form action="#" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4" id="health-filters">
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">在籍状況</span>
+        <select name="status" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-status">
+          <option value="enrolled" selected>在園のみ</option>
+          <option value="all">すべて</option>
+          <option value="graduated">卒園のみ</option>
+          <option value="withdrawn">退園のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">アラート</span>
+        <select name="attention" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-attention">
+          <option value="all" selected>すべて</option>
+          <option value="needs_attention">対応が必要のみ</option>
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">クラス</span>
+        <select name="classroom_id" class="w-full rounded-lg border border-slate-300 px-3 py-2" id="filter-classroom_id">
+          <option value="" selected>すべて</option>
+          
+          <option value="1">ひよこ</option>
+          
+          <option value="2">りす</option>
+          
+          <option value="3">うさぎ</option>
+          
+        </select>
+      </label>
+      <label class="space-y-2 text-sm text-slate-700">
+        <span class="font-medium">検索</span>
+        <input name="q" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="園児名 / クラス / 家族名" id="filter-q">
+      </label>
+      <div class="md:col-span-2 xl:col-span-4 flex justify-end gap-3">
+        <a href="#preview-detail" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-route="/health">リセット</a>
+        <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">絞り込む</button>
+      </div>
+    </form>
+  </section>
+
+  <p class="scroll-hint">現行の配置は、横にスクロールして操作欄を確認できます。</p><section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto health-scroll" tabindex="0" role="region" aria-label="園児の健康情報と操作の一覧">
+      <table class="min-w-full text-sm health-table">
+        <colgroup><col><col><col><col><col><col><col></colgroup><thead class="bg-emerald-50 text-emerald-900">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium" scope="col">園児</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">クラス</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">健康フラグ</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">アレルギー</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">最新測定</th>
+            <th class="px-4 py-3 text-left font-medium" scope="col">健診状態</th>
+            <th class="no-print px-4 py-3 text-left font-medium" scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">青空 はる</div>
+              <div class="mt-1 text-xs text-slate-500">青空家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">73.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/1/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/1/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">若葉 そう</div>
+              <div class="mt-1 text-xs text-slate-500">若葉家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">肘内障</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">74.9 cm</span>
+                
+                
+                <span>9.5 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/2/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/2/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">花野 めい</div>
+              <div class="mt-1 text-xs text-slate-500">花野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">76.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/3/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/3/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">小川 りく</div>
+              <div class="mt-1 text-xs text-slate-500">小川家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">77.9 cm</span>
+                
+                
+                <span>10.3 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/4/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/4/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">星見 ひなた</div>
+              <div class="mt-1 text-xs text-slate-500">星見家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">健診要確認</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <span class="text-slate-400">未登録</span>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">確認必要</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/5/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/5/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="1" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">森野 あおい</div>
+              <div class="mt-1 text-xs text-slate-500">森野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">ひよこ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アレルギー</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              <div>1 件</div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">卵</span>
+                
+                
+              </div>
+              
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">80.9 cm</span>
+                
+                
+                <span>11.1 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/6/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/6/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">朝日 ゆう</div>
+              <div class="mt-1 text-xs text-slate-500">朝日家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">82.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/7/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/7/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">野原 なお</div>
+              <div class="mt-1 text-xs text-slate-500">野原家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">83.9 cm</span>
+                
+                
+                <span>11.9 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/8/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/8/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">水野 さき</div>
+              <div class="mt-1 text-xs text-slate-500">水野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">85.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/9/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/9/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">風見 そら</div>
+              <div class="mt-1 text-xs text-slate-500">風見家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">86.9 cm</span>
+                
+                
+                <span>12.7 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/10/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/10/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="2" data-priority="true" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">月野 あかり</div>
+              <div class="mt-1 text-xs text-slate-500">月野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">熱性けいれん</span>
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">与薬</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">88.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/11/health">健康サマリー</a>
+                <a href="#preview-detail" class="text-sm font-semibold text-amber-800 underline" data-original-route="/children/11/health/parent-medical">基本医療情報の回答を確認</a>
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/11/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="2" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">山吹 けい</div>
+              <div class="mt-1 text-xs text-slate-500">山吹家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">りす</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">89.9 cm</span>
+                
+                
+                <span>13.5 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/12/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/12/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">白石 れん</div>
+              <div class="mt-1 text-xs text-slate-500">白石家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">91.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/13/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/13/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="true" data-classroom="3" data-priority="true" data-expired="true">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">春野 こと</div>
+              <div class="mt-1 text-xs text-slate-500">春野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アレルギー</span>
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">エピペン</span>
+                  
+                  <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">アレルギー期限切れ</span>
+                  
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              <div>5 件</div>
+              <div class="mt-1 flex flex-wrap gap-1">
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">牛乳</span>
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">小麦</span>
+                
+                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">魚卵（たらこ・いくらなど、加工食品に含まれる場合も確認）</span>
+                
+                
+                <span class="text-xs text-slate-500">ほか 2 件</span>
+                
+              </div>
+              
+              <div class="mt-1 text-xs font-medium text-rose-700">期限切れ 1 件</div>
+              
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">92.9 cm</span>
+                
+                
+                <span>14.3 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/14/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/14/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">夏目 いと</div>
+              <div class="mt-1 text-xs text-slate-500">夏目家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">94.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/15/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/15/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="enrolled" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">秋山 まお</div>
+              <div class="mt-1 text-xs text-slate-500">秋山家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">95.9 cm</span>
+                
+                
+                <span>15.1 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/16/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/16/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="graduated" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">冬木 あん</div>
+              <div class="mt-1 text-xs text-slate-500">冬木家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">97.4 cm</span>
+                
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/17/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/17/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+          
+          
+          <tr class="hover:bg-slate-50" data-status="withdrawn" data-attention="false" data-classroom="3" data-priority="false" data-expired="false">
+            <td class="px-4 py-3 align-top" data-label="園児">
+              <div class="font-medium text-slate-900">虹野 つむぎ</div>
+              <div class="mt-1 text-xs text-slate-500">虹野家</div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="クラス">うさぎ</td>
+            <td class="px-4 py-3 align-top" data-label="健康フラグ">
+              <div class="flex flex-wrap gap-1.5">
+                
+                <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">良好</span>
+                
+              </div>
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="アレルギー">
+              
+              -
+              
+            </td>
+            <td class="px-4 py-3 align-top text-slate-700" data-label="最新測定">
+              
+              <div class="text-xs text-slate-500">
+                2026-11-15
+              </div>
+              <div class="mt-1">
+                
+                <span class="mr-2">98.9 cm</span>
+                
+                
+                <span>15.9 kg</span>
+                
+              </div>
+              
+            </td>
+            <td class="px-4 py-3 align-top" data-label="健診状態">
+              
+              <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">最新</span>
+              
+            </td>
+            <td class="no-print px-4 py-3 align-top" data-label="操作">
+              <div class="flex flex-col gap-2">
+                <a href="#preview-detail" class="text-sm font-medium text-emerald-700 hover:underline" data-original-route="/children/18/health">健康サマリー</a>
+                
+                <a href="#preview-detail" class="text-sm font-medium text-sky-700 hover:underline" data-original-route="/children/18/health/check-records">健診記録</a>
+              </div>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</template><script src="preview.js?v=r2"></script></body></html>

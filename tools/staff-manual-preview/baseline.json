@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-03 JST",
+  "source": "C:\\python\\open-hoikuict\\.local-dev\\backup-v2-rollout-20261101\\source",
+  "deployed_baseline": "225ea99d8ca39f773dd9b8e0920bca13854817b5",
+  "latest_deployment_record": "docs/deployment-billing-reopen-2026-11-01.md",
+  "latest_deployment_changes_these_templates": false,
+  "live_server_checked": false,
+  "synthetic_data_only": true,
+  "files": {
+    "templates/attendance_checks/_row_card.html": {
+      "sha256": "5213b6cae98dc14506d20247cd472323e07729163e8ba10ce4b0903eac1abedf",
+      "matches_workspace_normalized": true
+    },
+    "templates/attendance_monthly.html": {
+      "sha256": "89eaded7ca57c108fcc2f447d1dc75995c9cec6ec6092f0a3ba79029914f476c",
+      "matches_workspace_normalized": true
+    },
+    "templates/staff_auth/authentication.html": {
+      "sha256": "43cd776b86a0f8cdfa89b1de6b60d93f2c2a53cb49b2a3d92701137c3f458649",
+      "matches_workspace_normalized": true
+    },
+    "templates/staff_auth/reset_password.html": {
+      "sha256": "9605d75dc798576da0f18bed29590f2e12694ac37401de2e8542839645cc2f20",
+      "matches_workspace_normalized": true
+    },
+    "templates/staff_auth/users.html": {
+      "sha256": "07bcaebdfecfb201e2360a9a4cba76fc6282ff6bfafea8334d596c997adac5a0",
+      "matches_workspace_normalized": true
+    },
+    "templates/settings/_back.html": {
+      "sha256": "b9865cc6a0b4fa61f2cfc95689d652922ccb1edc9a321860f9222651a46bb258",
+      "matches_workspace_normalized": true
+    },
+    "static/css/attendance-monthly.css": {
+      "sha256": "297be95c292e95d04ef07db8b549b5a78ff542b780c8aa773edc68f56a0a1adc",
+      "matches_workspace_normalized": true
+    },
+    "static/js/attendance-monthly.js": {
+      "sha256": "549c7f2b331fb7c2c8f1f2b4bcf21abce4edd828df125f2e39eea32d93d389ed",
+      "matches_workspace_normalized": true
+    }
+  }
+}

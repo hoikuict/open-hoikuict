@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'; connect-src 'none'">
+  <title>児童票の入力・レビュー依頼｜操作モック</title>
+  <link rel="stylesheet" href="mock.css">
+  <script src="mock.js" defer></script>
+</head>
+<body>
+  <header class="workbench">
+    <div class="workbench-inner" id="cases">
+      <p class="kicker">操作モック</p>
+      <h1>児童票の改善案を試す</h1>
+      <p class="sub">架空の園児で試せます。保存や依頼はこの画面の中だけで行います。</p>
+      <nav class="cases" aria-label="試す場面">
+        <button type="button" data-case="edit">追記して詳細へ進む</button>
+        <button type="button" data-case="recipient">管理者がいないとき</button>
+        <button type="button" data-case="phone">スマホで記録を探す</button>
+      </nav>
+      <p id="instruction" aria-live="polite"></p>
+      <details id="settings"><summary>試す条件を変える</summary>
+        <div class="controls">
+          <label>入力例 <select id="example"><option value="partial">一部入力・追記あり</option><option value="new">新規・未入力</option><option value="filled">入力済みの下書き</option><option value="returned">差戻し</option></select></label>
+          <label>依頼を受け取れる管理者 <select id="admins"><option value="1">1人</option><option value="0">0人</option></select></label>
+          <label><input id="fail" type="checkbox">次の保存を1回だけ失敗させる</label>
+          <label><input id="phone" type="checkbox">スマートフォンの幅で見る</label>
+        </div>
+        <p id="notice-count" class="fine" role="status"></p>
+        <p class="fine">場面や入力例を選び直すと、見本の内容に戻ります。管理者の人数と画面幅は、入力を残したまま変えられます。</p>
+      </details>
+    </div>
+  </header>
+  <main id="surface">
+    <div class="screen">
+      <section id="editor" aria-labelledby="edit-title">
+        <header class="heading"><div><p class="eyebrow">見本 あおい</p><h2 id="edit-title" tabindex="-1">児童票を入力</h2>
+          <p>「<a href="#logs-title" id="jump-logs">対象期間の子どもの記録</a>」から、参考にした記録を選べます。</p></div>
+          <div class="actions"><button type="button" data-to="history">児童票一覧へ</button><button type="button" data-to="list">作成状況へ</button></div>
+        </header>
+        <section id="unsaved" class="alert warning" hidden aria-labelledby="unsaved-title">
+          <h3 id="unsaved-title" tabindex="-1">この児童票に未保存の変更があります。</h3>
+          <div class="actions"><button type="button" class="primary" id="save-go">保存して切り替える</button><button type="button" id="discard">保存せず切り替える</button><button type="button" id="stay">入力を続ける</button></div>
+        </section>
+        <section class="card period" aria-label="対象期間の選択">
+          <div><label for="month">対象月（期間の終了月）</label><div class="actions">
+            <button type="button" id="prev" aria-label="前の対象期間">‹</button><input id="month" type="month" min="1901-01" max="2100-12" required>
+            <button type="button" id="next" aria-label="次の対象期間">›</button><button type="button" id="show-month">表示</button><span id="latest-tag" class="tag">直近の終了期間</span></div>
+            <p class="fine" id="period-note"></p></div>
+          <div><p class="fine">操作日 2026/11/08</p><button type="button" class="link" id="latest">直近の対象期間に戻る</button></div>
+        </section>
+        <p id="save-error" class="alert error" role="alert" hidden></p>
+        <p id="saved-notice" class="alert success" role="status" hidden></p>
+        <div id="saved-bar" class="alert saved"><span id="saved-desc"></span><button type="button" class="link" data-to="detail">詳細・承認へ</button></div>
+        <form id="entry-form" novalidate>
+          <div class="fields">
+            <section class="card"><h3>対象期間</h3><div class="dates"><label>開始日<input id="start-date" type="date" readonly></label><label>終了日<input id="end-date" type="date" readonly></label></div><p class="fine" id="created"></p></section>
+            <div id="body-fields"></div>
+            <div class="save-row"><span id="dirty-label" class="fine" aria-live="polite"></span><button class="primary" type="submit">下書きを保存</button></div>
+          </div>
+          <aside class="card logs"><div class="logs-head"><h3 id="logs-title" tabindex="-1">対象期間の子どもの記録</h3><p class="fine" id="log-range"></p><p class="fine">選んだ記録は児童票と一緒に保存されます。本文は自分で書きます。</p></div>
+            <div class="logs-body"><label class="log-item" id="log-item"><input id="evidence" type="checkbox"><span><strong>2026/09/14</strong><br>友だちに砂の入ったカップを渡し、一緒にお店屋さんごっこをした。</span></label><p id="no-logs" hidden>対象期間のログはまだありません。ログがなくても児童票の下書きは作成できます。</p></div>
+          </aside>
+        </form>
+      </section>
+      <section id="detail" class="document" aria-labelledby="detail-title" hidden>
+        <header class="heading"><div><p class="eyebrow">児童票・発達経過記録</p><h2 id="detail-title" tabindex="-1"></h2><p>園: 見本保育園 / クラス: さくら組 / 作成者: 見本 はなこ</p><p id="detail-period"></p></div>
+          <div class="actions"><strong class="status" id="detail-status"></strong><button type="button" data-to="history">児童票一覧</button><button type="button" class="primary" id="edit">修正</button><button type="button" id="print">印刷</button></div></header>
+        <section class="card"><div id="return-reason" hidden><h3>差戻し理由</h3><p>砂場でのやりとりを一つ書き足してください。</p></div>
+          <p id="review-error" class="alert error" role="alert" hidden></p><p id="review-result" class="alert success" role="status" hidden></p>
+          <button type="button" class="primary" id="request">レビュー依頼</button><button type="button" id="withdraw" hidden>レビューを取り下げる</button>
+        </section>
+        <article class="card" id="report"><div class="report-meta"><span>児童票・発達経過記録</span><span id="report-year"></span><strong id="report-status"></strong></div><div id="report-body"></div></article>
+      </section>
+      <section id="listing" hidden><h2 id="list-title" tabindex="-1"></h2><div class="card"><p>さくら組　見本 あおい</p><p id="list-period"></p><p id="list-status"></p><button type="button" id="open-record"></button></div></section>
+      <footer><a href="#cases">試す場面に戻る</a></footer>
+    </div>
+  </main>
+</body></html>

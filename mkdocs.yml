@@ -70,6 +70,65 @@ exclude_docs: |
   /spec-change-validity-review-2026-09-11.md
   /spec-change-validity-review-2026-09-17.md
   /staff-auth-registration-guide-2026-09-06.md
+  # Unpublished local records; add to nav after a separate publication review.
+  /annual-library-implementation-2026-09-28.md
+  /annual-owner-implementation-2026-10-12.md
+  /annual-owner-proposal-2026-10-12.md
+  /attendance-monthly-20261004.md
+  /attention-scope-proposal-2026-09-28.md
+  /billing-reopen-implementation-2026-11-01.md
+  /billing-reopen-proposal-2026-11-01.md
+  /care-recognition-navigation-2026-10-04.md
+  /daily-example-list-implementation-2026-10-11.md
+  /daily-example-search-implementation-2026-10-11.md
+  /daily-print-implementation-2026-10-11.md
+  /deployment-annual-library-2026-09-28.md
+  /deployment-annual-owner-2026-10-12.md
+  /deployment-annual-r8-all-classes-2026-09-29.md
+  /deployment-attendance-monthly-2026-10-04.md
+  /deployment-attention-scope-2026-09-28.md
+  /deployment-billing-reopen-2026-11-01.md
+  /deployment-care-navigation-2026-10-04.md
+  /deployment-child-review-2026-11-08.md
+  /deployment-daily-copy-2026-11-08.md
+  /deployment-daily-corpus-2026-10-11.md
+  /deployment-daily-example-list-2026-10-11.md
+  /deployment-daily-example-search-2026-10-11.md
+  /deployment-daily-print-2026-10-11.md
+  /deployment-daily-validation-2026-11-15.md
+  /deployment-document-search-2026-11-08.md
+  /deployment-extended-care-2026-10-04.md
+  /deployment-family-care-2026-10-04.md
+  /deployment-login-manual-link-2026-11-03.md
+  /deployment-monthly-collaboration-2026-09-28.md
+  /deployment-monthly-review-2026-11-15.md
+  /deployment-monthly-validation-2026-11-15.md
+  /deployment-parent-contact-fields-2026-11-16.md
+  /deployment-plan-manual-2026-11-08.md
+  /deployment-plan-navigation-2026-11-08.md
+  /deployment-plan-reflection-review-2026-10-11.md
+  /deployment-weekly-calendars-2026-10-11.md
+  /deployment-weekly-review-2026-11-15.md
+  /extended-care-bands-20261004.md
+  /family-care-certification-2026-10-04.md
+  /family-care-certification-proposal-2026-10-04.md
+  /family-emergency-contacts-and-dinner-proposal-2026-11-09.md
+  /form-validation-preview-2026-11-15.md
+  /monthly-assignment-edit-proposal-2026-09-28.md
+  /monthly-review-button-preview-2026-11-15.md
+  /parent-contact-fields-implementation-2026-11-16.md
+  /parent-contact-fields-preview-2026-11-16.md
+  /plan-reflection-review-implementation-2026-10-11.md
+  /raspberry-pi-migration-2026-09-28.md
+  /raspberry-pi-portable-2026-09-28.md
+  /raspberry-pi-staff-capacity-2026-09-28.md
+  /raspberry-pi-tailscale-2026-09-28.md
+  /staff-manual-findings.md
+  /staff-plan-navigation-review.md
+  /verification-calendar-billing-2026-09-28.md
+  /weekly-review-implementation-2026-11-15.md
+  /weekly-validation-preview-2026-11-15.md
+  /work-handoff-2026-10-04.md
 validation:
   nav:
     omitted_files: warn
@@ -82,7 +141,13 @@ nav:
   - デモを試す: https://demo.hoikuict.net/
   - ダウンロード: download.md
   - 利用開始マニュアル:
+      - 目次: manual-index.md
+      - スクショ付きガイド（試作）: manual-guide.md
       - start-manual.md
+      - 職員登録: staff-registration-manual.md
+      - 保護者登録: parent-registration-manual.md
+      - 保護者の方へ・アプリ: parent-app-manual.md
+      - 保護者の方へ・登園と降園: parent-attendance-manual.md
       - Windowsで園内LAN・園外へ: windows-server-setup.md
       - 初期台帳のExcel準備・登録: initial-ledger-guide.md
       - 保護者の利用停止・再開: parent-account-lifecycle.md
@@ -130,9 +195,14 @@ nav:
           - 園内運用テンプレート: templates.md
       - 仕様:
           - specifications.md
+          - 仕様の決定・変更記録: spec-decisions.md
+          - 実装済み機能と実機反映の照合: undeployed-feature-audit-2026-11-01.md
+          - 未配備差分の実機反映: deployment-maintenance-2026-11-01.md
           - 仕様と実装の照合記録: spec-consistency-review-2026-09-13.md
           - 園児・家庭・記録:
               - 児童記録・児童票・保育要録: child-records-spec.md
+              - 児童票の期間選択・再編集の実機反映: deployment-child-progress-periods-2026-11-01.md
+              - 児童票の期間選択の実装記録: child-progress-previous-period-implementation-2026-09-29.md
               - 健康管理の設計と後続計画: health-record-spec-review.md
               - インポート・エクスポート: import-export-spec.md
               - 認可施設帳票入力: ninka-input-screen-spec.md
@@ -144,6 +214,9 @@ nav:
               - 職員権限・請求口座: staff-permissions-and-billing-accounts-spec.md
           - 認証・通知:
               - ローカル認証の設計: local-authentication-spec.md
+              - 職員QR付き印刷の仕様: staff-auth-print-proposal-2026-11-01.md
+              - 登録済み保護者情報の引継ぎ: parent-guardian-prefill-proposal-2026-11-01.md
+              - 在園児の保護者登録の画面案: parent-existing-guardian-proposal-2026-11-01.md
               - 保護者認証の設計: parent-local-authentication-spec.md
               - プッシュ通知: parent-push-notification-spec.md
           - 保育計画:
@@ -163,6 +236,13 @@ nav:
           - ドキュメントの更新: documentation.md
       - 変更履歴:
           - history.md
+          - 2026-11-01 職員QR付き案内の実機反映: deployment-staff-auth-print-2026-11-01.md
+          - 2026-11-01 職員QR付き案内の実装: staff-auth-print-implementation-2026-11-01.md
+          - 2026-11-01 保護者情報の引継ぎの実機反映: deployment-parent-guardian-prefill-2026-11-01.md
+          - 2026-11-01 保護者情報の引継ぎの実装: parent-guardian-prefill-implementation-2026-11-01.md
+          - 2026-11-01 在園児の保護者登録の実機反映: deployment-parent-guardian-2026-11-01.md
+          - 2026-11-01 在園児の保護者登録の修正: parent-existing-guardian-implementation-2026-11-01.md
+          - 2026-10-23 依存関係の実機更新: deployment-dependencies-2026-10-23.md
           - 2026-09-28 保護者連絡一覧:
               - mainへの統合: main-contact-integration-2026-09-28.md
               - 内容一覧の仕様・操作見本: parent-contact-content-list-proposal-2026-09-28.md

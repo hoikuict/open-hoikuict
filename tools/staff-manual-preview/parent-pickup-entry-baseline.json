@@ -1,0 +1,17 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "synthetic_data_only": true,
+  "network_disabled": true,
+  "business_records_written": 0,
+  "screens": [
+    "app-pickup-entry"
+  ],
+  "source_files": {
+    "templates/base.html": "1bc8a77d8ec62d5dc0f92d9b60b713db3fed22f5d67366d07a6e41327ca51d55",
+    "templates/parent_portal/home.html": "db67e8226c9b599391d31e7bce9dd2a8c3e2517a8aad88ceb2037fecb4118630",
+    "templates/parent_portal/pickup.html": "f8a5a74089e1a9395859c0c1e3c007338ce3197fc93f5c5313a1e178fbfe9a97",
+    "templates/shared/_pickup_fields.html": "f19fa2e323cebed4068e42e2ac5ca21e5c144170a035818936c52f14dc27bb29",
+    "templates/shared/_pickup_script.html": "c4c22b84973d5a9a5e7d5ea91caf00b489da0cfc633f90aa44783b6a94ea6507",
+    "routers/parent_portal.py": "0cbde10d42c0b436adccb3abde6faefbad65d4269e434e028615db61e32cd70a"
+  }
+}

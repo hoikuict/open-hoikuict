@@ -1,0 +1,44 @@
+{
+  "state": "complete",
+  "verified": true,
+  "checked_at": "2026-10-04T03:10:21.414664+00:00",
+  "baseline_commit": "74439d61150885f36887ffd95fa120d354999806",
+  "commit": "93159eb73f25094a61382c577803fa2eb96bd555",
+  "image_id": "sha256:39836abcd94b02f3cf1ad577ab3ff9e1b3ee8e982b3ef47907f36c67374bc775",
+  "application_tests": {
+    "passed": 510,
+    "failed": 0,
+    "skipped": 0,
+    "collection_errors": 0,
+    "pytest": "8.4.2",
+    "verified": true
+  },
+  "family_care": {
+    "verified": true,
+    "read_only": true,
+    "records_written": 0,
+    "rendered_roles": 2,
+    "asset_sha256": {
+      "css/family-care.css": "8c7e381cbb0ebdb5c755571ebef3caa04553dfc7ba78b96eb88c6d12bf27f298",
+      "js/family-care.js": "7a3af01d78796221775caaaf6228c112ff5ac4a9e1cbdfece12ab248e1f57905"
+    }
+  },
+  "existing_backups_verified": 10,
+  "existing_features_verified": true,
+  "config_preserved": true,
+  "production_records_written": 0,
+  "completed_at": "2026-10-04T03:10:01.023579+00:00",
+  "attachments_verified": 13,
+  "public_browser_verification": {
+    "verified": true,
+    "detail_url": "https://hikarinomori.hoikuict.net/children/100#care-certifications",
+    "edit_url": "https://hikarinomori.hoikuict.net/families/223/care-certifications#child-100",
+    "detail_inputs": 0,
+    "detail_forms": 0,
+    "individual_save_visible": true,
+    "individual_deactivate_visible": true,
+    "console_errors": 0,
+    "records_written": 0,
+    "screenshot": ".local-dev/family-care-certification-preview/production-care-detail-readonly.jpg"
+  }
+}

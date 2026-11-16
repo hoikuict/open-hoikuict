@@ -1,0 +1,74 @@
+const { chromium } = require('C:/Users/katet/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+(async () => {
+  const folder = path.resolve('tools/parent-existing-guardian-preview');
+  const browser = await chromium.launch({headless:true, executablePath:'C:/Users/katet/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe'});
+  const page = await browser.newPage({viewport:{width:1380,height:1000}});
+  const errors=[],unexpected=[],writes=[],checks=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:8899/')) unexpected.push(r.url());if(!['GET','HEAD'].includes(r.method()))writes.push(r.url());});
+  page.on('dialog',d=>d.dismiss());
+  const select=(id,value)=>page.locator('#preview-'+id).selectOption(value);
+  const own=['last_name','first_name','last_name_kana','first_name_kana','relationship','phone','workplace','workplace_address','workplace_phone'].map(k=>'g1_'+k);
+  const child=['last_name','first_name','last_name_kana','first_name_kana','birth_date','enrollment_date','home_address','home_phone','allergy','medical_notes'];
+  try {
+    await page.goto('http://127.0.0.1:8899/');
+    for(const kind of ['add','invite','current','new']){
+      await select('kind',kind); await select('state','empty');
+      const proposed=['add','invite'].includes(kind);
+      const names=await page.locator('#mock-view form [name]').evaluateAll(nodes=>nodes.map(n=>n.name));
+      const expected=proposed?own:[...own,...child,...(kind==='new'?own.map(k=>k.replace('g1_','g2_')):[])];
+      assert.deepEqual([...names].sort(),[...expected].sort());
+      assert.equal(await page.locator('#mock-view [required]').count(),proposed?6:13);
+      await page.locator('#mock-view button[type=submit]').click();
+      assert.ok(await page.locator('#mock-view [role=alert]').isVisible());
+      await select('state','partial');
+      assert.equal(await page.locator('[name=g1_phone]').inputValue(),'');
+      assert.equal(await page.locator('[name=g1_last_name]').inputValue(),'見本');
+      await select('state','error');
+      await page.locator('[name=g1_first_name]').fill('入力を保持する');
+      await page.locator('#mock-view button[type=submit]').click();
+      assert.equal(await page.locator('[name=g1_first_name]').inputValue(),'入力を保持する');
+      await select('state','expired');
+      assert.equal(await page.locator('#mock-view form').count(),0);
+      await select('state','filled');
+      await page.locator('#cancel-input').click();
+      assert.equal(await page.locator('[name=g1_first_name]').inputValue(),'あおい');
+      await page.screenshot({path:path.join(folder,`verified-${kind}-desktop.png`),fullPage:true});
+      await page.setViewportSize({width:390,height:844});
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
+      await page.screenshot({path:path.join(folder,`verified-${kind}-mobile.png`),fullPage:true});
+      await page.setViewportSize({width:1380,height:1000});
+      await page.locator('[name=g1_workplace]').fill('');
+      await page.locator('[name=g1_workplace_address]').fill('');
+      await page.locator('[name=g1_workplace_phone]').fill('');
+      await page.locator('#mock-view button[type=submit]').click();
+      await page.locator('#try-review').click();
+      assert.equal(await page.locator('.mock-review>div').count(),expected.length);
+      if(proposed) assert.ok(!await page.locator('.mock-review').innerText().then(t=>t.includes('入園予定日')));
+      await page.locator('button[value=approve]').click();
+      assert.match(await page.locator('[role=alert]').innerText(),/確認理由/);
+      await page.locator('[name=reason]').fill('本人との関係を確認した見本');
+      await page.locator('button[value=approve]').click();
+      assert.match(await page.locator('[role=alert]').innerText(),/チェック/);
+      await page.locator('[name=enrollment_confirmed]').check();
+      await page.locator('button[value=approve]').click();
+      assert.match(await page.locator('#mock-view h1').innerText(),/承認しました/);
+      checks.push({kind,fields:expected.length,required:proposed?6:13,states:5,submissionAndReview:true,mobileWidth:390});
+    }
+    await select('kind','add'); await select('state','filled');
+    await page.locator('[name=g1_first_name]').fill('<img src=x onerror=alert(1)>');
+    await page.locator('#mock-view button[type=submit]').click(); await page.locator('#try-review').click();
+    assert.equal(await page.locator('.mock-review img').count(),0);
+    await page.locator('[name=reason]').fill('見本：本人へ内容確認が必要');
+    await page.locator('button[value=reject]').click();
+    assert.match(await page.locator('#mock-view h1').innerText(),/却下しました/);
+    await select('kind','add'); await select('state','empty');
+    assert.deepEqual(errors,[]);assert.deepEqual(unexpected,[]);assert.deepEqual(writes,[]);
+    fs.writeFileSync(path.join(folder,'verification.json'),JSON.stringify({verified:true,checks,errors,unexpected,writes,fictionalOnly:true,backendTested:false,proposalNotImplemented:true},null,2)+'\n');
+    process.stdout.write(JSON.stringify({verified:true,checks,errors,unexpected,writes})+'\n');
+  } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

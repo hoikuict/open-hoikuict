@@ -1,0 +1,70 @@
+{
+  "checks": [
+    "Preview opens successfully",
+    "All four existing filters preserved",
+    "All seven columns preserved",
+    "Enrolled default has 16 rows",
+    "Layout change preserves table contents",
+    "Allergy column narrowed",
+    "Ordinary row is shorter",
+    "Status filter includes 18 rows",
+    "Class filter shows six",
+    "Attention filter shows one",
+    "Search by child or family",
+    "No-match message",
+    "Summary follows filters",
+    "Deployment-only medical entry retained",
+    "Original destination retained",
+    "Escape closes detail mock",
+    "Child snapshot in detail",
+    "Unregistered measurement scenario",
+    "Height-only scenario",
+    "Error and retry",
+    "Retry returns to mock rows",
+    "Long allergy text and additional count preserved",
+    "No page overflow at 1024",
+    "First column stays visible at 1024",
+    "No page overflow at 768",
+    "First column stays visible at 768",
+    "No page overflow at 390",
+    "First column stays visible at 390",
+    "No page overflow at 320",
+    "First column stays visible at 320",
+    "Print hides mock controls",
+    "Print hides action links",
+    "No JavaScript exceptions",
+    "No external or mutation requests"
+  ],
+  "metrics": {
+    "proposed": {
+      "width": 1278,
+      "height": 1083,
+      "columns": [
+        204,
+        102,
+        204,
+        256,
+        192,
+        115,
+        205
+      ],
+      "rowHeight": 58.5
+    },
+    "current": {
+      "width": 1278,
+      "height": 1447,
+      "columns": [
+        96,
+        62,
+        267,
+        437,
+        132,
+        97,
+        186
+      ],
+      "rowHeight": 72.5
+    }
+  },
+  "errors": [],
+  "blockedRequests": []
+}

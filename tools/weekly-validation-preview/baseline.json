@@ -1,0 +1,901 @@
+{
+  "source_commit": "9549c0c88a2f50028f8c5a01944f88b8e7197a13",
+  "production_image": "sha256:24252dee5f510641df27f2fbb931dde8ce63cd06a9b744d55b5fd9dfc26d9664",
+  "files": {
+    "templates/base.html": "f9cc041a82fe30df0862088fbf09a6be077c78f2cec4d6cded252378c6248371",
+    "static/css/weekly-library.css": "e3438f71b9404e231c0bf28cc21631e9ede7e01da8d24668c98518cae0b18cd9",
+    "static/css/document-search.css": "358210bdff9676be4a7f6ba41b0461dba3d58b7e046e8bb475b112622099a8d1",
+    "plan_docs/routers/weekly_library.py": "9e0f249768511f98295249a94199050dd32ac793ac206f394a7b2cc048097019",
+    "plan_docs/services/weekly_library.py": "2e858098df0a5c529d91dc608fd530e5f49e2f61275d1f5e17b601602b559ed8",
+    "test_weekly_library.py": "5e5792b7db1869f47005a11a95ce610904934aa78a0b7ea4eb042652c081379e",
+    "static/js/weekly-library.js": "a3baea1d5f6fe64c5e15baf3fdf5cc55adbcfb7ab121a9fd8696affb89e66dc6",
+    "templates/plan_docs/weekly_library/sheet.html": "86bc97376e20a435527e6a5de07d4be4668c8523d1156081c3986bf3a7c582fb",
+    "templates/plan_docs/weekly_library/calendar.html": "f401edb29b5996198851c832d3554a6acf1dca4d5453f3defed9ed4928f4fc66",
+    "templates/plan_docs/documents/detail.html": "507799f0da08b3a5229b43714d47bcc48100ef672cecf1a1c441a6fe087e63dc",
+    "templates/plan_docs/weekly_library/_report.html": "c1f949cc28cd3f7135665e763228619f4186dc216bf5e766561f1f59f6c51470"
+  },
+  "pages": [
+    {
+      "file": "edit-0.html",
+      "kind": "editor",
+      "age": 0,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "file": "calendar-0.html",
+      "kind": "calendar",
+      "age": 0,
+      "field_contract": [
+        [
+          "select",
+          "classroom_id",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age",
+          null,
+          false
+        ],
+        [
+          "input",
+          "month",
+          "month",
+          true
+        ]
+      ]
+    },
+    {
+      "file": "detail-0.html",
+      "kind": "detail",
+      "age": 0,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-1.html",
+      "kind": "editor",
+      "age": 1,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "file": "calendar-1.html",
+      "kind": "calendar",
+      "age": 1,
+      "field_contract": [
+        [
+          "select",
+          "classroom_id",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age",
+          null,
+          false
+        ],
+        [
+          "input",
+          "month",
+          "month",
+          true
+        ]
+      ]
+    },
+    {
+      "file": "detail-1.html",
+      "kind": "detail",
+      "age": 1,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-2.html",
+      "kind": "editor",
+      "age": 2,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "file": "calendar-2.html",
+      "kind": "calendar",
+      "age": 2,
+      "field_contract": [
+        [
+          "select",
+          "classroom_id",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age",
+          null,
+          false
+        ],
+        [
+          "input",
+          "month",
+          "month",
+          true
+        ]
+      ]
+    },
+    {
+      "file": "detail-2.html",
+      "kind": "detail",
+      "age": 2,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-3.html",
+      "kind": "editor",
+      "age": 3,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "file": "calendar-3.html",
+      "kind": "calendar",
+      "age": 3,
+      "field_contract": [
+        [
+          "select",
+          "classroom_id",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age",
+          null,
+          false
+        ],
+        [
+          "input",
+          "month",
+          "month",
+          true
+        ]
+      ]
+    },
+    {
+      "file": "detail-3.html",
+      "kind": "detail",
+      "age": 3,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-4.html",
+      "kind": "editor",
+      "age": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "file": "calendar-4.html",
+      "kind": "calendar",
+      "age": 4,
+      "field_contract": [
+        [
+          "select",
+          "classroom_id",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age",
+          null,
+          false
+        ],
+        [
+          "input",
+          "month",
+          "month",
+          true
+        ]
+      ]
+    },
+    {
+      "file": "detail-4.html",
+      "kind": "detail",
+      "age": 4,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-5.html",
+      "kind": "editor",
+      "age": 5,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ]
+    },
+    {
+      "file": "calendar-5.html",
+      "kind": "calendar",
+      "age": 5,
+      "field_contract": [
+        [
+          "select",
+          "classroom_id",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age",
+          null,
+          false
+        ],
+        [
+          "input",
+          "month",
+          "month",
+          true
+        ]
+      ]
+    },
+    {
+      "file": "detail-5.html",
+      "kind": "detail",
+      "age": 5,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    }
+  ]
+}

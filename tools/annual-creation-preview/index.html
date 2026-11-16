@@ -1,0 +1,52 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>年案・日案の反省と承認の確認用モック</title><link rel="stylesheet" href="base.css"><link rel="stylesheet" href="preview.css"><link rel="stylesheet" href="review-preview.css"><script src="fixtures.js"></script><script src="review-preview.js" defer></script><script src="preview.js" defer></script></head>
+<body><header class="preview-toolbar no-print"><div><strong>確認用モック</strong><span>架空データのみ・保存はこの画面内だけ</span></div><div class="preview-controls"><label>確認する状態 <select id="preview-state"><option value="empty">新規・反省未入力</option><option value="partial">反省を一部記入</option><option value="filled">反省を記入済み</option><option value="error">反省の保存エラー</option><option value="request-error">承認依頼のエラー</option><option value="approved">年案承認済み</option><option value="no-teacher">担任未登録</option></select></label><button id="preview-reopen">保存内容を開き直す</button><button id="preview-registration">登録情報の変更を試す</button></div><p id="preview-note" role="status">新規作成では登録された担任を表示します。反省の入力欄は空欄です。</p></header>
+<nav class="workflow-preview-nav no-print" aria-label="確認する画面"><button data-preview-view="annual" aria-pressed="true">年案の入力</button><button data-preview-view="daily" aria-pressed="false">日案の入力</button><button data-preview-view="admin" aria-pressed="false">管理者の通知 <span id="admin-notification-count">0</span></button><small>承認・通知の操作も架空の見本です</small></nav>
+<div class="preview-layout"><aside class="preview-sidebar no-print"><strong>hoikuict</strong><small>確認用</small><a href="#annual-plan-sheet" data-preview-view="annual">年間指導計画</a><a href="#annual-reflection-editor" data-preview-view="annual">年間指導計画反省</a><a href="#daily-view" data-preview-view="daily">日案・その日の振り返り</a><a href="#admin-view" data-preview-view="admin">管理者の通知</a></aside><main class="preview-main"><div id="annual-view"><link rel="stylesheet" href="annual-library.css">
+<div id="annual-plan-sheet" lang="ja" data-detail="false">
+  
+  <header class="rd-chrome"><strong>年間指導計画</strong><span class="annual-status"></span><a class="annual-document-link" hidden>承認・文書情報</a></header>
+  <main class="rd-main">
+    
+    <div class="annual-pickers no-print">
+      <label>年度 <input id="annual-year" type="number" min="1900" max="2199" value=""></label>
+      <label>クラス <select id="annual-classroom"><option value="1" >ひよこ組</option><option value="2" >ことり組</option><option value="3" >こぐま組</option><option value="4" >うさぎ組</option><option value="5" >きりん組</option><option value="6" >そら組</option></select></label>
+      <span class="annual-age-label"></span>
+    </div>
+    <div class="annual-origin no-print">
+      <label>引き継ぐ年案 <select id="annual-origin"></select></label>
+      <button id="annual-import" type="button">選択した年案を表示</button>
+      <p class="annual-source-warning"></p>
+    </div>
+    
+    <div class="annual-empty" hidden>取り込み元または前年の年案を選ぶと、本文と開始位置を確認できます。</div>
+    <section class="annual-editor" hidden>
+      <div class="rd-heading"><div><h2>年間指導計画</h2><div class="rd-context"></div></div>
+        <div class="annual-actions no-print"><button id="annual-undo" type="button" disabled>戻す</button>
+          <button id="annual-print" type="button">印刷</button><button class="rd-save" id="annual-save" type="button">下書きを保存</button></div>
+      </div>
+      <p class="creation-note no-print" id="creation-note"></p><nav class="section-jumps no-print"><a href="#annual-plan-sheet">計画・基本情報</a><a href="#annual-reflection-editor">年間指導計画反省へ</a></nav>
+      <div class="rd-source no-print"><a class="annual-source-link" target="_blank" rel="noopener noreferrer"></a><span class="annual-source-range"></span></div>
+      <div class="rd-import-status no-print"><span class="rd-coverage"></span><span class="rd-pending"></span></div>
+      <div class="rd-tools no-print">
+        <button data-action="diff" type="button" aria-pressed="true">引き継ぎ元との差分</button>
+        <button data-action="reference" type="button" aria-pressed="true">原文と照合</button>
+        <span class="rd-change-count"></span>
+      </div>
+      <div class="rd-reference no-print" aria-label="引き継ぎ元の原文と照合"></div>
+      <div class="rd-paper"><div class="rd-scroll"><div class="rd-sheet">
+        <table class="rd-meta" aria-label="年間計画の基本情報"><colgroup><col style="width:17%"><col style="width:12%"><col style="width:24%"><col style="width:7%"><col style="width:9%"><col></colgroup><tbody>
+          <tr><td rowspan="2" class="rd-sheet-title"></td><th>クラス</th><th>担任名</th><th>園長印</th><th rowspan="2">年間の<br>ねらい</th><td rowspan="2" class="rd-annual"></td></tr>
+          <tr><td class="annual-class-label"></td><td><textarea id="annual-owner" class="rd-edit" maxlength="200" aria-label="担任名"></textarea></td><td><small>文書の承認履歴参照</small></td></tr>
+        </tbody></table>
+        <div class="rd-development"></div><div class="rd-support"></div><div class="rd-terms"></div>
+      </div></div><div class="rd-legend">● 文章の開始位置 · 推定の時期は原本と照合して確認 · 文章の長さは期間を表しません</div></div>
+      <section id="annual-reflection-editor" aria-label="年間指導計画反省"></section>
+      <section class="annual-reflections" hidden aria-label="取り込んだ反省・参考資料"></section>
+    </section>
+    <footer class="no-print"><span id="annual-message" role="status" aria-live="polite"></span><span>本文を直接編集 · BS/Deleteで削除</span></footer>
+  </main>
+</div>
+<script id="annual-library-boot" type="application/json">{}</script>
+<script src="annual-library.js" defer></script></div><section id="daily-view" hidden><iframe id="daily-preview-frame" title="日案の反省入力の見本" data-src="daily-frame.html"></iframe></section><section id="admin-view" hidden></section><section id="review-workflow" hidden aria-live="polite"></section></main></div></body></html>

@@ -25,11 +25,14 @@
       <a href="/parent-portal/children/{{ item.child_id }}/contact?date={{ item.target_date.isoformat() }}" class="text-sm text-indigo-600 hover:underline">{{ '内容を編集' if entry else '連絡を入力' }}</a>
     </div>
 
+    {% if item.emergency_answer %}{% from 'shared/_emergency_order.html' import summary %}
+      {{ summary({'answer': item.emergency_answer, 'usual': none}, item.target_date) }}
+    {% endif %}
     {% if entry and entry.is_present_contact %}
     {% include 'parent_portal/_home_care_details.html' %}
     <div class="mt-4 grid gap-3 text-sm text-gray-700 md:grid-cols-4">
       <div class="rounded border border-gray-200 px-3 py-2">体温: {{ entry.temperature or "-" }}</div>
-      <div class="rounded border border-gray-200 px-3 py-2">朝食: {{ entry.breakfast_status or "-" }}</div>
+      <div class="rounded border border-gray-200 px-3 py-2">{% include 'shared/_contact_meals.html' %}</div>
       <div class="rounded border border-gray-200 px-3 py-2">機嫌: {{ entry.mood or "-" }}</div>
       <div class="rounded border border-gray-200 px-3 py-2">排便: {{ entry.bowel_movement_status or "-" }}</div>
     </div>

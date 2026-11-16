@@ -1,0 +1,34 @@
+{
+  "source_commit": "4581393839d40d0e4eddbf71b9b4b28a7ba461ea",
+  "database": "in-memory fictional data only",
+  "results": [
+    {
+      "role": "admin",
+      "assigned_classes": 6,
+      "home_assigned": 42,
+      "home_all": 98,
+      "attention_assigned": 98
+    },
+    {
+      "role": "admin",
+      "assigned_classes": 4,
+      "home_assigned": 42,
+      "home_all": 98,
+      "attention_assigned": 62
+    },
+    {
+      "role": "can_edit",
+      "assigned_classes": 6,
+      "home_assigned": 42,
+      "home_all": 98,
+      "attention_assigned": 98
+    },
+    {
+      "role": "can_edit",
+      "assigned_classes": 4,
+      "home_assigned": 42,
+      "home_all": 98,
+      "attention_assigned": 62
+    }
+  ]
+}

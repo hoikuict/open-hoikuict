@@ -55,6 +55,7 @@ from models import (
     ParentRegistrationRequest,
 )
 from time_utils import format_jst_datetime, local_today, utc_now
+from family_emergency import load_orders
 
 router = APIRouter(prefix="/children", tags=["children"])
 from template_utils import create_templates
@@ -973,6 +974,7 @@ def child_detail(
 ):
     child = _load_child(session, child_id)
     family_children = _sorted_family_children(child)
+    emergency_day = local_today()
     from parent_account_lifecycle import parent_lifecycle_states
     family_parent_accounts = (
         sorted(
@@ -985,6 +987,8 @@ def child_detail(
     guardian_profiles = child.family.guardian_profiles() if child.family else []
     care_certifications = list_certifications(session, child.id)
     active_care_certification = current_certification(session, child.id)
+    from family_care_service import child_care_context
+    care_context = child_care_context(session, child)
     config, _ = effective_config(session)
 
     return templates.TemplateResponse(
@@ -997,11 +1001,14 @@ def child_detail(
             "guardian_profiles": guardian_profiles,
             "care_certifications": care_certifications,
             "active_care_certification": active_care_certification,
+            **care_context,
             "care_time_categories": list(CareTimeCategory),
             "care_need_reasons": list(CareNeedReason),
             "care_message": care_message,
             "care_error": care_error,
             "family_children": family_children,
+            "emergency_day": emergency_day,
+            "emergency": load_orders(session, child.family_id, emergency_day),
             "family_parent_accounts": family_parent_accounts,
             "parent_lifecycle_states": parent_lifecycle_states(session, family_parent_accounts),
             "family_parent_accounts_by_id": {

@@ -1,0 +1,567 @@
+{
+  "source_commit": "0e1249f301b3257ae9afe0b76f47602bcd2cbe4f",
+  "source_hashes": {
+    "templates/base.html": "f9cc041a82fe30df0862088fbf09a6be077c78f2cec4d6cded252378c6248371",
+    "static/css/monthly-library.css": "d0d85a1b2dcb5c1068496463be7a1f5d4c62c8b066892b98a6f111148b2ccbb6",
+    "static/css/document-search.css": "358210bdff9676be4a7f6ba41b0461dba3d58b7e046e8bb475b112622099a8d1",
+    "static/css/daily-plan-print.css": "c0852f18bd32206f658b729a10a9c5f3318bc21de25dde1afd15ff483844faf7",
+    "static/js/monthly-library.js": "92056e744f1bb19fc2e2ae8018e76bd3554cea373563fbb7afb69d54ae9618b3",
+    "templates/plan_docs/monthly_library/sheet.html": "25011af65c340fe0f69c2c83ef0b001f84e0f5be25518383ec8b4ed6008bf3af",
+    "templates/plan_docs/monthly_library/_sheet.html": "a5d46782f3ace0e3d1820c9a2fbbcea75f307affb881f45bfc5d7432def73492",
+    "templates/plan_docs/documents/detail.html": "356bb907c4748f87f03a6806cb9cfdd0c7d4125918b779d945397f67f4589ef6"
+  },
+  "pages": [
+    {
+      "file": "edit-0.html",
+      "kind": "editor",
+      "age": 0,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "detail-0.html",
+      "kind": "detail",
+      "age": 0,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-1.html",
+      "kind": "editor",
+      "age": 1,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "detail-1.html",
+      "kind": "detail",
+      "age": 1,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-2.html",
+      "kind": "editor",
+      "age": 2,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "detail-2.html",
+      "kind": "detail",
+      "age": 2,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-3.html",
+      "kind": "editor",
+      "age": 3,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "detail-3.html",
+      "kind": "detail",
+      "age": 3,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-4.html",
+      "kind": "editor",
+      "age": 4,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "detail-4.html",
+      "kind": "detail",
+      "age": 4,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "edit-5.html",
+      "kind": "editor",
+      "age": 5,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ]
+    },
+    {
+      "file": "detail-5.html",
+      "kind": "detail",
+      "age": 5,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ]
+    }
+  ]
+}

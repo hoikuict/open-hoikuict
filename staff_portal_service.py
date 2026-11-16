@@ -153,14 +153,17 @@ def classroom_scope(
     target_date: date,
     *,
     show_all: bool = False,
+    unassigned_admin_all: bool = True,
 ) -> tuple[list[Classroom], list[AssignmentView]]:
     assignments = active_assignments(session, staff_user.id, target_date)
-    if show_all or (staff_user.staff_role == "admin" and not assignments):
+    if show_all or (unassigned_admin_all and staff_user.staff_role == "admin" and not assignments):
         classrooms = session.exec(
             select(Classroom).order_by(Classroom.display_order, Classroom.id)
         ).all()
         return classrooms, assignments
-    return [item.classroom for item in assignments], assignments
+    # Overlapping primary/support assignments still represent one classroom.
+    classrooms_by_id = {item.classroom.id: item.classroom for item in assignments}
+    return list(classrooms_by_id.values()), assignments
 
 
 def build_schedule_items(

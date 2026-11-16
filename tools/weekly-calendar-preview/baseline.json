@@ -1,0 +1,34 @@
+{
+  "latest_deployment_record": "deployment-plan-reflection-review-2026-10-11.md",
+  "latest_deployed_commit": "a9706b69137f1c14e2177be14f5806e7eae79a6a",
+  "snapshot": ".local-dev/attendance-production-20261004",
+  "synthetic_data_only": true,
+  "production_connections": false,
+  "forms": {
+    "weekly": {
+      "path": "templates/plan_docs/weekly_plans/form.html",
+      "sha256": "7fc12b4dd4d62e7b3c56743a3ab8c1b1c2f31c733e885a6f75fa8b3309c08ed2",
+      "input_names": [
+        "age_class",
+        "class_notes",
+        "classroom_ref",
+        "current_children_snapshot",
+        "family_context",
+        "include_saturday",
+        "owner_name",
+        "parent_document_id",
+        "previous_week_reflection",
+        "related_monthly_summary",
+        "seasonal_context",
+        "target_week",
+        "weekly_activities_note"
+      ]
+    }
+  },
+  "monthly_sheet": {
+    "templates/plan_docs/monthly_library/_sheet.html": "dec320a79c5bc7b583509fbc6b0695dfbfbd73be3a13f3a3ca68297c5eb55cd2",
+    "static/js/monthly-library.js": "6c323f690c733327c529d4183329467fe92148298845cfa840438167b0b3d76d",
+    "static/css/monthly-library.css": "07781bb522a06473812ef5ba9f76c8e4aae954e86d4e808cfe76df599af84409",
+    "plan_docs/services/monthly_library.py": "ae08a6c0af013c7e103575f7cdeeb46febc783f70b40dfadf1ea2cd0a351d2c9"
+  }
+}

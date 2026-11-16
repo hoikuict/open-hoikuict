@@ -67,6 +67,29 @@ FIELD_LABELS = {
         for field, label in GUARDIAN_FIELDS.items()
     },
 }
+GUARDIAN_ONLY_FIELDS = {f"g1_{key}": f"保護者・{label}" for key, label in GUARDIAN_FIELDS.items()}
+GUARDIAN_ONLY_SCOPE = "guardian_only_v1"
+
+
+def is_guardian_only_submission(enrollment: ParentEnrollment | None) -> bool:
+    """The server records the submitted format so old pending requests keep their meaning."""
+    return bool(enrollment and (enrollment.submitted_data or {}).get("_input_scope") == GUARDIAN_ONLY_SCOPE)
+
+
+def guardian_prefill_values(enrollment: ParentEnrollment, *, public_application: bool = False) -> dict[str, str]:
+    """Expose only the selected adult's nine invitation-time fields after token verification."""
+    snapshot = enrollment.source_snapshot
+    if public_application or enrollment.child_id is None or not isinstance(snapshot, dict) or snapshot.get("adding_guardian"):
+        return {}
+    profile = snapshot.get("profile")
+    guardians = profile.get("guardians_data") if isinstance(profile, dict) else None
+    if not isinstance(guardians, list):
+        return {}
+    matches = [item for item in guardians if isinstance(item, dict) and item.get("order") == enrollment.guardian_order]
+    if len(matches) != 1:
+        return {}
+    # Never fall back to the first guardian, or include email, photos, IDs, or family data.
+    return {f"g1_{key}": str(matches[0].get(key) or "") for key in GUARDIAN_FIELDS}
 
 
 def latest_enrollment(session: Session, account_id: int) -> ParentEnrollment | None:
@@ -179,9 +202,12 @@ def enrollment_state(session: Session, raw_state: str):
     return state, registration, enrollment, account
 
 
-def validate_enrollment_data(data: dict, *, existing_child: bool) -> dict[str, str]:
+def validate_enrollment_data(
+    data: dict, *, existing_child: bool, guardian_only: bool = False
+) -> dict[str, str]:
     values = {}
-    for key, label in FIELD_LABELS.items():
+    labels = GUARDIAN_ONLY_FIELDS if guardian_only else FIELD_LABELS
+    for key, label in labels.items():
         value = str(data.get(key, "")).strip()
         limit = 2000 if key in {"medical_notes", "allergy"} else 300
         if len(value) > limit or any(
@@ -190,13 +216,6 @@ def validate_enrollment_data(data: dict, *, existing_child: bool) -> dict[str, s
             raise ValueError(f"{label}の入力内容を確認してください")
         values[key] = value
     required = [
-        "last_name",
-        "first_name",
-        "last_name_kana",
-        "first_name_kana",
-        "birth_date",
-        "enrollment_date",
-        "home_address",
         "g1_last_name",
         "g1_first_name",
         "g1_last_name_kana",
@@ -204,15 +223,20 @@ def validate_enrollment_data(data: dict, *, existing_child: bool) -> dict[str, s
         "g1_relationship",
         "g1_phone",
     ]
+    if not guardian_only:
+        required = ["last_name", "first_name", "last_name_kana", "first_name_kana",
+                    "birth_date", "enrollment_date", "home_address", *required]
     if existing_child:
         for key in values:
             if key.startswith("g2_"):
                 values[key] = ""
-    elif any(values[f"g2_{key}"] for key in GUARDIAN_FIELDS):
+    elif not guardian_only and any(values[f"g2_{key}"] for key in GUARDIAN_FIELDS):
         required += [f"g2_{key}" for key in ("last_name", "first_name", "relationship")]
     for key in required:
         if not values[key]:
-            raise ValueError(f"{FIELD_LABELS[key]}を入力してください")
+            raise ValueError(f"{labels[key]}を入力してください")
+    if guardian_only:
+        return values
     try:
         birth = date.fromisoformat(values["birth_date"])
         enrollment = date.fromisoformat(values["enrollment_date"])
@@ -225,11 +249,13 @@ def validate_enrollment_data(data: dict, *, existing_child: bool) -> dict[str, s
 
 def submit_enrollment(session: Session, raw_state: str, data: dict) -> None:
     state, registration, enrollment, account = enrollment_state(session, raw_state)
-    values = validate_enrollment_data(
-        data, existing_child=enrollment.child_id is not None
-    )
     is_public = session.get(ParentPublicRegistration, registration.id) is not None
-    if not is_public and compact_name(values["last_name"] + values["first_name"]) != compact_name(
+    # The invitation fixes the target. Client fields cannot select the input scope.
+    guardian_only = enrollment.child_id is not None and not is_public
+    values = validate_enrollment_data(
+        data, existing_child=enrollment.child_id is not None, guardian_only=guardian_only
+    )
+    if not is_public and not guardian_only and compact_name(values["last_name"] + values["first_name"]) != compact_name(
         enrollment.child_name
     ):
         raise ValueError(
@@ -249,6 +275,8 @@ def submit_enrollment(session: Session, raw_state: str, data: dict) -> None:
         enrollment.child_name = f"{values['last_name']} {values['first_name']}"
         account.display_name = f"{values['g1_last_name']} {values['g1_first_name']}（確認待ち）"
         session.add(account)
+    if guardian_only:
+        values["_input_scope"] = GUARDIAN_ONLY_SCOPE
     enrollment.submitted_data = values
     state.consumed_at = utc_now()
     session.add(enrollment)
@@ -285,10 +313,13 @@ def apply_enrollment(
     original_snapshot = {key: value for key, value in (enrollment.source_snapshot or {}).items() if key != "adding_guardian"}
     if child and source_snapshot(child) != original_snapshot:
         raise ValueError("招待後に園児・家族情報が変更されています。再招待してください")
+    guardian_only = is_guardian_only_submission(enrollment)
+    if guardian_only and (child is None or session.get(ParentPublicRegistration, registration.id)):
+        raise ValueError("申請の登録先を確認してください")
     values = validate_enrollment_data(
-        enrollment.submitted_data, existing_child=child is not None
+        enrollment.submitted_data, existing_child=child is not None, guardian_only=guardian_only
     )
-    if compact_name(values["last_name"] + values["first_name"]) != compact_name(
+    if not guardian_only and compact_name(values["last_name"] + values["first_name"]) != compact_name(
         enrollment.child_name
     ):
         raise ValueError(
@@ -325,7 +356,8 @@ def apply_enrollment(
         session.flush()
     family = create_family_for_child(session, child)
     payload = child_profile_form_data_from_child(child)
-    for key in (() if adding_guardian else CHILD_FIELDS):
+    preserve_child = adding_guardian or guardian_only
+    for key in (() if preserve_child else CHILD_FIELDS):
         if not is_new and not values[key]:
             continue
         # The profile writer reads child fields from child_data; updating only
@@ -349,9 +381,18 @@ def apply_enrollment(
             {**{key: values[f"g2_{key}"] for key in GUARDIAN_FIELDS}, "order": 2}
         )
     payload["guardians_data"] = profiles
-    previous_extra = dict(child.extra_data or {})
-    apply_child_profile_payload(session, child, payload)
-    child.extra_data = {**previous_extra, **(child.extra_data or {})}
+    if guardian_only:
+        # Registering an adult must neither revalidate nor rewrite the child's profile.
+        apply_family_shared_data(session, family, {
+            "family_name": family.family_name,
+            "home_address": family.home_address,
+            "home_phone": family.home_phone,
+            "guardians_data": profiles,
+        })
+    else:
+        previous_extra = dict(child.extra_data or {})
+        apply_child_profile_payload(session, child, payload)
+        child.extra_data = {**previous_extra, **(child.extra_data or {})}
     account.family_id = family.id
     account.display_name = f"{own['last_name']} {own['first_name']}"
     account.registration_verification_name = (
@@ -374,7 +415,7 @@ def apply_enrollment(
             "guardians_data": profiles,
         },
     )
-    if not adding_guardian:
+    if not preserve_child:
         child.registration_verification_name = (
             f"{values['last_name_kana']} {values['first_name_kana']}"
         )

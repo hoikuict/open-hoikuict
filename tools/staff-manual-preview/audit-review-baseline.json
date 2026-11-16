@@ -1,0 +1,35 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "synthetic_data_only": true,
+  "network_disabled": true,
+  "business_writes": 0,
+  "screens": [
+    "app-notification",
+    "app-pickup-empty",
+    "app-pickup-partial",
+    "app-pickup-filled",
+    "app-pickup-error",
+    "app-pickup-save",
+    "app-pickup-reopen",
+    "monthly-saved",
+    "monthly-history",
+    "phone-empty",
+    "phone-partial",
+    "phone-filled",
+    "phone-saved",
+    "staff-list",
+    "password-admin",
+    "push-android-allow",
+    "push-preferences",
+    "push-test",
+    "admission-access"
+  ],
+  "source_files": {
+    "parent_notification_service.py": "2b9198774c490bff07fe9f3256b75d21ba9188a1411c1134cdd3a511118bbeae",
+    "templates/parent_portal/notification_detail.html": "b316124fb15594f6998b8d1841e7175594cb9f2e73c826c969112a5cb751167d",
+    "templates/parent_portal/profile.html": "c8cdff349ae50b03b7aa43cda8d6f3b1aa4745d4c15775f5cfd3a0a3a5de21f8",
+    "routers/parent_portal.py": "0cbde10d42c0b436adccb3abde6faefbad65d4269e434e028615db61e32cd70a",
+    "templates/attendance_monthly.html": "89eaded7ca57c108fcc2f447d1dc75995c9cec6ec6092f0a3ba79029914f476c",
+    "templates/parent_portal/pickup.html": "f8a5a74089e1a9395859c0c1e3c007338ce3197fc93f5c5313a1e178fbfe9a97"
+  }
+}

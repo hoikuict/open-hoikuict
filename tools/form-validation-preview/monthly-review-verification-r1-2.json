@@ -1,0 +1,58 @@
+{
+  "revision": "r1.2",
+  "source_commit": "8f7bf89d9860300980a4cef781b0561ff845375c",
+  "checked_at_utc": "2026-11-14T23:11:51.299Z",
+  "ages": [
+    {
+      "age": 0,
+      "readOnly": true,
+      "value": "確認用：0歳の月案を確認する。",
+      "pending": "レビュー待ち",
+      "withdrawn": true
+    },
+    {
+      "age": 1,
+      "readOnly": true,
+      "value": "確認用：1歳の月案を確認する。",
+      "pending": "レビュー待ち",
+      "withdrawn": true
+    },
+    {
+      "age": 2,
+      "readOnly": true,
+      "value": "確認用：2歳の月案を確認する。",
+      "pending": "レビュー待ち",
+      "withdrawn": true
+    },
+    {
+      "age": 3,
+      "readOnly": true,
+      "value": "確認用：3歳の月案を確認する。",
+      "pending": "レビュー待ち",
+      "withdrawn": true
+    },
+    {
+      "age": 4,
+      "readOnly": true,
+      "value": "確認用：4歳の月案を確認する。",
+      "pending": "レビュー待ち",
+      "withdrawn": true
+    },
+    {
+      "age": 5,
+      "readOnly": true,
+      "value": "確認用：5歳の月案を確認する。",
+      "pending": "レビュー待ち",
+      "withdrawn": true
+    }
+  ],
+  "communication_error": {
+    "both_visible": true,
+    "fields_readonly": true,
+    "message": "「レビュー依頼」を完了できませんでした（確認用の通信エラー）。入力は残っています。同じボタンでもう一度試せます。"
+  },
+  "retry_and_return_to_edit_preserve_saved_body": true,
+  "empty_body_with_prefilled_owner_can_request_review": true,
+  "errors": [],
+  "production_requests": 0
+}

@@ -1,0 +1,19 @@
+{% macro period_url(month='') -%}{{ period_action }}?{{ dict(period_filters|default({}), target_month=month)|urlencode }}{%- endmacro %}
+<section class="rounded-xl border border-indigo-200 border-l-4 border-l-indigo-600 bg-white p-5" aria-label="対象期間の選択">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <form method="get" action="{{ period_action }}" data-progress-period class="space-y-2">
+      <label for="progress-target-month" class="block text-xs font-semibold text-slate-600">対象月{% if interval_months is defined and interval_months > 1 %}（期間の終了月）{% endif %}</label>
+      {% for key, value in (period_filters|default({})).items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ period_url(previous_target_month) }}" data-progress-navigation aria-label="前の対象期間" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700">‹</a>
+        <input id="progress-target-month" name="target_month" type="month" min="1901-01" max="2100-12" value="{{ selected_target_month }}" required class="min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-lg font-semibold text-slate-900">
+        <a href="{{ period_url(next_target_month) }}" data-progress-navigation aria-label="次の対象期間" class="rounded-lg border border-slate-300 px-3 py-2 text-slate-700">›</a>
+        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">表示</button>
+        {% if is_latest_period %}<span class="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">{% if interval_months is defined and interval_months == 1 %}前月分{% else %}直近の終了期間{% endif %}</span>{% endif %}
+      </div>
+      {% if period_start is defined %}<p class="text-xs text-slate-600">{{ period_start.strftime('%Y/%m/%d') }}〜{{ period_end.strftime('%Y/%m/%d') }} · {{ period_fiscal_year }}年度 · {{ interval_months }}か月周期</p>
+      {% else %}<p class="text-xs text-slate-600">複数月の周期は、この月までに終了する期間を表示します。</p>{% endif %}
+    </form>
+    <div class="space-y-1 text-right text-xs text-slate-500"><p>操作日 {{ today.strftime('%Y/%m/%d') }}</p><a href="{{ period_url() }}" data-progress-navigation class="inline-block py-2 text-sm font-medium text-indigo-600 underline underline-offset-4">直近の対象期間に戻る</a></div>
+  </div>
+</section>

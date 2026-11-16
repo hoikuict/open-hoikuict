@@ -1,0 +1,7 @@
+{
+  "app_commit": "93159eb73f25094a61382c577803fa2eb96bd555",
+  "form_sha256": "f924e8770af381975732aa2400e601dda93ae52605ea4c54421ff01a92f8fd43",
+  "synthetic_data_only": true,
+  "production_connections": false,
+  "scope": "主な活動のリストと同一画面内での詳細開閉"
+}

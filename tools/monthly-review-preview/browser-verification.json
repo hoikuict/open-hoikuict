@@ -1,0 +1,289 @@
+{
+  "verified": true,
+  "sourceCommit": "0e1249f301b3257ae9afe0b76f47602bcd2cbe4f",
+  "checks": [
+    {
+      "kind": "partial",
+      "linkHidden": true,
+      "message": "レビュー依頼できません（未記入 2項目）\n\n未記入の項目を選ぶと、その欄へ移動します。下書きは途中でも保存できます。\n\n見本 園児8 ／ 環境構成・援助活動\nクラス共通 ／ 家庭との連携",
+      "missing": [
+        "child:8:help",
+        "common:home"
+      ]
+    },
+    {
+      "kind": "fixed",
+      "message": "入力がそろいました。もう一度「レビュー依頼」を押してください。"
+    },
+    {
+      "home": "家庭での様子を伝え合う。",
+      "kind": "request-complete",
+      "readonly": true,
+      "review": "レビューを取り下げる",
+      "status": "レビュー待ち"
+    },
+    {
+      "count": 26,
+      "excluded": false,
+      "first": "クラス共通 ／ ねらい",
+      "kind": "empty",
+      "owner": "見本 はなこ"
+    },
+    {
+      "active": "見本 園児8 / 環境構成・援助活動",
+      "kind": "detail-missing-jump",
+      "page": "1",
+      "url": "http://127.0.0.1:8098/edit-0.html?restore=1&field=child%3A8%3Ahelp"
+    },
+    {
+      "kind": "age-flow",
+      "age": "0",
+      "event": "",
+      "reflection": "",
+      "status": "レビュー待ち",
+      "withdrawAndEdit": true
+    },
+    {
+      "kind": "age-flow",
+      "age": "1",
+      "event": "",
+      "reflection": "",
+      "status": "レビュー待ち",
+      "withdrawAndEdit": true
+    },
+    {
+      "kind": "age-flow",
+      "age": "2",
+      "event": "",
+      "reflection": "",
+      "status": "レビュー待ち",
+      "withdrawAndEdit": true
+    },
+    {
+      "kind": "age-flow",
+      "age": "3",
+      "event": "",
+      "reflection": "",
+      "status": "レビュー待ち",
+      "withdrawAndEdit": true
+    },
+    {
+      "kind": "age-flow",
+      "age": "4",
+      "event": "",
+      "reflection": "",
+      "status": "レビュー待ち",
+      "withdrawAndEdit": true
+    },
+    {
+      "kind": "age-flow",
+      "age": "5",
+      "event": "",
+      "reflection": "",
+      "status": "レビュー待ち",
+      "withdrawAndEdit": true
+    },
+    {
+      "kind": "review-error",
+      "text": "下書きは保存しましたが、レビュー依頼は完了していません（確認用の通信エラー）。もう一度「レビュー依頼」を押してください。",
+      "draftLink": true
+    },
+    {
+      "kind": "save-error",
+      "text": "下書きを保存できませんでした（確認用の通信エラー）。入力は残っています。もう一度お試しください。"
+    },
+    {
+      "kind": "owner",
+      "text": "レビュー依頼できません（未記入 1項目）\n\n未記入の項目を選ぶと、その欄へ移動します。下書きは途中でも保存できます。\n\n担任名"
+    },
+    {
+      "age": "0",
+      "feedback": {
+        "bottom": 515.046875,
+        "left": 23,
+        "right": 282,
+        "top": 243.484375
+      },
+      "height": 900,
+      "kind": "responsive",
+      "missing": 26,
+      "review": {
+        "bottom": 611.640625,
+        "left": 119.09375,
+        "right": 197.984375,
+        "top": 569.640625
+      },
+      "save": {
+        "bottom": 611.640625,
+        "left": 23,
+        "right": 111.09375,
+        "top": 569.640625
+      },
+      "width": 320
+    },
+    {
+      "age": "0",
+      "feedback": {
+        "bottom": 512.5625,
+        "left": 23,
+        "right": 352,
+        "top": 263.390625
+      },
+      "height": 900,
+      "kind": "responsive",
+      "missing": 26,
+      "review": {
+        "bottom": 609.15625,
+        "left": 119.09375,
+        "right": 197.984375,
+        "top": 567.15625
+      },
+      "save": {
+        "bottom": 609.15625,
+        "left": 23,
+        "right": 111.09375,
+        "top": 567.15625
+      },
+      "width": 390
+    },
+    {
+      "age": "0",
+      "feedback": {
+        "bottom": 538.484375,
+        "left": 768,
+        "right": 1308,
+        "top": 287.703125
+      },
+      "height": 900,
+      "kind": "responsive",
+      "missing": 26,
+      "review": {
+        "bottom": 586.171875,
+        "left": 1219.625,
+        "right": 1308,
+        "top": 548.484375
+      },
+      "save": {
+        "bottom": 586.171875,
+        "left": 1110.515625,
+        "right": 1209.625,
+        "top": 548.484375
+      },
+      "width": 1366
+    },
+    {
+      "age": "5",
+      "feedback": {
+        "bottom": 515.046875,
+        "left": 23,
+        "right": 282,
+        "top": 243.484375
+      },
+      "height": 900,
+      "kind": "responsive",
+      "missing": 27,
+      "review": {
+        "bottom": 611.640625,
+        "left": 119.09375,
+        "right": 197.984375,
+        "top": 569.640625
+      },
+      "save": {
+        "bottom": 611.640625,
+        "left": 23,
+        "right": 111.09375,
+        "top": 569.640625
+      },
+      "width": 320
+    },
+    {
+      "age": "5",
+      "feedback": {
+        "bottom": 512.96875,
+        "left": 23,
+        "right": 352,
+        "top": 263.796875
+      },
+      "height": 900,
+      "kind": "responsive",
+      "missing": 27,
+      "review": {
+        "bottom": 609.5625,
+        "left": 119.09375,
+        "right": 197.984375,
+        "top": 567.5625
+      },
+      "save": {
+        "bottom": 609.5625,
+        "left": 23,
+        "right": 111.09375,
+        "top": 567.5625
+      },
+      "width": 390
+    },
+    {
+      "age": "5",
+      "feedback": {
+        "bottom": 538.484375,
+        "left": 768,
+        "right": 1308,
+        "top": 287.703125
+      },
+      "height": 900,
+      "kind": "responsive",
+      "missing": 27,
+      "review": {
+        "bottom": 586.171875,
+        "left": 1219.625,
+        "right": 1308,
+        "top": 548.484375
+      },
+      "save": {
+        "bottom": 586.171875,
+        "left": 1110.515625,
+        "right": 1209.625,
+        "top": 548.484375
+      },
+      "width": 1366
+    },
+    {
+      "kind": "external-navigation-blocked",
+      "url": "http://127.0.0.1:8098/edit-0.html",
+      "message": "この確認画面では月案の保存・レビュー依頼を試します。外部ページには移動しません。"
+    },
+    {
+      "kind": "final-partial",
+      "message": "レビュー依頼できません（未記入 2項目）\n\n未記入の項目を選ぶと、その欄へ移動します。下書きは途中でも保存できます。\n\nクラス共通 ／ 家庭との連携\n見本 園児8 ／ 環境構成・援助活動"
+    }
+  ],
+  "productionSubmissions": 0,
+  "artifact_sha256": {
+    "build.py": "d926376c543539c1abe831521472f0da796baf67963139354a2f3066f0941dbb",
+    "detail-0.html": "eb3a05e34afc648fcfb3489f5ff2ce81eb30a81e89c1fe70355c7cc681d64600",
+    "detail-1.html": "692232df29185444af9d8a4cd079e39518dc9498d19afd09e81fea0a71ce61fc",
+    "detail-2.html": "dbd73c4a29e77b21dd2f856eb7e47e9fd9a8c30d464dcf920cf7f16b7af6a4cf",
+    "detail-3.html": "7f46df489a5c90155c31e7c99290e4fc3b42c4ed03e463c89520f7649b169a69",
+    "detail-4.html": "f95febec22c622b9ff113b8cf231cb0be0985bb3be25275832658d35d5346c82",
+    "detail-5.html": "aa0e1d83dd07d1f480ea249f650a2cdbab7cea0c8a9bbc1aa4859dc4434322aa",
+    "edit-0.html": "b52535add1c941e8cb60042baa9bd102ea1f7cd749d71f67554ca834c277b4d1",
+    "edit-1.html": "9fdc7d22589e3715c86eb330ab9ebe465ae3655717245efebee44a1f6bd76365",
+    "edit-2.html": "0368f0709a967a9cd2882ee157cac0863bd632f35ebfb32bce1454ac74ce2cdd",
+    "edit-3.html": "c6205141f96b16da0d3b9230f795188806d06a3c0a69762ef61560007da18b2e",
+    "edit-4.html": "8ecadd55fb78ef222493c59a7e40445c574d713f523aa0bc28b209f40fa64961",
+    "edit-5.html": "82be0e7f45c05b2ba8dbcf2d98c8a4b30726a3129da6493bd22e814d2be36755",
+    "index.html": "8d87e009706f109f8f60feddd4d1f230979b2401722d26897cccb48277d8a942",
+    "preview.css": "ee2003669de09466fb920368838e49d0968db881cc81c8eb57e0944c3c37b17f",
+    "preview.js": "b8e26c9929575a88245c835dc5cd7e216fc4b77f7c386e0012e9617a1a126cad",
+    "verify.py": "b361d93da7eb909d4db18f9de5fce73a05706a33bcb6468b997bb6644981100d",
+    "assets/base.css": "0be6fee8672aded0aa48d3402ac6ae8bbb452e2e0e60bf580abadc2670c77a16",
+    "assets/daily-plan-print.css": "66edff9f625240a7369e6f4a1cc1052a66ac427db1c637a685f6446ddaac720b",
+    "assets/document-search.css": "7c8ce33404978ab1563f7d428f697cbf0e5585c0c66ffb0dc7dc129e4f935169",
+    "assets/monthly-library.css": "249ebd1f5b3070c352141a16e328c6a88af567539231aeed32e45a05222f6c49",
+    "assets/monthly-library.js": "8d9ca3dbfea43401506698666e3edb0971b2c0027391db4e40fa86c209211dbd",
+    "assets/tailwind.js": "176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15"
+  },
+  "screenshots": {
+    "verified-desktop.png": "92443fab67c43259e25bab41fb9a58275ed498899043a901be966aad77fb094f",
+    "verified-mobile.png": "628e00912163f539255a852b2bf46b4cfc314e39326cc963213bcd441ca773ec"
+  }
+}

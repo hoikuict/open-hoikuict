@@ -1,5 +1,7 @@
 # 施設設定機能 仕様書（facility-settings）
 
+2026-11-16：保護者の連絡項目は、モックr2（ローカル資料: `docs/parent-contact-fields-preview-2026-11-16.md`）への合意を受け、年齢方式／クラス方式と表示／非表示の二択を実装した。同日の依頼を受け実機へ反映した。配備・実機検証記録（ローカル資料: `docs/deployment-parent-contact-fields-2026-11-16.md`）を参照。初期状態は全項目表示。[SD-057](spec-decisions.md#sd-057-r2)・実装と検証（ローカル資料: `docs/parent-contact-fields-implementation-2026-11-16.md`）を参照。本書全体の施設設定を実装したものではない。
+
 - 対象リポジトリ: open-hoikuict
 - ステータス: Draft revised
 - 作成日: 2026-07-05

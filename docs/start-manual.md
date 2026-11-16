@@ -5,6 +5,8 @@ PCへの導入から、Excelの初期台帳、保護者の利用開始・停止�
 [Windows用アプリをダウンロード](https://github.com/hoikuict/open-hoikuict/releases/latest/download/OpenHoikuICT.exe){ .md-button .md-button--primary }
 [対応PCと配布内容](download.md){ .md-button }
 
+登録後の日々の業務や、記録・料金・運用の資料は[マニュアル目次](manual-index.md)から探せます。
+
 ## 1. 利用する環境を決める
 
 | 目的 | 進め方 |
@@ -62,6 +64,8 @@ PCへの導入から、Excelの初期台帳、保護者の利用開始・停止�
 これは初回登録用の機能です。登録済み園児の修正や、既存家庭への弟妹の追加は園児台帳・家庭台帳から行います。
 
 ## 5. 保護者が利用できるようにする
+
+画面のボタン名に沿った手順は[保護者登録マニュアル](parent-registration-manual.md)を参照してください。園で使う職員アカウントを増やす場合は[職員登録マニュアル](staff-registration-manual.md)から進めます。
 
 初期台帳の登録で作られるのは、園児・家庭・保護者の台帳です。**ログイン用アカウントの作成、園児の閲覧許可、招待メール送信は別の操作**です。
 

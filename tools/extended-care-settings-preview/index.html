@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>延長保育料金の設定｜操作モック</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="calculator.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="review" aria-label="確認用の操作">
+    <div class="review-heading"><strong>操作モック</strong><span>架空データ · 保存はこのタブ内だけ · 再読み込みでリセット</span></div>
+    <div class="review-controls">
+      <label>試す状態<select id="scene"><option value="filled">入力済み</option><option value="empty">未入力</option><option value="partial">一部入力</option><option value="error">入力エラー</option></select></label>
+      <label class="check"><input id="fail-next" type="checkbox">次の保存をエラーにする</label>
+      <button id="reset" type="button">初期状態に戻す</button>
+      <button id="open-spec" type="button">仮の仕様を見る</button>
+    </div>
+  </aside>
+  <header class="app-header"><a href="#top" class="brand">open-hoikuict<span>STAFF CONSOLE</span></a><span>こもれび保育園（架空）</span><span class="actor">見本 園長 <b>管理者</b></span></header>
+  <main id="top">
+    <nav class="breadcrumb" aria-label="現在の位置"><span>設定</span><span>／</span><span>延長保育料金</span></nav>
+    <div class="page-heading"><div><h1>延長保育料金の設定</h1><p>標準時間・短時間それぞれの、延長を利用する時間と料金を設定します。</p></div><a class="button" href="#simulator">保存前に料金を試す <span aria-hidden="true">↓</span></a></div>
+    <div class="flow" aria-label="設定の順番"><span><b>1</b>通常保育時間</span><i>→</i><span><b>2</b>前・あと延長</span><i>→</i><span><b>3</b>試算して保存</span></div>
+    <p class="intro">区分の選択は不要です。<strong>標準時間は左の枠、短時間は右の枠</strong>で設定します。小さな画面では縦に並びます。</p>
+    <div id="global-notice" class="notice" role="status" hidden></div>
+    <div id="plan-cards" class="plan-grid"></div>
+
+    <section id="simulator" class="card simulator" aria-labelledby="sim-title">
+      <header class="section-heading"><div><p class="eyebrow">保存前に確認</p><h2 id="sim-title">この時刻なら、いくら？</h2></div><span class="tag">入力中の設定で試算</span></header>
+      <p class="muted">実際の園児データを使わず、上の枠に入力した時間帯と料金を確かめます。</p>
+      <div class="sim-inputs"><label>保育必要量<select id="sim-category"><option value="standard">保育標準時間</option><option value="short">保育短時間</option></select></label><label>利用日<input id="sim-date" type="date" value="2026-10-15"></label><label>登園時刻<input id="sim-arrival" type="time" value="08:30"></label><label>降園時刻<input id="sim-departure" type="time" value="19:20"></label></div>
+      <div class="presets"><span>降園の境界を試す</span><button data-leave="18:59">18:59</button><button data-leave="19:00">19:00</button><button data-leave="19:01">19:01</button><button data-leave="20:10">20:10（時間帯外）</button></div>
+      <div id="sim-result" aria-live="polite"></div>
+      <details class="quiet-details"><summary>この試算の仮ルール</summary><p>各時間帯で利用した分数を課金単位ごとに切り上げ、合算します。「時間帯ごと定額」は、その時間帯を1分以上利用したときに1回分です。19:00ちょうどの降園は、19:00開始の時間帯を使ったことにはしません。</p><p>猶予は通常保育時間との境界で前・あとそれぞれ1回適用し、19:00など途中の区切りでは適用し直しません。設定時間帯の外・日付をまたぐ利用は要確認とし、合計を確定しません。正式な計算方法はモックで確認して決定します。</p></details>
+    </section>
+
+    <section class="card operations" aria-labelledby="operations-title">
+      <header class="section-heading"><div><p class="eyebrow">設定を使い始めるとき</p><h2 id="operations-title">適用と過去分の確認</h2></div></header>
+      <div class="operations-grid"><div><h3>区分別計算への切替</h3><div class="inline-fields"><label class="check"><input id="mode-enabled" type="checkbox" checked>区分別計算を有効にする</label><label>切替開始日<input id="mode-from" type="date" value="2026-04-01"></label></div><p id="mode-status" class="muted"></p><button id="save-mode">計算モードを保存</button></div><div><h3>保存後、必要な月だけ再計算</h3><p class="muted">ルールの保存だけでは過去の料金は変わりません。確定・調整・対象外・請求転送済みの料金は維持します。</p><div class="inline-fields"><label>対象月<input id="recalc-month" type="month" value="2026-10"></label><button id="preview-recalc">再計算の対象を確認</button></div><p class="small muted">ここで確認できるのも架空の記録だけです。</p></div></div>
+    </section>
+
+    <details class="card supplemental" id="billing-details"><summary><span><strong>請求入力への連携</strong><small>料金設定とは別に保存します</small></span><span class="tag" id="billing-status">有効</span></summary><form id="billing-form" class="supplement-body" novalidate><div class="inline-fields"><label class="check"><input id="billing-enabled" type="checkbox" checked>請求連携を有効にする</label><label>請求費目コード<input id="billing-code" value="monthly_childcare" required></label><label class="grow">明細名テンプレート<input id="billing-template" value="延長保育料（{year}年{month}月分）" required></label></div><p class="small muted">転送方法：月次手動 ／ 対象月：請求月と同月。{year} と {month} を使用できます。</p><p id="billing-error" class="error-box" role="alert" hidden></p><button type="submit">請求連携設定を保存</button></form></details>
+
+    <details class="card supplemental" id="legacy-details"><summary><span><strong>従来計算のルール</strong><small>切替前の記録に使用。標準時間・短時間の枠とは別に管理</small></span><span class="tag neutral">区分なし</span></summary><form id="legacy-form" class="supplement-body" novalidate><p class="notice">従来ルールの名前に「標準」とあっても、保育標準時間用の設定にはなりません。過去の計算のために残します。</p><div class="legacy-grid"><label class="span-2">ルール名<input id="legacy-name" value="切替前の延長保育料（架空）"></label><label>適用開始日<input id="legacy-from" type="date" value="2026-01-01"></label><label>適用終了日<input id="legacy-to" type="date" value="2026-03-31"></label><label>延長開始時刻<input id="legacy-start" type="time" value="18:00"></label><label>猶予時間（分）<input id="legacy-grace" type="number" min="0" max="120" value="5"></label><label>課金単位（分ごと）<input id="legacy-unit" type="number" min="1" max="120" value="15"></label><label>1単位の料金（円）<input id="legacy-price" type="number" min="0" value="100"></label><label>日別上限額（円・任意）<input id="legacy-cap" type="number" min="0" placeholder="上限なし"></label><label class="check"><input id="legacy-active" type="checkbox" checked>このルールを有効にする</label></div><p id="legacy-error" class="error-box" role="alert" hidden></p><button type="submit">従来ルールを保存</button></form></details>
+
+    <footer class="page-footer">操作確認用 · こもれび保育園（架空）<br>本番データ・料金計算・請求送信には接続していません。</footer>
+  </main>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title"><header><h2 id="confirm-title"></h2><button class="icon-button" data-close="confirm-dialog" aria-label="確認を閉じる">×</button></header><div class="dialog-body" id="confirm-body"></div><p class="error-box dialog-error" id="confirm-error" role="alert" hidden></p><footer><button data-close="confirm-dialog">入力に戻る</button><button id="confirm-save" class="primary">この設定を保存</button></footer></dialog>
+  <dialog id="discard-dialog" aria-labelledby="discard-title"><header><h2 id="discard-title">入力内容を戻しますか？</h2></header><div class="dialog-body"><p id="discard-text"></p></div><footer><button data-close="discard-dialog">戻さず続ける</button><button id="discard-yes" class="danger">変更を破棄する</button></footer></dialog>
+  <dialog id="spec-dialog" aria-labelledby="spec-title"><header><h2 id="spec-title">要望と、このモックの仮仕様</h2><button class="icon-button" data-close="spec-dialog" aria-label="仮仕様を閉じる">×</button></header><div class="dialog-body"><h3>いただいた要望</h3><ul><li>標準時間・短時間を別々の枠にする。</li><li>区分ごとに前延長・あと延長を使用するか設定する。</li><li>延長の開始・終了を明示し、18〜19時、19〜20時などに分ける。</li></ul><h3>操作の提案</h3><ul><li>区分は枠に固定。設定の名前を変えても区分は変わらない。</li><li>時間帯を追加・削除できる。使用しない側は入力を閉じ、再度使用すると入力を復元する。</li><li>区分ごとに確認して保存。閉じる・戻るでは保存しない。保存エラーは入力を保持する。</li><li>保存はこのタブ内のみ。再計算・請求連携も架空データの操作。</li></ul><h3>未確定の計算ルール</h3><ul><li>時間ごとの課金と、時間帯ごとの定額の2方式を試せる。</li><li>猶予は前・あとそれぞれ通常保育との境界に1回適用する案。</li><li>時間帯の重複・途中の空白は保存エラー。0円の時間帯を明示して無料部分を作れる。</li><li>通常保育の外で「使用しない」設定、設定時間帯の外、翌日の降園は要確認。勝手に0円と確定しない。</li><li>同じ日の時間帯のみ。日付をまたぐ延長の入力方法は今後決定する。</li><li>本番移行時の従来ルールからの引継ぎ、期間の履歴編集、過去料金の差額確認方法は別途確認する。</li></ul><p class="notice">表示する時刻・単価・利用記録はすべて架空の例です。施設の正式な料金規程ではありません。</p></div><footer><button class="primary" data-close="spec-dialog">画面に戻る</button></footer></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

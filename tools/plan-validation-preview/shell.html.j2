@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>日案の記入漏れ案内｜確認用モック</title>
+<link rel="stylesheet" href="deployed-form.css"><link rel="stylesheet" href="mock.css"><script src="mock.js" defer></script>
+</head><body><main class="plan-docs-content">
+<aside class="trial" aria-label="確認用の操作">
+  <strong>確認用モック · 日案の記入漏れ案内</strong>
+  <p>架空データだけで試せます。本番への保存・送信は行いません。ボタン直前の案内と、入力欄への移動をご確認ください。</p>
+  <div class="trial-controls"><label>試す状態<select id="scenario"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="filled">入力済み</option><option value="error">エラー（保存失敗）</option></select></label>
+  <button class="button button--secondary" type="button" id="reset">見本に戻す</button><button class="button button--primary" type="button" id="try-save">保存ボタンの位置へ</button></div>
+</aside>
+<div id="editor">{% block content %}{% endblock %}</div>
+<section id="saved" class="form-panel" hidden><h1 tabindex="-1">下書きを仮保存しました</h1><p>このページ内だけの保存です。承認依頼は行いません。ページを閉じると消えます。</p><dl id="saved-values"></dl><button type="button" id="edit" class="button button--primary">修正する</button></section>
+<section id="left" class="form-panel" hidden><h1>日案の入力画面から戻りました</h1><p>モックでは移動先のカレンダーを省略しています。</p><button type="button" id="resume" class="button button--primary">入力画面をもう一度開く</button></section>
+<dialog id="leave-choice"><h2>入力画面から戻る</h2><p>確認用の入力を破棄して戻りますか？</p><button type="button" id="keep-editing" class="button button--secondary">入力を続ける</button><button type="button" id="discard" class="button button--primary">破棄して戻る</button></dialog>
+<script id="example-data" type="application/json">{{ examples|tojson }}</script>
+</main></body></html>

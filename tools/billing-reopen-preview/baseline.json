@@ -1,0 +1,16 @@
+{
+  "commit": "225ea99d8ca39f773dd9b8e0920bca13854817b5",
+  "template_hashes": {
+    "templates/billing/index.html": "f090558832e86bce5c5f05890c924ea8236922672588e452dd87b8c90aeba32a",
+    "templates/billing/child_charges.html": "65c9acdad4a3c0860d4172057ee6d812bde14079e0dd459644837f3edf28ac2d",
+    "templates/billing/child_charge_input.html": "566661c850f12a22435ba5b3e3ab1489fc28ee1809c10c182a8e0b4191ebf0e0"
+  },
+  "all_charge_columns": [
+    "給食費",
+    "延長保育料",
+    "写真代",
+    "教材費",
+    "行事費",
+    "調整額"
+  ]
+}

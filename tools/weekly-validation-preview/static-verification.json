@@ -1,0 +1,109 @@
+{
+  "source_commit": "9549c0c88a2f50028f8c5a01944f88b8e7197a13",
+  "pages": [
+    {
+      "file": "edit-0.html",
+      "static_fields_retained": 17
+    },
+    {
+      "file": "calendar-0.html",
+      "static_fields_retained": 3
+    },
+    {
+      "file": "detail-0.html",
+      "static_fields_retained": 1
+    },
+    {
+      "file": "edit-1.html",
+      "static_fields_retained": 17
+    },
+    {
+      "file": "calendar-1.html",
+      "static_fields_retained": 3
+    },
+    {
+      "file": "detail-1.html",
+      "static_fields_retained": 1
+    },
+    {
+      "file": "edit-2.html",
+      "static_fields_retained": 17
+    },
+    {
+      "file": "calendar-2.html",
+      "static_fields_retained": 3
+    },
+    {
+      "file": "detail-2.html",
+      "static_fields_retained": 1
+    },
+    {
+      "file": "edit-3.html",
+      "static_fields_retained": 17
+    },
+    {
+      "file": "calendar-3.html",
+      "static_fields_retained": 3
+    },
+    {
+      "file": "detail-3.html",
+      "static_fields_retained": 1
+    },
+    {
+      "file": "edit-4.html",
+      "static_fields_retained": 17
+    },
+    {
+      "file": "calendar-4.html",
+      "static_fields_retained": 3
+    },
+    {
+      "file": "detail-4.html",
+      "static_fields_retained": 1
+    },
+    {
+      "file": "edit-5.html",
+      "static_fields_retained": 17
+    },
+    {
+      "file": "calendar-5.html",
+      "static_fields_retained": 3
+    },
+    {
+      "file": "detail-5.html",
+      "static_fields_retained": 1
+    }
+  ],
+  "all_original_static_inputs_retained": true,
+  "network_and_form_submission_blocked": true,
+  "artifact_sha256": {
+    "build.py": "831601075796b523cb85f71fe510e8d08dc1b8f82fcc415a1da334a3dfba5500",
+    "calendar-0.html": "7a95bb49b2938094c1c4b588ed318ae343a7c5ab65873fb91aa7aa09cb399c8e",
+    "calendar-1.html": "838357572b878cdce0c1d38814fc585d08c16456c6662acd54ba8bae0bdf2574",
+    "calendar-2.html": "894c53a037251a31a0d83eeae45a0a87e5b58815fca24d5717ed46c3dbae2f11",
+    "calendar-3.html": "9c8c09d6a3ffda45a01500b462d7cf852f7facd47733105b586705b1b867d3be",
+    "calendar-4.html": "68b9480a35e4dbc79bb71806bbb07c2c63643fec12693122c6457337f6c93042",
+    "calendar-5.html": "528fba2bc9da2fbd428b89d5a55b6d1cc266ee9db5c860662e63656b7fcad273",
+    "detail-0.html": "dc2ccd5da6909c04d43262e8202997e8e9a0e3485ab69bf4ae7892ebc8df6ef6",
+    "detail-1.html": "06f7f10de5da8b50c028168a7baa57673825b1f22280fe72b06f05facb08ff94",
+    "detail-2.html": "f10682588bd4618929749fafb3e4d188a45a86cf095131e696eda331341084ed",
+    "detail-3.html": "7e565cbb5f6020cda6fd93ff71cdfd0f7fb23daef3a0388127cd3640a3a769fc",
+    "detail-4.html": "3cd260bae2bca6d7ce49f88c479f90254c251746740be8e0f7cb45b82a82fa3e",
+    "detail-5.html": "ce7133e90c356837883a64832f9538ae314af3d8f7de659832014001d9ec88f7",
+    "edit-0.html": "9f57493671e3247aa8e436172471a0491d04912545f8404309290fb70d03027e",
+    "edit-1.html": "82116d3cd22e1da6694b6614dfe70edaab742a423c7b60d4be79dfcad461a61b",
+    "edit-2.html": "b04dcba42e975cd463666aad6f3e05983815c6d47d42ab99ac08380dacbafc52",
+    "edit-3.html": "b7493ac19094d185480d003ac7b1cdfa24af4c326e32d147e7a357efb8fe3842",
+    "edit-4.html": "3b1277a153d595c39cbfc8012ab766290b6e1e9974f8d1929400dafef709e324",
+    "edit-5.html": "c74362da2c857766ed767678e84c6adee3dba8e1f2875ebcaefd95a7c1fee975",
+    "index.html": "504f470c876e7ea7685930ac1b67fe6d7ed96e378c3945851f0bf8734fd80fe7",
+    "preview.css": "095fffceafa92953546ab2ed273f89089b57e06d238cfdbc66eb1cfaa32372bd",
+    "preview.js": "ff8dcee9ff53e4aca905837c7a28423526ef1f10b831b4e656fb87dc4fa9844a",
+    "verify.py": "dd3b5d6054e8adb15ea65dcd2404c9c76c28aea9a49e59fbdc400fdfcdb2bbd0",
+    "assets/base.css": "0be6fee8672aded0aa48d3402ac6ae8bbb452e2e0e60bf580abadc2670c77a16",
+    "assets/document-search.css": "7c8ce33404978ab1563f7d428f697cbf0e5585c0c66ffb0dc7dc129e4f935169",
+    "assets/tailwind.js": "176e894661aa9cdc9a5cba6c720044cbbf7b8bd80d1c9a142a7c24b1b6c50d15",
+    "assets/weekly-library.css": "d1e0fb44dbdcc8db0a8fe1fe768f3a8391636e3197b9b0f1e48e4eb75640ede0",
+    "assets/weekly-library.js": "206c68487b4f735a4b5ca2e99f7bdbd392030ea0f7ac984eacc34aaea16bcdd4"
+  }
+}

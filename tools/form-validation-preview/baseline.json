@@ -1,0 +1,3242 @@
+{
+  "date_jst": "2026-11-15",
+  "source_commit": "8f7bf89d9860300980a4cef781b0561ff845375c",
+  "synthetic_data_only": true,
+  "production_connections": false,
+  "source_sha256": {
+    "templates/base.html": "f9cc041a82fe30df0862088fbf09a6be077c78f2cec4d6cded252378c6248371",
+    "static/css/annual-library.css": "fc05c21dddbdf3fac7f6d1abc90ddc1cdcf3af677f825d150e250b178e94a3b0",
+    "static/css/monthly-library.css": "fbe5f1da3d3ff4b880b2ea175c83ce8a7bc20dd3af320ba7154178d0496c7be2",
+    "static/css/weekly-library.css": "e3438f71b9404e231c0bf28cc21631e9ede7e01da8d24668c98518cae0b18cd9",
+    "static/css/reflection-review.css": "2d78785ee5831ab0b561b01d9f95a989869d9c007f731cb3d8108ac219738b06",
+    "static/css/daily-plan-print.css": "c0852f18bd32206f658b729a10a9c5f3318bc21de25dde1afd15ff483844faf7",
+    "static/css/daily-example-list.css": "29fd79efbddd0a59f789877e1124e75fe169087a79d527e9266181cd0db62840",
+    "static/js/annual-library.js": "fffc3a47a91ff06bc8c92fa6d58dcbd7438c95c1d01cf788966dd3f78ab5a613",
+    "static/js/monthly-library.js": "cb44a40ca13589499b55f16ad4f603dc2f432d7acf6987c3804a1d9e37fb7f26",
+    "static/js/weekly-library.js": "a3baea1d5f6fe64c5e15baf3fdf5cc55adbcfb7ab121a9fd8696affb89e66dc6",
+    "templates/plan_docs/weekly_library/sheet.html": "86bc97376e20a435527e6a5de07d4be4668c8523d1156081c3986bf3a7c582fb",
+    "templates/plan_docs/monthly_library/sheet.html": "25011af65c340fe0f69c2c83ef0b001f84e0f5be25518383ec8b4ed6008bf3af",
+    "templates/plan_docs/monthly_library/_sheet.html": "48d7554ebd0081c58a847cb08d755a087586a054d450e6a9b20b8305586bcf0f",
+    "templates/plan_docs/documents/detail.html": "0544871bafd487807412b7aa9b795eff63fb2e9bf8a8d0b521038f18aff0c16e",
+    "synthetic:annual-creation-preview/fixtures.js": "46edd717947dab70cc78c7ebc566d0d447ffc147103053afdd4f158315571aff",
+    "templates/plan_docs/annual_library/sheet.html": "f2f059ada328b8d412d31f458c5c568a6deaa0738b716ee3aba014110c0057cf",
+    "templates/plan_docs/annual_library/_sheet.html": "27cb5c21ef350230a96ab46567042dca858803170267d6c6d0f227af9e7cf6c0",
+    "templates/plan_docs/weekly_plans/form.html": "2ad5f2236415b0df02bf32ceb2cde474a9967c3926953304486596dd8c364fde",
+    "templates/plan_docs/annual_plans/form.html": "e126149671495c493ecacaa552a135b11b29afc3793b75786aee3a05d09d6046",
+    "templates/plan_docs/monthly_plans/form.html": "23c84b67732c804a84d341800794b6869b01e817e0ece0884e31731c4715e83a",
+    "templates/plan_docs/bunrei/facility_new.html": "c637c06a6e60658f9ffffae269d1e95137d9fc78afb8277a0c0c4e767590ff14",
+    "templates/plan_docs/documents/edit.html": "0089739b7f180c70dbd7bb3c55b3c6533fb7a4f98cc8f1aa55ebf967a99948e5",
+    "templates/plan_docs/reflections/review.html": "588f167510ba3a2168b24413da6df5b17326168c23a6a1aaca1a056bc169c011",
+    "templates/child_records/progress_form.html": "57caad825ebf9468b96b95b071a088a626b34f040a38a6e04c000b483438758a",
+    "templates/child_records/_progress_period.html": "e3d678d85197491900eb73378a96cee6322591cada4ae02897dc2c7f00fedc94",
+    "templates/child_records/log_form.html": "872b41577fd0deefc5dd40fb1e687943e1901592c0ca48a6b87669075e868470",
+    "templates/health/check_records.html": "523b6ea6eca42cb62dc07be6bac505592ce6bfea551a69543ad85b36b8bae379",
+    "templates/health/allergies.html": "48ea8bc839d28e2121056e0f3663d73935f7fcb65232b4aeb6ec638168aa494d",
+    "templates/institutional_records/form.html": "d66859c7088d91772ce90a72e5e3eb42087cd245f5416a10a82121587e769fa5",
+    "templates/document_reviews/list.html": "8aa1e3cb4ee2fe0a96b62b23af0d100962e36d18aa4453f630ee6c56ca9e84cd",
+    "templates/document_reviews/detail.html": "6ce9b8f8019b82870be641f01fa71a931ed453ca914e2c3a7a2692edcf2635f9",
+    "templates/meeting_notes/detail.html": "d122fa814338fed0b22a59b5c7e27bf32b60712de5f5ef7fdca0c9612b05570d"
+  },
+  "pages": [
+    {
+      "key": "weekly-0",
+      "title": "週案 · 0歳児",
+      "group": "指導計画",
+      "template": "plan_docs/weekly_library/sheet.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "weekly"
+    },
+    {
+      "key": "monthly-0",
+      "title": "月案 · 0歳児",
+      "group": "指導計画",
+      "template": "plan_docs/monthly_library/sheet.html",
+      "fields": 6,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ],
+      "kind": "monthly"
+    },
+    {
+      "key": "monthly-review-0",
+      "title": "月案の詳細・レビュー依頼 · 0歳児",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 7,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "monthly-detail"
+    },
+    {
+      "key": "weekly-1",
+      "title": "週案 · 1歳児",
+      "group": "指導計画",
+      "template": "plan_docs/weekly_library/sheet.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "weekly"
+    },
+    {
+      "key": "monthly-1",
+      "title": "月案 · 1歳児",
+      "group": "指導計画",
+      "template": "plan_docs/monthly_library/sheet.html",
+      "fields": 6,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ],
+      "kind": "monthly"
+    },
+    {
+      "key": "monthly-review-1",
+      "title": "月案の詳細・レビュー依頼 · 1歳児",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 7,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "monthly-detail"
+    },
+    {
+      "key": "weekly-2",
+      "title": "週案 · 2歳児",
+      "group": "指導計画",
+      "template": "plan_docs/weekly_library/sheet.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "weekly"
+    },
+    {
+      "key": "monthly-2",
+      "title": "月案 · 2歳児",
+      "group": "指導計画",
+      "template": "plan_docs/monthly_library/sheet.html",
+      "fields": 6,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ],
+      "kind": "monthly"
+    },
+    {
+      "key": "monthly-review-2",
+      "title": "月案の詳細・レビュー依頼 · 2歳児",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 7,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "monthly-detail"
+    },
+    {
+      "key": "weekly-3",
+      "title": "週案 · 3歳児",
+      "group": "指導計画",
+      "template": "plan_docs/weekly_library/sheet.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "weekly"
+    },
+    {
+      "key": "monthly-3",
+      "title": "月案 · 3歳児",
+      "group": "指導計画",
+      "template": "plan_docs/monthly_library/sheet.html",
+      "fields": 6,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ],
+      "kind": "monthly"
+    },
+    {
+      "key": "monthly-review-3",
+      "title": "月案の詳細・レビュー依頼 · 3歳児",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 7,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "monthly-detail"
+    },
+    {
+      "key": "weekly-4",
+      "title": "週案 · 4歳児",
+      "group": "指導計画",
+      "template": "plan_docs/weekly_library/sheet.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "weekly"
+    },
+    {
+      "key": "monthly-4",
+      "title": "月案 · 4歳児",
+      "group": "指導計画",
+      "template": "plan_docs/monthly_library/sheet.html",
+      "fields": 6,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ],
+      "kind": "monthly"
+    },
+    {
+      "key": "monthly-review-4",
+      "title": "月案の詳細・レビュー依頼 · 4歳児",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 7,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "monthly-detail"
+    },
+    {
+      "key": "weekly-5",
+      "title": "週案 · 5歳児",
+      "group": "指導計画",
+      "template": "plan_docs/weekly_library/sheet.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "month",
+          true
+        ],
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "weekly"
+    },
+    {
+      "key": "monthly-5",
+      "title": "月案 · 5歳児",
+      "group": "指導計画",
+      "template": "plan_docs/monthly_library/sheet.html",
+      "fields": 6,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ]
+      ],
+      "kind": "monthly"
+    },
+    {
+      "key": "monthly-review-5",
+      "title": "月案の詳細・レビュー依頼 · 5歳児",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 7,
+      "field_contract": [
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "month",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "input",
+          null,
+          "search",
+          false
+        ],
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "monthly-detail"
+    },
+    {
+      "key": "annual-0",
+      "title": "年案・年間反省 · 0歳児",
+      "group": "指導計画",
+      "template": "plan_docs/annual_library/sheet.html",
+      "fields": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "number",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "textarea",
+          null,
+          null,
+          false
+        ]
+      ],
+      "kind": "annual"
+    },
+    {
+      "key": "annual-1",
+      "title": "年案・年間反省 · 1歳児",
+      "group": "指導計画",
+      "template": "plan_docs/annual_library/sheet.html",
+      "fields": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "number",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "textarea",
+          null,
+          null,
+          false
+        ]
+      ],
+      "kind": "annual"
+    },
+    {
+      "key": "annual-2",
+      "title": "年案・年間反省 · 2歳児",
+      "group": "指導計画",
+      "template": "plan_docs/annual_library/sheet.html",
+      "fields": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "number",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "textarea",
+          null,
+          null,
+          false
+        ]
+      ],
+      "kind": "annual"
+    },
+    {
+      "key": "annual-3",
+      "title": "年案・年間反省 · 3歳児",
+      "group": "指導計画",
+      "template": "plan_docs/annual_library/sheet.html",
+      "fields": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "number",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "textarea",
+          null,
+          null,
+          false
+        ]
+      ],
+      "kind": "annual"
+    },
+    {
+      "key": "annual-4",
+      "title": "年案・年間反省 · 4歳児",
+      "group": "指導計画",
+      "template": "plan_docs/annual_library/sheet.html",
+      "fields": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "number",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "textarea",
+          null,
+          null,
+          false
+        ]
+      ],
+      "kind": "annual"
+    },
+    {
+      "key": "annual-5",
+      "title": "年案・年間反省 · 5歳児",
+      "group": "指導計画",
+      "template": "plan_docs/annual_library/sheet.html",
+      "fields": 4,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "number",
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "select",
+          null,
+          null,
+          false
+        ],
+        [
+          "textarea",
+          null,
+          null,
+          false
+        ]
+      ],
+      "kind": "annual"
+    },
+    {
+      "key": "legacy-weekly",
+      "title": "旧式の週案（旧POSTの再表示）",
+      "group": "指導計画の周辺操作",
+      "template": "plan_docs/weekly_plans/form.html",
+      "fields": 13,
+      "field_contract": [
+        [
+          "input",
+          "target_week",
+          "week",
+          true
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          true
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "include_saturday",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          "parent_document_id",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "related_monthly_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_week_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "weekly_activities_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "generic"
+    },
+    {
+      "key": "legacy-annual",
+      "title": "旧式の年案",
+      "group": "指導計画の周辺操作",
+      "template": "plan_docs/annual_plans/form.html",
+      "fields": 15,
+      "field_contract": [
+        [
+          "input",
+          "school_year",
+          "number",
+          false
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "class_outlook",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "focus_growth",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "annual_events",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "care_points",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_collaboration_policy",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "health_safety_policy",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "preferred_expressions",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "term_1_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "term_2_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "term_3_note",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "term_4_note",
+          null,
+          false
+        ]
+      ],
+      "kind": "generic"
+    },
+    {
+      "key": "legacy-monthly",
+      "title": "旧式の月案",
+      "group": "指導計画の周辺操作",
+      "template": "plan_docs/monthly_plans/form.html",
+      "fields": 10,
+      "field_contract": [
+        [
+          "input",
+          "target_month",
+          "month",
+          false
+        ],
+        [
+          "select",
+          "classroom_ref",
+          null,
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "related_annual_summary",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "previous_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "current_children_snapshot",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "play_interests",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "seasonal_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "family_context",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "class_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "generic"
+    },
+    {
+      "key": "bunrei",
+      "title": "園文例の追加・ファイル取込",
+      "group": "指導計画の周辺操作",
+      "template": "plan_docs/bunrei/facility_new.html",
+      "fields": 13,
+      "field_contract": [
+        [
+          "select",
+          "plan_type",
+          null,
+          false
+        ],
+        [
+          "select",
+          "age_class",
+          null,
+          false
+        ],
+        [
+          "select",
+          "month",
+          null,
+          false
+        ],
+        [
+          "select",
+          "item",
+          null,
+          false
+        ],
+        [
+          "input",
+          "ryoiki",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "source_note",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "text",
+          null,
+          true
+        ],
+        [
+          "input",
+          "file",
+          "file",
+          true
+        ],
+        [
+          "select",
+          "default_plan_type",
+          null,
+          false
+        ],
+        [
+          "select",
+          "default_age_class",
+          null,
+          false
+        ],
+        [
+          "select",
+          "default_month",
+          null,
+          false
+        ],
+        [
+          "select",
+          "default_item",
+          null,
+          false
+        ],
+        [
+          "input",
+          "default_source_note",
+          "text",
+          false
+        ]
+      ],
+      "kind": "generic"
+    },
+    {
+      "key": "daily-reflection",
+      "title": "日案の振り返り・実施変更",
+      "group": "指導計画の周辺操作",
+      "template": "plan_docs/documents/detail.html",
+      "fields": 16,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "reflection_version",
+          "hidden",
+          false
+        ],
+        [
+          "textarea",
+          "reflection_body",
+          null,
+          true
+        ],
+        [
+          "input",
+          "changed_at",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "correction_note",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "after_heading",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "after_time_label",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "after_details",
+          null,
+          true
+        ],
+        [
+          "select",
+          "affected_block_key",
+          null,
+          false
+        ],
+        [
+          "input",
+          "changed_at",
+          "datetime-local",
+          true
+        ],
+        [
+          "select",
+          "reason_code",
+          null,
+          false
+        ],
+        [
+          "select",
+          "impact_level",
+          null,
+          false
+        ],
+        [
+          "input",
+          "reason_note",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "after_heading",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "after_time_label",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "after_details",
+          null,
+          true
+        ]
+      ],
+      "kind": "daily-detail"
+    },
+    {
+      "key": "document-edit",
+      "title": "保存済み帳票の修正",
+      "group": "指導計画の周辺操作",
+      "template": "plan_docs/documents/edit.html",
+      "fields": 13,
+      "field_contract": [
+        [
+          "input",
+          "lock_version",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "title",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "owner_name",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "confirmation_items",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "body_daily_goal",
+          null,
+          false
+        ],
+        [
+          "input",
+          "editor_note_daily_goal",
+          "text",
+          false
+        ],
+        [
+          "textarea",
+          "body_daily_content",
+          null,
+          false
+        ],
+        [
+          "input",
+          "editor_note_daily_content",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "rowtime__row_1",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "rowlabel__row_1",
+          "hidden",
+          false
+        ],
+        [
+          "textarea",
+          "cell__row_1__children",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "cell__row_1__support",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "cell__row_1__considerations",
+          null,
+          false
+        ]
+      ],
+      "kind": "generic"
+    },
+    {
+      "key": "reflection-request",
+      "title": "反省の承認依頼確認",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/reflections/review.html",
+      "fields": 1,
+      "field_contract": [
+        [
+          "input",
+          "version",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "reflection-request"
+    },
+    {
+      "key": "reflection-decision",
+      "title": "反省の承認・差し戻し",
+      "group": "承認・確認依頼",
+      "template": "plan_docs/reflections/review.html",
+      "fields": 1,
+      "field_contract": [
+        [
+          "textarea",
+          "comment",
+          null,
+          false
+        ]
+      ],
+      "kind": "reflection-decision"
+    },
+    {
+      "key": "child-progress",
+      "title": "児童票の入力・保存",
+      "group": "園児の帳票・記録",
+      "template": "child_records/progress_form.html",
+      "fields": 11,
+      "field_contract": [
+        [
+          "input",
+          "target_month",
+          "month",
+          true
+        ],
+        [
+          "input",
+          "continue_url",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "period_start",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "period_end",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "cycle_key",
+          "hidden",
+          false
+        ],
+        [
+          "textarea",
+          "body_progress_children_overview",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "body_progress_growth_changes",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "body_progress_support_reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "body_progress_family_collaboration",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "body_progress_next_focus",
+          null,
+          false
+        ],
+        [
+          "input",
+          "source_log_ids",
+          "checkbox",
+          false
+        ]
+      ],
+      "kind": "child-progress"
+    },
+    {
+      "key": "child-log",
+      "title": "子どもの記録の追加",
+      "group": "園児の帳票・記録",
+      "template": "child_records/log_form.html",
+      "fields": 27,
+      "field_contract": [
+        [
+          "input",
+          "visibility",
+          "radio",
+          false
+        ],
+        [
+          "input",
+          "visibility",
+          "radio",
+          false
+        ],
+        [
+          "input",
+          "observed_on",
+          "date",
+          true
+        ],
+        [
+          "textarea",
+          "child_state",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "caregiver_support",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "next_focus",
+          null,
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          "sensitivity",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "custom_mock",
+          null,
+          true
+        ]
+      ],
+      "kind": "child-log"
+    },
+    {
+      "key": "child-log-correction",
+      "title": "子どもの記録の訂正・無効化",
+      "group": "園児の帳票・記録",
+      "template": "child_records/log_form.html",
+      "fields": 30,
+      "field_contract": [
+        [
+          "input",
+          "expected_updated_at",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "visibility",
+          "radio",
+          false
+        ],
+        [
+          "input",
+          "visibility",
+          "radio",
+          false
+        ],
+        [
+          "input",
+          "observed_on",
+          "date",
+          true
+        ],
+        [
+          "textarea",
+          "child_state",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "caregiver_support",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "reflection",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "next_focus",
+          null,
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "categories",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "perspective_tags",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          "sensitivity",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "custom_mock",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "correction_reason",
+          null,
+          true
+        ],
+        [
+          "input",
+          "void_reason",
+          "text",
+          true
+        ]
+      ],
+      "kind": "child-log"
+    },
+    {
+      "key": "health-check",
+      "title": "健診・身体測定の追加",
+      "group": "園児の帳票・記録",
+      "template": "health/check_records.html",
+      "fields": 14,
+      "field_contract": [
+        [
+          "input",
+          "range_key",
+          "hidden",
+          false
+        ],
+        [
+          "select",
+          "check_type",
+          null,
+          false
+        ],
+        [
+          "input",
+          "checked_at",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "height_cm",
+          null,
+          false
+        ],
+        [
+          "input",
+          "weight_kg",
+          null,
+          false
+        ],
+        [
+          "input",
+          "temperature",
+          null,
+          false
+        ],
+        [
+          "input",
+          "heart_rate",
+          null,
+          false
+        ],
+        [
+          "input",
+          "respiratory_rate",
+          null,
+          false
+        ],
+        [
+          "input",
+          "doctor_name",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "general_condition",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "overall_result",
+          null,
+          false
+        ],
+        [
+          "input",
+          "observer_name",
+          null,
+          false
+        ],
+        [
+          "input",
+          "requires_followup",
+          "checkbox",
+          false
+        ],
+        [
+          "textarea",
+          "followup_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "health"
+    },
+    {
+      "key": "health-correction",
+      "title": "健診・身体測定の訂正",
+      "group": "園児の帳票・記録",
+      "template": "health/check_records.html",
+      "fields": 17,
+      "field_contract": [
+        [
+          "input",
+          "range_key",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "record_id",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "revision",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "correction_reason",
+          null,
+          true
+        ],
+        [
+          "select",
+          "check_type",
+          null,
+          false
+        ],
+        [
+          "input",
+          "checked_at",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "height_cm",
+          null,
+          false
+        ],
+        [
+          "input",
+          "weight_kg",
+          null,
+          false
+        ],
+        [
+          "input",
+          "temperature",
+          null,
+          false
+        ],
+        [
+          "input",
+          "heart_rate",
+          null,
+          false
+        ],
+        [
+          "input",
+          "respiratory_rate",
+          null,
+          false
+        ],
+        [
+          "input",
+          "doctor_name",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "general_condition",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "overall_result",
+          null,
+          false
+        ],
+        [
+          "input",
+          "observer_name",
+          null,
+          false
+        ],
+        [
+          "input",
+          "requires_followup",
+          "checkbox",
+          false
+        ],
+        [
+          "textarea",
+          "followup_notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "health"
+    },
+    {
+      "key": "allergy",
+      "title": "アレルギー情報の追加・更新",
+      "group": "園児の帳票・記録",
+      "template": "health/allergies.html",
+      "fields": 15,
+      "field_contract": [
+        [
+          "input",
+          "allergy_id",
+          "hidden",
+          false
+        ],
+        [
+          "select",
+          "allergen_category",
+          null,
+          false
+        ],
+        [
+          "select",
+          "severity",
+          null,
+          false
+        ],
+        [
+          "input",
+          "allergen_name",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "symptoms",
+          null,
+          false
+        ],
+        [
+          "input",
+          "diagnosis_confirmed",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "removal_required",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "diagnosis_date",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "valid_until",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "treating_doctor",
+          null,
+          false
+        ],
+        [
+          "input",
+          "substitute_food",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "action_plan",
+          null,
+          false
+        ],
+        [
+          "input",
+          "source_document",
+          null,
+          false
+        ],
+        [
+          "input",
+          "source_document_date",
+          "date",
+          false
+        ],
+        [
+          "textarea",
+          "notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "allergy"
+    },
+    {
+      "key": "allergy-edit",
+      "title": "アレルギー情報の更新",
+      "group": "園児の帳票・記録",
+      "template": "health/allergies.html",
+      "fields": 15,
+      "field_contract": [
+        [
+          "input",
+          "allergy_id",
+          "hidden",
+          false
+        ],
+        [
+          "select",
+          "allergen_category",
+          null,
+          false
+        ],
+        [
+          "select",
+          "severity",
+          null,
+          false
+        ],
+        [
+          "input",
+          "allergen_name",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "symptoms",
+          null,
+          false
+        ],
+        [
+          "input",
+          "diagnosis_confirmed",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "removal_required",
+          "checkbox",
+          false
+        ],
+        [
+          "input",
+          "diagnosis_date",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "valid_until",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "treating_doctor",
+          null,
+          false
+        ],
+        [
+          "input",
+          "substitute_food",
+          null,
+          false
+        ],
+        [
+          "textarea",
+          "action_plan",
+          null,
+          false
+        ],
+        [
+          "input",
+          "source_document",
+          null,
+          false
+        ],
+        [
+          "input",
+          "source_document_date",
+          "date",
+          false
+        ],
+        [
+          "textarea",
+          "notes",
+          null,
+          false
+        ]
+      ],
+      "kind": "allergy"
+    },
+    {
+      "key": "institutional-new",
+      "title": "行事反省・経緯レコードの作成",
+      "group": "行事・文書",
+      "template": "institutional_records/form.html",
+      "fields": 13,
+      "field_contract": [
+        [
+          "input",
+          "title",
+          "text",
+          true
+        ],
+        [
+          "select",
+          "origin",
+          null,
+          true
+        ],
+        [
+          "input",
+          "fiscal_year",
+          "number",
+          false
+        ],
+        [
+          "textarea",
+          "background",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "purpose",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "revisit_condition",
+          null,
+          false
+        ],
+        [
+          "input",
+          "occurred_on",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "review_due_on",
+          "date",
+          false
+        ],
+        [
+          "select",
+          "visibility",
+          null,
+          false
+        ],
+        [
+          "input",
+          "include_initial_link",
+          "checkbox",
+          false
+        ],
+        [
+          "select",
+          "initial_target_type",
+          null,
+          false
+        ],
+        [
+          "input",
+          "initial_target_id",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "initial_target_label",
+          "text",
+          false
+        ]
+      ],
+      "kind": "institutional"
+    },
+    {
+      "key": "institutional-edit",
+      "title": "行事反省・経緯レコードの改訂",
+      "group": "行事・文書",
+      "template": "institutional_records/form.html",
+      "fields": 10,
+      "field_contract": [
+        [
+          "input",
+          "expected_revision_no",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "title",
+          "text",
+          true
+        ],
+        [
+          "select",
+          "origin",
+          null,
+          true
+        ],
+        [
+          "input",
+          "fiscal_year",
+          "number",
+          false
+        ],
+        [
+          "textarea",
+          "background",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "purpose",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "revisit_condition",
+          null,
+          false
+        ],
+        [
+          "input",
+          "occurred_on",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "review_due_on",
+          "date",
+          false
+        ],
+        [
+          "textarea",
+          "change_note",
+          null,
+          true
+        ]
+      ],
+      "kind": "institutional"
+    },
+    {
+      "key": "document-request",
+      "title": "文書の確認依頼",
+      "group": "承認・確認依頼",
+      "template": "document_reviews/list.html",
+      "fields": 3,
+      "field_contract": [
+        [
+          "input",
+          "title",
+          null,
+          true
+        ],
+        [
+          "textarea",
+          "body",
+          null,
+          false
+        ],
+        [
+          "input",
+          "attachments",
+          "file",
+          false
+        ]
+      ],
+      "kind": "document-request"
+    },
+    {
+      "key": "document-decision",
+      "title": "文書の確認・差し戻し",
+      "group": "承認・確認依頼",
+      "template": "document_reviews/detail.html",
+      "fields": 1,
+      "field_contract": [
+        [
+          "textarea",
+          "note",
+          null,
+          false
+        ]
+      ],
+      "kind": "document-decision"
+    },
+    {
+      "key": "meeting-markings",
+      "title": "議事録のマーキング・コメント・昇格",
+      "group": "行事・文書",
+      "template": "meeting_notes/detail.html",
+      "fields": 18,
+      "field_contract": [
+        [
+          "input",
+          null,
+          "text",
+          false
+        ],
+        [
+          "input",
+          "source_type",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "source_id",
+          "hidden",
+          false
+        ],
+        [
+          "textarea",
+          "excerpt",
+          null,
+          true
+        ],
+        [
+          "select",
+          "origin",
+          null,
+          false
+        ],
+        [
+          "select",
+          "series_id",
+          null,
+          false
+        ],
+        [
+          "input",
+          "fiscal_year",
+          "number",
+          false
+        ],
+        [
+          "input",
+          "comment",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "source_id",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "body",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "source_id",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "visibility",
+          "hidden",
+          false
+        ],
+        [
+          "input",
+          "title",
+          "text",
+          true
+        ],
+        [
+          "input",
+          "fiscal_year",
+          "number",
+          true
+        ],
+        [
+          "textarea",
+          "purpose",
+          null,
+          true
+        ],
+        [
+          "input",
+          "revisit_condition",
+          "text",
+          false
+        ],
+        [
+          "input",
+          "review_due_on",
+          "date",
+          false
+        ],
+        [
+          "input",
+          "source_id",
+          "hidden",
+          false
+        ]
+      ],
+      "kind": "meeting"
+    }
+  ]
+}

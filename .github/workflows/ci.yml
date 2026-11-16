@@ -3,6 +3,12 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 21 * * 0"
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -14,7 +20,11 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Check dependency compatibility
+        run: python -m pip check
+      - name: Audit dependencies
+        run: python -m pip_audit --strict
       - name: Build documentation
         run: python -m mkdocs build --strict
       - name: Lint
@@ -25,3 +35,23 @@ jobs:
           HOIKUICT_ENABLE_MOCK_AUTH: "1"
           HOIKUICT_KIOSK_ACCESS_MODE: open
         run: python -m pytest -q --ignore=gen_bunnrei
+
+  windows-proxy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Verify pinned Windows components
+        run: python scripts/build_windows_components.py --output .local-dev/ci-windows-components
+      - name: Test client IP forwarding and login isolation
+        env:
+          HOIKUICT_TEST_CADDY: ${{ github.workspace }}\.local-dev\ci-windows-components\caddy.exe
+          HOIKUICT_ENV: test
+          PYTHON_DOTENV_DISABLED: "1"
+          HOIKUICT_DATABASE_URL: sqlite://
+        run: python -m pytest -q test_windows_proxy.py

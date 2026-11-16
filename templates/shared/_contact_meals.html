@@ -1,0 +1,8 @@
+{% set meal_values = entry.extra_data or {} %}
+{% for meal, title in meal_dates(entry.target_date) %}
+<div class="mb-2"><strong>{{ title }}</strong>
+  <div>食欲：{{ meal_values.get(meal ~ '_appetite') or '未入力' }}</div>
+  <div class="whitespace-pre-wrap">食べたもの：{{ meal_values.get(meal ~ '_contents') or '未入力' }}</div>
+  {% if meal == 'breakfast' and entry.breakfast_status %}<small>以前の記録（朝食・食欲）：{{ entry.breakfast_status }}</small>{% endif %}
+</div>
+{% endfor %}

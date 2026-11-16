@@ -2,6 +2,7 @@
 {% block title %}請求入力 | open-hoikuict{% endblock %}
 
 {% block content %}
+{% from 'billing/_reopen_controls.html' import reopen_button %}
 <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
   <div>
     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Billing</p>
@@ -91,6 +92,9 @@
               <button type="submit" class="rounded border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">Zengin作成</button>
             </form>
             {% endif %}
+            {% if current_user and current_user.is_admin and row.reopen_export %}
+            {{ reopen_button(row.reopen_export, row.cycle.year_month) }}
+            {% endif %}
             </div>
           </td>
         </tr>
@@ -129,20 +133,30 @@
           <td class="px-5 py-3">
             <div class="flex flex-wrap gap-2">
               {% if current_user and current_user.is_admin %}
+              {% if row.export.status.value != 'canceled' %}
               <a href="/billing/zengin/exports/{{ row.export.id }}/download" class="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">ダウンロード</a>
+              {% endif %}
               {% if row.export.status.value == "created" %}
               <form method="post" action="/billing/zengin/exports/{{ row.export.id }}/mark-submitted-ui"
                     onsubmit="return confirm('この出力を銀行提出済みにしますか？');">
                 <button type="submit" class="rounded border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">銀行提出済みにする</button>
               </form>
               {% endif %}
-              {% if row.export.status.value in ["created", "submitted"] %}
+              {% if row.can_reopen %}{{ reopen_button(row.export, row.year_month) }}{% endif %}
+              {% if row.export.status.value == "submitted" %}
               <form method="post" action="/billing/zengin/exports/{{ row.export.id }}/supersede-ui"
                     class="flex gap-1" onsubmit="return confirm('この出力を差し替えますか？');">
                 <input name="reason" required placeholder="差し替え理由" class="w-32 rounded border border-slate-300 px-2 py-1 text-xs">
                 <button type="submit" class="rounded border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50">差し替え</button>
               </form>
               {% endif %}
+              {% endif %}
+              {% if row.export.status.value == 'canceled' %}
+              <div class="max-w-md text-xs leading-6 text-slate-600 break-words">
+                <p>取消理由：{{ row.export.canceled_reason or '記録なし' }}</p>
+                <p>{{ row.export.canceled_by or '記録なし' }}{% if row.export.canceled_at %} ／ {{ row.export.canceled_at|jst_datetime }}{% endif %}</p>
+                <p>再ダウンロード・銀行提出・結果取込はできません。</p>
+              </div>
               {% endif %}
               {% if current_user and current_user.can_edit and row.export.status.value == "submitted" %}
               <form method="post" action="/billing/zengin/exports/{{ row.export.id }}/import-paid-demo">
@@ -159,4 +173,5 @@
     </table>
   </div>
 </section>
+{% include 'billing/_reopen_controls.html' %}
 {% endblock %}

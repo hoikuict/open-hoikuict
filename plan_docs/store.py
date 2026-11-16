@@ -45,6 +45,10 @@ class InvalidStatusTransitionError(RuntimeError):
     pass
 
 
+class NoReviewRecipientsError(RuntimeError):
+    pass
+
+
 class ExecutionChangeError(RuntimeError):
     pass
 
@@ -135,6 +139,7 @@ def _document_from_row(row: PlanDocumentRow) -> PlanDocument:
         related_document_ids=list(row.related_document_ids or []),
         schedule=_schedule_from_dict(row.schedule),
         monthly_sheet=row.monthly_sheet,
+        annual_sheet=row.annual_sheet,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
@@ -168,6 +173,11 @@ def _row_from_document(document: PlanDocument) -> PlanDocumentRow:
         sections=list(payload["sections"]),
         schedule=payload.get("schedule"),
         monthly_sheet=document.monthly_sheet,
+        annual_sheet=document.annual_sheet,
+        annual_sheet_key=(json.dumps([
+            document.nursery_ref, document.annual_sheet["classroom_id"],
+            document.school_year, document.annual_sheet["age"],
+        ], ensure_ascii=False) if document.annual_sheet else None),
         monthly_sheet_key=(json.dumps([
             document.nursery_ref, document.monthly_sheet["classroom_id"],
             document.target_month, document.monthly_sheet["age"],
@@ -189,6 +199,7 @@ def _apply_document_to_row(document: PlanDocument, row: PlanDocumentRow) -> None
     row.sections = list(payload["sections"])
     row.schedule = payload.get("schedule")
     row.monthly_sheet = document.monthly_sheet
+    row.annual_sheet = document.annual_sheet
     row.confirmation_items = list(document.confirmation_items)
     row.updated_at = document.updated_at
 
@@ -313,6 +324,7 @@ class SqlModelDocumentRepository:
         section_updates: dict[str, dict[str, object]],
         schedule_form: Mapping[str, str] | None = None,
         monthly_sheet: dict | None = None,
+        annual_sheet: dict | None = None,
         expected_lock_version: int,
         actor_ref: str,
     ) -> PlanDocument | None:
@@ -326,6 +338,8 @@ class SqlModelDocumentRepository:
         document.confirmation_items = confirmation_items
         if monthly_sheet is not None:
             document.monthly_sheet = monthly_sheet
+        if annual_sheet is not None:
+            document.annual_sheet = annual_sheet
         for section in document.sections:
             item = section_updates.get(section.section_key)
             if not item:
@@ -333,6 +347,11 @@ class SqlModelDocumentRepository:
             section.body = str(item.get("body") or "")
             section.needs_confirmation = bool(item.get("needs_confirmation"))
             section.editor_note = str(item.get("editor_note") or "").strip() or None
+            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD:
+                if "source_refs" in item:
+                    section.source_refs = list(item["source_refs"])
+                if "evidence_tags" in item:
+                    section.evidence_tags = list(item["evidence_tags"])
         if document.schedule and schedule_form is not None:
             for schedule_row in document.schedule.rows:
                 label = schedule_form.get(f"rowlabel__{schedule_row.row_key}")
@@ -392,13 +411,16 @@ class SqlModelDocumentRepository:
             revision = self._create_revision(document, reason="submitted", actor_ref=actor_ref)
             head.current_revision_id = revision.id
             head.review_revision_id = revision.id
-            create_review_notifications(
+            notifications = create_review_notifications(
                 self.session,
                 document=document,
                 review_revision_id=int(revision.id or 0),
                 requested_by_ref=actor_ref,
                 requested_by_name=actor_name,
             )
+            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD and not notifications:
+                self.session.rollback()
+                raise NoReviewRecipientsError
         elif status == DocumentStatus.APPROVED:
             if head.review_revision_id is None:
                 raise InvalidStatusTransitionError("レビュー対象版がありません")

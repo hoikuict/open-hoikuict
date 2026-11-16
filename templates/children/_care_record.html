@@ -1,0 +1,19 @@
+{% macro record(certification, source) %}
+<div class="rounded-lg border border-slate-200 p-4 {% if not certification.is_active %}bg-slate-50{% endif %}">
+  <div class="flex flex-wrap items-center gap-2">
+    <strong class="text-slate-800">{{ certification.care_time_category.label }}</strong>
+    <span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ source }}</span>
+    {% if not certification.is_active %}<span class="text-xs text-slate-500">無効化済み</span>{% endif %}
+  </div>
+  <p class="mt-1 text-sm text-slate-500">{{ certification.effective_from.isoformat() }} 〜 {{ certification.effective_to.isoformat() if certification.effective_to else "終了日なし" }}</p>
+  <div class="mt-3 grid gap-2 md:grid-cols-2">
+    {% for item in certification.reasons|sort(attribute='guardian_order') %}
+    <div class="rounded bg-slate-50 px-3 py-2 text-sm">
+      <div class="font-medium text-slate-700">{{ item.guardian_name_snapshot }}{% if item.relationship_snapshot %}（{{ item.relationship_snapshot }}）{% endif %}</div>
+      <div class="mt-1 text-slate-600">{{ item.reason.label }}{% if item.other_reason_detail %}: {{ item.other_reason_detail }}{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if certification.internal_note %}<p class="mt-2 text-sm text-slate-500">施設内メモ：{{ certification.internal_note }}</p>{% endif %}
+</div>
+{% endmacro %}

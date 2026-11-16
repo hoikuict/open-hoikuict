@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>園児別・月間の登降園記録｜確認用モック</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="review" aria-label="モックの試用設定">
+    <div class="review-title"><strong>確認用モック</strong><span>架空データのみ・保存はこのタブ内だけ</span></div>
+    <div class="review-controls">
+      <label>入力状態 <select id="scene"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="filled">入力済み</option></select></label>
+      <label><input id="fail-next" type="checkbox"> 次の保存をエラーにする</label>
+      <button id="reset" class="compact">試用をやり直す</button>
+      <button id="spec" class="compact">要望と仮の仕様</button>
+    </div>
+    <p>試用上の業務日：2026年11月1日。10月末の修正を想定しています。上の帯は業務画面には入りません。</p>
+  </aside>
+  <header class="app-header"><strong>open-hoikuict</strong><span>こもれび保育園（架空）</span><span class="actor">見本 はなこ · 編集職員</span></header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">登降園管理</p><h1>登降園記録の修正</h1><p class="muted">月ごとに記録を確認し、打刻の抜けを補記します。</p></div><span class="proposal">画面・動作の確認案</span></div>
+    <nav class="tabs" aria-label="記録の表示方法"><button id="personal-tab" aria-pressed="true">園児別・月間記録</button><button id="missing-tab" aria-pressed="false">クラスの打刻漏れ一覧</button></nav>
+    <section class="filters card" aria-label="対象を選ぶ">
+      <label>対象月<input id="month" type="month" value="2026-10" min="2026-01" max="2026-12"></label>
+      <label>クラス<select id="classroom"><option value="all">すべて</option><option value="くるみ">くるみ</option><option value="うめ">うめ</option></select></label>
+      <label id="child-field">園児<select id="child"></select></label>
+      <div class="child-navigation" id="child-navigation"><button id="previous-child" aria-label="前の園児">← 前の園児</button><button id="next-child" aria-label="次の園児">次の園児 →</button></div>
+    </section>
+    <div class="record-heading"><div><h2 id="record-title"></h2><p id="record-caption" class="muted"></p></div><div class="legend"><span class="badge warning">打刻漏れ</span><span class="badge neutral">出欠を要確認</span><span class="badge success">補記・修正済み</span></div></div>
+    <section class="summary" aria-label="月の集計"><div><span>打刻漏れ</span><strong id="missing-count"></strong></div><div><span>出欠を要確認</span><strong id="unknown-count"></strong></div><div><span>補記・修正済み</span><strong id="corrected-count"></strong></div><div><span>表示日数／件数</span><strong id="row-count"></strong></div></section>
+    <div class="table-toolbar"><label><input id="only-missing" type="checkbox"> 打刻漏れ・要確認だけ表示</label><label><input id="show-fees" type="checkbox" checked> 延長料金の列を表示</label><p>各日の「補記する」「詳細・修正」から保存します。</p></div>
+    <div class="table-scroll card" tabindex="0" aria-label="月間記録。列が収まらない場合は横にスクロールできます"><table><thead><tr><th>日付</th><th class="class-mode">園児・クラス</th><th>出欠・保護者連絡</th><th>登園</th><th>降園</th><th>状態</th><th class="fee-column">延長分数・料金・状態</th><th>お迎え予定・実際</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <p class="footnote">空欄だけでは打刻漏れと断定せず、出席確認・片方の打刻がある日を「打刻漏れ」にしています。欠席・利用予定なしの日も、園児別の月間記録に表示します。</p>
+    <p class="footnote">出欠やお迎え予定は参照表示です。時刻の補記では書き換えません。</p>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="editor" aria-labelledby="editor-title"><form id="edit-form" novalidate>
+    <header class="dialog-heading"><div><p id="editor-child" class="eyebrow"></p><h2 id="editor-title"></h2></div><button type="button" id="close-editor" class="icon" aria-label="閉じる">×</button></header>
+    <div class="dialog-body">
+      <div id="editor-context" class="context"></div>
+      <div id="locked-notice" class="notice" hidden></div>
+      <fieldset id="time-fields"><legend>登園・降園時刻</legend><p class="muted">その日の実際の時刻を入力してください。分からない時刻は空欄のままにします。</p>
+        <div class="time-fields"><label>登園時刻<input id="arrival" type="time" step="60"></label><label>降園時刻<input id="departure" type="time" step="60"></label><label>降園の日付<select id="departure-day"><option value="0">対象日と同じ日</option><option value="1">翌日（03:00まで）</option></select></label></div>
+        <p id="before-times" class="muted"></p>
+      </fieldset>
+      <fieldset id="reason-fields"><legend>補記・修正理由 <span class="required">必須</span></legend><div class="reason-shortcuts"><button type="button" data-reason="打刻忘れのため">打刻忘れ</button><button type="button" data-reason="保護者に実際の時刻を確認したため">保護者に確認</button><button type="button" data-reason="職員の記録を確認したため">職員の記録を確認</button></div><textarea id="reason" rows="2" maxlength="500" placeholder="例：打刻忘れ。連絡帳で8:30の登園を確認。"></textarea><p class="muted">修正者：見本 はなこ（ログイン中の職員）</p></fieldset>
+      <div id="fee-notice" class="notice"></div>
+      <div id="form-error" class="error" role="alert" tabindex="-1" hidden></div>
+      <details class="existing"><summary>お迎え・補食などの記録</summary><dl id="existing-details"></dl></details>
+      <details id="cancellation" class="existing"><summary>誤った打刻を取り消す</summary><p class="muted">既存の取消機能に相当します。上の時刻の入力内容は保存されません。</p><label>取り消す記録<select id="cancel-operation"><option value="check_out">降園打刻のみ（登園は残す）</option><option value="all">登園・降園とお迎え予定を取り消す</option></select></label><label>取消理由<textarea id="cancel-reason" rows="2" maxlength="500"></textarea></label><button type="button" id="cancel-punch" class="danger">理由を記録して打刻を取り消す</button></details>
+      <section class="history"><h3>補記・修正・取消の履歴</h3><div id="history"></div></section>
+    </div>
+    <footer class="dialog-actions"><p>保存するまで記録は変わりません。</p><button type="button" id="discard">変更せず閉じる</button><button id="save" type="submit" class="primary">この日の記録を保存</button></footer>
+  </form></dialog>
+  <dialog id="spec-dialog" aria-labelledby="spec-title"><div class="dialog-body"><h2 id="spec-title">要望と仮の仕様</h2><h3>いただいた要望</h3><ul><li>月末などに登園・降園の未打刻を修正したい。</li><li>園児個人を選び、その子の10月など1か月分を一括表示して抜けを直したい。</li></ul><h3>このモックでの解釈・提案</h3><ul><li>園児別は月初から月末まで全日を表示。欠席、利用予定なし、記録なしも省かない。</li><li>出席確認または片方の打刻を根拠に漏れを抽出。出欠不明は「要確認」と区別。</li><li>1日ずつ理由付きで保存し、園児・月・一覧の位置を維持。</li><li>未打刻の補記に加え、既存時刻の修正も試せる。</li><li>キャンセル・Esc・閉じる操作では保存しない。保存エラー時は入力を残す。</li><li>職員名、操作日時、変更前後、理由を履歴に残す。</li></ul><h3>未確定</h3><ul><li>既存時刻の修正範囲、複数日をまとめて保存する必要性、修正できる職員の範囲。</li><li>料金確定後・請求転送後の扱い。このモックでは編集不可としている。</li><li>休園日・利用予定の判定元。休日扱いは架空の設定。</li></ul><p class="notice">料金は試用のため再計算待ちと表示するだけです。実際の料金計算・DB接続・通知送信は行いません。再読み込みで試用記録は消えます。</p><button id="close-spec" class="primary">閉じる</button></div></dialog>
+</body>
+</html>

@@ -24,6 +24,7 @@
 
   <div class="contact-workspace">
   <section class="parent-contact"><h2 class="mb-3 font-bold">家庭からの連絡</h2>
+  {% if emergency and emergency.answer and emergency.answer.mode != 'withdraw' %}{% from 'shared/_emergency_order.html' import summary %}{{ summary(emergency, emergency_day) }}{% endif %}
   {% if entry %}
   <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
     <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
@@ -35,7 +36,7 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <div class="rounded border border-gray-200 px-4 py-3">体温: {{ entry.temperature or '-' }}</div>
       <div class="rounded border border-gray-200 px-4 py-3">睡眠メモ: {{ entry.sleep_notes or '-' }}</div>
-      <div class="rounded border border-gray-200 px-4 py-3">朝食: {{ entry.breakfast_status or '-' }}</div>
+      <div class="rounded border border-gray-200 px-4 py-3">{% include 'shared/_contact_meals.html' %}</div>
       <div class="rounded border border-gray-200 px-4 py-3">排便: {{ entry.bowel_movement_status or '-' }}</div>
       <div class="rounded border border-gray-200 px-4 py-3">機嫌: {{ entry.mood or '-' }}</div>
       <div class="rounded border border-gray-200 px-4 py-3">服薬: {{ entry.medication or '-' }}</div>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>保護者の連絡項目｜施設・年齢・クラス別モック</title>
+<style><!--UTILITIES--></style><style><!--STYLE--></style></head><body>
+<header class="review-tools">
+  <div class="review-inner">
+    <div class="review-title"><b>操作モック r2</b><span>架空データ・このタブだけに仮保存</span><span class="proposal">仕様は試用中</span></div>
+    <div class="review-controls">
+      <label>施設の見本<select id="facility"><option value="a">見本こども園 A</option><option value="b">見本保育園 B</option></select></label>
+      <label>クラス<select id="classroom"></select></label>
+      <label>年度の年齢<select id="age"></select></label>
+      <label>連絡日<input type="date" id="day" value="2026-11-16"></label>
+    </div>
+    <details class="review-details"><summary>試用する入力状態・検討中の扱い</summary>
+      <div class="review-controls"><label>入力状態<select id="scenario"><option value="empty">未入力</option><option value="filled">入力済み・仮保存済み</option><option value="partial">一部入力</option><option value="error">エラー</option></select></label><button id="load-scenario" class="review-button">この園児・日の見本を入れ直す</button></div>
+      <p>施設ごとに「年齢ごと」「クラスごと」のどちらか一つを選びます。選んだ単位で「表示する／表示しない」を設定します。年齢は年度の年齢を仮採用。</p>
+      <p>低年齢を0〜2歳とする区切りは見本です。病欠時の体温・症状は全年齢で残す案。表示項目の選択と必須化は分けています。</p>
+      <p>仮保存済みの連絡は保存時の項目を保持し、設定変更は新しい連絡に適用する案です。通知・実際の送信は行いません。</p>
+    </details>
+  </div>
+</header>
+<nav class="screen-tabs" aria-label="確認する画面"><button data-view="settings" aria-pressed="true">園の設定</button><button data-view="parent" aria-pressed="false">保護者の入力</button><button data-view="staff" aria-pressed="false">職員の受け取り</button></nav>
+<main>
+  <div id="notice" role="status" hidden></div>
+  <section id="settings-screen">
+    <div class="page-heading"><p class="eyebrow">園の管理者画面案</p><h1>保護者に入力してもらう項目</h1><p>毎日の連絡に表示する項目を、園の運用に合わせて選びます。</p></div>
+    <div class="settings-card">
+      <div class="settings-heading"><h2 id="facility-heading"></h2><span id="dirty-state" role="status"></span></div>
+      <p class="fixed-note">全員に表示：出欠・緊急連絡先・お迎え予定（時刻／人／補食）・園への連絡事項。欠席の入力欄も共通です。</p>
+      <fieldset class="mode-selector"><legend>項目を分ける単位</legend><div class="mode-options"><label><input type="radio" name="settings-mode" value="age" checked><span><b>年齢ごと</b><small>0歳児、1歳児…で分ける</small></span></label><label><input type="radio" name="settings-mode" value="class"><span><b>クラスごと</b><small>ひよこ組、りす組…で分ける</small></span></label></div><p id="saved-mode"></p><p class="mode-hint">方式を切り替えても、入力した設定はそれぞれ残ります。仮保存した方式だけが保護者画面に反映されます。</p></fieldset>
+      <p class="table-hint">表は左右にスクロールできます。</p>
+      <div id="settings-description"></div><div id="settings-editor"></div>
+      <div class="settings-actions"><button id="save-settings" class="primary">設定を仮保存して入力画面へ</button><button id="preview-settings">保存前の表示を確認</button><button id="cancel-settings">設定の変更を取り消す</button></div>
+    </div>
+    <aside class="sample-summary"><h2 id="summary-title"></h2><div id="summary"></div></aside>
+  </section>
+  <section id="parent-screen" hidden><div class="business-bar"><b>保護者ページ</b><span id="parent-facility"></span></div><div id="policy-banner" class="policy-banner"></div><div id="parent-form"></div></section>
+  <section id="home-screen" hidden><div class="business-bar"><b>保護者ホーム</b></div><div class="settings-card"><h1 id="home-child"></h1><p id="home-status"></p><div class="settings-actions"><button data-view="parent" class="primary">日次連絡を入力・修正</button><button data-view="history">連絡履歴</button></div></div></section>
+  <section id="staff-screen" hidden><div class="business-bar"><b>職員ページ／日次連絡の詳細</b></div><div id="staff-content" class="settings-card"></div></section>
+  <section id="history-screen" hidden><div class="business-bar"><b>保護者ページ／連絡履歴</b></div><div id="history-content" class="settings-card"></div></section>
+</main>
+<footer class="mock-footer">r2・2026年11月16日／11月15日の配備記録に対応する入力画面を使用。未確定の設定案です。</footer>
+<template id="deployed-form"><!--FORM--></template>
+<script>"use strict";
+<!--BIND-->
+<!--APP-->
+</script></body></html>

@@ -136,6 +136,7 @@
       {% for registration in registrations %}
       {% set enrollment = enrollments.get(registration.id|string) %}
       {% set public_application = registration.id|string in public_registrations|default([]) %}
+      {% set guardian_only = is_guardian_only_submission(enrollment) %}
       <article id="registration-{{ registration.id }}" class="scroll-mt-6 rounded-lg border border-slate-200 p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="font-semibold text-slate-900">申請 {{ loop.revindex }}</p>
@@ -145,12 +146,17 @@
         </div>
         {% if registration.submitted_at %}<p class="mt-2 text-xs text-slate-500">提出: {{ registration.submitted_at|jst_datetime('%Y-%m-%d %H:%M') }} JST</p>{% endif %}
         {% if enrollment %}
-        <p class="mt-3 text-sm font-semibold">{{ '共通QRからの初回申請' if public_application else '初回入力の依頼' }}：{{ enrollment.child_name }}さん</p>
+        <p class="mt-3 text-sm font-semibold">{{ '在園児の保護者登録' if guardian_only else ('共通QRからの初回申請' if public_application else '初回入力の依頼') }}：{{ enrollment.child_name }}さん</p>
         {% if enrollment.child_id %}<a href="/children/{{ enrollment.child_id }}" class="mt-2 inline-block text-sm text-indigo-700 underline">現在の園児・家族情報を確認</a>{% endif %}
         {% if enrollment.submitted_data %}
+        {% if guardian_only %}
+        <p class="mt-2 text-sm text-slate-600">招待先と保護者本人・園児の対応、入力内容を確認してください。承認すると保護者本人の情報だけを反映します。園児情報・家族共通の住所や電話は変更しません。</p>
+        {% else %}
+        {% if enrollment.child_id and enrollment.source_snapshot is not none and not public_application %}<p class="mt-2 text-sm text-amber-800">旧形式の提出内容です。提出時の項目を表示し、従来の対象範囲で承認します。園児・家族共通情報も含めて確認してください。</p>{% endif %}
         <p class="mt-2 text-sm text-slate-600">招待先と子どもの名前、提出された情報が正しいことを確認してください。保護者氏名・生年月日は今回初めて入力された情報です。</p>
+        {% endif %}
         <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-          {% for key, label in enrollment_field_labels.items() %}
+          {% for key, label in (guardian_enrollment_field_labels if guardian_only else enrollment_field_labels).items() %}
           <div class="min-w-0 rounded bg-slate-50 px-3 py-2"><dt class="text-slate-500">{{ label }}</dt><dd class="mt-1 whitespace-pre-wrap break-words">{{ enrollment.submitted_data.get(key) or '未入力' }}</dd></div>
           {% endfor %}
         </dl>

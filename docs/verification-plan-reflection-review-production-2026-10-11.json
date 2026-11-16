@@ -1,0 +1,113 @@
+{
+  "status": "production_deployed_and_verified",
+  "date": "2026-10-11",
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-10-11T01:39:15.369049+00:00",
+    "app_commit": "a9706b69137f1c14e2177be14f5806e7eae79a6a",
+    "image_id": "sha256:6d7b2178f81368d35d61a57d82e77c3e2ae6d4fdb36a60b862ec66e6b55efeb9",
+    "image_changes": [
+      "plan_docs/db_models.py",
+      "plan_docs/routers/annual_library.py",
+      "plan_docs/routers/documents.py",
+      "plan_docs/routers/reflections.py",
+      "plan_docs/services/reflection_reviews.py",
+      "restore_family_archive.py",
+      "routers/staff_portal.py",
+      "static/css/annual-library.css",
+      "static/css/reflection-review.css",
+      "static/js/annual-library.js",
+      "static/js/daily-reflection-review.js",
+      "templates/plan_docs/annual_library/_sheet.html",
+      "templates/plan_docs/documents/detail.html",
+      "templates/plan_docs/reflections/review.html",
+      "templates/portal/index.html",
+      "test_annual_library.py",
+      "test_plan_docs.py",
+      "test_reflection_reviews.py"
+    ],
+    "tests": {
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "pytest": "8.4.2",
+      "verified": true
+    },
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-reflection-review-20261011-a9706b6",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/reflection-review-a9706b69137f",
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "6439dad39df628b991d7e79dd1635a38e43f25e773f5dbf7a0fff16155bc22cc",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "annual_age_layouts": 6,
+      "confirmation_routes": true,
+      "reflection_markup_escaped": true,
+      "real_save_apis": true,
+      "existing_search_and_print_verified": true,
+      "business_records_written": 0
+    },
+    "migration": {
+      "verified": true,
+      "added_tables": [
+        "plan_reflection_drafts",
+        "plan_reflection_notifications",
+        "plan_reflection_reviews"
+      ],
+      "existing_schema_preserved": true,
+      "existing_table_count": 130,
+      "all_existing_rows_preserved": true,
+      "new_tables_empty": true,
+      "idempotent": true,
+      "old_backup_restore_verified": true,
+      "source_backup_unchanged": true
+    },
+    "reflections": {
+      "verified": true,
+      "annual_classes_checked": 6,
+      "unsaved_annual_classes": 6,
+      "registered_teacher_assignments": 32,
+      "new_table_counts": {
+        "plan_reflection_drafts": 0,
+        "plan_reflection_reviews": 0,
+        "plan_reflection_notifications": 0
+      },
+      "existing_daily_reflections_readable": true,
+      "business_records_written": 0
+    }
+  },
+  "independent_ssh_record_verification": true,
+  "deployment_guard_tests_passed": 8,
+  "public": {
+    "verified": true,
+    "http_status": 200,
+    "document_id": 17,
+    "table_rows": 23,
+    "asset_hashes": {
+      "static/css/annual-library.css": "31fd0f9c37bfa5206637d65921b6581ab4917b74183ba453904985bddbd1ab82",
+      "static/css/reflection-review.css": "d069a615b445919695703e811cf3d230e5cd999fcfedb89b641942fabfd3deae",
+      "static/js/annual-library.js": "876a3f07dd906a2734f4aab2c966900cfe9a0c1d647d367022172b51c8e0a0c0",
+      "static/js/daily-reflection-review.js": "16bc16f8180f6c5f327b8c83cec78a879c9c691fc4000d87cfc5f8eb8e012b1a"
+    },
+    "daily_reflection_editable": false,
+    "internal_table_borders": false,
+    "print_reflection_visible": true,
+    "filter_counts": [
+      10,
+      30,
+      30,
+      30
+    ],
+    "activity_details_verified": true,
+    "browser_errors": [],
+    "business_write_requests": [],
+    "health": "ok"
+  },
+  "business_records_written_by_verification": 0
+}

@@ -17,8 +17,27 @@ import subprocess
 import sys
 import zipfile
 
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def validate_dependencies(requirements: Path, libraries: Path) -> None:
+    """Reject a stale library directory before producing an installer payload."""
+    installed = {canonicalize_name(d.metadata["Name"]): d.version
+                 for d in metadata.distributions(path=[str(libraries)])}
+    for line in requirements.read_text(encoding="utf-8-sig").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        required = Requirement(line)
+        if required.marker and not required.marker.evaluate():
+            continue
+        version = installed.get(canonicalize_name(required.name))
+        if version is None or version not in required.specifier:
+            raise ValueError(f"Bundle dependency mismatch: {required}; found {version or 'missing'}")
 
 
 def selected(name: str) -> bool:
@@ -56,6 +75,7 @@ def main() -> int:
             raise ValueError("This release builder currently publishes Windows x64 only")
     runtime = args.runtime.resolve()
     libraries = args.site_packages.resolve()
+    validate_dependencies(ROOT / "requirements.txt", libraries)
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     executable = runtime / ("python.exe" if os.name == "nt" else "bin/python3")

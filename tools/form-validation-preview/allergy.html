@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>アレルギー情報の追加・更新｜記入漏れ案内の確認</title><link rel="stylesheet" href="assets/base.css"><script src="assets/tailwind.js"></script>
+<link rel="stylesheet" href="mock.css"><script id="mock-fixture" type="application/json">{"data": {}, "key": "allergy", "kind": "allergy", "title": "\u30a2\u30ec\u30eb\u30ae\u30fc\u60c5\u5831\u306e\u8ffd\u52a0\u30fb\u66f4\u65b0"}</script><script src="mock.js"></script>
+</head><body><aside class="mock-toolbar" aria-label="確認用の操作"><a href="index.html">← 対象一覧</a><strong>確認用モック · アレルギー情報の追加・更新</strong><p>架空データです。保存・提出・通知はこの画面内の見本です。</p>
+<div class="mock-controls"><label>試す状態<select id="mock-state"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="filled">入力済み</option><option value="error">保存エラー</option></select></label><button type="button" id="mock-reset">見本に戻す</button><label>試す操作<select id="mock-operation"></select></label><button type="button" id="mock-jump">操作ボタンの位置へ</button></div><p id="mock-note">入力項目と必須条件は現行版を基準にしています。</p><p id="mock-status" role="status"></p></aside>
+<main id="mock-business" class="mock-normal">
+<div class="mx-auto max-w-6xl space-y-6">
+  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-sm font-medium text-amber-700">アレルギー管理</p>
+      <h1 class="text-2xl font-bold text-slate-900">見本 そら</h1>
+      <p class="mt-1 text-sm text-slate-500">有効期限、重症度、対応方針まで含めて管理します。</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="#" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-href="/health">健康一覧へ</a>
+      <a href="#" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-href="/children/1/health">健康サマリーへ</a>
+      <a href="#" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-original-href="/children/1/health/check-records">健診記録へ</a>
+    </div>
+  </div>
+
+  
+  
+
+  <section class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+    <form method="post" action="#" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" data-original-action="/children/1/health/allergies" novalidate="">
+      <input type="hidden" name="allergy_id" value="">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="text-lg font-semibold text-slate-900">新しいアレルギーを追加</h2>
+        
+      </div>
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">カテゴリー</span>
+          <select name="allergen_category" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            
+            <option value="food_mandatory">特定原材料</option>
+            
+            <option value="food_advisory">準特定原材料</option>
+            
+            <option value="other_food" selected>その他食物</option>
+            
+            <option value="latex">ラテックス</option>
+            
+            <option value="animal_dander">動物</option>
+            
+            <option value="pollen">花粉</option>
+            
+            <option value="dust_mite">ダニ</option>
+            
+            <option value="contact">接触</option>
+            
+            <option value="insect">昆虫</option>
+            
+            <option value="other">その他</option>
+            
+          </select>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">重症度</span>
+          <select name="severity" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+            
+            <option value="mild" selected>軽度</option>
+            
+            <option value="moderate">中等度</option>
+            
+            <option value="severe">重度</option>
+            
+          </select>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">アレルゲン名</span>
+          <input name="allergen_name" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="例: 卵, 牛乳, 小麦">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">症状</span>
+          <textarea name="symptoms" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+        </label>
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <input type="checkbox" name="diagnosis_confirmed">
+          <span>医師診断済み</span>
+        </label>
+        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <input type="checkbox" name="removal_required" checked>
+          <span>除去対応が必要</span>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">診断日</span>
+          <input type="date" name="diagnosis_date" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">有効期限</span>
+          <input type="date" name="valid_until" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">担当医</span>
+          <input name="treating_doctor" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">代替食品</span>
+          <input name="substitute_food" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">緊急時対応</span>
+          <textarea name="action_plan" rows="3" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">根拠文書</span>
+          <input name="source_document" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="生活管理指導表 など">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700">
+          <span class="font-medium">根拠文書日付</span>
+          <input type="date" name="source_document_date" value="" class="w-full rounded-lg border border-slate-300 px-3 py-2">
+        </label>
+        <label class="space-y-2 text-sm text-slate-700 md:col-span-2">
+          <span class="font-medium">メモ</span>
+          <textarea name="notes" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2"></textarea>
+        </label>
+      </div>
+      
+      <div class="mt-5 flex justify-end gap-3">
+        
+        <button type="submit" class="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-600">追加する</button>
+      </div>
+      
+    </form>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-900">登録済みアレルギー</h2>
+      <div class="mt-5 space-y-4">
+        
+        <div class="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+          <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div class="space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-base font-semibold text-slate-900">卵</span>
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">その他食物</span>
+                <span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">軽度</span>
+                <span class="rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-100 text-emerald-700">
+                  有効
+                </span>
+              </div>
+              <dl class="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+                <div><span class="font-medium">症状:</span> 未登録</div>
+                <div><span class="font-medium">医師診断:</span> なし</div>
+                <div><span class="font-medium">有効期限:</span> 未設定</div>
+                <div><span class="font-medium">除去対応:</span> 必要</div>
+                <div class="md:col-span-2"><span class="font-medium">緊急時対応:</span> 未登録</div>
+                <div class="md:col-span-2"><span class="font-medium">備考:</span> 未登録</div>
+              </dl>
+            </div>
+            
+            <div class="flex flex-col gap-2 md:items-end">
+              <a href="#" class="rounded-lg border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-white" data-original-href="/children/1/health/allergies?edit=1">編集する</a>
+              
+              <form method="post" action="#" data-original-action="/children/1/health/allergies/1/deactivate" novalidate="">
+                <button type="submit" class="rounded-lg border border-rose-300 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50">解除する</button>
+              </form>
+              
+            </div>
+            
+          </div>
+        </div>
+        
+      </div>
+    </section>
+  </section>
+</div>
+</main>
+<dialog id="mock-result"><h2 tabindex="-1">確認用の保存結果</h2><p></p><details><summary>仮保存した入力を確認</summary><dl></dl></details><button type="button" id="mock-edit">入力・修正へ戻る</button></dialog>
+<dialog id="mock-leave"><h2>確認用画面の移動</h2><p>未保存の見本入力を残して続けますか？</p><button type="button" data-stay>入力を続ける</button><button type="button" data-discard>見本入力を破棄して戻る</button></dialog>
+</body></html>

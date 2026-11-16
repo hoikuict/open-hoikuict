@@ -21,8 +21,10 @@ from database import get_session
 from extended_care_fee_service import charge_status_label, recalculate_attendance_charge, calculation_issues_for_records
 from models import AttendanceRecord, AttendancePickupHistory, Child, ChildStatus, Classroom, ExtendedCareCharge, ExtendedCareChargeStatus
 from time_utils import local_naive_now, local_today, utc_now
+from routers.attendance_monthly import router as monthly_router
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
+router.include_router(monthly_router)
 from template_utils import create_templates
 
 templates = create_templates()
@@ -871,6 +873,12 @@ def save_pickup(request: Request, child_id: int, date: str = Form(...),
 
 
 def _correction_return_url(day, query, return_to):
+    if return_to == "monthly":
+        from urllib.parse import parse_qs
+        values = parse_qs(query or "")
+        params = {key: values[key][0] for key in ("month", "child_id", "classroom_id") if key in values}
+        params["month"] = day.strftime("%Y-%m")
+        return "/attendance/monthly?" + urlencode(params)
     if return_to == "checks":
         from urllib.parse import parse_qs
         values = parse_qs(query or "")
@@ -884,6 +892,8 @@ def _correction_page(request, session, current_user, child, record, return_query
     history = session.exec(select(AttendanceCorrection).where(AttendanceCorrection.attendance_record_id == record.id)
         .order_by(AttendanceCorrection.id.desc())).all()
     return templates.TemplateResponse(request, "attendance_correction.html", {
+        "correction_labels": {"time_edit": "時刻の補記・修正", "missing_fill": "管理者の一括補完",
+                              "check_out": "降園のみ取消", "all": "登園・降園とお迎え予定の取消"},
         "current_user": current_user, "child": child, "record": record, "history": history,
         "revision": correction_revision(record), "return_query": return_query,
         "return_url": _correction_return_url(record.attendance_date, return_query, return_to), "return_to": return_to, "error": error, "reason": reason,

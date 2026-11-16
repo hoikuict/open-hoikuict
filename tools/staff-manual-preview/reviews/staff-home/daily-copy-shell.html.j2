@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,follow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>日案例を下書きに取り込む｜操作モック</title>
+  <link rel="stylesheet" href="form.css"><link rel="stylesheet" href="mock.css">
+  <script src="mock.js" defer></script>
+</head>
+<body><main class="plan-docs-content">
+  <aside class="trial" aria-label="モックの試し方">
+    <div class="trial-heading"><strong>日案例のコピーを試す</strong><a href="../daily-findings.html">改善案の記録へ</a></div>
+    <p>架空の下書きで試せます。保存した内容はこのページを閉じると消えます。</p>
+    <div class="trial-controls">
+      <label>下書きの見本<select id="scenario"><option value="partial">一部入力</option><option value="filled">入力済み</option><option value="empty">未入力</option><option value="error">入力エラー</option></select></label>
+      <button class="button" id="reset" type="button">見本に戻す</button>
+      <button class="button button--primary" id="try-copy" type="button">「落ち葉を集める」を試す</button>
+    </div>
+  </aside>
+  <div id="editor">{% block content %}{% endblock %}</div>
+  <section id="saved" class="form-panel" hidden aria-labelledby="saved-title">
+    <h1 id="saved-title" tabindex="-1">保存した下書き</h1><p id="saved-scope"></p>
+    <h2>ねらい</h2><p id="saved-aim"></p><h2>内容</h2><p id="saved-content"></p>
+    <h2>1日の流れ</h2><div class="daily-plan-grid-scroll"><table class="daily-plan-edit-grid"><thead><tr><th>時間</th><th>子どもの様子</th><th>保育士の援助</th><th>配慮事項</th></tr></thead><tbody id="saved-rows"></tbody></table></div>
+    <p><button type="button" class="button" id="edit">修正</button></p>
+  </section>
+  <dialog id="choice" aria-labelledby="choice-heading" aria-describedby="choice-example">
+    <h2 id="choice-heading">この文例をどう使いますか？</h2>
+    <p id="choice-example"></p>
+    <button type="button" data-mode="append"><strong>文末に追加する</strong><span>文章は改行して続きに、活動は最後の行の下に足します。今の年齢を使います。</span></button>
+    <button type="button" data-mode="replace"><strong>置き換える</strong><span>年齢・ねらい・内容・1日の流れを、この文例に入れ替えます。</span></button>
+    <button type="button" data-mode="cancel" autofocus><strong>入力を続ける</strong><span>文例を取り込まず、書きかけの日案に戻ります。</span></button>
+  </dialog>
+  <script id="example-data" type="application/json">{{ examples|tojson }}</script>
+</main></body>
+</html>

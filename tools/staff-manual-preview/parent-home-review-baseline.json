@@ -1,0 +1,19 @@
+{
+  "source_commit": "285b67e7c0bec04afb40ac526626781182280779",
+  "synthetic_data_only": true,
+  "network_disabled": true,
+  "business_records_written": 0,
+  "screens": [
+    "app-home-date",
+    "app-home-child",
+    "app-home-unread",
+    "app-home-updates",
+    "app-home-menu"
+  ],
+  "source_files": {
+    "templates/base.html": "1bc8a77d8ec62d5dc0f92d9b60b713db3fed22f5d67366d07a6e41327ca51d55",
+    "templates/parent_portal/home.html": "db67e8226c9b599391d31e7bce9dd2a8c3e2517a8aad88ceb2037fecb4118630",
+    "templates/parent_portal/attention.html": "52edbbcd5f4f6be26ee5e3708a78704d04d4a99f46b1657c88253a0134e0369a",
+    "templates/parent_portal/_update_card.html": "6b18d3d2b3d241bbb5c6db6caf8ba0d81531aa644c0f68032382cdcd9be3e29f"
+  }
+}

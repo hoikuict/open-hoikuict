@@ -55,9 +55,11 @@
   }
   function status() {
     q('#undo').disabled = !editable() || !current.undo.length;
-    q('#save').hidden = !editable();
-    q('#save').disabled = saving;
-    q('#save').textContent = saving ? '保存中…' : '下書きを保存';
+    q('#save').hidden = false;
+    q('#save').disabled = saving || !editable();
+    q('#save').textContent = !editable() ? '閲覧のみ' : saving ? '保存中…' : '下書きを保存';
+    q('#permission-banner').textContent = ctx().edit_reason || (!editable() ? '閲覧中です。修正は月案の編集画面から行います。' : '');
+    q('.export-note').textContent = '対象の月・年齢の全園児を出力。' + (editable() ? '保存前の入力も含みます。' : '保存済みの内容を出力します。');
     q('#revert').hidden = !editable() || !dirty(current);
     q('#save-state').textContent = dirty(current) ? '未保存の変更があります' : ctx().document_id ? '保存済み' : '未保存';
     q('#count').textContent = `${Object.values(fields()).filter(f => f.body?.trim()).length}欄に入力済み`;
@@ -187,7 +189,7 @@
     all('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
     q('#ai-controls').hidden=mode!=='ai' || !editable() || !ctx().definitions[current.field]?.section;
     q('#candidates').removeAttribute('aria-busy');
-    if (!editable()) { q('#candidates').innerHTML='<p class="no-results">閲覧中です。修正は月案の編集画面から行います。</p>'; return; }
+    if (!editable()) { q('#candidates').innerHTML=`<p class="no-results">${esc(ctx().edit_reason || '閲覧中です。修正は月案の編集画面から行います。')}</p>`; return; }
     if (!ctx().definitions[current.field]?.section) { q('#candidates').innerHTML='<p class="no-results">この欄は直接入力してください。</p>'; return; }
     if (mode==='ai') { aiPanel(); return; }
     q('#candidates').setAttribute('aria-busy','true');
@@ -257,32 +259,163 @@
       let next=cache.get(key);
       if(!next) { next=entry(await api('context?'+new URLSearchParams(desired))); cache.set(key,next); }
       current=next; before=null; historyData=null;
-      render(); loadHistory();
+      render(); loadHistory(); queuePresence();
       announce([...cache.values()].some(dirty)?'未保存の入力は、この画面で対象を戻すと再表示できます。画面を閉じる前に保存してください。':'対象を切り替えました。');
     } catch(error) { pickers(); announce(error.message,true); panel(); }
     finally { switching=false; all('#classroom,#month,#age').forEach(el=>el.disabled=false); }
   }
+  // Rebase cells against the saved revision; preserve edits made during requests.
+  const wireCell = cell => ({body:cell?.body || '',origins:(cell?.origins || []).map(o=>o.kind==='ai'
+    ? {kind:'ai',token:o.token} : {source_key:o.source_key,phrase_id:o.phrase_id})});
+  const sameCell = (a,b) => JSON.stringify(wireCell(a)) === JSON.stringify(wireCell(b));
+  const valueFor = (context,key) => key==='@owner' ? context.owner_name : context.sheet.fields[key] || {body:'',origins:[]};
+  const bodyFor = (context,key) => key==='@owner' ? context.owner_name : context.sheet.fields[key]?.body || '';
+  function putValue(context,key,value) {
+    if(key==='@owner') context.owner_name=value;
+    else if(value?.body || value?.origins?.length) context.sheet.fields[key]=clone(value);
+    else delete context.sheet.fields[key];
+  }
+  function keepLocalChanges(latest,base,working) {
+    const result=clone(latest);
+    for(const key of new Set([...Object.keys(base.sheet.fields),...Object.keys(working.sheet.fields)])) {
+      if(!sameCell(base.sheet.fields[key],working.sheet.fields[key]))putValue(result,key,valueFor(working,key));
+    }
+    if(working.owner_name!==base.owner_name)result.owner_name=working.owner_name;
+    return result;
+  }
+  function adoptMerged(item,latest,relativeTo,choices={}) {
+    const active=document.activeElement, focusedKey=active?.dataset.cell, ownerFocus=active?.hasAttribute('data-owner');
+    const selection=focusedKey || ownerFocus ? [active.selectionStart,active.selectionEnd] : null;
+    const result=keepLocalChanges(latest,relativeTo,item.context);
+    for(const [key,value] of Object.entries(choices))putValue(result,key,value);
+    const importedChanges=latest.owner_name!==relativeTo.owner_name ||
+      [...new Set([...Object.keys(latest.sheet.fields),...Object.keys(relativeTo.sheet.fields)])].some(key=>!sameCell(latest.sheet.fields[key],relativeTo.sheet.fields[key]));
+    item.saved=clone(latest);item.context=result;if(importedChanges)item.undo=[];before=null;
+    if(item===current) {
+      paper();panel(false);status();
+      const target=ownerFocus ? q('[data-owner]') : all('[data-cell]').find(el=>el.dataset.cell===focusedKey);
+      if(target && selection){target.focus({preventScroll:true});target.setSelectionRange(...selection);}
+    }
+  }
+  async function mergeRequest(path,payload) {
+    const token=document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const response=await fetch('/plans/monthly-library/'+path,{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify(payload)});
+    if(response.redirected)throw new Error('職員のログインを確認してください。入力内容は保持しています。');
+    let data;
+    try {data=await response.json();} catch {throw new Error('応答を読み込めません。入力内容は保持しています。');}
+    if(!response.ok){const error=new Error(typeof data.detail==='string' ? data.detail : data.detail?.kind==='cell_conflict' ? '同じ欄の変更を確認してください。' : '入力内容を確認してください。保存は完了していません。');error.detail=data.detail;throw error;}
+    return data;
+  }
+  function showCellConflicts(item,detail) {
+    document.querySelector('#cell-conflict-dialog')?.remove();
+    const dialog=document.createElement('dialog');dialog.id='cell-conflict-dialog';dialog.setAttribute('aria-labelledby','conflict-heading');
+    dialog.innerHTML='<h2 id="conflict-heading">同じ欄の変更を確認</h2><p>同じ欄をほかの担当者が先に保存しました。今回は保存していません。ほかの欄の入力も残っています。</p><div id="conflict-fields"></div><div class="conflict-actions"><button type="button" data-conflict-cancel>入力に戻る</button><button type="button" data-conflict-save disabled>選んだ内容で保存する</button></div>';
+    const choices={}, accept=dialog.querySelector('[data-conflict-save]');
+    for(const entry of detail.conflicts) {
+      const row=document.createElement('section');row.className='conflict-field';
+      row.innerHTML='<h3></h3><div class="conflict-columns"><div><strong>保存済みの内容</strong><pre></pre><button type="button" data-choice="theirs" aria-pressed="false">保存済みの内容を使う</button></div><div><strong>自分の入力（修正もできます）</strong><textarea rows="4"></textarea><button type="button" data-choice="mine" aria-pressed="false">自分の入力を使う</button></div></div>';
+      row.querySelector('h3').textContent=entry.label;
+      row.querySelector('pre').textContent=bodyFor(detail.latest,entry.key) || '（空欄）';
+      const input=row.querySelector('textarea');input.value=bodyFor(item.context,entry.key);input.setAttribute('aria-label',entry.label+' / 保存する入力');
+      const choose=side=>{
+        if(side==='theirs')choices[entry.key]=clone(valueFor(detail.latest,entry.key));
+        else choices[entry.key]=entry.key==='@owner' ? input.value : {...clone(valueFor(item.context,entry.key)),body:input.value,origins:input.value ? valueFor(item.context,entry.key).origins || [] : []};
+        row.querySelectorAll('[data-choice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.choice===side)));
+        accept.disabled=Object.keys(choices).length!==detail.conflicts.length;
+      };
+      row.querySelectorAll('[data-choice]').forEach(button=>button.onclick=()=>choose(button.dataset.choice));
+      input.addEventListener('input',()=>choose('mine'));
+      dialog.querySelector('#conflict-fields').append(row);
+    }
+    dialog.querySelector('[data-conflict-cancel]').onclick=()=>dialog.close();
+    accept.onclick=async()=>{
+      // Rebase only after an explicit choice. A newer same-cell write is checked again.
+      adoptMerged(item,detail.latest,item.saved,choices);dialog.close();await save();
+    };
+    document.body.append(dialog);dialog.showModal();
+  }
   async function save() {
     if(saving || !editable())return;
     commitEdit();
-    const item=current, snapshot=clone(ctx()), sentContents=contents(snapshot);
-    const payload={document_id:snapshot.document_id,lock_version:snapshot.lock_version,
-      classroom_id:snapshot.classroom_id,target_month:snapshot.target_month,age:snapshot.age,
-      owner_name:snapshot.owner_name,fields:Object.fromEntries(Object.entries(snapshot.sheet.fields).map(([key,cell])=>[key,
-        {body:cell.body,origins:(cell.origins||[]).map(o=>o.kind==='ai'?{kind:'ai',token:o.token}:{source_key:o.source_key,phrase_id:o.phrase_id})}]))};
-    saving=true; status();
+    const item=current,snapshot=clone(ctx());
+    const payload={document_id:item.saved.document_id,lock_version:item.saved.lock_version,
+      base_token:item.saved.base_token,classroom_id:snapshot.classroom_id,
+      target_month:snapshot.target_month,age:snapshot.age,owner_name:snapshot.owner_name,
+      fields:Object.fromEntries(Object.entries(snapshot.sheet.fields).map(([key,value])=>[key,wireCell(value)]))};
+    saving=true;status();
     try {
-      const token=document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="csrf_token"]')?.value || '';
-      const data=await api('save',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify(payload)});
-      item.saved=clone(data);
-      item.context.document_id=data.document_id; item.context.lock_version=data.lock_version; item.context.status=data.status;
-      if(contents(item.context)===sentContents) item.context.sheet.fields=clone(data.sheet.fields);
-      // Do not repaint input cells after asynchronous saves: newer keystrokes and
-      // cursor positions must survive. The server snapshot is the restore point.
-      announce(dirty(item)?'保存しました。保存中に入力した変更はまだ未保存です。':'下書きを保存しました。');
-    } catch(error) { announce(error.message+' この画面の入力は残っています。',true); }
-    finally { saving=false; status(); }
+      const data=await mergeRequest('save',payload);
+      adoptMerged(item,data,snapshot);
+      const remote=data.merged_remote_fields || [];
+      announce((remote.length ? `保存しました。ほかの担当者の${remote.length}欄の変更も取り込みました。` : '下書きを保存しました。')+
+        (dirty(item) ? ' 保存中に入力した変更はまだ未保存です。' : ''));
+    } catch(error) {
+      announce(error.message+' この画面の入力は残っています。',true);
+      if(error.detail?.kind==='cell_conflict')showCellConflicts(item,error.detail);
+    } finally {saving=false;status();}
   }
+  const presenceTab=crypto.randomUUID();
+  let presenceScope='', presencePeers=[], presenceOk=false, presenceChecked=null;
+  let presenceBusy=false, presenceLast=null, presenceTimer=null, typedAt=0;
+  function presenceField(){const el=document.activeElement;return el?.dataset.cell || (el?.hasAttribute('data-owner') ? '@owner' : null);}
+  function peerLabel(key){
+    if(key==='@owner')return '担任名';
+    if(!key)return '画面を開いています';
+    const child=key.startsWith('child:') ? childName(key.split(':').slice(0,2).join(':'))+' / ' : '';
+    return child+label(key);
+  }
+  function drawPresence(){
+    if(presenceScope!==scopeKey(ctx())){presenceScope=scopeKey(ctx());presencePeers=[];presenceOk=false;presenceChecked=null;}
+    const section=q('#editing-presence'), mine=presenceField();
+    let same=false;const active=new Set();
+    q('#presence-people').innerHTML=presencePeers.map(peer=>{
+      const words=peer.fields.map(f=>{
+        if(f.key){active.add(f.key);if(f.key===mine)same=true;}
+        return peerLabel(f.key)+(f.key ? (f.state==='typing' ? '（入力中）' : '（選択中）') : '');
+      });
+      return `<span class="presence-person"><strong>${esc(peer.name)}${peer.self?'（別の画面）':''}</strong><span>${esc([...new Set(words)].join('、'))}</span></span>`;
+    }).join('') || (presenceOk ? 'ほかの担当者はこの帳票を開いていません。' : '状況を確認できていません。');
+    all('[data-cell],[data-owner]').forEach(el=>el.dataset.peerEditing=String(active.has(el.dataset.cell || '@owner')));
+    section.dataset.state=!presenceOk ? 'offline' : same ? 'same' : 'online';
+    q('#presence-warning').textContent=same && presenceOk ? '同じ欄をほかの画面でも選択しています。保存時に変更を確認します。' : '';
+    q('#presence-status').textContent=(presenceOk ? '15秒ごとに確認。応答がなくなった職員は約1分で表示から外れます。' : '接続状況を確認できません。表示がある場合は最後に確認した情報です。')+(presenceChecked ? ' 最終確認 '+presenceChecked.toLocaleTimeString('ja-JP') : '');
+  }
+  function presencePayload(state){return {classroom_id:ctx().classroom_id,target_month:ctx().target_month,age:ctx().age,document_id:ctx().document_id,tab_id:presenceTab,field:presenceField(),state};}
+  function leavePresence(payload){
+    if(!payload)return;
+    const token=document.querySelector('meta[name="csrf-token"]')?.content || '';
+    fetch('/plans/monthly-library/presence',{method:'POST',credentials:'same-origin',keepalive:true,
+      headers:{'Content-Type':'application/json','X-CSRF-Token':token},body:JSON.stringify({...payload,state:'leave'})}).catch(()=>{});
+  }
+  async function refreshPresence(){
+    if(presenceBusy)return;
+    if(document.hidden){leavePresence(presenceLast);presenceLast=null;return;}
+    const scope=scopeKey(ctx());
+    const field=presenceField(), payload=presencePayload(!editable() ? 'leave' : !field ? 'open' : Date.now()-typedAt<30000 ? 'typing' : 'selected');
+    if(presenceLast && scopeKey(presenceLast)!==scope)leavePresence(presenceLast);
+    presenceLast=payload;presenceBusy=true;drawPresence();
+    const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),8000);
+    try{
+      const data=await api('presence',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]')?.content || ''},body:JSON.stringify(payload)});
+      if(scope!==scopeKey(ctx()))return;
+      presencePeers=data.peers;presenceOk=true;presenceChecked=new Date();
+      if(!data.editable && ctx().editable){
+        commitEdit();ctx().editable=false;ctx().edit_reason=data.edit_reason;paper();panel();
+        announce('編集権限または月案の状態が変わりました。未保存の入力はこの画面に残っています。',true);
+      }
+    }catch(error){if(scope===scopeKey(ctx()))presenceOk=false;}
+    finally{clearTimeout(timeout);presenceBusy=false;drawPresence();}
+  }
+  function queuePresence(){clearTimeout(presenceTimer);drawPresence();presenceTimer=setTimeout(refreshPresence,400);}
+  root.addEventListener('focusin',queuePresence);
+  root.addEventListener('focusout',queuePresence);
+  root.addEventListener('input',event=>{if(event.target.dataset.cell || event.target.hasAttribute('data-owner')){typedAt=Date.now();queuePresence();}});
+  root.addEventListener('change',queuePresence);
+  document.addEventListener('visibilitychange',refreshPresence);
+  window.addEventListener('pagehide',()=>leavePresence(presenceLast));
+  setInterval(refreshPresence,15000);
+
   function exportMonthly(kind) {
     commitEdit();
     const snapshot=clone(ctx()), mode=snapshot.editable?'current':'saved';
@@ -396,5 +529,6 @@
   window.addEventListener('afterprint',()=>document.querySelector('#monthly-print-root')?.remove());
 
   render();
+  refreshPresence();
   new ResizeObserver(()=>all('textarea.cell').forEach(autosize)).observe(q('.paper'));
 })();

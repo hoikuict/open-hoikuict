@@ -45,7 +45,7 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | 職員ホーム | `/`、`/staff/portal` | 当日予定、担当クラス出席、要確認 `/staff/attention`、職員ルームの保護者連絡タイムライン |
 | 職員管理 | `/staff/users` | 新規 `/staff/users/new`、編集 `/staff/users/{user_id}/edit`、担当クラス `/staff/users/{user_id}/classrooms` |
 | 職員権限設定 | `/staff/permissions` | 基本ロール、園児台帳管理、請求口座情報管理の更新 |
-| 園児一覧 | `/children/` | 新規 `/children/new`、詳細 `/children/{child_id}`、編集 `/children/{child_id}/edit`、兄弟追加 `/children/new?sibling_id={child_id}` |
+| 園児一覧 | `/children/` | 一般職員は詳細 `/children/{child_id}` を開く。園児台帳管理権限がある場合は新規 `/children/new`、編集 `/children/{child_id}/edit`、兄弟追加 `/children/new?sibling_id={child_id}` も表示。[一般職員向けマニュアルの確認状況](spec-decisions.md#sd-028) |
 | 園児詳細 | `/children/{child_id}` | 編集、変更履歴、健康サマリー、子どもの記録、児童票 |
 | 子どもの記録 | `/children/{child_id}/records` | 新規記録、訂正、無効化、児童票の根拠参照 |
 | 児童票 | `/children/{child_id}/progress-records` | 新規 `/children/{child_id}/progress-records/new`、作成後は計画文書詳細へ |
@@ -139,3 +139,5 @@ API、CSV出力、WebSocket、HTMXの部分更新は、画面確認に関係す�
 | データエクスポート | `/data-transfers/export/{file_name}` |
 | 認可施設帳票出力 | `POST /data-transfers/ninka/export` |
 | ヘルスチェック | `/healthz` |
+
+2026-11-01更新：児童票の一覧・作成状況・入力画面で対象月を選択できる。下書き/差し戻し票は同じ入力画面で再編集する。[対象期間選択の操作](deployment-child-progress-periods-2026-11-01.md)、[SD-007](spec-decisions.md#sd-007)を参照。

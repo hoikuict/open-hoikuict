@@ -16,6 +16,8 @@
       <small class="export-note">対象の月・年齢の全園児を出力。{% if detail_mode or not boot.editable %}保存済みの内容を出力します。{% else %}保存前の入力も含みます。{% endif %}</small>
     </div>
   </div>
+  <p id="permission-banner" role="note"></p>
+  <section id="editing-presence" aria-label="ほかの担当者の状況"><h3>ほかの担当者の状況</h3><div id="presence-people"></div><p id="presence-warning" role="status"></p><small id="presence-status">状況を確認しています…</small></section>
   <div class="context"><label id="child-wrap">入力する園児 <select id="child"></select></label><label id="page-wrap">帳票ページ <select id="page"></select></label><button type="button" id="history-toggle" aria-expanded="false" aria-controls="past-plans">過去3か月を表示</button><span id="count"></span></div>
   <div class="workspace">
     <div class="paper" aria-label="原本に合わせた月案の帳票"><div class="sheet-scroll"><div id="form"></div></div><footer><a id="template" target="_blank" rel="noopener noreferrer"></a><span id="save-state"></span><button type="button" id="revert" class="text-button">保存した内容に戻す</button></footer></div>

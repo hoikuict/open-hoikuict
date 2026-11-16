@@ -1,0 +1,21 @@
+<aside class="review" aria-label="確認用モックの設定">
+  <div class="review-title"><strong>要確認の集計範囲・確認用モック</strong><span>架空データ／動作確認用／本番未反映</span></div>
+  <form id="review-controls" action="/" method="get">
+    {% for key, label, choices in [
+      ('mode', '比較', [('proposal', '変更案'), ('current', '現行の集計')]),
+      ('role', '職員の役割', [('admin', '管理者'), ('can_edit', '一般職員')]),
+      ('assigned', '担当クラス数', [('6', '6クラス'), ('4', '4クラス'), ('3', '3クラス'), ('0', '担当なし')]),
+      ('state', '出欠確認の状態', [('empty', '未入力'), ('partial', '一部入力＋アラーム＋未回答'), ('filled', '入力済み・要確認なし'), ('error', '取得エラー')]),
+      ('page', '画面', [('home', 'ホーム'), ('attention', '要確認一覧')])
+    ] %}
+    <label>{{ label }}<select name="{{ key }}">{% for value, text in choices %}<option value="{{ value }}" {% if p[key] == value %}selected{% endif %}>{{ text }}</option>{% endfor %}</select></label>
+    {% endfor %}
+    <input type="hidden" name="scope" value="{{ p.scope }}">
+    <input type="hidden" name="detail" value="default">
+    <button type="submit">表示を更新</button>
+  </form>
+  <p><strong>確認済みの集計基準：</strong>役割にかかわらず担当する全クラス。未入力とアラームのある園児（1人1件）＋本人宛ての未回答アンケート。</p>
+  <p>{% if proposal %}変更案：ホームの担当／全クラス切替に関係なく、要確認を「{{ range_label }}」から集計します。{% else %}現行の集計：ホームの担当表示は先頭3クラスだけを集計します。一般職員の全クラス表示では、要確認一覧の範囲とも一致しません。{% endif %}</p>
+  <details><summary>試し方・このモックの範囲</summary><p>ホームの「担当／全クラス」を切り替え、要確認件数が変わらないことと、要確認一覧への遷移時に件数が一致することを比べます。「担当4クラス」で4番目が省略される場合も確認できます。一覧側の管理者用の範囲切替は既存のまま試せます。</p><p>保存操作はありません。状態はこのURL内だけで保持し、本番の設定や出欠を変更しません。未入力・一部入力・入力済み・取得エラーを上の設定で切り替えます。出欠入力やアンケート回答などの別業務画面は、この集計モックの対象外です。</p><p>基準：2026年9月28日08:37配備記録の4581393839d4。ホームと要確認一覧の配備テンプレートを使用。集計対象の説明を追加する案も含みます。担当なしの場合は役割にかかわらず本人のアンケートだけを数えます。管理者が要確認一覧で明示的に全クラスを選ぶ既存機能は残します。</p></details>
+  <div id="preview-feedback" role="status" hidden>この先の業務画面は今回の集計モックの対象外です。保存・送信は行いません。</div>
+</aside>

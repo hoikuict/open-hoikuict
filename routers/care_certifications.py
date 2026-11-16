@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -13,8 +13,10 @@ from child_care_certification_service import (
     create_certification,
     deactivate_certification,
     validate_certification,
+    list_certifications, current_certification,
 )
 from database import get_session
+from family_care_service import require_individual_mode
 from models import (
     CareNeedReason,
     CareTimeCategory,
@@ -24,6 +26,25 @@ from models import (
 
 
 router = APIRouter(prefix="/children", tags=["care-certifications"])
+
+
+@router.get("/{child_id}/care-certifications")
+def child_care_editor(child_id: int, request: Request, care_message: str = "", care_error: str = "",
+                      session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_child_record_manager(current_user)
+    child = session.get(Child, child_id)
+    if child is None:
+        raise HTTPException(404, "園児が見つかりません")
+    if child.family_id:
+        return _redirect(session, child_id, care_message=care_message, care_error=care_error)
+    from template_utils import create_templates
+    records = list_certifications(session, child_id)
+    return create_templates().TemplateResponse(request, "children/care_certifications.html", dict(
+        child=child, current_user=current_user, care_message=care_message, care_error=care_error,
+        care_certifications=records, active_care_certification=current_certification(session, child_id),
+        care_time_categories=list(CareTimeCategory), care_need_reasons=list(CareNeedReason),
+        guardian_profiles=[dict(last_name=f"保護者{i}", first_name="", relationship="") for i in (1, 2)]),
+        headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("/{child_id}/care-certifications")
@@ -41,6 +62,7 @@ def create_child_care_certification(
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
+    require_individual_mode(session, child_id)
     child = session.exec(
         select(Child).options(selectinload(Child.family)).where(Child.id == child_id)
     ).first()
@@ -72,7 +94,7 @@ def create_child_care_certification(
             )
         )
     if errors:
-        return _redirect(child_id, care_error=" ".join(dict.fromkeys(errors)))
+        return _redirect(session, child_id, care_error=" ".join(dict.fromkeys(errors)))
 
     create_certification(
         session,
@@ -86,7 +108,7 @@ def create_child_care_certification(
         actor_name=current_user.name,
     )
     session.commit()
-    return _redirect(child_id, care_message="保育認定を登録しました。")
+    return _redirect(session, child_id, care_message="保育認定を登録しました。")
 
 
 @router.post("/{child_id}/care-certifications/{certification_id}/deactivate")
@@ -98,6 +120,7 @@ def deactivate_child_care_certification(
     current_user=Depends(get_current_staff_user),
 ):
     require_child_record_manager(current_user)
+    require_individual_mode(session, child_id)
     certification = session.exec(
         select(ChildCareCertification)
         .options(selectinload(ChildCareCertification.reasons))
@@ -117,9 +140,9 @@ def deactivate_child_care_certification(
             actor_name=current_user.name,
         )
     except ValueError as exc:
-        return _redirect(child_id, care_error=str(exc))
+        return _redirect(session, child_id, care_error=str(exc))
     session.commit()
-    return _redirect(child_id, care_message="保育認定を無効化しました。")
+    return _redirect(session, child_id, care_message="保育認定を無効化しました。")
 
 
 def _guardian_reason_rows(
@@ -165,8 +188,10 @@ def _parse_optional_date(raw: str, label: str, errors: list[str]):
     return _parse_required_date(raw, label, errors)
 
 
-def _redirect(child_id: int, **params: str) -> RedirectResponse:
+def _redirect(session: Session, child_id: int, **params: str) -> RedirectResponse:
+    child = session.get(Child, child_id)
+    destination = f"/families/{child.family_id}/care-certifications" if child and child.family_id else f"/children/{child_id}/care-certifications"
     return RedirectResponse(
-        url=f"/children/{child_id}?{urlencode(params)}#care-certifications",
+        url=f"{destination}?{urlencode(params)}#child-{child_id}",
         status_code=303,
     )

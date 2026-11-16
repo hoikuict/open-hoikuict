@@ -1,0 +1,30 @@
+#daily-save-area { display: grid; gap: 12px; scroll-margin-block: 16px; }
+#daily-save-area .form-actions { margin-top: 0; flex-wrap: wrap; }
+#daily-draft .daily-validation-summary {
+  padding: 16px;
+  border: 2px solid #bc3b31;
+  border-radius: 10px;
+  background: #fff4f2;
+  color: #80241e;
+  overflow-wrap: anywhere;
+}
+#daily-draft .daily-validation-summary[hidden] { display: none; }
+#daily-draft .daily-validation-summary p { margin: 4px 0; }
+#daily-draft .daily-validation-summary ul { margin: 8px 0 0; padding-left: 24px; }
+#daily-draft .daily-validation-summary a {
+  display: inline-block;
+  padding: 4px 0;
+  color: #80241e;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+#daily-draft .daily-validation-summary[data-kind="status"] {
+  border-color: #16746a;
+  background: #edf8f5;
+  color: #195d54;
+}
+#daily-draft [aria-invalid="true"] { border: 2px solid #bc3b31; background: #fff9f8; }
+#daily-draft .daily-field-error { color: #9b271e; font-size: .875rem; }
+#daily-draft .daily-field-error:empty { display: none; }
+#daily-save-feedback:focus-visible,
+#daily-save-feedback a:focus-visible { outline: 3px solid #1c64ac; outline-offset: 3px; }

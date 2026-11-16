@@ -1,0 +1,51 @@
+{
+  "mock_id": "MANUAL-GUIDE-MOCK-001",
+  "version": 1,
+  "verified_on": "2026-11-03 JST",
+  "scope": "Local static manual prototype with synthetic screenshots only",
+  "production_mutation": false,
+  "application_started": false,
+  "database_used": false,
+  "outbound_submission": false,
+  "source_files_match_saved_deployment": 6,
+  "screenshot_count": 11,
+  "manual_sections": 7,
+  "existing_manual_topics": 33,
+  "illustrated_articles": 3,
+  "checks": {
+    "javascript_syntax": "passed: node --check",
+    "search_common_language": "passed: 打刻忘れ returns the matching illustrated procedure",
+    "search_zero_results": "passed: clear no-result explanation and category link",
+    "seven_section_navigation": "passed",
+    "daily_work_existing_links": "passed: six reference links rendered",
+    "issue_branching": "passed: unknown actual attendance time leads to confirmation guidance",
+    "step_next_previous": "passed",
+    "read_all_steps": "passed: all three phone steps rendered",
+    "image_states": "passed: empty, partial, completed input, saved example, invalid-time error",
+    "error_message": "2026-10-26：降園は登園より後にしてください。",
+    "zoom": "passed: image dialog opens and closes, Escape closes",
+    "completion_checklist": "passed: 3 of 3 shows completion",
+    "mobile_menu": "passed at 390 x 844",
+    "horizontal_overflow": "none at desktop and mobile, including enlarged text",
+    "images_loaded": "passed in phone, attendance and password examples",
+    "console_errors": "none observed for the manual",
+    "offline_package_structure": "11 embedded JPEGs, inline CSS/JS, no runtime asset dependencies",
+    "offline_file_browser_open": "not verified: in-app browser only allows HTTP/HTTPS; no alternate file access attempted",
+    "git_diff_check": "passed for changed documentation",
+    "mkdocs_strict": "failed: existing documents missing from nav; no new docs page was introduced by this task"
+  },
+  "not_verified": [
+    "Actual deployment UI and business operations",
+    "Every published reference URL",
+    "Physical printing or PDF pagination",
+    "Single-file HTML under a file URL in an external browser",
+    "User/staff acceptance of the proposed structure"
+  ],
+  "screenshots": [
+    "home-desktop.jpg",
+    "home-mobile.jpg",
+    "article-desktop.jpg",
+    "article-mobile.jpg",
+    "preview-steps.jpg"
+  ]
+}

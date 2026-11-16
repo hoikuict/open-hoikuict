@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>日案の振り返り・実施変更｜記入漏れ案内の確認</title><link rel="stylesheet" href="assets/base.css"><script src="assets/tailwind.js"></script>
+<link rel="stylesheet" href="mock.css"><script id="mock-fixture" type="application/json">{"data": {}, "key": "daily-reflection", "kind": "daily-detail", "title": "\u65e5\u6848\u306e\u632f\u308a\u8fd4\u308a\u30fb\u5b9f\u65bd\u5909\u66f4"}</script><script src="mock.js"></script>
+
+  
+  <link rel="stylesheet" href="assets/document-search.css">
+  <link rel="stylesheet" href="assets/daily-plan-print.css">
+  
+</head><body><aside class="mock-toolbar" aria-label="確認用の操作"><a href="index.html">← 対象一覧</a><strong>確認用モック · 日案の振り返り・実施変更</strong><p>架空データです。保存・提出・通知はこの画面内の見本です。</p>
+<div class="mock-controls"><label>試す状態<select id="mock-state"><option value="partial">一部入力</option><option value="empty">未入力</option><option value="filled">入力済み</option><option value="error">保存エラー</option></select></label><button type="button" id="mock-reset">見本に戻す</button><label>試す操作<select id="mock-operation"></select></label><button type="button" id="mock-jump">操作ボタンの位置へ</button></div><p id="mock-note">振り返りの下書きは空欄可。承認確認へ進むときだけ本文を確認します。実施変更と訂正は別の操作です。</p><p id="mock-status" role="status"></p></aside>
+<main id="mock-business" class="plan-docs-content">
+  <a id="back-to-list" class="document-search-return no-print" href="#" data-original-href="/plans/documents/">‹ 帳票一覧に戻る</a>
+  
+
+  
+
+  <section class="document-header">
+    <div>
+      <p class="eyebrow">日案</p>
+      <h1>2026-11-16 日案（ひよこ組）</h1>
+      <p class="lead">園: ひかり保育園 / クラス: ひよこ組 / 作成者: 見本 はなこ</p>
+      
+    </div>
+    <div class="document-header__actions no-print">
+      <span class="status status--approved">承認済み</span>
+      
+      
+      <button class="button button--secondary" type="button">印刷</button>
+    </div>
+  </section>
+
+  
+  
+  
+
+  <section id="review-status" class="status-panel no-print">
+    
+    
+    <form method="post" action="#" class="status-form" data-original-action="/plans/documents/1/status" novalidate="">
+      <input name="lock_version" type="hidden" value="1">
+      
+      
+      
+      
+        <button class="button button--ghost" name="status" value="archived">アーカイブ</button>
+      
+    </form>
+  </section>
+
+  
+  <article class="report-sheet">
+    <header class="report-sheet__meta">
+      <span>日案</span>
+      <span>
+        
+        
+        
+        2026-11-16
+      </span>
+      <span class="report-sheet__approval">
+        <strong>承認済み</strong>
+        
+          <small>承認履歴: 記録なし</small>
+        
+      </span>
+    </header>
+    
+    
+      
+        
+          
+    <section class="report-section daily-print-purpose">
+      <div class="report-section__heading">
+        <h2>ねらい</h2>
+      </div>
+      <p>秋の自然に親しむ。</p>
+      <footer class="report-section__footer daily-print-empty">
+        <span>
+          
+            
+          
+        </span>
+      </footer>
+      
+    </section>
+  
+        
+      
+        
+          
+    <section class="report-section daily-print-purpose">
+      <div class="report-section__heading">
+        <h2>内容（活動）</h2>
+      </div>
+      <p>架空の下書きです。</p>
+      <footer class="report-section__footer daily-print-empty">
+        <span>
+          
+            
+          
+        </span>
+      </footer>
+      
+    </section>
+  
+        
+      
+      
+    <section class="report-section report-schedule">
+      <div class="report-section__heading">
+        <h2>1日の流れ</h2>
+      </div>
+      <div class="schedule-scroll">
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th>時間</th>
+              
+                <th>子どもの様子</th>
+              
+                <th>保育士の援助</th>
+              
+                <th>配慮事項</th>
+              
+            </tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <th scope="row">
+                  <span class="schedule-time">10:00</span>
+                  <span></span>
+                </th>
+                
+                  
+                  <td>
+                    <span class="daily-print-cell-body">落ち葉を集めて遊ぶ見本です。</span>
+                    
+                  </td>
+                
+                  
+                  <td>
+                    <span class="daily-print-cell-body"></span>
+                    
+                  </td>
+                
+                  
+                  <td>
+                    <span class="daily-print-cell-body"></span>
+                    
+                  </td>
+                
+              </tr>
+            
+          </tbody>
+        </table>
+      </div>
+    </section>
+  
+    
+    
+      
+    
+      
+    
+    
+  </article>
+
+  
+    <section class="form-panel daily-reflection-panel" aria-labelledby="daily-reflection-heading">
+      <div class="report-section__heading">
+        <div>
+          <p class="eyebrow">当日提出</p>
+          <h2 id="daily-reflection-heading">その日の振り返り</h2>
+          <p class="field-note">2026-11-16 16:30までに提出してください。</p>
+        </div>
+        <div id="daily-reflection-status" aria-live="polite">
+          <span class="reflection-status reflection-status--missing">振り返り未入力</span>
+        </div>
+      </div>
+      
+        <form id="daily-reflection-form" data-document-id="1" method="post" action="#" class="form-layout" data-original-action="/plans/documents/1/reflection" novalidate="">
+          <input type="hidden" name="reflection_version" value="0">
+          <label>
+            <span>振り返り</span>
+            <textarea name="reflection_body" rows="6" maxlength="20000" required placeholder="その日の保育を振り返って記入してください"></textarea>
+          </label>
+          <p class="field-note">入力内容は自動で下書き保存されます。承認確認へ進み、依頼を確定すると管理者に通知されます。</p>
+          
+          <div class="form-actions no-print">
+            <button class="button button--secondary" type="submit" name="action" value="draft" formnovalidate>下書き保存</button>
+            <button class="button button--primary" type="submit" name="action" value="submit">承認確認へ進む</button>
+          </div>
+        </form>
+        <p class="daily-print-reflection" data-daily-print-reflection>未入力</p>
+      
+    </section>
+  
+
+  
+    <section class="form-panel execution-change-panel">
+      <h2>当日の実施変更</h2>
+      <p class="lead">雨天等で計画を変更した場合、承認版を上書きせず、変更前後を実績として記録します。</p>
+
+      
+        <div class="edit-section-list">
+          
+            <article class="edit-section">
+              <div class="report-section__heading">
+                <h3>
+                  による変更
+                  <span class="status"></span>
+                </h3>
+              </div>
+              <p>
+                変更時刻: 2026-11-16 10:00:00+00:00 / 記録者: 
+                
+              </p>
+              <p>理由: 雨のため</p>
+              <div class="field-grid">
+                <div>
+                  <strong>変更前</strong>
+                  
+                    <p>文書全体の計画から変更</p>
+                  
+                </div>
+                <div>
+                  <strong>変更後</strong>
+                  <p>10:00 室内遊び</p>
+                  <p>架空の実施変更です。</p>
+                </div>
+              </div>
+              
+                <p class="inline-note">軽微な変更（事後確認不要）</p>
+              
+              
+              
+                <details class="no-print">
+                  <summary>この記録を訂正する</summary>
+                  <form method="post" action="#" data-original-action="/plans/documents/1/execution-changes/10/corrections" novalidate="">
+                    <input name="changed_at" type="hidden" value="2026-11-15T08:07">
+                    <label>
+                      <span>訂正理由</span>
+                      <input name="correction_note" type="text" required>
+                    </label>
+                    <div class="field-grid">
+                      <label>
+                        <span>訂正後の活動</span>
+                        <input name="after_heading" type="text" value="室内遊び" required>
+                      </label>
+                      <label>
+                        <span>訂正後の時刻</span>
+                        <input name="after_time_label" type="text" value="10:00">
+                      </label>
+                    </div>
+                    <label>
+                      <span>訂正後の内容</span>
+                      <textarea name="after_details" rows="3" required>架空の実施変更です。</textarea>
+                    </label>
+                    <button class="button button--secondary" type="submit">訂正記録を追加</button>
+                  </form>
+                </details>
+              
+            </article>
+          
+        </div>
+      
+
+      
+        <form method="post" action="#" class="form-layout no-print" data-original-action="/plans/documents/1/execution-changes" novalidate="">
+          <h3>実施変更を記録</h3>
+          <div class="field-grid">
+            <label>
+              <span>対象活動</span>
+              <select name="affected_block_key">
+                <option value="">文書全体</option>
+                
+                  
+                    <option value="row_1">10:00 </option>
+                  
+                
+              </select>
+            </label>
+            <label>
+              <span>変更時刻</span>
+              <input name="changed_at" type="datetime-local" value="2026-11-15T08:07" required>
+            </label>
+            <label>
+              <span>理由</span>
+              <select name="reason_code">
+                
+                  <option value="weather">天候</option>
+                
+                  <option value="child_state">子どもの様子</option>
+                
+                  <option value="safety">安全</option>
+                
+                  <option value="staffing">職員体制</option>
+                
+                  <option value="facility">施設・設備</option>
+                
+                  <option value="other">その他</option>
+                
+              </select>
+            </label>
+            <label>
+              <span>重要度</span>
+              <select name="impact_level">
+                
+                  <option value="minor">軽微（記録のみ）</option>
+                
+                  <option value="significant">重要（事後確認）</option>
+                
+                  <option value="critical">重大（即時共有・事後確認）</option>
+                
+              </select>
+            </label>
+          </div>
+          <label>
+            <span>変更理由の補足</span>
+            <input name="reason_note" type="text" placeholder="例: 午前から雨が続いたため">
+          </label>
+          <div class="field-grid">
+            <label>
+              <span>変更後の活動</span>
+              <input name="after_heading" type="text" required placeholder="例: 遊戯室で運動遊び">
+            </label>
+            <label>
+              <span>変更後の時刻</span>
+              <input name="after_time_label" type="text" placeholder="例: 10:00〜10:45 / 随時">
+            </label>
+          </div>
+          <label>
+            <span>変更後の環境・援助・安全上の対応</span>
+            <textarea name="after_details" rows="4" required></textarea>
+          </label>
+          <p class="inline-note">重大な変更は、事故報告・健康記録・災害対応等の既存記録も別途作成してください。</p>
+          <button class="button button--primary" type="submit">実施変更を記録</button>
+        </form>
+      
+    </section>
+  
+
+  <section class="report-section no-print">
+    <div class="report-section__heading"><h2>版履歴</h2></div>
+    <p>現在のロック版: 1 / リビジョン数: 1</p>
+  </section>
+</main>
+  
+  
+    <dialog id="mock-result"><h2 tabindex="-1">確認用の保存結果</h2><p></p><details><summary>仮保存した入力を確認</summary><dl></dl></details><button type="button" id="mock-edit">入力・修正へ戻る</button></dialog>
+<dialog id="mock-leave"><h2>確認用画面の移動</h2><p>未保存の見本入力を残して続けますか？</p><button type="button" data-stay>入力を続ける</button><button type="button" data-discard>見本入力を破棄して戻る</button></dialog>
+</body></html>

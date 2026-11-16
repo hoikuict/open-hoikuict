@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from sqlalchemy import update
 from sqlmodel import Session, select
 
 from models import (
@@ -271,9 +272,11 @@ def _load_export_lines(session: Session, export_id: int) -> list[ZenginExportLin
 
 
 def build_zengin_file(session: Session, export_id: int) -> bytes:
-    export = session.get(ZenginExport, export_id)
+    export = session.get(ZenginExport, export_id, populate_existing=True)
     if export is None:
         raise ZenginError("Zengin出力履歴が見つかりません")
+    if export.status == ZenginExportStatus.canceled:
+        raise ZenginError("取消済みのZengin出力はダウンロードできません")
     encoding = export.settings_snapshot.get("file_encoding", "cp932")
     lines = _load_export_lines(session, export_id)
     records = [build_header_record(export.settings_snapshot, export.withdrawal_date)]
@@ -283,13 +286,107 @@ def build_zengin_file(session: Session, export_id: int) -> bytes:
     return build_file_bytes(records, encoding, export.settings_snapshot.get("line_separator", "CRLF"))
 
 
+def lock_billing_cycle(session: Session, cycle_id: int) -> BillingCycle | None:
+    """Serialize billing edits and export transitions, including on SQLite.
+
+    A no-op UPDATE takes the database write/row lock until commit or rollback.
+    Reload after acquiring it so a preloaded ORM object cannot bypass a lock.
+    """
+    session.execute(
+        update(BillingCycle).where(BillingCycle.id == cycle_id)
+        .values(updated_at=BillingCycle.updated_at)
+        .execution_options(synchronize_session=False)
+    )
+    return session.get(BillingCycle, cycle_id, populate_existing=True)
+
+
+def _lock_export_cycle(session: Session, export_id: int) -> tuple[BillingCycle, ZenginExport]:
+    cycle_id = session.exec(select(ZenginExport.billing_cycle_id).where(ZenginExport.id == export_id)).first()
+    if cycle_id is None:
+        raise ZenginError("Zengin出力履歴が見つかりません")
+    cycle = lock_billing_cycle(session, cycle_id)
+    if cycle is None:
+        raise ZenginError("請求月が見つかりません")
+    export = session.get(ZenginExport, export_id, populate_existing=True)
+    return cycle, export
+
+
+def reopenable_export(cycle: BillingCycle, exports: list[ZenginExport]) -> ZenginExport | None:
+    """UI eligibility; the mutation rechecks this under the cycle lock."""
+    if cycle.status != BillingCycleStatus.exported or not exports:
+        return None
+    # Superseding a submitted file does not cancel its reception at the bank.
+    if any(item.submitted_at is not None or item.result_imported_at is not None for item in exports):
+        return None
+    latest = max(exports, key=lambda item: item.id or 0)
+    active = [item for item in exports if item.status not in {ZenginExportStatus.canceled, ZenginExportStatus.superseded}]
+    if (len(active) == 1 and active[0].id == latest.id
+            and latest.status == ZenginExportStatus.created
+            and latest.submitted_at is None and latest.result_imported_at is None
+            and latest.superseded_by_export_id is None):
+        return latest
+    return None
+
+
+def cancel_zengin_export_for_edit(
+    session: Session, export_id: int, *, reason: str, confirmed_unsubmitted: bool, canceled_by: str,
+) -> ZenginExport:
+    """Invalidate an unsubmitted snapshot and reopen its claims, atomically."""
+    reason = (reason or "").strip()
+    if not reason or len(reason) > 500:
+        raise ZenginError("取消理由を500文字以内で入力してください")
+    if confirmed_unsubmitted is not True:
+        raise ZenginError("銀行へ提出・アップロードしていないことを確認してください")
+    try:
+        cycle, export = _lock_export_cycle(session, export_id)
+        exports = list(session.exec(select(ZenginExport).where(
+            ZenginExport.billing_cycle_id == cycle.id).execution_options(populate_existing=True)).all())
+        candidate = reopenable_export(cycle, exports)
+        if candidate is None or candidate.id != export.id:
+            raise ZenginError("銀行未提出の最新の作成済み出力だけを取消して修正できます。状態を確認してください")
+        lines = _load_export_lines(session, export.id)
+        claims = list(session.exec(select(BillingClaim).where(
+            BillingClaim.billing_cycle_id == cycle.id).execution_options(populate_existing=True)).all())
+        linked = {claim.id: claim for claim in claims if claim.zengin_export_id == export.id}
+        if (not lines or set(linked) != {line.billing_claim_id for line in lines}
+                or len(lines) != export.total_count or sum(line.amount for line in lines) != export.total_amount):
+            raise ZenginError("出力と請求の紐付けが一致しないため、取消できません")
+        for line in lines:
+            claim = linked[line.billing_claim_id]
+            if (claim.status != BillingClaimStatus.exported or claim.paid_at is not None
+                    or claim.result_code is not None or line.result_code is not None
+                    or claim.family_id != line.family_id or claim.total_amount != line.amount):
+                raise ZenginError("請求の状態が出力時と異なるため、取消できません")
+        now = utc_now()
+        for claim in linked.values():
+            claim.status = BillingClaimStatus.confirmed
+            claim.zengin_export_id = None
+            claim.exported_at = None
+            claim.updated_at = now
+            session.add(claim)
+        export.status = ZenginExportStatus.canceled
+        export.canceled_reason = reason
+        export.canceled_by = canceled_by
+        export.canceled_at = now
+        cycle.status = BillingCycleStatus.confirmed
+        cycle.updated_at = now
+        session.add(export)
+        session.add(cycle)
+        session.commit()
+        session.refresh(export)
+        return export
+    except Exception:
+        session.rollback()
+        raise
+
+
 def _create_zengin_export_uncommitted(
     session: Session,
     cycle_id: int,
     *,
     created_by: str = "system",
 ) -> ZenginExport:
-    cycle = session.get(BillingCycle, cycle_id)
+    cycle = lock_billing_cycle(session, cycle_id)
     if cycle is None:
         raise ZenginError("請求月が見つかりません")
     if cycle.status != BillingCycleStatus.confirmed:
@@ -375,29 +472,32 @@ def create_zengin_export(session: Session, cycle_id: int, *, created_by: str = "
 
 
 def mark_zengin_export_submitted(session: Session, export_id: int) -> ZenginExport:
-    export = session.get(ZenginExport, export_id)
-    if export is None:
-        raise ZenginError("Zengin出力履歴が見つかりません")
-    if export.status == ZenginExportStatus.submitted:
+    try:
+        _, export = _lock_export_cycle(session, export_id)
+        if export.status == ZenginExportStatus.submitted:
+            session.commit()
+            return export
+        if export.status != ZenginExportStatus.created:
+            raise ZenginError("このZengin出力は銀行提出済みに変更できません")
+        export.status = ZenginExportStatus.submitted
+        export.submitted_at = utc_now()
+        lines = _load_export_lines(session, export_id)
+        for line in lines:
+            profile = session.exec(
+                select(FamilyBillingProfile).where(FamilyBillingProfile.family_id == line.family_id)
+            ).first()
+            if profile and profile.new_code in {"1", "2"}:
+                profile.new_code = "0"
+                profile.new_code_consumed_by_export_id = export.id
+                profile.updated_at = utc_now()
+                session.add(profile)
+        session.add(export)
+        session.commit()
+        session.refresh(export)
         return export
-    if export.status != ZenginExportStatus.created:
-        raise ZenginError("このZengin出力は銀行提出済みに変更できません")
-    export.status = ZenginExportStatus.submitted
-    export.submitted_at = utc_now()
-    lines = _load_export_lines(session, export_id)
-    for line in lines:
-        profile = session.exec(
-            select(FamilyBillingProfile).where(FamilyBillingProfile.family_id == line.family_id)
-        ).first()
-        if profile and profile.new_code in {"1", "2"}:
-            profile.new_code = "0"
-            profile.new_code_consumed_by_export_id = export.id
-            profile.updated_at = utc_now()
-            session.add(profile)
-    session.add(export)
-    session.commit()
-    session.refresh(export)
-    return export
+    except Exception:
+        session.rollback()
+        raise
 
 
 def supersede_zengin_export(
@@ -410,15 +510,12 @@ def supersede_zengin_export(
     normalized_reason = (reason or "").strip()
     if not normalized_reason:
         raise ZenginError("差し替え理由を入力してください")
-    original = session.get(ZenginExport, export_id)
-    if original is None:
-        raise ZenginError("Zengin出力履歴が見つかりません")
-    if original.status not in {ZenginExportStatus.created, ZenginExportStatus.submitted}:
-        raise ZenginError("このZengin出力は差し替えできません")
-    if original.result_imported_at is not None:
-        raise ZenginError("結果取込済みのZengin出力は差し替えできません")
-
     try:
+        _, original = _lock_export_cycle(session, export_id)
+        if original.status not in {ZenginExportStatus.created, ZenginExportStatus.submitted}:
+            raise ZenginError("このZengin出力は差し替えできません")
+        if original.result_imported_at is not None:
+            raise ZenginError("結果取込済みのZengin出力は差し替えできません")
         lines = _load_export_lines(session, export_id)
         for line in lines:
             claim = session.get(BillingClaim, line.billing_claim_id)
@@ -615,8 +712,10 @@ def parse_result_file(session: Session, file_bytes: bytes, export_id: int) -> Pa
 
 
 def import_result_file(session: Session, file_bytes: bytes, export_id: int) -> ParsedResultFile:
+    _lock_export_cycle(session, export_id)
     parsed = parse_result_file(session, file_bytes, export_id)
     if parsed.errors:
+        session.rollback()
         return parsed
 
     export = session.get(ZenginExport, export_id)

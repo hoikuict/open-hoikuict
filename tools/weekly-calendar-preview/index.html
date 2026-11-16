@@ -1,0 +1,187 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'">
+<title>週案・月案カレンダー｜確認用モック</title><link rel="icon" href="data:,"><link rel="stylesheet" href="deployed.css"><link rel="stylesheet" href="preview.css"></head>
+<body><div class="app-shell"><aside class="mock-sidebar"><div class="brand">open-hoikuict<small>STAFF CONSOLE</small></div><div class="staff-card">見本の保育士<small>編集可・架空の職員</small></div><div class="sidebar-links"><span>日々の業務</span><p>園児一覧</p><p>家族・兄弟姉妹の管理</p><p>児童票作成状況</p><p class="active">指導計画</p><p>健康管理</p><p>出欠一覧</p><span>連絡と記録</span><p>日次連絡</p><p>連絡タイムライン</p><p>設定</p></div></aside>
+<main class="plan-docs-content">
+<section class="mock-controls" aria-label="モックの確認操作"><div><strong>確認用モック・未確定の提案</strong><p>すべて架空データです。保存はこの画面内だけで、再読み込みすると元に戻ります。</p></div>
+<div class="control-row"><label>入力状態<select id="mock-state"><option value="empty">未入力</option><option value="partial">一部入力</option><option value="filled">入力済み</option><option value="error">入力エラー</option></select></label>
+<label>参考例の状態<select id="mock-source"><option value="normal">候補あり</option><option value="none">候補なし</option><option value="error">読込エラー</option></select></label>
+<label class="inline-check"><input type="checkbox" id="save-error">保存失敗を試す</label><button type="button" id="reset-all">最初から試す</button></div></section>
+<header class="page-header"><p class="eyebrow">指導計画</p><h1>月と週の計画をつなぐ</h1><p class="lead">作成状況を確認し、必要な月・週から計画を開けます。</p></header>
+<nav class="view-tabs" aria-label="指導計画の画面"><button type="button" data-view="weekly" aria-pressed="true">週案カレンダー</button><button type="button" data-view="monthly" aria-pressed="false">月案カレンダー</button><button type="button" id="new-weekly">週案を作成</button></nav>
+<div id="status-message" class="message" role="status" hidden></div><div id="error-message" class="error-message" role="alert" hidden tabindex="-1"></div>
+<section id="calendar-view"><div class="calendar-toolbar"><label>クラス<select id="calendar-class"><option value="0">ことり組（架空・0歳児）</option><option value="1">こりす組（架空・2歳児）</option><option value="2">ひかり組（架空・5歳児）</option></select></label>
+<label id="calendar-age-control" hidden>月案の年齢<select id="calendar-age"><option value="0">0歳児</option><option value="1">1歳児</option><option value="2">2歳児</option><option value="3">3歳児</option><option value="4">4歳児</option><option value="5">5歳児</option></select></label>
+<div class="period-controls"><button type="button" id="previous-period" aria-label="前の期間">‹</button><label id="month-control">表示月<input type="month" id="calendar-month" value="2026-10" min="1900-01" max="2199-12"></label><label id="year-control" hidden>年度<select id="calendar-year"><option>2025</option><option selected>2026</option><option>2027</option></select></label><button type="button" id="next-period" aria-label="次の期間">›</button><button type="button" id="current-period">2026年10月</button></div></div>
+<div class="calendar-intro"><h2 id="calendar-title"></h2><p id="calendar-description"></p><div class="legend"><span class="pill empty">未作成</span><span class="pill draft">下書き</span><span class="pill approved">承認済み</span></div></div>
+<div id="calendar-content"></div><p class="field-note">週は月曜始まり。月をまたぐ週も同じ計画を表示します。祝日・休園日は自動判定せず、見本の活動欄に記入しています。</p></section>
+<section id="weekly-editor" hidden><div class="editor-heading"><h2>週案を作成・編集</h2><span id="weekly-status" class="pill draft">未保存</span></div>
+<p class="field-note">既存の月案接続・前週の振り返り・子どもの姿・家庭情報などは、帳票の下にすべて残しています。</p>
+
+
+  
+
+  
+
+  <form autocomplete="off" class="form-layout" id="weekly-form" novalidate>
+    <section class="form-panel">
+      <h2>基本情報</h2>
+      <div class="field-grid">
+        <label>
+          <span>対象週</span>
+          <input name="target_week" type="week" required aria-describedby="week-range" value="">
+        </label>
+        <label>
+          <span>クラス</span>
+          
+          <select name="classroom_ref">
+            
+            <option value="ことり組（架空）" selected>ことり組（架空）</option>
+            
+            <option value="こりす組（架空）" >こりす組（架空）</option>
+            
+            <option value="ひかり組（架空）" >ひかり組（架空）</option>
+            
+          </select>
+        </label>
+        <label>
+          <span>年齢</span>
+          <select name="age_class" required>
+            <option value="">選択してください</option>
+            
+              <option value="0歳児" >0歳児</option>
+            
+              <option value="1歳児" >1歳児</option>
+            
+              <option value="2歳児" >2歳児</option>
+            
+              <option value="3歳児" >3歳児</option>
+            
+              <option value="4歳児" >4歳児</option>
+            
+              <option value="5歳児" >5歳児</option>
+            
+          </select>
+        </label>
+        <label>
+          <span>作成者</span>
+          <input name="owner_name" type="text" value="見本の保育士">
+        </label>
+      </div>
+      <label class="check-row">
+        <input name="include_saturday" type="checkbox" value="on" >
+        <span>土曜を含める</span>
+      </label>
+    </section>
+            <p id="week-range" class="field-note"></p>
+            <section class="form-panel" id="source-panel">
+              <h2>参考になる週案例を探す</h2>
+              <p class="field-note">活動名から詳細を開き、必要な計画だけを下書きへコピーできます。ここでは原票の様式に合わせた架空例を表示しています。</p>
+              <div class="field-grid search-fields">
+                <label>参考例の年齢<select id="search-age"><option value="">すべて</option><option value="0">0歳児</option><option value="1">1歳児</option><option value="2">2歳児</option><option value="3">3歳児</option><option value="4">4歳児</option><option value="5">5歳児</option></select></label>
+                <label>参考例の月<select id="search-month"><option value="">すべて</option><option value="1" >1月</option><option value="2" >2月</option><option value="3" >3月</option><option value="4" >4月</option><option value="5" >5月</option><option value="6" >6月</option><option value="7" >7月</option><option value="8" >8月</option><option value="9" >9月</option><option value="10" selected>10月</option><option value="11" >11月</option><option value="12" >12月</option></select></label>
+                <label>キーワード<input type="search" id="search-keyword" placeholder="活動・ねらい・援助・準備"></label>
+              </div>
+              <p id="source-count" class="field-note" role="status"></p><div id="source-list"></div>
+            </section>
+            <section class="form-panel" id="plan-paper">
+              <div class="paper-heading"><div><h2>週日指導計画（週案）</h2><p id="paper-scope" class="field-note"></p></div>
+                <label>帳票の様式（年齢から自動選択）<select id="layout" disabled><option value="infant">0～2歳：月内の週を一覧</option><option value="older">3～5歳：曜日別</option></select></label>
+              </div>
+              <p class="field-note" id="paper-format-note"></p>
+              <p class="field-note">園長印は承認表示のため、参考例から取り込みません。</p>
+              <div id="paper-fields"></div>
+            </section>
+            
+
+    <section class="form-panel">
+      <h2>月案との接続</h2>
+      
+      <label>
+        <span>接続する月案</span>
+        <select name="parent_document_id">
+          <option value="">接続しない</option>
+          
+        </select>
+      </label>
+      <label>
+        <span>月案から今週へつなぐ文脈</span>
+        <textarea name="related_monthly_summary" rows="4" placeholder="月案のねらい、子どもの姿、環境や援助のうち今週に効くことを短く記入"></textarea>
+      </label>
+    </section>
+
+    <section class="form-panel">
+      <h2>今週の入力</h2>
+      <label>
+        <span>前週の振り返り</span>
+        <textarea name="previous_week_reflection" rows="4" placeholder="子どもが深めたこと、環境が働いた場面、次へ残したい問い"></textarea>
+      </label>
+      <label>
+        <span>現在の子どもの姿</span>
+        <textarea name="current_children_snapshot" rows="4" placeholder="具体的な場面、友だちとの関わり、興味や戸惑い"></textarea>
+      </label>
+      <label>
+        <span>今週の主な活動・経験</span>
+        <textarea name="weekly_activities_note" rows="4" placeholder="決め切りすぎず、子どもの姿から広がりそうな経験を書く"></textarea>
+      </label>
+      <div class="field-grid">
+        <label>
+          <span>季節・行事・生活の流れ</span>
+          <textarea name="seasonal_context" rows="3"></textarea>
+        </label>
+        <label>
+          <span>家庭からの情報</span>
+          <textarea name="family_context" rows="3"></textarea>
+        </label>
+        <label>
+          <span>担任間で共有したい配慮</span>
+          <textarea name="class_notes" rows="3"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button class="button button--ghost" type="button" data-cancel>取消してカレンダーへ</button><button class="button button--ghost" type="button" data-revert>保存した内容に戻す</button>
+      <button class="button button--primary" type="submit" >下書きを保存（モック内）</button>
+    </div>
+  </form>
+
+</section>
+<section id="monthly-editor" hidden><div class="editor-heading"><h2>月案を作成・編集</h2><span id="monthly-status" class="pill draft">未保存</span></div><p class="field-note">追加済みの月案帳票へ接続しています。カレンダーで選んだ月・クラス・年齢の計画を開きます。園児・文例・履歴はすべて架空です。</p><button type="button" id="monthly-back">月案カレンダーへ戻る</button><link rel="stylesheet" href="monthly-sheet.css">
+<div id="drive-monthly-plan" lang="ja" aria-label="月案の帳票編集">
+  
+  <header><strong>月案</strong><span id="document-status"></span><a id="document-link" hidden>承認・文書情報</a></header>
+  <div class="toolbar">
+    <div><h2>帳票から月案をつくる</h2><div class="pickers">
+      <label>クラス <select id="classroom" >
+        <option value="1">ことり組（架空）</option><option value="2">こりす組（架空）</option><option value="3">ひかり組（架空）</option>
+        
+      </select></label>
+      <label>対象月 <input id="month" type="month" min="1900-01" max="2199-12" ></label>
+      <label>年齢クラス <select id="age" ><option value="0">0歳児</option><option value="1">1歳児</option><option value="2">2歳児</option><option value="3">3歳児</option><option value="4">4歳児</option><option value="5">5歳児</option></select></label>
+      <strong id="scope"></strong>
+    </div></div>
+    <div class="actions"><button type="button" id="print-monthly">印刷用PDF</button><button type="button" id="excel-monthly">Excel出力</button><button type="button" id="undo" disabled>ひとつ戻す</button><button type="button" id="save" class="primary">下書きを保存</button>
+      <small class="export-note">対象の月・年齢の全園児を出力。保存前の入力も含みます。</small>
+    </div>
+  </div>
+  <p id="permission-banner" role="note"></p>
+  <section id="editing-presence" aria-label="ほかの担当者の状況"><h3>ほかの担当者の状況</h3><div id="presence-people"></div><p id="presence-warning" role="status"></p><small id="presence-status">状況を確認しています…</small></section>
+  <div class="context"><label id="child-wrap">入力する園児 <select id="child"></select></label><label id="page-wrap">帳票ページ <select id="page"></select></label><button type="button" id="history-toggle" aria-expanded="false" aria-controls="past-plans">過去3か月を表示</button><span id="count"></span></div>
+  <div class="workspace">
+    <div class="paper" aria-label="原本に合わせた月案の帳票"><div class="sheet-scroll"><div id="form"></div></div><footer><a id="template" target="_blank" rel="noopener noreferrer"></a><span id="save-state"></span><button type="button" id="revert" class="text-button">保存した内容に戻す</button></footer></div>
+    <aside class="library" aria-label="選択したセルの文例候補">
+      <div class="target"><small id="target"></small><strong id="field-label"></strong></div>
+      <div class="modes"><button type="button" data-mode="original" aria-pressed="true">過去の原文</button><button type="button" data-mode="ai" aria-pressed="false">AIの提案</button></div>
+      <div class="keyword-box"><input id="keyword" type="search" aria-label="候補のキーワード検索" placeholder="文例をキーワードで検索" autocomplete="off" maxlength="200"><small id="candidate-count" role="status" aria-live="polite"></small></div>
+      <div id="ai-controls" hidden><p id="ai-info"></p><button type="button" id="generate">候補を生成</button><p id="ai-progress" role="status" aria-live="polite"></p></div>
+      <div id="candidates"></div><button type="button" id="more" hidden>続きを表示</button>
+      <div class="sources"><details><summary>候補の出典・原文</summary><div id="candidate-source-list"></div></details><details id="origins" hidden><summary>このセルで使った文例</summary><div id="origin-list"></div></details></div>
+    </aside>
+  </div>
+  <div id="message" role="status" aria-live="polite"></div>
+</div></section>
+<details class="proposal-notes"><summary>今回の提案・参照した様式</summary><p>乳児：1か月の週別計画。幼児：1週間の曜日別計画。Google Driveの原票から項目を確認し、内容と氏名は架空のものに置き換えています。参考例のコピーでは、過去の評価反省・氏名・対象期間・承認印を引き継ぎません。</p><p>カレンダーは作成状況の管理を想定した提案です。対象年度、週区切り、承認方法、取り込む例の範囲は未確定です。</p></details>
+</main></div>
+<dialog id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">入力内容の確認</h2><p id="confirm-message"></p><div class="dialog-actions"><button type="button" id="confirm-cancel">やめる</button><button type="button" id="confirm-yes" class="primary">続ける</button></div></dialog>
+<script src="monthly-contract.js"></script><script src="monthly-preview.js"></script><script src="preview.js"></script><script src="monthly-sheet.js"></script></body></html>

@@ -1,0 +1,20 @@
+{% macro numbers(rows) %}
+<ol class="my-2 list-decimal space-y-2 pl-6">
+  {% for row in rows %}<li{% if loop.first %} class="text-lg font-semibold"{% endif %}><strong>{{ row.label }}</strong>　{{ row.phone }}{% if row.day_only %}（この日だけ）{% endif %}</li>{% endfor %}
+</ol>
+{% endmacro %}
+
+{% macro summary(state, day, today=false) %}
+{% set answer = state.answer if state.answer and state.answer.mode != 'withdraw' else none %}
+<section {% if today %}id="family-emergency"{% endif %} class="mb-4 rounded-lg border p-4 {{ 'border-amber-500 bg-amber-50' if answer and answer.mode == 'change' else 'bg-slate-50' }}">
+  <h3 class="font-bold">{{ '今日の緊急連絡先' if today else 'この日の緊急連絡先' }}（{{ day.month }}月{{ day.day }}日）</h3>
+  {% if answer %}
+    <p class="font-semibold">{{ '今日は' if today else 'この日は' }}{{ '連絡順が変わっています' if answer.mode == 'change' else 'いつもどおりです' }}</p>
+    <small>{{ answer.updated_at|jst_datetime('%m/%d %H:%M') }}　{{ answer.updated_by }}</small>
+    {{ numbers(answer.contacts) }}
+    {% if answer.mode == 'change' and state.usual %}<details><summary>いつもの連絡順を見る</summary>{{ numbers(state.usual.contacts) }}</details>{% endif %}
+  {% elif state.usual %}
+    <p>{{ '今日' if today else 'この日' }}の連絡先は未回答です。</p><strong>いつもの連絡順</strong>{{ numbers(state.usual.contacts) }}
+  {% else %}<p>連絡順は未登録です。</p>{% endif %}
+</section>
+{% endmacro %}

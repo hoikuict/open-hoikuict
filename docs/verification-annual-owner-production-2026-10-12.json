@@ -1,0 +1,115 @@
+{
+  "deployment": {
+    "state": "complete",
+    "updated_at": "2026-10-12T01:00:04.661022+00:00",
+    "app_commit": "06ed6c9f2402c5250216795d779c35beeedd0020",
+    "image_id": "sha256:d77562dd66ef1bb48611bb6919e64f64d00251eccbd0d720812d83ca7a97a92f",
+    "image_changes": [
+      "plan_docs/routers/annual_library.py",
+      "plan_docs/services/annual_library.py",
+      "test_annual_library.py"
+    ],
+    "backup_path": "/mnt/main/open-hoikuict-pilot/backups/before-annual-owner-20261012-06ed6c9",
+    "source_path": "/mnt/main/open-hoikuict-pilot/releases/annual-owner-06ed6c9f2402",
+    "tests": {
+      "passed": 122,
+      "failed": 0,
+      "skipped": 0,
+      "collection_errors": 0,
+      "pytest": "8.4.2",
+      "verified": true
+    },
+    "corpus_count": 820,
+    "zero_october_count": 10,
+    "coverage_cells": 72,
+    "corpus_sha256": "08e674e98c2d702c078b9f338614381f577a682bb270d6014e0ef62d24289996",
+    "compose_sha256": "f284d6dd0d961c4e0dab392536731410d163a99b68b72527245f42a07807758a",
+    "business_data_preserved": true,
+    "attachments_verified": 13,
+    "schedule_preserved": true,
+    "ui": {
+      "verified": true,
+      "annual_age_layouts": 6,
+      "confirmation_routes": true,
+      "reflection_markup_escaped": true,
+      "real_save_apis": true,
+      "existing_search_and_print_verified": true,
+      "business_records_written": 0
+    },
+    "migration": {
+      "verified": true,
+      "required": false,
+      "added_tables": []
+    },
+    "annual": {
+      "verified": true,
+      "classes": 6,
+      "excluded_admin_assignments": 12,
+      "saved_documents_preserved": 2,
+      "editable_documents_checked": 2,
+      "business_records_written": 0
+    },
+    "weekly": {
+      "verified": true,
+      "class_age_scopes": 36,
+      "corpus_records": 533,
+      "corpus_sha256": "17571db385a487d93aef2d50c1ac5509cac4e3f7dae9a01ed6b2cb7beef6ad7e",
+      "by_age": {
+        "0": 6,
+        "1": 0,
+        "2": 0,
+        "3": 190,
+        "4": 158,
+        "5": 179
+      },
+      "business_records_written": 0,
+      "calendars_and_new_monthly_rendered": true
+    }
+  },
+  "public_verification": {
+    "verified": true,
+    "health": "ok",
+    "normalized_asset_hashes": {
+      "static/js/annual-library.js": "876a3f07dd906a2734f4aab2c966900cfe9a0c1d647d367022172b51c8e0a0c0",
+      "static/css/annual-library.css": "31fd0f9c37bfa5206637d65921b6581ab4917b74183ba453904985bddbd1ab82",
+      "static/js/weekly-library.js": "6661e4e9dec4ff4327de0f835f5a8af118c631a521b798999dc31d8146bc74c6"
+    },
+    "protected_routes": [
+      {
+        "path": "/plans/annual-library",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/plans/monthly-plans/",
+        "login_path": "/staff/login"
+      },
+      {
+        "path": "/plans/weekly-plans/",
+        "login_path": "/staff/login"
+      }
+    ],
+    "browser_errors": [],
+    "business_write_requests": []
+  },
+  "local_browser_verification": {
+    "checks": [
+      "管理者が開いても担任名に管理者を自動入力しない",
+      "保存済みの担任名を実画面で修正・保存・再表示",
+      "担任名の変更を戻す",
+      "承認済み年案は保持し編集制限",
+      "管理者のみのクラスは空欄・手入力案内",
+      "手入力した担任名を実保存・再表示"
+    ],
+    "errors": [],
+    "blockedAssets": [
+      "https://cdn.tailwindcss.com/",
+      "https://unpkg.com/htmx.org@1.9.10"
+    ],
+    "externalBusinessRequests": 0,
+    "unitTests": 22,
+    "productionChanged": false
+  },
+  "deployment_guard_tests": 7,
+  "independent_record_image_compose_verification": true,
+  "baseline_commit": "5b142edd546a4a1761b8dc5aa3cf82d685a5241c"
+}

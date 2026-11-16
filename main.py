@@ -34,6 +34,7 @@ from routers.calendar import router as calendar_router
 from calendar_import import router as calendar_import_router
 from routers.child_change_requests import router as child_change_requests_router
 from routers.care_certifications import router as care_certifications_router
+from routers.family_care import router as family_care_router
 from routers.children import router as children_router
 from routers.child_health import router as child_health_router
 from routers.classrooms import router as classrooms_router
@@ -76,6 +77,7 @@ from plan_docs.routers.documents import router as plan_docs_documents_router
 from plan_docs.routers.home import router as plan_docs_home_router
 from plan_docs.routers.plans import router as plan_docs_plans_router
 from plan_docs.routers.monthly_library import router as monthly_library_router
+from plan_docs.routers.annual_library import router as annual_library_router
 from parent_push_runtime import parent_push_worker_enabled, parent_push_worker_loop
 from parent_push_operations import apply_parent_push_retention
 from parent_auth import parent_mail_worker_loop
@@ -147,6 +149,11 @@ app = FastAPI(
 app.add_exception_handler(StarletteHTTPException, staff_auth_http_exception_handler)
 app.add_middleware(CsrfTokenMiddleware)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.mount(
+    "/manual-guide-preview",
+    StaticFiles(directory=Path(__file__).parent / "docs" / "manual-guide-preview", html=True),
+    name="manual_guide",
+)
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)
@@ -154,6 +161,7 @@ app.include_router(initial_ledger_router)
 app.include_router(families_router)
 app.include_router(children_router)
 app.include_router(care_certifications_router)
+app.include_router(family_care_router)
 app.include_router(child_records_router)
 app.include_router(child_health_router)
 app.include_router(child_change_requests_router)
@@ -202,6 +210,7 @@ app.include_router(plan_docs_plans_router, prefix="/plans")
 app.include_router(plan_docs_documents_router, prefix="/plans")
 app.include_router(plan_docs_bunrei_router, prefix="/plans")
 app.include_router(monthly_library_router, prefix="/plans")
+app.include_router(annual_library_router, prefix="/plans")
 
 @app.get("/switch-role", dependencies=[Depends(require_mock_staff_auth)])
 def switch_role(redirect: str = "/"):

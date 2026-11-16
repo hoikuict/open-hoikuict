@@ -1,0 +1,15 @@
+{
+  "revision": "67f4d728c51d67a6c6c1da38ea8f10b6f4186b8f",
+  "source": "templates/health/overview.html",
+  "source_sha256": "0ba1f485359049bd1ca0b0d52b18ff08b8784bfb6430924be37bc55c30eabb0a",
+  "generated_sha256": "2b985b34a22d10f5983b234be522271b9ca192ffca3b2cb2867d77509a321926",
+  "source_kind": "latest deployment record and saved Git source; live production not accessed",
+  "input_names": [
+    "status",
+    "attention",
+    "classroom_id",
+    "q"
+  ],
+  "columns": 7,
+  "fictional_rows": 18
+}

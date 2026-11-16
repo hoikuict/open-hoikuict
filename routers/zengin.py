@@ -10,6 +10,7 @@ from zengin_service import (
     ZenginError,
     ZenginFileValidationError,
     build_zengin_file,
+    cancel_zengin_export_for_edit,
     create_zengin_export,
     import_result_file,
     mark_zengin_export_submitted,
@@ -69,6 +70,25 @@ def mark_export_submitted(
     except ZenginError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"id": export.id, "status": export.status.value}
+
+
+@router.post("/exports/{export_id}/cancel")
+def cancel_export(
+    export_id: int,
+    reason: str = Form(default=""),
+    confirmed_unsubmitted: bool = Form(default=False),
+    session: Session = Depends(get_session),
+    current_user=Depends(get_current_staff_user),
+):
+    require_admin(current_user)
+    try:
+        export = cancel_zengin_export_for_edit(
+            session, export_id, reason=reason, confirmed_unsubmitted=confirmed_unsubmitted,
+            canceled_by=current_user.name,
+        )
+    except ZenginError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"id": export.id, "status": export.status.value, "billing_cycle_id": export.billing_cycle_id}
 
 
 @router.post("/exports/{export_id}/supersede")
