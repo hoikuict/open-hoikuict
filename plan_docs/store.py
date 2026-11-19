@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from threading import Lock
 from typing import Annotated, Mapping, Protocol
@@ -51,6 +52,45 @@ class NoReviewRecipientsError(RuntimeError):
 
 class ExecutionChangeError(RuntimeError):
     pass
+
+
+class InvalidScheduleEditError(ValueError):
+    pass
+
+
+def _insert_daily_rows(
+    document: PlanDocument, row_keys: list[str], form: Mapping[str, str]
+) -> None:
+    schedule = document.schedule
+    if document.document_type != DocumentType.DAILY_PLAN or not schedule or schedule.layout != "daily_timeline":
+        raise InvalidScheduleEditError("この帳票では日案の行を追加できません")
+    existing = {row.row_key: row for row in schedule.rows}
+    original_order = [row.row_key for row in sorted(schedule.rows, key=lambda row: row.order)]
+    if (
+        len(row_keys) != len(set(row_keys))
+        or [key for key in row_keys if key in existing] != original_order
+        or any(key not in existing and not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", key) for key in row_keys)
+    ):
+        raise InvalidScheduleEditError("1日の流れの行情報が不正です。画面を再読み込みしてください")
+    rows = []
+    for key in row_keys:
+        if key in existing:
+            rows.append(existing[key])
+            continue
+        label = form.get(f"rowlabel__{key}", "").strip()
+        time = form.get(f"rowtime__{key}", "").strip()
+        values = {column.key: form.get(f"cell__{key}__{column.key}", "").strip() for column in schedule.columns}
+        # Match new daily plans: ignore unused new rows, never remove saved rows.
+        if not any((label, time, *values.values())):
+            continue
+        rows.append(ScheduleRow(
+            row_key=key, label=label, start_time=time or None, order=0,
+            cells={column.key: ScheduleCell() for column in schedule.columns},
+        ))
+    if len(rows) != len(schedule.rows):
+        for index, row in enumerate(rows, 1):
+            row.order = index * 10
+        schedule.rows = rows
 
 
 class DocumentRepository(Protocol):
@@ -331,6 +371,7 @@ class SqlModelDocumentRepository:
         confirmation_items: list[str],
         section_updates: dict[str, dict[str, object]],
         schedule_form: Mapping[str, str] | None = None,
+        daily_row_keys: list[str] | None = None,
         weekly_document: PlanDocument | None = None,
         commit: bool = True,
         monthly_sheet: dict | None = None,
@@ -343,6 +384,12 @@ class SqlModelDocumentRepository:
             return None
         self._claim_lock(document_id, expected_lock_version)
         document = _document_from_row(row)
+        if daily_row_keys is not None:
+            try:
+                _insert_daily_rows(document, daily_row_keys, schedule_form or {})
+            except InvalidScheduleEditError:
+                self.session.rollback()
+                raise
         document.title = title
         document.owner_name = owner_name
         document.confirmation_items = confirmation_items

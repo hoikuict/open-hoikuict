@@ -28,6 +28,7 @@ from ..store import (
     ConcurrentUpdateError,
     DocumentRepositoryDep,
     ExecutionChangeError,
+    InvalidScheduleEditError,
     InvalidStatusTransitionError,
     NoReviewRecipientsError,
     SqlModelDocumentRepository,
@@ -457,9 +458,12 @@ async def update_document(
             confirmation_items=confirmation_items,
             section_updates=section_updates,
             schedule_form=form_values,
+            daily_row_keys=[str(key) for key in form.getlist("daily_row_key")] if "daily_row_key" in form else None,
             expected_lock_version=_lock_version(form.get("lock_version")),
             actor_ref=user.actor_ref or "unknown",
         )
+    except InvalidScheduleEditError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except (ConcurrentUpdateError, InvalidStatusTransitionError) as exc:
         _raise_repository_error(exc)
     if updated is None:

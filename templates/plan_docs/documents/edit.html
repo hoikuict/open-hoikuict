@@ -1,5 +1,12 @@
 {% extends "base.html" %}
+{% set can_insert_daily_rows = document.document_type.value == "daily_plan" and document.schedule and document.schedule.layout == "daily_timeline" %}
 {% block title %}{{ document.title }} を修正 | hoiku-plan-docs{% endblock %}
+{% block head %}
+  {% if can_insert_daily_rows %}
+    <link rel="stylesheet" href="{{ static_asset_url('css/daily-plan-edit.css') }}">
+    <script src="{{ static_asset_url('js/daily-plan-edit.js') }}" defer></script>
+  {% endif %}
+{% endblock %}
 {% block content %}
   <section class="form-header">
     <div>
@@ -10,7 +17,7 @@
     </div>
   </section>
 
-  <form class="form-layout" method="post" action="/plans/documents/{{ document.id }}">
+  <form class="form-layout{% if can_insert_daily_rows %} daily-plan-saved-edit{% endif %}" method="post" action="/plans/documents/{{ document.id }}">
     <input name="lock_version" type="hidden" value="{{ lock_version }}">
     <section class="form-panel">
       <h2>基本情報</h2>
@@ -64,7 +71,7 @@
         <h2>{{ "1日の流れ" if document.schedule.layout == "daily_timeline" else "週の活動" }}</h2>
         {% if document.schedule.layout == "daily_timeline" %}
           <p class="field-note">4列の内容は保存済み下書きのコピーです。コーパスの原文には影響せず、各セルを自由に編集できます。</p>
-          <div class="daily-plan-grid-scroll">
+          <div class="daily-plan-grid-scroll" {% if can_insert_daily_rows %}id="daily-saved-timeline"{% endif %}>
             <table class="daily-plan-edit-grid">
               <colgroup><col class="daily-plan-time-column"><col><col><col></colgroup>
               <thead>
@@ -82,6 +89,12 @@
                         <input name="rowtime__{{ row.row_key }}" type="text" value="{{ row.start_time or '' }}" placeholder="10:00〜10:45 / 随時">
                       </label>
                       <input name="rowlabel__{{ row.row_key }}" type="hidden" value="{{ row.label }}">
+                      {% if can_insert_daily_rows %}
+                        <input name="daily_row_key" type="hidden" value="{{ row.row_key }}">
+                        <div class="daily-row-actions">
+                          <button class="button button--secondary insert-daily-row" type="button">下に行を追加</button>
+                        </div>
+                      {% endif %}
                     </td>
                     {% for column in document.schedule.columns %}
                       {% set cell = row.cells.get(column.key) %}
