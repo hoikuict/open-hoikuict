@@ -644,6 +644,11 @@ def _migrate_plan_document_action_columns() -> None:
                         "ADD COLUMN actor_name VARCHAR"
                     )
                 )
+            if "revision_id" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE plan_document_actions "
+                    "ADD COLUMN revision_id INTEGER REFERENCES plan_revisions(id)"
+                ))
             conn.commit()
     except Exception as exc:
         _log_migration_skip("plan document action columns", exc)

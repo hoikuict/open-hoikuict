@@ -21,7 +21,8 @@ from models import (
 )
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
 from parent_auth import list_pending_parent_registrations
-from plan_docs.contracts import DOCUMENT_TYPE_LABELS
+from plan_docs.contracts import DOCUMENT_TYPE_LABELS, DocumentType
+from plan_docs.services.daily_plan_revisions import reopened_daily_ids
 from plan_docs.services.reflection_reviews import portal_items as reflection_portal_items
 from plan_docs.services.review_notifications import (
     REVIEW_OUTCOME,
@@ -95,6 +96,7 @@ def _render_staff_home(
     attendance_attention_count = 0
     plan_notifications = []
     pending_plan_documents = []
+    daily_reapproval_ids = set()
     pending_reflections = []
     pending_notices = []
     pending_child_change_requests = []
@@ -175,6 +177,10 @@ def _render_staff_home(
                 session,
                 nursery_ref=nursery_ref,
             )
+            daily_reapproval_ids = reopened_daily_ids(session, [
+                document.id for document in pending_plan_documents
+                if document.document_type == DocumentType.DAILY_PLAN.value
+            ])
             # Review requests are represented by the authoritative queue above.
             plan_notifications = [
                 notification
@@ -286,10 +292,13 @@ def _render_staff_home(
 
     approval_queue_items = list(pending_reflections)
     for document in pending_plan_documents:
+        kind_label = DOCUMENT_TYPE_LABELS.get(document.document_type, document.document_type)
+        if document.id in daily_reapproval_ids:
+            kind_label = "日案（再承認）"
         approval_queue_items.append(
             {
                 "kind": "plan",
-                "kind_label": DOCUMENT_TYPE_LABELS.get(document.document_type, document.document_type),
+                "kind_label": kind_label,
                 "title": document.title,
                 "requester_name": document.owner_name,
                 "requested_at": document.updated_at,

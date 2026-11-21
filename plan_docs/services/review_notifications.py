@@ -13,6 +13,7 @@ from ..models import PlanDocument
 
 
 REVIEW_REQUEST = "review_request"
+REAPPROVAL_REQUEST = "reapproval_request"
 REVIEW_OUTCOME = "review_outcome"
 
 
@@ -36,7 +37,7 @@ def list_pending_review_documents(
     )
 
 
-def _user_id_from_actor_ref(actor_ref: str) -> UUID | None:
+def user_id_from_actor_ref(actor_ref: str) -> UUID | None:
     if not actor_ref.startswith("staff:"):
         return None
     try:
@@ -52,9 +53,10 @@ def create_review_notifications(
     review_revision_id: int,
     requested_by_ref: str,
     requested_by_name: str,
+    reapproval: bool = False,
 ) -> list[PlanReviewNotificationRow]:
     """Create one in-app notification for each active plan approver."""
-    requester_id = _user_id_from_actor_ref(requested_by_ref)
+    requester_id = user_id_from_actor_ref(requested_by_ref)
     recipients = session.exec(
         select(User)
         .where(User.is_active.is_(True), User.staff_role == "admin")
@@ -77,7 +79,7 @@ def create_review_notifications(
             recipient_user_id=recipient.id,
             nursery_ref=document.nursery_ref,
             document_title=document.title,
-            notification_kind=REVIEW_REQUEST,
+            notification_kind=REAPPROVAL_REQUEST if reapproval else REVIEW_REQUEST,
             requested_by_ref=requested_by_ref,
             requested_by_name=requested_by_name,
         )
@@ -97,11 +99,13 @@ def create_review_outcome_notification(
     decision_comment: str | None = None,
 ) -> PlanReviewNotificationRow | None:
     """Notify the original document creator when a review is decided."""
-    creator_id = _user_id_from_actor_ref(document.actor_ref or "")
+    creator_id = user_id_from_actor_ref(document.actor_ref or "")
     if creator_id is None:
         return None
     creator = session.get(User, creator_id)
     if creator is None or not creator.is_active:
+        return None
+    if decision_status == "reopened" and creator.staff_role not in {"admin", "can_edit"}:
         return None
     notification = session.exec(
         select(PlanReviewNotificationRow).where(
@@ -130,6 +134,26 @@ def create_review_outcome_notification(
     notification.resolved_at = None
     session.add(notification)
     return notification
+
+
+def withdraw_reapproval_notifications(
+    session: Session, document_id: int, revision_id: int | None, actor_name: str,
+) -> None:
+    """Replace this round's pending requests with a withdrawal notice for each reviewer."""
+    notifications = session.exec(select(PlanReviewNotificationRow).where(
+        PlanReviewNotificationRow.document_id == document_id,
+        PlanReviewNotificationRow.review_revision_id == revision_id,
+        PlanReviewNotificationRow.notification_kind == REAPPROVAL_REQUEST,
+    )).all()
+    now = utc_now()
+    for notification in notifications:
+        notification.notification_kind = REVIEW_OUTCOME
+        notification.decision_status = "reapproval_withdrawn"
+        notification.decided_by_name = actor_name
+        notification.created_at = now
+        notification.read_at = None
+        notification.resolved_at = None
+        session.add(notification)
 
 
 def resolve_review_notifications(

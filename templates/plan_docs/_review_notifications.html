@@ -1,0 +1,22 @@
+{% macro label(notification) -%}
+  {%- if notification.notification_kind == 'review_outcome' -%}
+    {{ {'approved': '承認済み', 'reopened': '修正依頼', 'reapproved': '再承認済み', 'reapproval_withdrawn': '再承認依頼の取り下げ'}.get(notification.decision_status, '却下・差戻し') }}
+  {%- elif notification.notification_kind == 'reapproval_request' -%}
+    再承認依頼
+  {%- else -%}
+    レビュー依頼
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro message(notification) -%}
+  {%- if notification.notification_kind == 'review_outcome' -%}
+    {{ notification.decided_by_name or notification.requested_by_name }}さんが{{ {
+      'approved': '承認しました。',
+      'reopened': '承認を取り消して修正に戻しました。',
+      'reapproved': '再承認しました。',
+      'reapproval_withdrawn': '再承認依頼を取り下げました。'
+    }.get(notification.decision_status, '却下（差戻し）しました。') }}
+  {%- else -%}
+    {{ notification.requested_by_name }}さんから{{ label(notification) }}が届いています。
+  {%- endif -%}
+{%- endmacro %}

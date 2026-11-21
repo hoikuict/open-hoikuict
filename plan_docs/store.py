@@ -31,10 +31,12 @@ from .models import (
     SectionBlock,
 )
 from .serializers import document_to_dict
+from .services.daily_plan_revisions import reopened_daily_ids
 from .services.review_notifications import (
     create_review_outcome_notification,
     create_review_notifications,
     resolve_review_notifications,
+    withdraw_reapproval_notifications,
 )
 
 
@@ -293,7 +295,10 @@ class SqlModelDocumentRepository:
             head = self._bootstrap_head(row)
         if head is not None and head.deleted_at is not None:
             return None
-        return _document_from_row(row)
+        document = _document_from_row(row)
+        if document.document_type == DocumentType.DAILY_PLAN:
+            document.daily_plan_reopened = bool(reopened_daily_ids(self.session, [document_id]))
+        return document
 
     def get_by_public_id(self, public_id: str) -> PlanDocument | None:
         head = self.session.exec(
@@ -327,7 +332,13 @@ class SqlModelDocumentRepository:
                 select(PlanDocumentHeadRow.document_id).where(PlanDocumentHeadRow.deleted_at.is_not(None))
             ).all()
         )
-        return [_document_from_row(row) for row in rows if row.id not in deleted_ids]
+        documents = [_document_from_row(row) for row in rows if row.id not in deleted_ids]
+        reopened = reopened_daily_ids(self.session, (
+            doc.id for doc in documents if doc.document_type == DocumentType.DAILY_PLAN
+        ))
+        for document in documents:
+            document.daily_plan_reopened = document.id in reopened
+        return documents
 
     def head(self, document_id: int) -> PlanDocumentHeadRow | None:
         return self._head(document_id)
@@ -378,12 +389,22 @@ class SqlModelDocumentRepository:
         annual_sheet: dict | None = None,
         expected_lock_version: int,
         actor_ref: str,
+        actor_name: str | None = None,
     ) -> PlanDocument | None:
         row = self.session.get(PlanDocumentRow, document_id)
         if row is None:
             return None
         self._claim_lock(document_id, expected_lock_version)
         document = _document_from_row(row)
+        head = self._required_head(document_id)
+        repairing = document.document_type == DocumentType.DAILY_PLAN and head.approved_revision_id is not None
+        if document.document_type == DocumentType.DAILY_PLAN and not document.can_edit_body:
+            self.session.rollback()
+            raise InvalidStatusTransitionError("この状態の日案は修正できません")
+        if repairing and actor_ref != document.actor_ref:
+            self.session.rollback()
+            raise InvalidStatusTransitionError("承認後の修正は日案の作成者が行います")
+        document.daily_plan_reopened = repairing
         if daily_row_keys is not None:
             try:
                 _insert_daily_rows(document, daily_row_keys, schedule_form or {})
@@ -435,7 +456,11 @@ class SqlModelDocumentRepository:
         _apply_document_to_row(document, row)
         self.session.add(row)
         revision = self._create_revision(document, reason="edited", actor_ref=actor_ref)
-        head = self._required_head(document_id)
+        if repairing:
+            self.session.add(PlanDocumentAction(
+                document_id=document_id, document_type=row.document_type, action="repair_saved",
+                actor_ref=actor_ref, actor_name=actor_name, revision_id=revision.id,
+            ))
         head.current_revision_id = revision.id
         head.updated_at = document.updated_at
         self.session.add(head)
@@ -444,7 +469,64 @@ class SqlModelDocumentRepository:
         else:
             self.session.flush()
         self.session.refresh(row)
-        return _document_from_row(row)
+        updated = _document_from_row(row)
+        updated.daily_plan_reopened = repairing
+        return updated
+
+    def reopen_daily_plan(
+        self, document_id: int, *, reason: str, expected_lock_version: int,
+        actor_ref: str, actor_name: str,
+    ) -> PlanDocument | None:
+        reason = reason.strip()
+        if not reason or len(reason) > 500:
+            raise InvalidStatusTransitionError("修正理由を1〜500文字で入力してください")
+        row = self.session.get(PlanDocumentRow, document_id)
+        if row is None:
+            return None
+        self._claim_lock(document_id, expected_lock_version)
+        document = _document_from_row(row)
+        if document.document_type != DocumentType.DAILY_PLAN or document.status != DocumentStatus.APPROVED:
+            self.session.rollback()
+            raise InvalidStatusTransitionError("承認済みの日案の計画だけを修正に戻せます")
+        head = self._required_head(document_id)
+        # A legacy approved plan can have no distinct review revision or decision record.
+        original = self.session.exec(select(PlanRevisionRow).where(
+            PlanRevisionRow.document_id == document_id,
+            PlanRevisionRow.id == head.approved_revision_id,
+        )).first()
+        if original is None:
+            original = self._create_revision(document, reason="approved_baseline", actor_ref="system:migration")
+            head.approved_revision_id = original.id
+        approved_id = head.approved_revision_id
+        previous = self.latest_action(document_id, DocumentStatus.APPROVED.value)
+        if previous is not None and previous.revision_id is None:
+            previous.revision_id = approved_id
+            self.session.add(previous)
+        document.status = DocumentStatus.DRAFT
+        document.daily_plan_reopened = True
+        document.updated_at = utc_now()
+        row.status = document.status.value
+        row.updated_at = document.updated_at
+        self.session.add(row)
+        revision = self._create_revision(document, reason="reopened", actor_ref=actor_ref)
+        head.review_revision_id = None
+        head.current_revision_id = revision.id
+        head.updated_at = document.updated_at
+        self.session.add(head)
+        self.session.add(PlanDocumentAction(
+            document_id=document_id, document_type=row.document_type, action="reopened",
+            actor_ref=actor_ref, actor_name=actor_name, comment=reason, revision_id=approved_id,
+        ))
+        notification = create_review_outcome_notification(
+            self.session, document=document, review_revision_id=revision.id,
+            decision_status="reopened", decided_by_ref=actor_ref, decided_by_name=actor_name,
+            decision_comment=reason,
+        )
+        if notification is None:
+            self.session.rollback()
+            raise InvalidStatusTransitionError("日案の作成者に修正依頼を通知できません。作成者の職員アカウントを確認してください")
+        self.session.commit()
+        return document
 
     def update_status(
         self,
@@ -459,12 +541,31 @@ class SqlModelDocumentRepository:
         row = self.session.get(PlanDocumentRow, document_id)
         if row is None:
             return None
-        current = normalize_status(row.status)
-        self._validate_transition(current, status)
+        is_daily = row.document_type == DocumentType.DAILY_PLAN.value
+        if not is_daily:
+            self._validate_transition(normalize_status(row.status), status)
         if status == DocumentStatus.REJECTED and not (comment or "").strip():
             raise InvalidStatusTransitionError("差戻し理由を入力してください")
         self._claim_lock(document_id, expected_lock_version)
         document = _document_from_row(row)
+        head = self._required_head(document_id)
+        repairing = is_daily and head.approved_revision_id is not None and document.status != DocumentStatus.APPROVED
+        try:
+            if is_daily:
+                self._validate_transition(document.status, status)
+                if document.status == status:
+                    raise InvalidStatusTransitionError("日案は既にこの状態です。画面を再読み込みしてください")
+            if repairing:
+                if status == DocumentStatus.ARCHIVED:
+                    raise InvalidStatusTransitionError("修正中の日案はアーカイブできません")
+                if status in {DocumentStatus.DRAFT, DocumentStatus.IN_REVIEW} and actor_ref != document.actor_ref:
+                    raise InvalidStatusTransitionError("再承認の依頼・取下げは日案の作成者が行います")
+                if status == DocumentStatus.DRAFT and document.status != DocumentStatus.IN_REVIEW:
+                    raise InvalidStatusTransitionError("再承認待ちの日案だけ依頼を取り下げられます")
+        except InvalidStatusTransitionError:
+            self.session.rollback()
+            raise
+        document.daily_plan_reopened = repairing
         if (status == DocumentStatus.IN_REVIEW
                 and document.document_type == DocumentType.MONTHLY_PLAN
                 and document.monthly_sheet is not None):
@@ -488,29 +589,34 @@ class SqlModelDocumentRepository:
         row.status = status.value
         row.updated_at = document.updated_at
         self.session.add(row)
-        head = self._required_head(document_id)
         previous_review_revision_id = head.review_revision_id
+        action_revision_id = previous_review_revision_id
         if status == DocumentStatus.IN_REVIEW:
-            revision = self._create_revision(document, reason="submitted", actor_ref=actor_ref)
+            revision = self._create_revision(document, reason="resubmitted" if repairing else "submitted", actor_ref=actor_ref)
             head.current_revision_id = revision.id
             head.review_revision_id = revision.id
+            action_revision_id = revision.id
             notifications = create_review_notifications(
                 self.session,
                 document=document,
                 review_revision_id=int(revision.id or 0),
                 requested_by_ref=actor_ref,
                 requested_by_name=actor_name,
+                reapproval=repairing,
             )
-            if document.document_type == DocumentType.CHILD_PROGRESS_RECORD and not notifications:
+            if (document.document_type == DocumentType.CHILD_PROGRESS_RECORD or repairing) and not notifications:
                 self.session.rollback()
                 raise NoReviewRecipientsError
         elif status == DocumentStatus.APPROVED:
             if head.review_revision_id is None:
+                self.session.rollback()
                 raise InvalidStatusTransitionError("レビュー対象版がありません")
             head.approved_revision_id = head.review_revision_id
         elif status == DocumentStatus.DRAFT:
             head.review_revision_id = None
-        if status != DocumentStatus.IN_REVIEW:
+        if repairing and status == DocumentStatus.DRAFT:
+            withdraw_reapproval_notifications(self.session, document_id, previous_review_revision_id, actor_name)
+        elif status != DocumentStatus.IN_REVIEW and (previous_review_revision_id is not None or not is_daily):
             resolve_review_notifications(
                 self.session,
                 document_id=document_id,
@@ -524,7 +630,7 @@ class SqlModelDocumentRepository:
                 self.session,
                 document=document,
                 review_revision_id=previous_review_revision_id,
-                decision_status=status.value,
+                decision_status="reapproved" if repairing and status == DocumentStatus.APPROVED else status.value,
                 decided_by_ref=actor_ref,
                 decided_by_name=actor_name,
                 decision_comment=comment,
@@ -539,11 +645,14 @@ class SqlModelDocumentRepository:
                 comment=comment,
                 actor_ref=actor_ref,
                 actor_name=actor_name,
+                revision_id=action_revision_id if is_daily else None,
             )
         )
         self.session.commit()
         self.session.refresh(row)
-        return _document_from_row(row)
+        updated = _document_from_row(row)
+        updated.daily_plan_reopened = repairing
+        return updated
 
     def list_execution_changes(self, document_id: int) -> list[PlanExecutionChangeRow]:
         return list(

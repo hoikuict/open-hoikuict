@@ -7,6 +7,8 @@
   {% if document.weekly_sheet %}<link rel="stylesheet" href="{{ static_asset_url('css/weekly-library.css') }}">{% endif %}
   {% if document.document_type.value == "daily_plan" %}
     <link rel="stylesheet" href="/static/css/daily-plan-print.css">
+    <link rel="stylesheet" href="{{ static_asset_url('css/daily-plan-review.css') }}">
+    <script defer src="{{ static_asset_url('js/daily-plan-review.js') }}"></script>
   {% endif %}
 {% endblock %}
 {% block content %}
@@ -79,7 +81,7 @@
     <div class="document-header__actions no-print">
       <span class="status status--{{ document.status.value }}">{{ document.status_label }}</span>
       {% if document.document_type.value == "child_progress_record" and document.child_id %}<a class="button button--secondary" href="/children/{{ document.child_id }}/progress-records">児童票一覧</a>{% endif %}
-      {% if can_edit_document and document.can_edit_body %}
+      {% if document.can_edit_body and (daily_plan_can_edit if daily_revision else can_edit_document) %}
         <a class="button button--primary" href="/plans/documents/{{ document.id }}/edit">修正</a>
       {% endif %}
       <button class="button button--secondary" type="button" {% if monthly_boot %}data-monthly-print{% else %}onclick="window.print()"{% endif %}>印刷</button>
@@ -103,6 +105,9 @@
     </section>
   {% endif %}
 
+  {% if daily_revision %}
+    {% include "plan_docs/documents/_daily_review.html" %}
+  {% else %}
   <section id="review-status" class="status-panel no-print">
     {% if can_edit_document and document.document_type.value == "child_progress_record" and document.can_edit_body and request.query_params.get("review_error") == "no_recipient" %}
       <p role="alert" class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">確認を頼める管理者がいません。園のアカウント担当者にお知らせください。</p>
@@ -147,6 +152,7 @@
       {% endif %}
     </form>
   </section>
+  {% endif %}
 
   {% if document.weekly_sheet %}{% include "plan_docs/weekly_library/_report.html" %}{% endif %}
   <article class="report-sheet" {% if annual_boot or document.weekly_sheet %}hidden{% endif %}>
@@ -160,7 +166,9 @@
       </span>
       <span class="report-sheet__approval">
         <strong>{{ document.status_label }}</strong>
-        {% if approval_details %}
+        {% if daily_revision and daily_revision.phase in ['editing', 'pending'] %}
+          <small>この内容は再承認が必要です</small>
+        {% elif approval_details %}
           <small>承認者: {{ approval_details.actor_name }}</small>
           <small>承認日時: {{ approval_details.decided_at|jst_datetime("%Y年%m月%d日 %H:%M") }} JST</small>
         {% elif document.status.value == "approved" %}
@@ -385,10 +393,39 @@
     </section>
   {% endif %}
 
+  {% if daily_revision %}
+    <section id="daily-plan-history" class="report-section daily-plan-history no-print" aria-labelledby="daily-history-heading" tabindex="-1">
+      <h2 id="daily-history-heading">承認と修正の履歴</h2>
+      {% if daily_revision.history %}
+        <ol>
+          {% for event in daily_revision.history %}
+            <li>
+              <strong>{{ event.label }}</strong>
+              <span class="field-note">{{ event.actor }}{% if event.at %} · {{ event.at|jst_datetime("%Y年%m月%d日 %H:%M") }}{% endif %}</span>
+              {% if event.comment %}<p>{{ event.comment }}</p>{% endif %}
+              {% if event.fields %}
+                <details>
+                  <summary>この時点の内容を見る</summary>
+                  <dl class="daily-plan-snapshot">
+                    {% for field in event.fields %}
+                      <div><dt>{{ field.label }}</dt><dd>{{ field.value or '（未入力）' }}</dd></div>
+                    {% endfor %}
+                  </dl>
+                </details>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p>まだ依頼はありません。</p>
+      {% endif %}
+    </section>
+  {% else %}
   <section class="report-section no-print">
     <div class="report-section__heading"><h2>版履歴</h2></div>
     <p>現在のロック版: {{ lock_version }} / リビジョン数: {{ revisions | length }}</p>
   </section>
+  {% endif %}
 {% endblock %}
 {% block body_end %}
   {{ super() }}

@@ -58,6 +58,7 @@
         {% endif %}
       </div>
       {% if review_notifications %}
+        {% from 'plan_docs/_review_notifications.html' import message %}
         <div class="review-notification-list">
           {% for notification in review_notifications %}
             <article class="review-notification{% if notification.read_at is none %} review-notification--unread{% endif %}">
@@ -67,15 +68,9 @@
                   <span>{{ notification.created_at|jst_datetime("%Y-%m-%d %H:%M") }}</span>
                 </div>
                 <h3>{{ notification.document_title }}</h3>
+                <p>{{ message(notification) }}</p>
                 {% if notification.notification_kind == 'review_outcome' %}
-                  {% if notification.decision_status == 'approved' %}
-                  <p>{{ notification.decided_by_name or notification.requested_by_name }}さんが承認しました。</p>
-                  {% else %}
-                  <p>{{ notification.decided_by_name or notification.requested_by_name }}さんが却下（差戻し）しました。</p>
-                  {% endif %}
                   {% if notification.decision_comment %}<p>{{ notification.decision_comment }}</p>{% endif %}
-                {% else %}
-                <p>{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
                 {% endif %}
               </div>
               <div>

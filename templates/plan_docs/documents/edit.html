@@ -2,6 +2,10 @@
 {% set can_insert_daily_rows = document.document_type.value == "daily_plan" and document.schedule and document.schedule.layout == "daily_timeline" %}
 {% block title %}{{ document.title }} を修正 | hoiku-plan-docs{% endblock %}
 {% block head %}
+  {% if daily_revision %}
+    <link rel="stylesheet" href="{{ static_asset_url('css/daily-plan-review.css') }}">
+    <script defer src="{{ static_asset_url('js/daily-plan-review.js') }}"></script>
+  {% endif %}
   {% if can_insert_daily_rows %}
     <link rel="stylesheet" href="{{ static_asset_url('css/daily-plan-edit.css') }}">
     <script src="{{ static_asset_url('js/daily-plan-edit.js') }}" defer></script>
@@ -17,7 +21,10 @@
     </div>
   </section>
 
-  <form class="form-layout{% if can_insert_daily_rows %} daily-plan-saved-edit{% endif %}" method="post" action="/plans/documents/{{ document.id }}">
+  {% if daily_revision and daily_revision.phase == 'editing' %}
+    {% include "plan_docs/documents/_daily_repair_reason.html" %}
+  {% endif %}
+  <form class="form-layout{% if can_insert_daily_rows %} daily-plan-saved-edit{% endif %}" method="post" action="/plans/documents/{{ document.id }}"{% if daily_revision %} data-daily-plan-form="{{ document.id }}" data-daily-plan-edit{% endif %}>
     <input name="lock_version" type="hidden" value="{{ lock_version }}">
     <section class="form-panel">
       <h2>基本情報</h2>
@@ -132,6 +139,7 @@
     {% endif %}
 
     <div class="form-actions">
+      {% if daily_revision %}<p class="daily-plan-error" data-review-error role="alert" tabindex="-1" hidden></p>{% endif %}
       <a class="button button--ghost" href="/plans/documents/{{ document.id }}">戻る</a>
       <button class="button button--primary" type="submit">修正を保存</button>
     </div>

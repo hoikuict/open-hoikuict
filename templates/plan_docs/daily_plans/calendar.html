@@ -70,10 +70,11 @@
                         <a
                           class="daily-calendar-entry{% if not entry.is_created %} daily-calendar-entry--missing{% endif %}"
                           href="{{ entry.url }}"
-                          aria-label="{{ day.date.month }}月{{ day.date.day }}日 {{ entry.classroom_ref }} {{ entry.activity }}"
+                          aria-label="{{ day.date.month }}月{{ day.date.day }}日 {{ entry.classroom_ref }} {{ entry.activity }}{% if entry.plan_review_label %} {{ entry.plan_review_label }}{% endif %}"
                         >
                           <strong>{{ entry.classroom_ref }}</strong>
                           <span>{{ entry.activity }}</span>
+                          {% if entry.plan_review_label %}<small>計画：{{ entry.plan_review_label }}</small>{% endif %}
                           {% if entry.reflection_label %}
                             <small class="daily-calendar-reflection daily-calendar-reflection--{{ entry.reflection_state }}">{{ entry.reflection_label }}</small>
                           {% endif %}

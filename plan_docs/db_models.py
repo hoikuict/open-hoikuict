@@ -73,6 +73,7 @@ class PlanDocumentAction(SQLModel, table=True):
     comment: Optional[str] = None
     actor_ref: str
     actor_name: Optional[str] = None
+    revision_id: Optional[int] = Field(default=None, foreign_key="plan_revisions.id")
     created_at: datetime = Field(default_factory=utc_now)
 
 

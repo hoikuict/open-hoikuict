@@ -1,0 +1,7 @@
+{% if daily_revision.reopen_reason %}
+  <div class="daily-plan-reason">
+    <strong>修正に戻した理由</strong>
+    <p>{{ daily_revision.reopen_reason }}</p>
+    <small>{{ daily_revision.reopen_actor }}{% if daily_revision.reopen_at %} · {{ daily_revision.reopen_at|jst_datetime('%Y年%m月%d日 %H:%M') }}{% endif %}</small>
+  </div>
+{% endif %}

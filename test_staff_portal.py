@@ -37,7 +37,7 @@ from models import (
     User,
 )
 from plan_docs.auth_adapter import DEFAULT_NURSERY_REF
-from plan_docs.db_models import PlanDocumentRow, PlanReviewNotificationRow
+from plan_docs.db_models import PlanDocumentAction, PlanDocumentRow, PlanReviewNotificationRow
 import routers.staff_portal as portal_module
 from staff_portal_service import active_assignments
 from testing_helpers import authenticate_mock_staff, configure_test_environment
@@ -121,6 +121,32 @@ class StaffPortalTests(unittest.TestCase):
         self.assertIn("承認待ち", response.text)
         self.assertIn("8月 ひよこ組 月案", response.text)
         self.assertIn("ひよこ組担任さんから承認依頼", response.text)
+
+    def test_daily_reapproval_is_identified_in_the_authoritative_queue(self):
+        with Session(self.engine) as session:
+            chief = User(email="chief@example.test", display_name="主任", staff_role="admin")
+            document = PlanDocumentRow(
+                document_type="daily_plan",
+                status="in_review",
+                title="修正後の日案",
+                nursery_ref=DEFAULT_NURSERY_REF,
+                classroom_ref="ひよこ組",
+                actor_ref="staff:teacher",
+                owner_name="担任",
+            )
+            session.add_all([chief, document])
+            session.flush()
+            session.add(PlanDocumentAction(
+                document_id=document.id, document_type=document.document_type,
+                action="reopened", actor_ref=f"staff:{chief.id}", actor_name=chief.display_name,
+            ))
+            session.commit()
+            chief_id, document_id = chief.id, document.id
+        authenticate_mock_staff(self.client, role=Role.ADMIN, user_id=chief_id, name="主任")
+        page = self.client.get("/")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("日案（再承認）", page.text)
+        self.assertIn(f'href="/plans/documents/{document_id}"', page.text)
 
     def test_admin_home_combines_all_approval_request_types(self):
         today = local_today()

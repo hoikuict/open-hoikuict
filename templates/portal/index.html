@@ -109,24 +109,19 @@
     <p class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{{ plan_notification_error }}</p>
     {% else %}
     <div class="mt-5 grid gap-3 lg:grid-cols-2">
+      {% from 'plan_docs/_review_notifications.html' import label, message %}
       {% for notification in plan_notifications %}
       <article class="rounded-2xl border {% if notification.read_at is none %}border-indigo-300 bg-white{% else %}border-slate-200 bg-slate-50{% endif %} p-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="rounded-full px-2.5 py-1 text-xs font-bold {% if notification.notification_kind == 'review_outcome' and notification.decision_status == 'approved' %}bg-emerald-100 text-emerald-700{% elif notification.notification_kind == 'review_outcome' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-800{% endif %}">
-            {% if notification.notification_kind == 'review_outcome' and notification.decision_status == 'approved' %}承認済み{% elif notification.notification_kind == 'review_outcome' %}却下・差戻し{% else %}レビュー依頼{% endif %}
+          <span class="rounded-full px-2.5 py-1 text-xs font-bold {% if notification.notification_kind == 'review_outcome' and notification.decision_status in ['approved','reapproved'] %}bg-emerald-100 text-emerald-700{% elif notification.notification_kind == 'review_outcome' and notification.decision_status == 'rejected' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-800{% endif %}">
+            {{ label(notification) }}
           </span>
           <time class="text-xs text-slate-400">{{ notification.created_at|jst_datetime("%m-%d %H:%M") }}</time>
         </div>
         <h3 class="mt-3 font-bold text-slate-900">{{ notification.document_title }}</h3>
+        <p class="mt-2 text-sm text-slate-600">{{ message(notification) }}</p>
         {% if notification.notification_kind == 'review_outcome' %}
-          {% if notification.decision_status == 'approved' %}
-          <p class="mt-2 text-sm text-slate-600">{{ notification.decided_by_name or notification.requested_by_name }}さんが承認しました。</p>
-          {% else %}
-          <p class="mt-2 text-sm text-slate-600">{{ notification.decided_by_name or notification.requested_by_name }}さんが却下（差戻し）しました。</p>
-          {% endif %}
           {% if notification.decision_comment %}<p class="mt-2 rounded-xl bg-white px-3 py-2 text-sm text-slate-600">{{ notification.decision_comment }}</p>{% endif %}
-        {% else %}
-        <p class="mt-2 text-sm text-slate-600">{{ notification.requested_by_name }}さんからレビュー依頼が届いています。</p>
         {% endif %}
         <div class="mt-4 flex flex-wrap gap-2">
           <form method="post" action="{{ notification.open_url if notification.open_url is defined else '/plans/notifications/' ~ notification.id ~ '/open' }}">
