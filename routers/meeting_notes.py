@@ -1,15 +1,16 @@
 import base64
+import asyncio
 import binascii
 import hashlib
 import json
 import logging
 from collections import defaultdict
-from typing import DefaultDict
+from typing import DefaultDict, Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import or_, update
+from sqlalchemy import or_, update, func
 from sqlmodel import Session, select
 
 from auth import get_current_staff_user, require_can_edit, resolve_staff_principal
@@ -19,7 +20,8 @@ from institutional_record_service import (
     highlights_for_source,
     list_event_series,
 )
-from models import HighlightSourceType, InstitutionalRecordOrigin, MeetingNote
+from models import HighlightSourceType, InstitutionalRecordOrigin, MeetingNote, MeetingNoteAction
+from meeting_note_lifecycle import load_note, relations, LABELS, ACTION_LABELS, TRANSITIONS
 from time_utils import utc_now
 from security_config import websocket_origin_allowed
 
@@ -41,9 +43,10 @@ class SaveMeetingNotePayload(BaseModel):
 def _note_content(note: MeetingNote) -> dict:
     content = base64.b64encode(note.content).decode("ascii") if note.content else None
     revision = hashlib.sha256(json.dumps(
-        [note.title, content, note.search_text, note.updated_at.isoformat()], ensure_ascii=False,
+        [note.title, content, note.search_text, note.updated_at.isoformat(), note.lifecycle_version], ensure_ascii=False,
     ).encode("utf-8")).hexdigest()
-    return {"content_base64": content, "title": note.title, "revision": revision}
+    return {"content_base64": content, "title": note.title, "revision": revision,
+            "lifecycle_status": note.lifecycle_status, "lifecycle_version": note.lifecycle_version}
 
 
 class ExportMeetingNotePayload(BaseModel):
@@ -58,7 +61,7 @@ async def export_meeting_note(
 ):
     from meeting_note_export import export_note
 
-    _load_meeting_note(session, note_id)
+    load_note(session, note_id, current_user)
     content = bytearray()
     async for chunk in request.stream():
         content.extend(chunk)
@@ -104,6 +107,16 @@ class MeetingNoteConnectionManager:
         for connection in stale_connections:
             self.disconnect(note_id, connection)
 
+    async def invalidate(self, note_id: int, note: MeetingNote) -> None:
+        for connection in list(self._connections.get(note_id, [])):
+            try:
+                await connection.send_json({"type": "lifecycle", "lifecycle_status": note.lifecycle_status,
+                                            "lifecycle_version": note.lifecycle_version})
+                await connection.close(code=4009)
+            except Exception:
+                pass
+            self.disconnect(note_id, connection)
+
 
 manager = MeetingNoteConnectionManager()
 
@@ -129,11 +142,16 @@ def _load_meeting_note(session: Session, note_id: int) -> MeetingNote:
 def meeting_note_list(
     request: Request,
     q: str = Query(default="", max_length=100),
+    state: Literal["active", "archived", "trashed"] = "active",
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
     current_query = q.strip()
-    statement = select(MeetingNote)
+    if state == "trashed" and not current_user.is_admin:
+        raise HTTPException(403, "ごみ箱は管理者だけが利用できます")
+    counts = {value: session.exec(select(func.count()).select_from(MeetingNote).where(MeetingNote.lifecycle_status == value)).one()
+              for value in LABELS if value != "trashed" or current_user.is_admin}
+    statement = select(MeetingNote).where(MeetingNote.lifecycle_status == state)
     if current_query:
         filters = [
             MeetingNote.title.contains(current_query, autoescape=True),
@@ -152,6 +170,7 @@ def meeting_note_list(
             "notes": notes,
             "current_user": current_user,
             "current_query": current_query,
+            "current_state": state, "state_labels": LABELS, "state_counts": counts,
         },
     )
 
@@ -182,7 +201,7 @@ def meeting_note_detail(
     session: Session = Depends(get_session),
     current_user=Depends(get_current_staff_user),
 ):
-    note = _load_meeting_note(session, note_id)
+    note = load_note(session, note_id, current_user)
     highlights = highlights_for_source(
         session,
         current_user,
@@ -195,6 +214,8 @@ def meeting_note_detail(
         "meeting_notes/detail.html",
         {
             "note": note,
+            "note_can_edit": current_user.can_edit and note.lifecycle_status == "active",
+            "lifecycle": _lifecycle_info(session, note, current_user),
             "current_user": current_user,
             "editor_user_name": _display_name(current_user),
             "highlights": highlights,
@@ -213,7 +234,7 @@ def meeting_note_content(
     current_user=Depends(get_current_staff_user),
 ):
     _ = current_user
-    note = _load_meeting_note(session, note_id)
+    note = load_note(session, note_id, current_user)
     return _note_content(note)
 
 
@@ -225,7 +246,10 @@ def save_meeting_note(
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
-    note = _load_meeting_note(session, note_id)
+    note = load_note(session, note_id, current_user)
+    if note.lifecycle_status != "active":
+        return JSONResponse({"status": "state_changed", "detail": "議事録の状態が変わりました。未保存の入力を保持して編集を停止しました。",
+                             **_note_content(note)}, status_code=409)
     if payload.editor_version != 2:
         return JSONResponse({"status": "upgrade_required", "detail": "議事録の編集機能が更新されました。未保存の入力を控えてから画面を開き直してください。"}, status_code=426)
     if payload.base_revision is not None and payload.base_revision != _note_content(note)["revision"]:
@@ -238,6 +262,7 @@ def save_meeting_note(
     result = session.execute(update(MeetingNote).where(
         MeetingNote.id == note_id, MeetingNote.updated_at == note.updated_at,
         MeetingNote.content == note.content, MeetingNote.title == note.title,
+        MeetingNote.lifecycle_status == "active", MeetingNote.lifecycle_version == note.lifecycle_version,
     ).values(
         title=(payload.title or "").strip() or "無題の議事録", content=decoded_content,
         search_text=payload.plain_text.strip() or None,
@@ -245,11 +270,73 @@ def save_meeting_note(
     ).execution_options(synchronize_session=False))
     if result.rowcount != 1:
         session.rollback()
-        session.refresh(note)
+        note = load_note(session, note_id, current_user)
+        if note.lifecycle_status != "active":
+            return JSONResponse({"status": "state_changed", **_note_content(note)}, status_code=409)
         return JSONResponse({"status": "conflict", **_note_content(note)}, status_code=409)
     session.commit()
     session.refresh(note)
     return {"status": "ok", "revision": _note_content(note)["revision"]}
+
+
+def _lifecycle_info(session: Session, note: MeetingNote, principal) -> dict:
+    actions = session.exec(select(MeetingNoteAction).where(MeetingNoteAction.note_id == note.id)
+                           .order_by(MeetingNoteAction.id.desc())).all()
+    allowed = [name for name, (before, _) in TRANSITIONS.items()
+               if before == note.lifecycle_status and principal.can_edit
+               and (name not in ("trash", "untrash") or principal.is_admin)]
+    return {"status": note.lifecycle_status, "label": LABELS[note.lifecycle_status],
+            "version": note.lifecycle_version, "revision": _note_content(note)["revision"],
+            "allowed_actions": allowed, "related": relations(session, note.id, principal),
+            "history": [{"action": ACTION_LABELS[a.action], "actor": a.actor_name,
+                         "at": a.created_at.isoformat() + ("Z" if a.created_at.tzinfo is None else ""),
+                         "reason": a.reason} for a in actions]}
+
+
+@router.get("/api/{note_id}/lifecycle")
+def meeting_note_state(note_id: int, session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    note = load_note(session, note_id, current_user)
+    return JSONResponse(_lifecycle_info(session, note, current_user), headers={"Cache-Control": "no-store"})
+
+
+class LifecyclePayload(BaseModel):
+    expected_version: int = Field(ge=0)
+    expected_revision: str
+    reason: str = Field(default="", max_length=500)
+
+
+@router.post("/api/{note_id}/lifecycle/{action}")
+async def change_meeting_note_state(note_id: int, action: str, payload: LifecyclePayload,
+                                   session: Session = Depends(get_session), current_user=Depends(get_current_staff_user)):
+    require_can_edit(current_user)
+    if action not in TRANSITIONS:
+        raise HTTPException(404, "操作が見つかりません")
+    if action in ("trash", "untrash") and not current_user.is_admin:
+        raise HTTPException(403, "ごみ箱の操作には管理者権限が必要です")
+    before, after = TRANSITIONS[action]
+    # Lock before inspecting source relations, including on SQLite. Reference
+    # writes acquire the same row via lock_for_edit in the shared service.
+    result = session.execute(update(MeetingNote).where(
+        MeetingNote.id == note_id, MeetingNote.lifecycle_status == before,
+        MeetingNote.lifecycle_version == payload.expected_version,
+    ).values(lifecycle_version=MeetingNote.lifecycle_version).execution_options(synchronize_session=False))
+    note = load_note(session, note_id, current_user)
+    if result.rowcount != 1 or _note_content(note)["revision"] != payload.expected_revision:
+        session.rollback()
+        raise HTTPException(409, "ほかの職員が内容または状態を更新しました。再表示して確認してください。")
+    if action == "trash" and relations(session, note_id, current_user):
+        session.rollback()
+        raise HTTPException(409, "関連する記録があるため、ごみ箱へ移動できません。")
+    note.lifecycle_status = after
+    note.lifecycle_version += 1
+    session.add(note)
+    session.add(MeetingNoteAction(note_id=note_id, action=action, from_status=before, to_status=after,
+                                 actor_user_id=str(current_user.user_id) if current_user.user_id else None,
+                                 actor_name=_display_name(current_user), reason=payload.reason.strip() or None if action == "trash" else None))
+    session.commit()
+    session.refresh(note)
+    await manager.invalidate(note_id, note)
+    return _lifecycle_info(session, note, current_user)
 
 
 @router.websocket("/ws/{note_id}")
@@ -278,7 +365,10 @@ async def meeting_note_websocket(
         return
 
     try:
-        note_exists = session.get(MeetingNote, note_id) is not None
+        initial_note = session.get(MeetingNote, note_id)
+        note_exists = initial_note is not None and initial_note.lifecycle_status == "active"
+        initial_version = initial_note.lifecycle_version if initial_note else None
+        bind = session.get_bind()
     finally:
         # Release the DB connection before entering the long-lived receive loop.
         session.close()
@@ -290,9 +380,20 @@ async def meeting_note_websocket(
     await manager.connect(note_id, websocket)
     try:
         while True:
-            data = await websocket.receive_bytes()
+            try:
+                data = await asyncio.wait_for(websocket.receive_bytes(), timeout=1)
+            except asyncio.TimeoutError:
+                data = None
+            with Session(bind) as check:
+                current = check.get(MeetingNote, note_id)
+                if current is None or current.lifecycle_status != "active" or current.lifecycle_version != initial_version:
+                    await websocket.send_json({"type": "lifecycle"})
+                    await websocket.close(code=4009)
+                    break
+            if data is None:
+                continue
             await manager.broadcast(note_id, data, exclude=websocket)
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         pass
     finally:
         manager.disconnect(note_id, websocket)

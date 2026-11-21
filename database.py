@@ -433,14 +433,19 @@ def _migrate_add_message_columns() -> None:
 
 
 def _migrate_add_meeting_note_columns() -> None:
-    try:
-        with engine.connect() as conn:
-            columns = _table_columns("meeting_notes")
-            if columns and "search_text" not in columns:
-                conn.execute(text("ALTER TABLE meeting_notes ADD COLUMN search_text VARCHAR"))
-            conn.commit()
-    except Exception as exc:
-        _log_migration_skip("meeting note column", exc)
+    # Additive and repeatable. A failed lifecycle migration must stop startup;
+    # serving without the archive access checks would be unsafe.
+    with engine.begin() as conn:
+        columns = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(meeting_notes)")}
+        if not columns:
+            return
+        for name, definition in {
+            "search_text": "VARCHAR",
+            "lifecycle_status": "VARCHAR NOT NULL DEFAULT 'active'",
+            "lifecycle_version": "INTEGER NOT NULL DEFAULT 0",
+        }.items():
+            if name not in columns:
+                conn.exec_driver_sql(f"ALTER TABLE meeting_notes ADD COLUMN {name} {definition}")
 
 
 def _migrate_notice_columns() -> None:

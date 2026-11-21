@@ -424,6 +424,7 @@ export function installMeetingTables({Y, Quill, editor, ydoc, ytext, ymeta, bind
     $('#meeting-redo').addEventListener('click', () => {finishComposition();undoManager.redo();render();});
   }
   return {
+    flushPending() {finishComposition();},
     enable(value) {enabled = value;if (toolbar) toolbar.hidden = !value;render();},
     clearHistory() {undoManager.clear();updateControls();},
     readyToSave() {return composing ? new Promise(resolve => waiters.push(resolve)) : Promise.resolve();},

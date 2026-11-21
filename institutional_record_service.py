@@ -194,7 +194,11 @@ def assert_target_access(
             RecordLinkTargetType.meeting_note: MeetingNote,
             RecordLinkTargetType.event_series: EventSeries,
         }[target_type]
-        target = session.get(model, normalized_id)
+        if target_type == RecordLinkTargetType.meeting_note:
+            from meeting_note_lifecycle import load_note, lock_for_edit
+            target = (load_note if action == "view" else lock_for_edit)(session, normalized_id, principal)
+        else:
+            target = session.get(model, normalized_id)
         if target is None:
             raise _not_found()
         return TargetSnapshot(
