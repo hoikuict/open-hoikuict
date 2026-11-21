@@ -35,6 +35,7 @@ class SaveMeetingNotePayload(BaseModel):
     content_base64: str
     plain_text: str = ""
     base_revision: str | None = None
+    editor_version: int = 1
 
 
 def _note_content(note: MeetingNote) -> dict:
@@ -225,6 +226,8 @@ def save_meeting_note(
 ):
     require_can_edit(current_user)
     note = _load_meeting_note(session, note_id)
+    if payload.editor_version != 2:
+        return JSONResponse({"status": "upgrade_required", "detail": "議事録の編集機能が更新されました。未保存の入力を控えてから画面を開き直してください。"}, status_code=426)
     if payload.base_revision is not None and payload.base_revision != _note_content(note)["revision"]:
         return JSONResponse({"status": "conflict", **_note_content(note)}, status_code=409)
     try:
@@ -266,6 +269,11 @@ async def meeting_note_websocket(
         return
     if not websocket_origin_allowed(websocket):
         logger.warning("Meeting note WebSocket rejected: origin policy note_id=%s", note_id)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # Old Quill clients do not know table embeds and must not relay destructive edits.
+    if websocket.query_params.get("editor_version") != "2":
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 

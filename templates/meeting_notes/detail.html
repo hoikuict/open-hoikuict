@@ -5,6 +5,7 @@
 {% block head %}
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/quill-cursors@4.0.2/dist/quill-cursors.css" rel="stylesheet">
+<link href="{{ static_asset_url('css/meeting-tables.css') }}" rel="stylesheet">
 <style>
   #meeting-print-title { display: none; }
   @media print {
@@ -153,6 +154,7 @@
 
   <h1 id="meeting-print-title"></h1>
   <section class="meeting-editor rounded-2xl bg-white shadow">
+    {% include "meeting_notes/_tables.html" %}
     <div id="editor"></div>
   </section>
 
@@ -297,6 +299,7 @@
   import QuillCursors from 'quill-cursors';
   import { QuillBinding } from 'y-quill';
   import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
+  import { registerMeetingTable, installMeetingTables } from {{ static_asset_url('js/meeting-tables.js')|tojson }};
 
   const canEdit = {{ current_user.can_edit|tojson }};
   const noteId = {{ note.id|tojson }};
@@ -313,6 +316,7 @@
   const DEFAULT_IMAGE_WIDTH = '50%';
 
   Quill.register('modules/cursors', QuillCursors);
+  registerMeetingTable(Quill);
 
   let lastEditorRange = null;
   let toolbarViewport = null;
@@ -321,6 +325,7 @@
     readOnly: true,
     scrollingContainer: document.scrollingElement || document.documentElement,
     modules: {
+      history: { userOnly: true },
       cursors: canEdit,
       toolbar: canEdit
         ? { container: [
@@ -349,6 +354,8 @@
 
   let selectedExcerpt = '';
   editor.on('selection-change', (range) => {
+    const node = window.getSelection()?.anchorNode;
+    if (document.activeElement?.closest('.meeting-table-cell') || node?.parentElement?.closest('.meeting-table-cell')) return;
     if (range) lastEditorRange = { index: range.index, length: range.length };
     if (!canEdit || !markSelectionBtn) {
       return;
@@ -481,7 +488,7 @@
     });
 
     function positionFloatingToolbar(range) {
-      if (!range) {
+      if (!range || document.activeElement?.closest('.meeting-table-block')) {
         return;
       }
 
@@ -565,7 +572,10 @@
     color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
   });
 
-  new QuillBinding(ytext, editor, awareness);
+  const binding = new QuillBinding(ytext, editor, awareness);
+  const tables = installMeetingTables({ Y, Quill, editor, ydoc, ytext, ymeta, binding, canEdit,
+    onExcerpt(text) { selectedExcerpt = text; if (markSelectionBtn) markSelectionBtn.disabled = !text; },
+  });
 
   titleInput.addEventListener('input', () => {
     if (canEdit) {
@@ -632,7 +642,7 @@
     .then((data) => {
       revision = data.revision;
       if (data.content_base64) {
-        Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64));
+        tables.applyUpdate(decodeBase64ToUint8Array(data.content_base64), 'initial-load');
       }
       const existingTitle = ymeta.get('title');
       if (typeof existingTitle === 'string' && existingTitle.length > 0) {
@@ -643,6 +653,8 @@
       }
       contentLoaded = true;
       editor.enable(canEdit);
+      tables.enable(canEdit);
+      tables.clearHistory();
       titleInput.readOnly = !canEdit;
       if (saveBtn) saveBtn.disabled = false;
       showSaveStatus('保存済み');
@@ -670,7 +682,7 @@
       const response = await fetch(`/meeting-notes/${noteId}/export/${format}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
-        body: JSON.stringify({ title: titleInput.value, ops: editor.getContents().ops }),
+        body: JSON.stringify({ title: titleInput.value, ops: tables.exportOps() }),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -690,6 +702,7 @@
 
   async function saveNote() {
     if (!(await contentReady)) throw new Error('The original note could not be loaded');
+    await tables.readyToSave();
     clearTimeout(saveTimer);
     if (saving) return saving;
     saving = (async () => {
@@ -704,13 +717,13 @@
           response = await fetch(`/meeting-notes/api/${noteId}/save`, {
             method: 'POST', signal: controller.signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
-            body: JSON.stringify({ title: titleInput.value, base_revision: revision,
-              content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)), plain_text: editor.getText() }),
+            body: JSON.stringify({ title: titleInput.value, base_revision: revision, editor_version: 2,
+              content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)), plain_text: tables.plainText() }),
           });
           data = await response.json();
         } finally { clearTimeout(timeout); }
         if (response.status === 409 && data.status === 'conflict' && conflicts++ < 3) {
-          if (data.content_base64) Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64), 'save-conflict');
+          if (data.content_base64) tables.applyUpdate(decodeBase64ToUint8Array(data.content_base64), 'save-conflict');
           revision = data.revision;
           continue;
         }
@@ -740,7 +753,7 @@
     contentReady.then(ready => {
     if (!ready) return;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}?editor_version=2`);
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = () => {
@@ -797,7 +810,7 @@
       const payload = data.slice(1);
 
       if (type === 0 || type === 2) {
-        Y.applyUpdate(ydoc, payload, 'websocket');
+        tables.applyUpdate(payload, 'websocket');
         return;
       }
 
@@ -847,6 +860,7 @@
       if (markingPending || saveBtn?.disabled) return;
       markingPending = true;
       editor.enable(false);
+      tables.enable(false);
       titleInput.readOnly = true;
       if (saveBtn) saveBtn.disabled = true;
       const submitter = event.submitter;
@@ -859,6 +873,7 @@
         updateStatus('本文の保存に失敗しました。再度マーキングを保存してください。', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
         markingPending = false;
         editor.enable(true);
+        tables.enable(true);
         titleInput.readOnly = false;
         if (saveBtn) saveBtn.disabled = false;
         if (submitter) submitter.disabled = false;
