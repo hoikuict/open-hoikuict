@@ -110,8 +110,11 @@ def save_guardian_hours(request: Request, closing: str = Form("", alias="closing
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def settings_index(request: Request, current_user=Depends(get_current_staff_user)):
     from restore_control import enabled
+    import os
+    origin = os.getenv("HOIKUICT_CLASS_KIOSK_ORIGIN", "").rstrip("/")
+    kiosk_url = origin + "/settings/class-kiosk/" if os.getenv("HOIKUICT_CLASS_KIOSK_ENABLED") == "1" and origin else None
     return templates.TemplateResponse(
-        request, "settings/index.html", {"current_user": current_user, "restore_enabled": enabled()},
+        request, "settings/index.html", {"current_user": current_user, "restore_enabled": enabled(), "class_kiosk_admin_url": kiosk_url},
         headers={"Cache-Control": "private, no-store"},
     )
 

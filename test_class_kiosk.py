@@ -69,6 +69,156 @@ class ClassKioskTests(unittest.TestCase):
         self.assertEqual(response.status_code,200,response.text)
         return response.json()
 
+    def test_existing_registration_has_no_expiry_and_cookie_is_renewed(self):
+        from class_kiosk.security import DEVICE_COOKIE_SECONDS, cookie_name
+        with Session(self.engine) as session:
+            device = session.get(KioskDevice, 1)
+            device.expires_at = utc_now()-timedelta(days=800)
+            session.add(device); session.commit()
+            legacy_expiry = device.expires_at
+        token = self.client.cookies.get(cookie_name())
+        with patch.dict(os.environ, {"HOIKUICT_CLASS_KIOSK_SESSION_DAYS":"1"}):
+            response = self.client.get('/class-kiosk/api/state')
+        self.assertEqual(response.status_code, 200)
+        cookie = response.headers['set-cookie']
+        for part in ('HttpOnly', 'Secure', 'SameSite=strict', 'Path=/', f'Max-Age={DEVICE_COOKIE_SECONDS}'):
+            self.assertIn(part, cookie)
+        self.assertEqual(self.client.cookies.get(cookie_name()), token)
+        with Session(self.engine) as session:
+            self.assertEqual(session.get(KioskDevice, 1).expires_at, legacy_expiry)
+        self.post('/settings/class-kiosk/devices/1/revoke', {})
+        response = self.client.get('/class-kiosk/api/state')
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn(cookie_name()+'=', response.headers.get('set-cookie', ''))
+
+    def test_new_registration_remains_valid_years_later_but_revocation_does_not(self):
+        from class_kiosk.security import authenticate
+        from class_kiosk import security
+        code = self.issue()
+        self.assertEqual(self.post('/class-kiosk/enroll', {'code':code}).status_code, 200)
+        with Session(self.engine) as session:
+            device = session.exec(select(KioskDevice).order_by(KioskDevice.id.desc())).first()
+            token_hash, device_id = device.token_hash, device.id
+            with patch.object(security, 'utc_now', return_value=utc_now()+timedelta(days=3650)):
+                self.assertEqual(authenticate(session, token_hash).device_id, device_id)
+        self.post(f'/settings/class-kiosk/devices/{device_id}/revoke', {})
+        with Session(self.engine) as session, patch.object(security, 'utc_now', return_value=utc_now()+timedelta(days=7300)):
+            from fastapi import HTTPException
+            with self.assertRaises(HTTPException) as error:
+                authenticate(session, token_hash)
+            self.assertEqual(error.exception.status_code, 401)
+            self.assertFalse(session.get(KioskDevice, device_id).active)
+
+    def test_admin_inventory_uses_all_classes_order_and_current_subscriptions(self):
+        with Session(self.engine) as session:
+            first=session.get(Classroom,1); first.display_order=10; session.add(first)
+            session.add(Classroom(id=3,name='追加クラス',display_order=0))
+            account=KioskAccount(classroom_id=2); session.add(account); session.flush()
+            session.add(KioskDevice(account_id=account.id,name='解除済み',token_hash='revoked-test',active=False))
+            session.add(KioskSubscription(device_id=1,endpoint='https://fcm.googleapis.com/secret-endpoint',p256dh_key='secret-key',auth_key='secret-auth'))
+            session.commit()
+        response=self.client.get('/settings/class-kiosk/api')
+        data=response.json()
+        self.assertEqual([c['id'] for c in data['classrooms']], [3,2,1])
+        self.assertEqual([(d['classroom_id'],d['available'],d['push_enabled']) for d in data['devices']],[(1,True,True),(2,False,False)])
+        for secret in ('secret-endpoint','secret-key','secret-auth','token_hash','expires_at',self.code):
+            self.assertNotIn(secret,response.text)
+        with Session(self.engine) as session:
+            sub=session.get(KioskSubscription,1); sub.active=False; session.add(sub); session.commit()
+        self.assertFalse(self.client.get('/settings/class-kiosk/api').json()['devices'][0]['push_enabled'])
+
+    def test_registration_status_tracks_real_enrollment_and_ten_minute_boundary(self):
+        from class_kiosk import router as routes, security
+        from time_utils import ensure_utc
+        with patch.dict(os.environ, {'HOIKUICT_CLASS_KIOSK_ORIGIN':'https://kiosk.example.invalid'}):
+            result=self.post('/settings/class-kiosk/enrollments',{'classroom_id':2,'name':' 新スマホ '}).json()
+        self.assertTrue(result['qr'].startswith('data:image/png;base64,'))
+        path=f'/settings/class-kiosk/enrollments/{result["id"]}'
+        pending=self.client.get(path).json()
+        self.assertEqual(pending['status'],'pending')
+        self.assertEqual(pending['name'],'新スマホ')
+        self.assertNotIn('code',pending); self.assertNotIn('qr',pending)
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(KioskDevice)).all()),1)
+            expiry=ensure_utc(session.get(KioskEnrollment,result['id']).expires_at)
+        with patch.object(routes,'utc_now',return_value=expiry),patch.object(security,'utc_now',return_value=expiry):
+            self.assertEqual(self.client.get(path).json()['status'],'expired')
+            self.assertEqual(self.post('/class-kiosk/enroll',{'code':result['code']}).status_code,400)
+        another=self.post('/settings/class-kiosk/enrollments',{'classroom_id':2,'name':'別スマホ'}).json()
+        self.assertEqual(self.post('/class-kiosk/enroll',{'code':another['code']}).status_code,200)
+        self.assertEqual(self.client.get(f'/settings/class-kiosk/enrollments/{another["id"]}').json()['status'],'used')
+        self.assertEqual(self.post('/class-kiosk/enroll',{'code':another['code']}).status_code,400)
+        self.assertEqual(self.state()['class_name'],'別クラス')
+
+    def test_admin_mutations_require_admin_csrf_and_valid_fields(self):
+        for body in ({'classroom_id':999,'name':'端末'},{'classroom_id':1,'name':'   '},{'classroom_id':1,'name':'名'*81}):
+            self.assertEqual(self.post('/settings/class-kiosk/enrollments',body).status_code,422)
+        for path,body in [('/settings/class-kiosk/enrollments',{'classroom_id':1,'name':'端末'}),('/settings/class-kiosk/devices/1/revoke',{})]:
+            self.assertEqual(self.client.post(path,json=body).status_code,403)
+        self.user=StaffUser(role=Role.VIEW_ONLY,name='閲覧者')
+        for path in ('/settings/class-kiosk/','/settings/class-kiosk/api','/settings/class-kiosk/enrollments/1'):
+            self.assertEqual(self.client.get(path).status_code,403)
+        self.assertEqual(self.post('/settings/class-kiosk/devices/1/revoke',{}).status_code,403)
+        self.assertEqual(self.post('/settings/class-kiosk/enrollments',{'classroom_id':1,'name':'端末'}).status_code,403)
+        with Session(self.engine) as session:
+            self.assertTrue(session.get(KioskDevice,1).active)
+            self.assertEqual(len(session.exec(select(KioskEnrollment)).all()),1)
+
+    def test_settings_link_uses_private_origin_and_is_admin_only(self):
+        from routers import settings
+        self.app.include_router(settings.router)
+        with patch.dict(os.environ, {'HOIKUICT_CLASS_KIOSK_ORIGIN':'https://private.example.invalid:8443'}):
+            response=self.client.get('/settings')
+            self.assertEqual(response.status_code,200)
+            self.assertIn('href="https://private.example.invalid:8443/settings/class-kiosk/"',response.text)
+            self.user=StaffUser(role=Role.VIEW_ONLY,name='閲覧者')
+            self.assertNotIn('private.example.invalid',self.client.get('/settings').text)
+            self.user=StaffUser(role=Role.ADMIN,name='管理者')
+            with patch.dict(os.environ, {'HOIKUICT_CLASS_KIOSK_ENABLED':'0'}):
+                self.assertNotIn('private.example.invalid',self.client.get('/settings').text)
+
+    def test_revocation_cancels_push_preserves_history_and_is_idempotent(self):
+        with Session(self.engine) as session:
+            session.add(Message(room_id=1,author_name='ひよこ組',body='保存する投稿'))
+            session.add(KioskSubscription(device_id=1,endpoint='https://fcm.googleapis.com/revoke',p256dh_key='fake',auth_key='fake'))
+            session.add(KioskDelivery(device_id=1,event_key='queued',expires_at=utc_now()+timedelta(minutes=10)))
+            session.add(KioskDelivery(device_id=1,event_key='accepted',state='accepted',expires_at=utc_now()+timedelta(minutes=10)))
+            session.commit()
+        for _ in range(2):self.assertEqual(self.post('/settings/class-kiosk/devices/1/revoke',{}).status_code,200)
+        with Session(self.engine) as session:
+            self.assertFalse(session.get(KioskSubscription,1).active)
+            self.assertEqual([d.state for d in session.exec(select(KioskDelivery).order_by(KioskDelivery.id)).all()],['cancelled','accepted'])
+            self.assertEqual(len(session.exec(select(KioskAudit).where(KioskAudit.kind=='device_revoked')).all()),1)
+            self.assertEqual(session.exec(select(Message)).one().body,'保存する投稿')
+        self.assertEqual(self.client.get('/class-kiosk/api/state').status_code,401)
+        self.assertEqual(self.post('/class-kiosk/api/push/test',{}).status_code,401)
+
+    def test_legacy_expiry_does_not_disable_notifications(self):
+        with Session(self.engine) as session:
+            device=session.get(KioskDevice,1); device.expires_at=utc_now()-timedelta(days=900); session.add(device)
+            session.add(KioskSubscription(device_id=1,endpoint='https://fcm.googleapis.com/legacy',p256dh_key='fake',auth_key='fake',created_at=utc_now()-timedelta(days=1)))
+            change=KioskChange(account_id=device.account_id,child_id=1,day=local_today(),kind='pickup',version='new')
+            session.add(change); session.flush()
+            push.queue_change(session,change,utc_now()); session.flush()
+            item=session.exec(select(KioskDelivery)).one()
+            self.assertIsNotNone(push.delivery_valid(session,item))
+            device.active=False; session.add(device); session.flush()
+            self.assertIsNone(push.delivery_valid(session,item))
+
+    def test_inactive_class_cannot_enroll_authenticate_or_receive_push(self):
+        with Session(self.engine) as session:
+            account=session.get(KioskAccount,1); account.active=False; session.add(account)
+            session.add(KioskSubscription(device_id=1,endpoint='https://fcm.googleapis.com/disabled',p256dh_key='fake',auth_key='fake'))
+            delivery=KioskDelivery(device_id=1,event_key='disabled',expires_at=utc_now()+timedelta(minutes=10))
+            session.add(delivery); session.commit()
+            self.assertIsNone(push.delivery_valid(session,delivery))
+        self.assertEqual(self.client.get('/class-kiosk/api/state').status_code,401)
+        self.assertEqual(self.post('/settings/class-kiosk/enrollments',{'classroom_id':1,'name':'スマホ'}).status_code,409)
+        data=self.client.get('/settings/class-kiosk/api').json()
+        self.assertFalse(data['classrooms'][0]['enabled'])
+        self.assertFalse(data['devices'][0]['available'])
+        self.assertFalse(data['devices'][0]['push_enabled'])
+
     def test_home_timeline_includes_exact_boundary_and_excludes_future_and_older(self):
         from datetime import datetime, timezone
         from class_kiosk import service

@@ -26,6 +26,7 @@
   {% if current_user.is_admin %}
   <section class="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-labelledby="parent-settings">
     <h2 id="parent-settings" class="px-5 py-3 font-semibold text-slate-600">保護者と端末</h2>
+    {% if class_kiosk_admin_url %}{{ item(class_kiosk_admin_url, 'クラス用スマホ', 'クラスごとの端末登録・解除と通知設定を確認します。園内または専用の接続から開いてください。') }}{% endif %}
     {% if parent_enrollment_enabled() %}{{ item('/parent-accounts/registration-qr', '保護者登録の受付', '登録案内のQRコードと、新しい申請の受付を管理します。') }}{% endif %}
     {{ item('/settings/guardian-terminals', '保護者端末の監視', '端末の稼働状況と監視時間を管理します。') }}
     {{ item('/settings/parent-contact-fields', '保護者の連絡項目', '年齢ごと、クラスごとに表示する入力項目を設定します。') }}

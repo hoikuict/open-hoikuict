@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from sqlmodel import Session, select
 from database import get_session
 from models import Classroom
@@ -21,6 +21,16 @@ def digest(value: str) -> str:
 
 def cookie_name():
     return "__Host-class-kiosk" if secure_cookie_enabled() else "class_kiosk_device"
+
+
+# Browser persistence is renewed on authenticated use; registration itself has
+# no time limit. Clearing browser data still requires a new enrollment.
+DEVICE_COOKIE_SECONDS = 365 * 86400
+
+
+def set_device_cookie(response, token):
+    response.set_cookie(cookie_name(), token, httponly=True, secure=secure_cookie_enabled(),
+                        samesite="strict", path="/", max_age=DEVICE_COOKIE_SECONDS)
 
 
 def gate(request: Request):
@@ -56,14 +66,17 @@ def authenticate(session, token_hash):
     device = session.exec(select(KioskDevice).where(KioskDevice.token_hash == token_hash)).first()
     account = session.get(KioskAccount, device.account_id) if device else None
     classroom = session.get(Classroom, account.classroom_id) if account else None
-    if not device or not device.active or ensure_utc(device.expires_at) <= utc_now() or not account or not account.active or not classroom:
+    if not device or not device.active or not account or not account.active or not classroom:
         raise HTTPException(401, "端末の登録が必要です。管理者に登録コードを発行してもらってください。")
     return Principal(device.id, account.id, classroom.id, classroom.name, device.name, token_hash)
 
 
-def current_device(request: Request, session: Session = Depends(get_session)):
+def current_device(request: Request, response: Response, session: Session = Depends(get_session)):
     gate(request)
-    return authenticate(session, digest(request.cookies.get(cookie_name(), "")))
+    token = request.cookies.get(cookie_name(), "")
+    principal = authenticate(session, digest(token))
+    set_device_cookie(response, token)
+    return principal
 
 
 def write_lock(session, principal=None):
@@ -89,10 +102,9 @@ def enroll(session, code, source):
         session.commit()
         raise HTTPException(400, "登録コードが無効、使用済み、または期限切れです。")
     token = secrets.token_urlsafe(48)
-    days = min(90, max(1, int(os.getenv("HOIKUICT_CLASS_KIOSK_SESSION_DAYS", "30"))))
-    device = KioskDevice(account_id=account.id, name=enrollment.name, token_hash=digest(token), expires_at=now + timedelta(days=days))
+    device = KioskDevice(account_id=account.id, name=enrollment.name, token_hash=digest(token))
     enrollment.used_at = now
     session.add(device)
     session.add(enrollment)
     session.commit()
-    return token, days * 86400
+    return token, DEVICE_COOKIE_SECONDS

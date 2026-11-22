@@ -15,11 +15,10 @@ from csrf import verify_csrf
 from database import get_session
 from models import Classroom, Message, MessageAttachment
 from parent_push_validation import validate_production_subscription
-from security_config import secure_cookie_enabled
-from time_utils import utc_now
+from time_utils import ensure_utc, utc_now
 from .models import (KioskAccount, KioskDevice, KioskEnrollment, KioskChange, KioskMessageOwner,
                      KioskSubscription, KioskDelivery, KioskOperation, KioskAudit)
-from .security import gate, current_device, cookie_name, digest, enroll, write_lock
+from .security import gate, current_device, set_device_cookie, digest, enroll, write_lock
 from . import service, push
 
 ROOT = Path(__file__).resolve().parent
@@ -88,8 +87,8 @@ def service_worker():
 
 @router.post("/enroll")
 def activate(data: EnrollmentInput, request: Request, response: Response, session: Session = Depends(get_session)):
-    token, lifetime = enroll(session, data.code, request.client.host)
-    response.set_cookie(cookie_name(), token, httponly=True, secure=secure_cookie_enabled(), samesite="strict", path="/", max_age=lifetime)
+    token, _ = enroll(session, data.code, request.client.host)
+    set_device_cookie(response, token)
     return {"registered": True}
 
 
@@ -310,9 +309,39 @@ def admin_page(request: Request):
 @admin_router.get("/api")
 def admin_state(session: Session = Depends(get_session)):
     accounts = {a.id: a for a in session.exec(select(KioskAccount)).all()}
-    classrooms = {c.id: c.name for c in session.exec(select(Classroom)).all()}
-    return {"classrooms": [{"id": k, "name": v} for k, v in classrooms.items()],
-            "devices": [{"id": d.id, "name": d.name, "class_name": classrooms.get(accounts[d.account_id].classroom_id), "active": d.active, "expires": str(d.expires_at)} for d in session.exec(select(KioskDevice)).all()]}
+    classrooms = session.exec(select(Classroom).order_by(Classroom.display_order, Classroom.id)).all()
+    by_class = {a.classroom_id: a for a in accounts.values()}
+    subscriptions = {s.device_id for s in session.exec(select(KioskSubscription).where(KioskSubscription.active == True)).all()}
+    devices = []
+    for d in session.exec(select(KioskDevice).order_by(KioskDevice.id)).all():
+        a = accounts.get(d.account_id)
+        if not a:
+            continue
+        devices.append({"id": d.id, "name": d.name, "classroom_id": a.classroom_id,
+                        "active": d.active, "available": d.active and a.active,
+                        "push_enabled": d.active and a.active and d.id in subscriptions})
+    pending = session.exec(select(KioskEnrollment).where(KioskEnrollment.used_at == None,
+                           KioskEnrollment.expires_at > utc_now()-timedelta(days=1))
+                           .order_by(KioskEnrollment.id.desc())).all()
+    return {"classrooms": [{"id": c.id, "name": c.name,
+                            "enabled": c.id not in by_class or by_class[c.id].active} for c in classrooms],
+            "devices": devices, "enrollments": [enrollment_state(e, accounts[e.account_id]) for e in pending if e.account_id in accounts],
+            "time": utc_now().isoformat()}
+
+
+def enrollment_state(enrollment, account):
+    return {"id": enrollment.id, "classroom_id": account.classroom_id, "name": enrollment.name,
+            "expires_at": ensure_utc(enrollment.expires_at).isoformat(),
+            "status": "used" if enrollment.used_at else "expired" if ensure_utc(enrollment.expires_at) <= utc_now() else "pending"}
+
+
+@admin_router.get("/enrollments/{enrollment_id}")
+def enrollment_status(enrollment_id: int, session: Session = Depends(get_session)):
+    enrollment = session.get(KioskEnrollment, enrollment_id)
+    account = session.get(KioskAccount, enrollment.account_id) if enrollment else None
+    if not enrollment or not account:
+        raise HTTPException(404, "登録コードが見つかりません。")
+    return {**enrollment_state(enrollment, account), "time": utc_now().isoformat()}
 
 
 @admin_router.post("/enrollments")
@@ -329,7 +358,8 @@ def issue(data: Registration, request: Request, session: Session = Depends(get_s
         raise HTTPException(409, "このクラスアカウントは停止されています。")
     code = secrets.token_hex(6).upper()
     expires = utc_now()+timedelta(minutes=10)
-    session.add(KioskEnrollment(account_id=account.id, name=data.name.strip(), code_hash=digest(code), created_by=user.name, expires_at=expires))
+    enrollment = KioskEnrollment(account_id=account.id, name=data.name.strip(), code_hash=digest(code), created_by=user.name, expires_at=expires)
+    session.add(enrollment)
     session.add(KioskAudit(account_id=account.id, actor_name=user.name, kind="enrollment_issued", detail={"device_name": data.name.strip()}))
     session.commit()
     import qrcode
@@ -339,7 +369,7 @@ def issue(data: Registration, request: Request, session: Session = Depends(get_s
         buffer = BytesIO()
         qrcode.make(origin + "/class-kiosk/#enroll=" + code).save(buffer, format="PNG")
         qr = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
-    return {"code": code, "expires": service.format_jst_datetime(expires), "qr": qr}
+    return {**enrollment_state(enrollment, account), "code": code, "expires": service.format_jst_datetime(expires), "qr": qr, "time": utc_now().isoformat()}
 
 
 @admin_router.post("/devices/{device_id}/revoke")
@@ -348,9 +378,17 @@ def revoke(device_id: int, session: Session = Depends(get_session), user=Depends
     device = session.get(KioskDevice, device_id)
     if not device:
         raise HTTPException(404)
-    device.active = False
-    session.add(device)
-    session.add(KioskAudit(account_id=device.account_id, device_id=device_id, actor_name=user.name, kind="device_revoked", detail={}))
+    if device.active:
+        device.active = False
+        session.add(device)
+        session.add(KioskAudit(account_id=device.account_id, device_id=device_id, actor_name=user.name, kind="device_revoked", detail={}))
+    subscription = session.get(KioskSubscription, device_id)
+    if subscription:
+        subscription.active = False
+        session.add(subscription)
+    for delivery in session.exec(select(KioskDelivery).where(KioskDelivery.device_id == device_id, KioskDelivery.state == "queued")).all():
+        delivery.state = "cancelled"
+        session.add(delivery)
     session.commit()
     return {"revoked": True}
 

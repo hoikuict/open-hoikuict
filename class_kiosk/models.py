@@ -19,7 +19,10 @@ class KioskDevice(SQLModel, table=True):
     token_hash: str = Field(unique=True)
     active: bool = True
     created_at: datetime = Field(default_factory=utc_now)
-    expires_at: datetime
+    # Legacy NOT NULL column retained to preserve existing DBs and references.
+    # No registration expiry: authentication and delivery use active only.
+    # Old values are historical, never rewritten or used to revive revocations.
+    expires_at: datetime = Field(default_factory=lambda: datetime(9999, 12, 31))
 
 
 class KioskEnrollment(SQLModel, table=True):

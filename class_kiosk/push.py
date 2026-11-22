@@ -46,7 +46,7 @@ def queue_change(session, change, timestamp):
     devices = session.exec(select(KioskDevice).where(KioskDevice.account_id == change.account_id, KioskDevice.active == True)).all()
     for device in devices:
         subscription = session.get(KioskSubscription, device.id)
-        if not subscription or not subscription.active or ensure_utc(subscription.created_at) > ensure_utc(timestamp) or ensure_utc(device.expires_at) <= utc_now():
+        if not subscription or not subscription.active or ensure_utc(subscription.created_at) > ensure_utc(timestamp):
             continue
         key = f"{change.id}:{change.version}"
         if session.exec(select(KioskDelivery).where(KioskDelivery.device_id == device.id, KioskDelivery.event_key == key)).first():
@@ -66,7 +66,7 @@ def delivery_valid(session, item):
     device = session.get(KioskDevice, item.device_id)
     account = session.get(KioskAccount, device.account_id) if device else None
     subscription = session.get(KioskSubscription, item.device_id)
-    valid = device and device.active and ensure_utc(device.expires_at) > utc_now() and account and account.active and subscription and subscription.active and ensure_utc(item.expires_at) > utc_now()
+    valid = device and device.active and account and account.active and subscription and subscription.active and ensure_utc(item.expires_at) > utc_now()
     if valid and item.change_id:
         change = session.get(KioskChange, item.change_id)
         child = session.get(Child, change.child_id) if change else None
