@@ -1,0 +1,9 @@
+'use strict';
+(() => {
+ const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ async function api(path,body){const r=await fetch('/settings/class-kiosk/'+path,{method:body?'POST':'GET',cache:'no-store',headers:body?{'Content-Type':'application/json','X-CSRF-Token':$('meta[name="csrf-token"]').content}:{},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw new Error(typeof data.detail==='string'?data.detail:'処理に失敗しました。');return data;}
+ async function load(){const data=await api('api');$('#classroom').innerHTML=data.classrooms.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('');$('#devices').innerHTML=data.devices.map(d=>'<div class="card"><strong>'+esc(d.class_name)+' · '+esc(d.name)+'</strong><p>'+ (d.active?'登録中':'停止済み')+'</p><small>有効期限 '+esc(d.expires)+'</small>'+(d.active?'<button class="quiet full" data-revoke="'+d.id+'">この端末を停止</button>':'')+'</div>').join('');}
+ $('#issue').addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=await api('enrollments',{classroom_id:Number($('#classroom').value),name:$('#device-name').value});$('#enrollment').innerHTML='<div class="card"><h2>登録コード</h2><p class="registration-code">'+esc(d.code)+'</p><p>'+esc(d.expires)+'まで有効・一度だけ使用できます。</p><p>スマホでQRを読み取るか、クラス連絡画面にコードを入力してください。</p>'+(d.qr?'<img alt="端末登録用QR" width="240" height="240" src="'+d.qr+'">':'')+'</div>';}catch(err){$('#notice').textContent=err.message;}finally{b.disabled=false;}});
+ document.addEventListener('click',async e=>{const b=e.target.closest('[data-revoke]');if(!b||!confirm('この端末の利用を停止しますか？'))return;try{await api('devices/'+b.dataset.revoke+'/revoke',{});await load();}catch(err){$('#notice').textContent=err.message;}});
+ load().catch(e=>$('#notice').textContent=e.message);
+})();

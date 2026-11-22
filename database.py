@@ -50,6 +50,7 @@ def get_session():
 
 def create_db_and_tables() -> None:
     import models  # noqa: F401
+    import class_kiosk.models  # noqa: F401
     import child_records.models  # noqa: F401
     import plan_docs.db_models  # noqa: F401
 

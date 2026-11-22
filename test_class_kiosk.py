@@ -1,0 +1,331 @@
+import os
+import re
+import tempfile
+import unittest
+from datetime import date, timedelta
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+from uuid import uuid4
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlmodel import SQLModel, Session, create_engine, select
+from auth import Role, StaffUser, get_current_staff_user
+from csrf import CsrfTokenMiddleware
+from database import get_session
+from models import (Child, Classroom, ParentAccount, DailyContactEntry, AttendanceVerification, AttendanceVerificationHistory,
+                    AttendanceRecord, AttendancePickupHistory, Message, AttendanceVerificationStatus, ParentPushDeliveryAttemptResult)
+from class_kiosk.router import router, admin_router, KioskResponseHeaders
+from class_kiosk.models import KioskAccount, KioskAudit, KioskDevice, KioskEnrollment, KioskChange, KioskSubscription, KioskDelivery, KioskOperation
+from class_kiosk import push
+from time_utils import utc_now, local_today
+
+
+class ClassKioskTests(unittest.TestCase):
+    def setUp(self):
+        self.env = patch.dict(os.environ, {"HOIKUICT_ENV":"test", "HOIKUICT_CLASS_KIOSK_ENABLED":"1", "HOIKUICT_CLASS_KIOSK_NETWORKS":"127.0.0.1/32",
+            "HOIKUICT_CSRF_ENFORCE":"1", "HOIKUICT_COOKIE_SECURE":"1", "HOIKUICT_SECRET_KEY":"kiosk-tests-" * 8, "HOIKUICT_CLASS_KIOSK_PUSH":"webpush", "HOIKUICT_CLASS_KIOSK_VAPID_PUBLIC_KEY":"testing"})
+        self.env.start()
+        self.temp = tempfile.TemporaryDirectory()
+        self.engine = create_engine("sqlite:///"+str(Path(self.temp.name)/"test.db"), connect_args={"check_same_thread":False})
+        SQLModel.metadata.create_all(self.engine)
+        self.app = FastAPI()
+        self.app.add_middleware(CsrfTokenMiddleware)
+        self.app.add_middleware(KioskResponseHeaders)
+        self.app.include_router(router)
+        self.app.include_router(admin_router)
+        def sessions():
+            with Session(self.engine) as session:
+                yield session
+        self.user = StaffUser(role=Role.ADMIN, name="テスト管理者")
+        self.app.dependency_overrides[get_session]=sessions
+        self.app.dependency_overrides[get_current_staff_user]=lambda:self.user
+        self.client = TestClient(self.app, base_url="https://testserver", client=("127.0.0.1",50000))
+        html=self.client.get("/class-kiosk/").text
+        self.headers={"X-CSRF-Token":re.search(r'name="csrf-token" content="([^"]+)"',html)[1]}
+        with Session(self.engine) as session:
+            session.add_all([Classroom(id=1,name="ひよこ組"),Classroom(id=2,name="別クラス")]);session.flush()
+            for i in range(1,4):
+                session.add(Child(id=i,last_name="テスト",first_name=str(i),last_name_kana="テスト",first_name_kana=str(i),birth_date=date(2024,1,1),enrollment_date=date(2026,4,1),classroom_id=1 if i<3 else 2))
+            session.add(ParentAccount(id=1, display_name="保護者",email="kiosk@example.invalid"))
+            session.commit()
+        self.code=self.issue()
+        self.assertEqual(self.post("/class-kiosk/enroll",{"code":self.code}).status_code,200)
+
+    def tearDown(self):
+        self.client.close();self.engine.dispose();self.temp.cleanup();self.env.stop()
+
+    def post(self,path,data):
+        return self.client.post(path,json=data,headers=self.headers)
+
+    def issue(self):
+        response=self.post("/settings/class-kiosk/enrollments",{"classroom_id":1,"name":"共用スマホ"})
+        self.assertEqual(response.status_code,200,response.text)
+        return response.json()["code"]
+
+    def state(self):
+        response=self.client.get("/class-kiosk/api/state")
+        self.assertEqual(response.status_code,200,response.text)
+        return response.json()
+
+    def review(self,status="present"):
+        state=self.state()
+        rows=[{"id":r["id"],"status":status,"reason":"訂正のテスト" if r["status"] else "","version":r["version"]} for r in state["rows"]]
+        response=self.post("/class-kiosk/api/attendance/review",{"day":state["day"],"rows":rows})
+        self.assertEqual(response.status_code,200,response.text)
+        return response.json()
+
+    def test_registration_is_one_use_and_revocation_is_immediate(self):
+        self.assertEqual(self.post("/class-kiosk/enroll",{"code":self.code}).status_code,400)
+        self.assertEqual(self.post("/settings/class-kiosk/devices/1/revoke",{}).status_code,200)
+        self.assertEqual(self.client.get("/class-kiosk/api/state").status_code,401)
+
+    def test_expiry_and_registration_rate_limit(self):
+        code=self.issue()
+        with Session(self.engine) as session:
+            row=session.exec(select(KioskEnrollment).order_by(KioskEnrollment.id.desc())).first();row.expires_at=utc_now()-timedelta(seconds=1);session.add(row);session.commit()
+        self.assertEqual(self.post("/class-kiosk/enroll",{"code":code}).status_code,400)
+        for _ in range(8):self.post("/class-kiosk/enroll",{"code":"invalid"})
+        self.assertEqual(self.post("/class-kiosk/enroll",{"code":"invalid"}).status_code,429)
+
+    def test_class_boundary_csrf_admin_and_no_cache(self):
+        self.assertEqual([r["id"] for r in self.state()["rows"]],[1,2])
+        self.assertEqual(self.client.get("/class-kiosk/api/children/3").status_code,404)
+        self.assertEqual(self.client.post("/class-kiosk/api/attendance/review",json={"day":str(local_today()),"rows":[]}).status_code,403)
+        self.user=StaffUser(role=Role.VIEW_ONLY,name="閲覧者")
+        self.assertEqual(self.client.get("/settings/class-kiosk/api").status_code,403)
+        self.assertEqual(self.client.get("/class-kiosk/api/state").headers["cache-control"],"no-store")
+
+    def test_network_gate_is_closed_in_production_without_dedicated_ingress(self):
+        with patch.dict(os.environ,{"HOIKUICT_ENV":"production","HOIKUICT_CLASS_KIOSK_INGRESS_KEY":""}):
+            self.assertEqual(self.client.get("/class-kiosk/api/state",headers={"X-Forwarded-For":"192.168.1.5"}).status_code,403)
+        with patch.dict(os.environ,{"HOIKUICT_CLASS_KIOSK_NETWORKS":"192.168.0.0/24"}):
+            self.assertEqual(self.client.get("/class-kiosk/api/state").status_code,403)
+
+    def test_bulk_review_does_not_save_and_retries_are_idempotent(self):
+        review=self.review()
+        with Session(self.engine) as session:self.assertEqual(len(session.exec(select(AttendanceVerification)).all()),0)
+        data={"request_id":str(uuid4()),"token":review["token"]}
+        first=self.post("/class-kiosk/api/attendance/send",data)
+        self.assertEqual(first.status_code,200,first.text)
+        self.assertEqual(first.json()["saved"],2)
+        self.assertEqual(self.post("/class-kiosk/api/attendance/send",data).json(),first.json())
+        self.assertTrue(self.client.get("/class-kiosk/api/operations/"+data["request_id"]).json()["saved"])
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(AttendanceVerificationHistory)).all()),2)
+            self.assertEqual({r.updated_by_name for r in session.exec(select(AttendanceVerification)).all()},{"ひよこ組"})
+
+    def test_concurrent_staff_edit_rejects_entire_batch(self):
+        review=self.review()
+        with Session(self.engine) as session:
+            session.add(AttendanceVerification(child_id=2,target_date=local_today(),status=AttendanceVerificationStatus.sick_absent,updated_by_name="職員"));session.commit()
+        response=self.post("/class-kiosk/api/attendance/send",{"request_id":str(uuid4()),"token":review["token"]})
+        self.assertEqual(response.status_code,409,response.text)
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(AttendanceVerification)).all()),1)
+            self.assertEqual(len(session.exec(select(AttendanceVerificationHistory)).all()),0)
+
+    def test_new_parent_contact_invalidates_confirmation(self):
+        review=self.review()
+        with Session(self.engine) as session:
+            session.add(DailyContactEntry(child_id=1,parent_account_id=1,target_date=local_today(),contact_note="お迎えについて"));session.commit()
+        response=self.post("/class-kiosk/api/attendance/send",{"request_id":str(uuid4()),"token":review["token"]})
+        self.assertEqual(response.status_code,409,response.text)
+        with Session(self.engine) as session:self.assertFalse(session.exec(select(AttendanceVerification)).first())
+
+    def test_error_mid_batch_rolls_back_every_child(self):
+        review=self.review()
+        with patch("class_kiosk.service.sync_attendance_alarm", side_effect=[None, RuntimeError("simulated disk failure")]):
+            with self.assertRaises(RuntimeError):
+                self.post("/class-kiosk/api/attendance/send",{"request_id":str(uuid4()),"token":review["token"]})
+        with Session(self.engine) as session:
+            self.assertFalse(session.exec(select(AttendanceVerification)).first())
+            self.assertFalse(session.exec(select(AttendanceVerificationHistory)).first())
+            self.assertFalse(session.exec(select(KioskOperation)).first())
+
+    def test_notification_change_queue_deduplicates_and_ack_suppresses(self):
+        with Session(self.engine) as session:
+            session.add(KioskSubscription(device_id=1,endpoint="https://fcm.googleapis.com/fake",p256dh_key="fake",auth_key="fake",created_at=utc_now()-timedelta(minutes=5)))
+            session.add(DailyContactEntry(child_id=1,parent_account_id=1,target_date=local_today(),contact_note="変更"));session.commit()
+        change=self.state()["changes"][0]
+        self.state()
+        with Session(self.engine) as session:self.assertEqual(len(session.exec(select(KioskDelivery)).all()),1)
+        self.post(f'/class-kiosk/api/changes/{change["id"]}/ack',{"version":change["version"],"acknowledged":True})
+        class Transport:
+            def send(self,**kw):raise AssertionError("Acknowledged notification must not send")
+        with patch.object(push,"engine",self.engine):self.assertTrue(push.deliver_one(Transport()))
+
+    def test_tamper_date_correction_reason_and_extra_fields_rejected(self):
+        review=self.review()
+        self.assertEqual(self.post("/class-kiosk/api/attendance/send",{"request_id":str(uuid4()),"token":review["token"]+'x'}).status_code,409)
+        rows=review["rows"]
+        self.assertEqual(self.post("/class-kiosk/api/attendance/review",{"day":"2020-01-01","rows":rows}).status_code,409)
+        rows[0]["check_in_at"]="09:00"
+        self.assertEqual(self.post("/class-kiosk/api/attendance/review",{"day":str(local_today()),"rows":rows}).status_code,422)
+        del rows[0]["check_in_at"]
+        self.post("/class-kiosk/api/attendance/send",{"request_id":str(uuid4()),"token":review["token"]})
+        state=self.state();rows=[{"id":r["id"],"status":"unknown","reason":"","version":r["version"]} for r in state["rows"]]
+        self.assertEqual(self.post("/class-kiosk/api/attendance/review",{"day":state["day"],"rows":rows}).status_code,409)
+
+    def test_changed_contact_reopens_ack_and_stale_ack_fails(self):
+        with Session(self.engine) as session:
+            session.add(DailyContactEntry(child_id=1,parent_account_id=1,target_date=local_today(),contact_note="最初"));session.commit()
+        change=self.state()["changes"][0]
+        path=f'/class-kiosk/api/changes/{change["id"]}/ack'
+        self.assertEqual(self.post(path,{"version":change["version"],"acknowledged":True}).status_code,200)
+        with Session(self.engine) as session:
+            entry=session.exec(select(DailyContactEntry)).one();entry.contact_note="追記";entry.updated_at=utc_now();session.add(entry);session.commit()
+        self.assertEqual(self.post(path,{"version":change["version"],"acknowledged":True}).status_code,409)
+        self.assertFalse(self.state()["changes"][0]["ack"])
+
+    def test_today_history_includes_confirmed_but_excludes_previous_day(self):
+        with Session(self.engine) as session:
+            session.add(DailyContactEntry(child_id=1, parent_account_id=1, target_date=local_today(), contact_note="今日の変更"))
+            session.commit()
+        change = self.state()["changes"][0]
+        self.assertEqual(self.post(f'/class-kiosk/api/changes/{change["id"]}/ack',
+            {"version": change["version"], "acknowledged": True}).status_code, 200)
+        with Session(self.engine) as session:
+            session.add(KioskChange(account_id=1, child_id=2, day=local_today()-timedelta(days=1),
+                kind="contact", version="old", history=[{"time":"昨日", "after":"前日の未確認"}]))
+            session.commit()
+        response = self.client.get("/class-kiosk/api/history")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+        history = response.json()
+        self.assertEqual(history["day"], str(local_today()))
+        self.assertEqual([c["id"] for c in history["changes"]], [change["id"]])
+        self.assertTrue(history["changes"][0]["ack"])
+        self.assertTrue(history["changes"][0]["can_ack"])
+        self.assertTrue(history["changes"][0]["ack_time"])
+        self.assertEqual(len(self.state()["changes"]), 2)  # Home keeps yesterday's unread.
+
+    def test_all_history_includes_unregistered_class_without_granting_write_access(self):
+        with Session(self.engine) as session:
+            session.add_all([DailyContactEntry(child_id=1, parent_account_id=1, target_date=local_today(), contact_note="自クラス", updated_at=utc_now()-timedelta(minutes=1)),
+                DailyContactEntry(child_id=3, parent_account_id=1, target_date=local_today(), contact_note="他クラス")])
+            session.commit()
+            self.assertIsNone(session.exec(select(KioskAccount).where(KioskAccount.classroom_id == 2)).first())
+        response = self.client.get("/class-kiosk/api/history?scope=all")
+        self.assertEqual(response.status_code, 200, response.text)
+        changes = response.json()["changes"]
+        self.assertEqual([c["child_id"] for c in changes], [3, 1])
+        other = changes[0]
+        self.assertEqual(other["class_name"], "別クラス")
+        self.assertFalse(other["can_ack"])
+        self.assertFalse(other["ack"])
+        for acknowledged in (True, False):
+            self.assertEqual(self.post(f'/class-kiosk/api/changes/{other["id"]}/ack',
+                {"version":other["version"], "acknowledged":acknowledged}).status_code, 404)
+        self.assertEqual(self.client.get("/class-kiosk/api/children/3").status_code, 404)
+        self.assertEqual([r["id"] for r in self.state()["rows"]], [1, 2])
+        self.assertEqual([c["child_id"] for c in self.client.get("/class-kiosk/api/history").json()["changes"]], [1])
+        with Session(self.engine) as session:
+            self.assertEqual(len(session.exec(select(KioskDevice)).all()), 1)
+            self.assertEqual(len(session.exec(select(KioskEnrollment)).all()), 1)
+            self.assertFalse(session.get(KioskChange, other["id"]).acknowledged)
+            self.assertFalse(session.exec(select(KioskAudit).where(KioskAudit.kind == "acknowledgement")).first())
+            self.assertFalse(session.exec(select(KioskDelivery)).first())
+        # Forging another child's row cannot expand the attendance batch.
+        rows = [{"id":r["id"], "status":"present", "reason":"", "version":r["version"]} for r in self.state()["rows"]]
+        rows.append({"id":3, "status":"present", "reason":"", "version":"forged"})
+        self.assertEqual(self.post("/class-kiosk/api/attendance/review", {"day":str(local_today()), "rows":rows}).status_code, 409)
+
+    def test_history_read_preserves_other_confirmation_and_stopped_accounts(self):
+        with Session(self.engine) as session:
+            session.add(KioskAccount(classroom_id=2, active=False))
+            session.add(DailyContactEntry(child_id=3, parent_account_id=1, target_date=local_today(), contact_note="他クラス"))
+            session.commit()
+        other = self.client.get("/class-kiosk/api/history?scope=all").json()["changes"][0]
+        with Session(self.engine) as session:
+            change = session.get(KioskChange, other["id"])
+            change.acknowledged = True
+            session.add(change)
+            session.commit()
+        again = self.client.get("/class-kiosk/api/history?scope=all").json()["changes"][0]
+        self.assertTrue(again["ack"])
+        self.assertFalse(again["can_ack"])
+        with Session(self.engine) as session:
+            self.assertFalse(session.exec(select(KioskAccount).where(KioskAccount.classroom_id == 2)).one().active)
+            entry = session.exec(select(DailyContactEntry)).one()
+            entry.contact_note = "もう一度変更"
+            entry.updated_at = utc_now()
+            session.add(entry)
+            session.commit()
+        with patch.object(push, "engine", self.engine):
+            push.scan()
+        latest = self.client.get("/class-kiosk/api/history?scope=all").json()["changes"][0]
+        self.assertFalse(latest["ack"])
+        self.assertEqual(len(latest["history"]), 2)
+
+    def test_history_authentication_scope_and_moved_child_boundaries(self):
+        self.assertEqual(self.client.get("/class-kiosk/api/history?scope=invalid").status_code, 422)
+        with Session(self.engine) as session:
+            session.add(DailyContactEntry(child_id=1, parent_account_id=1, target_date=local_today(), contact_note="連絡"))
+            session.commit()
+        original = self.state()["changes"][0]
+        with Session(self.engine) as session:
+            child = session.get(Child, 1)
+            child.classroom_id = 2
+            session.add(child)
+            session.commit()
+        history = self.client.get("/class-kiosk/api/history?scope=all").json()["changes"]
+        self.assertNotIn(original["id"], [c["id"] for c in history])
+        self.assertEqual(history[0]["class_name"], "別クラス")
+        self.assertFalse(history[0]["can_ack"])
+        self.post("/settings/class-kiosk/devices/1/revoke", {})
+        self.assertEqual(self.client.get("/class-kiosk/api/history?scope=all").status_code, 401)
+
+    def test_posts_replies_ownership_and_existing_message_rows(self):
+        response=self.client.post("/class-kiosk/api/messages",data={"request_id":str(uuid4()),"body":"共有連絡"},headers=self.headers)
+        self.assertEqual(response.status_code,200,response.text)
+        message_id=response.json()["message_id"]
+        with Session(self.engine) as session:
+            message=session.get(Message,message_id);self.assertEqual(message.author_name,"ひよこ組");self.assertIsNone(message.author_user_id)
+            staff=Message(room_id=2,author_name="別の職員",body="別の投稿");session.add(staff);session.commit();other_id=staff.id
+        self.assertEqual(self.post(f"/class-kiosk/api/messages/{other_id}/delete",{}).status_code,403)
+        reply=self.client.post("/class-kiosk/api/messages",data={"request_id":str(uuid4()),"body":"返信", "parent_id":message_id},headers=self.headers)
+        self.assertEqual(reply.status_code,200,reply.text)
+        self.assertEqual(len(self.client.get(f"/class-kiosk/api/messages/{message_id}").json()["replies"]),1)
+        self.assertEqual(self.post(f"/class-kiosk/api/messages/{message_id}/delete",{}).status_code,200)
+        self.assertEqual(self.client.get(f"/class-kiosk/api/messages/{message_id}").json()["parent"]["body"],"このメッセージは削除されました。")
+
+    def test_push_rejects_private_endpoints(self):
+        self.assertEqual(self.post("/class-kiosk/api/push/subscribe",{"endpoint":"http://127.0.0.1/private","p256dh":"fake","auth":"fake"}).status_code,422)
+
+    def test_push_configuration_checks_subject_and_key_pair_before_start(self):
+        import base64
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        key=ec.generate_private_key(ec.SECP256R1())
+        path=Path(self.temp.name)/"vapid.pem"
+        path.write_bytes(key.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()))
+        public=base64.urlsafe_b64encode(key.public_key().public_bytes(serialization.Encoding.X962,serialization.PublicFormat.UncompressedPoint)).rstrip(b"=").decode()
+        with patch.dict(os.environ,{"HOIKUICT_CLASS_KIOSK_WORKER":"1", "HOIKUICT_CLASS_KIOSK_VAPID_PRIVATE_KEY":str(path), "HOIKUICT_CLASS_KIOSK_VAPID_PUBLIC_KEY":public, "HOIKUICT_CLASS_KIOSK_VAPID_SUBJECT":"https://example.invalid:8443"}):
+            with self.assertRaises(RuntimeError):push.validate_configuration()
+            os.environ["HOIKUICT_CLASS_KIOSK_VAPID_SUBJECT"]="https://example.invalid"
+            push.validate_configuration()
+            os.environ["HOIKUICT_CLASS_KIOSK_VAPID_PUBLIC_KEY"]="different"
+            with self.assertRaises(RuntimeError):push.validate_configuration()
+
+    def test_push_has_no_child_information_and_revocation_cancels_queue(self):
+        with Session(self.engine) as session:
+            session.add(KioskSubscription(device_id=1,endpoint="https://fcm.googleapis.com/fake",p256dh_key="fake",auth_key="fake"))
+            session.add(KioskDelivery(device_id=1,event_key="test:1",expires_at=utc_now()+timedelta(minutes=10)));session.commit()
+        calls=[]
+        class Transport:
+            def send(self,**kw):
+                calls.append(kw);return SimpleNamespace(provider_status_code=201,result=ParentPushDeliveryAttemptResult.accepted)
+        with patch.object(push,"engine",self.engine):
+            self.assertTrue(push.deliver_one(Transport()))
+            self.assertEqual(calls[0]["payload"]["body"],"通知のテストです。")
+            with Session(self.engine) as session:
+                session.add(KioskDelivery(device_id=1,event_key="test:2",expires_at=utc_now()+timedelta(minutes=10)));session.commit()
+            self.post("/settings/class-kiosk/devices/1/revoke",{})
+            push.deliver_one(Transport())
+        self.assertEqual(len(calls),1)
+
+
+if __name__ == "__main__":
+    unittest.main()
