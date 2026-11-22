@@ -1,0 +1,4 @@
+.plan-docs-content .daily-plan-saved-edit > .form-panel { min-width: 0; }
+.plan-docs-content #daily-saved-timeline { position: relative; }
+.plan-docs-content #daily-saved-timeline .daily-row-actions { display: flex; }
+.plan-docs-content #daily-saved-timeline .daily-row-actions .button { width: 100%; padding-inline: .2rem; }

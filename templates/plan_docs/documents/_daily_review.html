@@ -1,0 +1,118 @@
+{% set edit_phase = daily_revision.phase == 'editing' %}
+{% set pending_phase = daily_revision.phase == 'pending' %}
+{% set status = document.status.value %}
+{% set status_url = '/plans/documents/' ~ document.id ~ '/status' %}
+{% macro version() %}<input name="lock_version" type="hidden" value="{{ lock_version }}">{% endmacro %}
+{% macro error_box() %}<p class="daily-plan-error" data-review-error role="alert" tabindex="-1" hidden></p>{% endmacro %}
+
+<section id="review-status" class="status-panel daily-plan-review no-print" aria-labelledby="daily-review-heading">
+  <h2 id="daily-review-heading">計画の承認</h2>
+  {% if request.query_params.get('review_error') == 'no_recipient' %}
+    <p class="daily-plan-error" role="alert">確認を頼める管理者がいません。園のアカウント担当者にお知らせください。</p>
+  {% endif %}
+  {% if edit_phase or pending_phase %}
+    {% include "plan_docs/documents/_daily_repair_reason.html" %}
+  {% elif status == 'rejected' %}
+    <div class="daily-plan-reason">
+      <strong>差戻し理由</strong>
+      <p>{{ rejection_details.comment if rejection_details and rejection_details.comment else '差戻し理由が記録されていません。' }}</p>
+      {% if rejection_details %}<small>差戻し者: {{ rejection_details.actor_name }} / {{ rejection_details.decided_at|jst_datetime('%Y年%m月%d日 %H:%M') }} JST</small>{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="daily-plan-review-actions">
+    {% if edit_phase and daily_plan_can_edit %}
+      <details data-review-confirm>
+        <summary class="button button--primary">再承認を依頼</summary>
+        <form method="post" action="{{ status_url }}" data-daily-plan-form="{{ document.id }}">
+          <h2 id="daily-rerequest-title">再承認を依頼しますか？</h2>
+          <strong>{{ document.title }} ／ {{ document.classroom_label }}</strong>
+          <p>保存した日案を主任に送ります。前回の承認内容からの変更は{{ daily_revision.changes|length }}項目です。</p>
+          <p class="field-note">依頼後に編集する場合は、先に依頼を取り下げてください。</p>
+          {{ version() }}
+          <input type="hidden" name="status" value="in_review">
+          {{ error_box() }}
+          <div class="form-actions">
+            <button type="button" class="button button--ghost" data-review-close hidden>戻る</button>
+            <button type="submit" class="button button--primary">再承認を依頼する</button>
+          </div>
+        </form>
+      </details>
+    {% elif status in ['draft','rejected'] and daily_plan_can_edit %}
+      <form method="post" action="{{ status_url }}" data-daily-plan-form="{{ document.id }}">
+        {{ version() }}
+        <button type="submit" name="status" value="in_review" class="button button--primary">レビュー依頼</button>
+        {{ error_box() }}
+      </form>
+    {% endif %}
+
+    {% if status == 'in_review' %}
+      {% if daily_plan_can_edit %}
+        <form method="post" action="{{ status_url }}" data-daily-plan-form="{{ document.id }}">
+          {{ version() }}
+          <button class="button button--secondary" name="status" value="draft">{{ '再承認依頼を取り下げる' if pending_phase else 'レビューを取り下げる' }}</button>
+          {{ error_box() }}
+        </form>
+      {% endif %}
+      {% if user.is_admin %}
+        <form method="post" action="{{ status_url }}" class="status-form" data-daily-plan-form="{{ document.id }}">
+          {{ version() }}
+          <label>承認コメント・差戻し理由
+            <input type="text" name="comment" placeholder="差戻し時は必須">
+          </label>
+          <button class="button button--success" name="status" value="approved">{{ '再承認する' if pending_phase else '承認' }}</button>
+          <button class="button button--danger" name="status" value="rejected">{{ '差し戻す' if pending_phase else '差戻し' }}</button>
+          {{ error_box() }}
+        </form>
+      {% endif %}
+    {% endif %}
+
+    {% if status == 'approved' %}
+      {% if user.is_admin %}
+        <details data-review-confirm>
+          <summary class="button button--secondary">承認を取り消して修正に戻す</summary>
+          <form method="post" action="/plans/documents/{{ document.id }}/reopen" data-daily-plan-form="{{ document.id }}">
+            <h2 id="daily-reopen-title">承認を取り消して修正に戻す</h2>
+            <strong>{{ document.title }} ／ {{ document.classroom_label }}</strong>
+            <p>日案を「修正中・再承認が必要」に戻し、作成者に理由を通知します。承認時の本文は履歴で確認できます。</p>
+            {{ version() }}
+            <label for="daily-reopen-reason">修正に戻す理由（必須・500文字以内）</label>
+            <textarea id="daily-reopen-reason" name="reason" rows="4" maxlength="500" required></textarea>
+            {{ error_box() }}
+            <div class="form-actions">
+              <button type="button" class="button button--ghost" data-review-close hidden>やめる</button>
+              <button type="submit" class="button button--primary">承認を取り消して修正に戻す</button>
+            </div>
+          </form>
+        </details>
+      {% else %}
+        <p>不備が見つかった場合は、主任に修正へ戻す操作を依頼してください。</p>
+      {% endif %}
+    {% endif %}
+    {% if user.is_admin and not edit_phase and status in ['draft','rejected','approved'] %}
+      <form method="post" action="{{ status_url }}">
+        {{ version() }}
+        <button class="button button--ghost" name="status" value="archived">アーカイブ</button>
+      </form>
+    {% endif %}
+  </div>
+  <a class="text-link" href="#daily-plan-history">承認と修正の履歴を見る</a>
+</section>
+
+{% if edit_phase or pending_phase %}
+  <details class="form-panel daily-plan-diff no-print"{% if pending_phase %} open{% endif %}>
+    <summary>前回の承認内容との差分（{{ daily_revision.changes|length }}項目）</summary>
+    {% if daily_revision.changes %}
+      <table>
+        <thead><tr><th scope="col">変更項目</th><th scope="col">前回の承認内容</th><th scope="col">今回の内容</th></tr></thead>
+        <tbody>
+          {% for change in daily_revision.changes %}
+            <tr><th scope="row">{{ change.label }}</th><td>{{ change.before or '（未入力）' }}</td><td>{{ change.after or '（未入力）' }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>前回の承認内容からの変更はありません。</p>
+    {% endif %}
+  </details>
+{% endif %}

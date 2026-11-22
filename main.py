@@ -91,12 +91,16 @@ from auth import (
     staff_auth_http_exception_handler,
 )
 from csrf import CsrfTokenMiddleware, verify_csrf
+from class_kiosk.router import router as class_kiosk_router, admin_router as class_kiosk_admin_router, KioskResponseHeaders
+from class_kiosk.push import enabled as class_kiosk_worker_enabled, worker_loop as class_kiosk_worker_loop
+from class_kiosk.push import validate_configuration as validate_class_kiosk_push_configuration
 from security_config import deployment_environment, parent_auth_mode, staff_auth_mode, validate_runtime_security
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 def initialize_application() -> None:
     validate_runtime_security()
+    validate_class_kiosk_push_configuration()
     configure_auth_backends_from_environment()
     _cleanup_stale_previews()
     ensure_runtime_files()
@@ -113,6 +117,8 @@ async def lifespan(app: FastAPI):
     background_tasks = [] if restore_probe else [asyncio.create_task(_after_restore_release(_preview_cleanup_loop))]
     if not restore_probe and parent_push_worker_enabled():
         background_tasks.append(asyncio.create_task(_after_restore_release(parent_push_worker_loop)))
+    if not restore_probe and class_kiosk_worker_enabled():
+        background_tasks.append(asyncio.create_task(_after_restore_release(class_kiosk_worker_loop)))
     if not restore_probe and parent_auth_mode() == "local_password" and os.getenv("HOIKUICT_PARENT_MAIL_TRANSPORT", "capture") != "disabled":
         background_tasks.append(asyncio.create_task(_after_restore_release(parent_mail_worker_loop)))
     if not restore_probe and staff_auth_mode() == "local_password":
@@ -155,6 +161,9 @@ app.mount(
     StaticFiles(directory=Path(__file__).parent / "docs" / "manual-guide-preview", html=True),
     name="manual_guide",
 )
+app.add_middleware(KioskResponseHeaders)
+app.include_router(class_kiosk_router)
+app.include_router(class_kiosk_admin_router)
 app.include_router(staff_portal_router)
 app.include_router(classrooms_router)
 app.include_router(data_transfers_router)

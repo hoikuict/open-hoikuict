@@ -62,6 +62,7 @@ class MeetingNoteRouterTests(unittest.TestCase):
         save_response = self.client.post(
             f"/meeting-notes/api/{note.id}/save",
             json={
+                "editor_version": 2,
                 "title": "朝会メモ",
                 "content_base64": base64.b64encode(sample_state).decode("utf-8"),
                 "plain_text": "今日の連絡事項を確認しました。",
@@ -88,10 +89,12 @@ class MeetingNoteRouterTests(unittest.TestCase):
         note_id = int(created.headers['location'].rsplit('/', 1)[1])
         revision = self.client.get(f'/meeting-notes/api/{note_id}/content').json()['revision']
         first = self.client.post(f'/meeting-notes/api/{note_id}/save', json={
+            'editor_version': 2,
             'title': '先に保存', 'content_base64': 'AQID', 'plain_text': '新しい本文', 'base_revision': revision,
         })
         self.assertEqual(first.status_code, 200)
         stale = self.client.post(f'/meeting-notes/api/{note_id}/save', json={
+            'editor_version': 2,
             'title': '古い画面', 'content_base64': 'BAUG', 'plain_text': '古い本文', 'base_revision': revision,
         })
         self.assertEqual(stale.status_code, 409)
@@ -102,6 +105,7 @@ class MeetingNoteRouterTests(unittest.TestCase):
             self.assertEqual(note.title, '先に保存')
             self.assertEqual(note.search_text, '新しい本文')
         retried = self.client.post(f'/meeting-notes/api/{note_id}/save', json={
+            'editor_version': 2,
             'title': '統合して保存', 'content_base64': 'BwgJ', 'base_revision': stale.json()['revision'],
         })
         self.assertEqual(retried.status_code, 200)
@@ -218,8 +222,8 @@ class MeetingNoteRouterTests(unittest.TestCase):
                 user_id=UUID("00000000-0000-0000-0000-000000000002"),
                 name="別ブラウザー職員",
             )
-            with self.client.websocket_connect(f"/meeting-notes/ws/{note_id}") as ws_one:
-                with second_browser.websocket_connect(f"/meeting-notes/ws/{note_id}") as ws_two:
+            with self.client.websocket_connect(f"/meeting-notes/ws/{note_id}?editor_version=2") as ws_one:
+                with second_browser.websocket_connect(f"/meeting-notes/ws/{note_id}?editor_version=2") as ws_two:
                     payload = b"\x00\x01\x02sync"
                     ws_one.send_bytes(payload)
                     self.assertEqual(ws_two.receive_bytes(), payload)

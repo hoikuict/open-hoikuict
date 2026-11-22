@@ -19,6 +19,25 @@ def safe_url(value):
     return value if urlsplit(value).scheme.lower() in {"https", "http", "mailto"} else ""
 
 
+def normalize_table(value):
+    """Accept text-only rectangular tables; never interpret clipboard HTML."""
+    if not isinstance(value, dict) or value.get("version") != 1 or not isinstance(value.get("header"), bool):
+        raise ValueError("表の形式を確認してください。")
+    rows = value.get("rows")
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 100:
+        raise ValueError("表の行数を確認してください。")
+    columns = len(rows[0]) if isinstance(rows[0], list) else 0
+    if not 1 <= columns <= 32:
+        raise ValueError("表の列数を確認してください。")
+    for row in rows:
+        if not isinstance(row, list) or len(row) != columns:
+            raise ValueError("表の行ごとの列数が一致していません。")
+        for cell in row:
+            if not isinstance(cell, str) or len(cell) > 16000 or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", cell):
+                raise ValueError("表のセルの内容を確認してください。")
+    return {"version": 1, "header": value["header"], "rows": rows}
+
+
 def blocks_from_ops(ops):
     blocks, parts = [], []
     characters = 0
@@ -26,6 +45,7 @@ def blocks_from_ops(ops):
         value, attrs = op.get("insert"), op.get("attributes") or {}
         if not isinstance(attrs, dict):
             raise ValueError("書式データが不正です。")
+        attrs = {key: value for key, value in attrs.items() if key != "meeting_table"}
         if isinstance(value, str):
             characters += len(value)
             if characters > 500000 or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", value):
@@ -39,8 +59,17 @@ def blocks_from_ops(ops):
                     parts = []
         elif isinstance(value, dict) and set(value) == {"image"}:
             parts.append((value, attrs))
+        elif isinstance(value, dict) and set(value) == {"meeting_table"}:
+            table = normalize_table(value["meeting_table"])
+            characters += sum(len(cell) for row in table["rows"] for cell in row)
+            if characters > 500000:
+                raise ValueError("本文と表の文字数が多すぎます。")
+            if parts:
+                blocks.append((parts, {}))
+                parts = []
+            blocks.append(([], {"meeting_table": table}))
         else:
-            raise ValueError("出力できない埋め込みが含まれています。画像と文章に対応しています。")
+            raise ValueError("出力できない埋め込みが含まれています。画像・文章・議事録の表に対応しています。")
     if parts:
         blocks.append((parts, {}))
     return blocks
@@ -94,6 +123,14 @@ def export_note(title, ops, format_name):
     if format_name == "md":
         lines = ["# " + markdown_escape(title), ""]
         for parts, attrs in blocks:
+            if table := attrs.get("meeting_table"):
+                rows = [[markdown_escape(cell).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>") for cell in row] for row in table["rows"]]
+                headings = rows.pop(0) if table["header"] else [""] * len(rows[0])
+                lines.append("| " + " | ".join(headings) + " |")
+                lines.append("| " + " | ".join(["---"] * len(headings)) + " |")
+                lines.extend("| " + " | ".join(row) + " |" for row in rows)
+                lines.append("")
+                continue
             text = ""
             for value, run_attrs in parts:
                 if isinstance(value, dict):
@@ -149,6 +186,29 @@ def export_note(title, ops, format_name):
     document.styles["Normal"].paragraph_format.line_spacing = 1.25
     document.add_heading(title, level=0)
     for parts, attrs in blocks:
+        if table := attrs.get("meeting_table"):
+            output_table = document.add_table(rows=len(table["rows"]), cols=len(table["rows"][0]))
+            output_table.style = "Table Grid"
+            output_table.autofit = False
+            width = Mm(166 / len(table["rows"][0]))
+            for column in output_table.columns:
+                column.width = width
+            for index, (output_row, values) in enumerate(zip(output_table.rows, table["rows"])):
+                properties = output_row._tr.get_or_add_trPr()
+                properties.append(OxmlElement("w:cantSplit"))
+                if table["header"] and index == 0:
+                    properties.append(OxmlElement("w:tblHeader"))
+                for cell, text in zip(output_row.cells, values):
+                    cell.width = width
+                    cell.text = text
+                    if table["header"] and index == 0:
+                        shade = OxmlElement("w:shd")
+                        shade.set(qn("w:fill"), "EEF2FF")
+                        cell._tc.get_or_add_tcPr().append(shade)
+                        for paragraph in cell.paragraphs:
+                            for run in paragraph.runs:
+                                run.bold = True
+            continue
         heading = attrs.get("header")
         style = f"Heading {heading}" if heading in (1, 2, 3, 4, 5, 6) else (
             "List Number" if attrs.get("list") == "ordered" else "List Bullet" if attrs.get("list") else "Normal")

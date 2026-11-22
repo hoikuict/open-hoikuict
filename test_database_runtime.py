@@ -165,6 +165,27 @@ class DatabaseRuntimeTests(unittest.TestCase):
             finally:
                 engine.dispose()
 
+    def test_daily_approval_history_migration_preserves_old_actions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            engine = self._engine(Path(directory) / "old-plan-actions.db")
+            try:
+                with engine.begin() as conn:
+                    conn.exec_driver_sql("CREATE TABLE plan_revisions (id INTEGER PRIMARY KEY)")
+                    conn.exec_driver_sql("CREATE TABLE plan_document_actions "
+                                         "(id INTEGER PRIMARY KEY, action TEXT, actor_name TEXT)")
+                    conn.exec_driver_sql("INSERT INTO plan_document_actions VALUES (1, 'approved', '主任')")
+                with patch.object(database, "engine", engine):
+                    database._migrate_plan_document_action_columns()
+                    database._migrate_plan_document_action_columns()
+                with engine.connect() as conn:
+                    self.assertEqual(conn.exec_driver_sql(
+                        "SELECT action, actor_name, revision_id FROM plan_document_actions"
+                    ).one(), ("approved", "主任", None))
+                    foreign_keys = conn.exec_driver_sql("PRAGMA foreign_key_list(plan_document_actions)").all()
+                    self.assertTrue(any(row[2:5] == ("plan_revisions", "revision_id", "id") for row in foreign_keys))
+            finally:
+                engine.dispose()
+
     def test_health_profile_migration_adds_priority_items_and_backfills_equivalent_data(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "legacy-health.db"

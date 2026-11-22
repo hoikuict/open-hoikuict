@@ -3,8 +3,10 @@
 {% block title %}{{ note.title }} | 議事録 | open-hoikuict{% endblock %}
 
 {% block head %}
+<link rel="stylesheet" href="{{ static_asset_url('css/meeting-lifecycle.css') }}">
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/quill-cursors@4.0.2/dist/quill-cursors.css" rel="stylesheet">
+<link href="{{ static_asset_url('css/meeting-tables.css') }}" rel="stylesheet">
 <style>
   #meeting-print-title { display: none; }
   @media print {
@@ -105,7 +107,7 @@
   <div class="meeting-header flex flex-col gap-4 rounded-2xl bg-white p-5 shadow">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
       <a
-        href="/meeting-notes/"
+        href="/meeting-notes/?state={{ note.lifecycle_status }}"
         class="inline-flex shrink-0 whitespace-nowrap items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
       >
         一覧へ戻る
@@ -145,6 +147,8 @@
     </div>
   </div>
 
+  {% include "meeting_notes/_lifecycle.html" %}
+
   {% if not current_user.can_edit %}
   <div class="meeting-readonly rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
     この画面は閲覧専用です。リアルタイム同期と保存は編集可能ロールで利用できます。
@@ -153,6 +157,7 @@
 
   <h1 id="meeting-print-title"></h1>
   <section class="meeting-editor rounded-2xl bg-white shadow">
+    {% include "meeting_notes/_tables.html" %}
     <div id="editor"></div>
   </section>
 
@@ -297,8 +302,14 @@
   import QuillCursors from 'quill-cursors';
   import { QuillBinding } from 'y-quill';
   import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
+  import { registerMeetingTable, installMeetingTables } from {{ static_asset_url('js/meeting-tables.js')|tojson }};
 
+  import { installMeetingLifecycle } from {{ static_asset_url('js/meeting-lifecycle.js')|tojson }};
   const canEdit = {{ current_user.can_edit|tojson }};
+  let lifecycleLocked = {{ (note.lifecycle_status != 'active')|tojson }};
+  let lifecycleUI = null;
+  let stateSocket = null;
+  let markingPending = false;
   const noteId = {{ note.id|tojson }};
   const editorUserName = {{ editor_user_name|tojson }};
   const statusEl = document.getElementById('sync-status');
@@ -313,6 +324,7 @@
   const DEFAULT_IMAGE_WIDTH = '50%';
 
   Quill.register('modules/cursors', QuillCursors);
+  registerMeetingTable(Quill);
 
   let lastEditorRange = null;
   let toolbarViewport = null;
@@ -321,6 +333,7 @@
     readOnly: true,
     scrollingContainer: document.scrollingElement || document.documentElement,
     modules: {
+      history: { userOnly: true },
       cursors: canEdit,
       toolbar: canEdit
         ? { container: [
@@ -349,6 +362,8 @@
 
   let selectedExcerpt = '';
   editor.on('selection-change', (range) => {
+    const node = window.getSelection()?.anchorNode;
+    if (document.activeElement?.closest('.meeting-table-cell') || node?.parentElement?.closest('.meeting-table-cell')) return;
     if (range) lastEditorRange = { index: range.index, length: range.length };
     if (!canEdit || !markSelectionBtn) {
       return;
@@ -481,7 +496,7 @@
     });
 
     function positionFloatingToolbar(range) {
-      if (!range) {
+      if (!range || document.activeElement?.closest('.meeting-table-block')) {
         return;
       }
 
@@ -565,7 +580,10 @@
     color: '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
   });
 
-  new QuillBinding(ytext, editor, awareness);
+  const binding = new QuillBinding(ytext, editor, awareness);
+  const tables = installMeetingTables({ Y, Quill, editor, ydoc, ytext, ymeta, binding, canEdit,
+    onExcerpt(text) { selectedExcerpt = text; if (markSelectionBtn) markSelectionBtn.disabled = !text; },
+  });
 
   titleInput.addEventListener('input', () => {
     if (canEdit) {
@@ -616,6 +634,7 @@
   };
   const scheduleSave = (delay = 1000) => {
     clearTimeout(saveTimer);
+    if (lifecycleLocked) return;
     saveTimer = setTimeout(() => saveNote().catch(() => {}), delay);
   };
   ydoc.on('update', () => {
@@ -631,8 +650,9 @@
     })
     .then((data) => {
       revision = data.revision;
+      if (data.lifecycle_status !== 'active') lifecycleLocked = true;
       if (data.content_base64) {
-        Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64));
+        tables.applyUpdate(decodeBase64ToUint8Array(data.content_base64), 'initial-load');
       }
       const existingTitle = ymeta.get('title');
       if (typeof existingTitle === 'string' && existingTitle.length > 0) {
@@ -642,8 +662,10 @@
         ymeta.set('title', titleInput.value);
       }
       contentLoaded = true;
-      editor.enable(canEdit);
-      titleInput.readOnly = !canEdit;
+      editor.enable(canEdit && !lifecycleLocked);
+      tables.enable(canEdit && !lifecycleLocked);
+      tables.clearHistory();
+      titleInput.readOnly = !canEdit || lifecycleLocked;
       if (saveBtn) saveBtn.disabled = false;
       showSaveStatus('保存済み');
       return true;
@@ -670,7 +692,7 @@
       const response = await fetch(`/meeting-notes/${noteId}/export/${format}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
-        body: JSON.stringify({ title: titleInput.value, ops: editor.getContents().ops }),
+        body: JSON.stringify({ title: titleInput.value, ops: tables.exportOps() }),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -689,7 +711,9 @@
   }));
 
   async function saveNote() {
-    if (!(await contentReady)) throw new Error('The original note could not be loaded');
+    if (!(await contentReady)) throw new Error('議事録を読み込めませんでした。画面を開き直してください。');
+    if (lifecycleLocked) throw new Error('状態が変わりました。未保存の入力を保持しています。');
+    await tables.readyToSave();
     clearTimeout(saveTimer);
     if (saving) return saving;
     saving = (async () => {
@@ -704,17 +728,21 @@
           response = await fetch(`/meeting-notes/api/${noteId}/save`, {
             method: 'POST', signal: controller.signal,
             headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
-            body: JSON.stringify({ title: titleInput.value, base_revision: revision,
-              content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)), plain_text: editor.getText() }),
+            body: JSON.stringify({ title: titleInput.value, base_revision: revision, editor_version: 2,
+              content_base64: encodeUint8ArrayToBase64(Y.encodeStateAsUpdate(ydoc)), plain_text: tables.plainText() }),
           });
           data = await response.json();
         } finally { clearTimeout(timeout); }
         if (response.status === 409 && data.status === 'conflict' && conflicts++ < 3) {
-          if (data.content_base64) Y.applyUpdate(ydoc, decodeBase64ToUint8Array(data.content_base64), 'save-conflict');
+          if (data.content_base64) tables.applyUpdate(decodeBase64ToUint8Array(data.content_base64), 'save-conflict');
           revision = data.revision;
           continue;
         }
-        if (!response.ok || data.status !== 'ok') throw new Error(`Save failed: ${response.status}`);
+        if (data.status === 'state_changed' || response.status === 404 || response.status === 403) {
+          lifecycleLocked = true;
+          await lifecycleUI?.changed();
+        }
+        if (!response.ok || data.status !== 'ok') throw new Error('本文を保存できませんでした。入力を保持しています。');
         revision = data.revision;
         savedVersion = version;
       }
@@ -722,8 +750,8 @@
     })();
     try { await saving; }
     catch (error) {
-      showSaveStatus('保存失敗・未保存。接続を確認してください。再試行します。', true);
-      if (navigator.onLine) scheduleSave(5000);
+      showSaveStatus(lifecycleLocked ? '状態が変わりました。未保存の入力を保持しています。' : '保存失敗・未保存。接続を確認してください。再試行します。', true);
+      if (navigator.onLine && !lifecycleLocked) scheduleSave(5000);
       throw error;
     } finally { saving = null; }
   }
@@ -737,13 +765,15 @@
       if (document.visibilityState === 'hidden' && savedVersion < changeVersion) saveNote().catch(() => {});
     });
     // Load the persisted state before accepting another editor's state.
-    contentReady.then(ready => {
-    if (!ready) return;
+    async function connectSocket() {
+    if (!(await contentReady) || lifecycleLocked || stateSocket?.readyState === WebSocket.OPEN || stateSocket?.readyState === WebSocket.CONNECTING) return;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}`);
+    const socket = new WebSocket(`${protocol}//${window.location.host}/meeting-notes/ws/${noteId}?editor_version=2`);
+    stateSocket = socket;
     socket.binaryType = 'arraybuffer';
 
     socket.onopen = () => {
+      if (lifecycleLocked) { socket.close(); return; }
       if (!contentLoadFailed) {
         updateStatus('同期中', 'rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700');
       }
@@ -759,22 +789,26 @@
     };
 
     socket.onclose = () => {
+      ydoc.off('update', sendUpdate);
+      awareness.off('update', sendAwareness);
+      if (stateSocket === socket) stateSocket = null;
       if (!contentLoadFailed) {
-        updateStatus('切断', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
+        updateStatus(lifecycleLocked ? '閲覧専用' : '切断', lifecycleLocked ? 'rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600' : 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
       }
     };
 
-    ydoc.on('update', (update, origin) => {
-      if (origin !== 'websocket' && socket.readyState === WebSocket.OPEN) {
+    const sendUpdate = (update, origin) => {
+      if (!lifecycleLocked && origin !== 'websocket' && socket.readyState === WebSocket.OPEN) {
         const message = new Uint8Array(update.length + 1);
         message[0] = 0;
         message.set(update, 1);
         socket.send(message);
       }
-    });
+    };
+    ydoc.on('update', sendUpdate);
 
-    awareness.on('update', ({ added, updated, removed }, origin) => {
-      if (origin === 'websocket') {
+    const sendAwareness = ({ added, updated, removed }, origin) => {
+      if (lifecycleLocked || origin === 'websocket') {
         return;
       }
       const changedClients = added.concat(updated).concat(removed);
@@ -786,9 +820,14 @@
       message[0] = 3;
       message.set(awarenessUpdate, 1);
       socket.send(message);
-    });
+    };
+    awareness.on('update', sendAwareness);
 
     socket.onmessage = (event) => {
+      if (typeof event.data === 'string') {
+        lifecycleLocked = true; lifecycleUI?.changed(); return;
+      }
+      if (lifecycleLocked) return;
       const data = new Uint8Array(event.data);
       if (data.length === 0) {
         return;
@@ -797,7 +836,7 @@
       const payload = data.slice(1);
 
       if (type === 0 || type === 2) {
-        Y.applyUpdate(ydoc, payload, 'websocket');
+        tables.applyUpdate(payload, 'websocket');
         return;
       }
 
@@ -824,7 +863,9 @@
         socket.send(message);
       }
     };
-    });
+    }
+    contentReady.then(() => connectSocket());
+    window.addEventListener('meeting-note-resumed', () => connectSocket());
 
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
@@ -840,13 +881,13 @@
     }
 
     // Every marking action navigates away. Persist the editor before submitting it.
-    let markingPending = false;
     document.getElementById('markings')?.addEventListener('submit', async (event) => {
       if (event.defaultPrevented) return;
       event.preventDefault();
-      if (markingPending || saveBtn?.disabled) return;
+      if (lifecycleLocked || markingPending || saveBtn?.disabled) return;
       markingPending = true;
       editor.enable(false);
+      tables.enable(false);
       titleInput.readOnly = true;
       if (saveBtn) saveBtn.disabled = true;
       const submitter = event.submitter;
@@ -858,12 +899,50 @@
         console.error('Failed to save note before marking', error);
         updateStatus('本文の保存に失敗しました。再度マーキングを保存してください。', 'rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-700');
         markingPending = false;
-        editor.enable(true);
-        titleInput.readOnly = false;
+        editor.enable(!lifecycleLocked);
+        tables.enable(!lifecycleLocked);
+        titleInput.readOnly = lifecycleLocked;
         if (saveBtn) saveBtn.disabled = false;
         if (submitter) submitter.disabled = false;
       }
     });
   }
+
+  const pendingMarkings = () => [...document.querySelectorAll('#markings input:not([type=hidden]):not([type=number]):not([type=date]),#markings textarea')].some(el => el.value.trim());
+  lifecycleUI = installMeetingLifecycle({noteId, initial: {{ lifecycle|tojson }}, adapter: {
+    title: () => titleInput.value,
+    dirty: () => savedVersion < changeVersion || pendingMarkings(),
+    revision: () => revision,
+    save: saveNote,
+    lock(value) {
+      lifecycleLocked = value;
+      if (value) {clearTimeout(saveTimer);tables.flushPending();stateSocket?.close();updateStatus('閲覧専用','rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600');}
+      const enabled = canEdit && contentLoaded && !value && !markingPending;
+      editor.enable(enabled);tables.enable(enabled);titleInput.readOnly = !enabled;
+      if (saveBtn) {saveBtn.hidden = !enabled;saveBtn.disabled = !enabled;}
+      const toolbar=editor.getModule('toolbar')?.container;if(toolbar) toolbar.hidden=!enabled;
+      document.querySelectorAll('#markings input,#markings textarea,#markings select,#markings button').forEach(el=>el.disabled=!enabled);
+      if (value && savedVersion < changeVersion) showSaveStatus('未保存の入力を保持しています。',true);
+    },
+    async resume(data) {
+      const retainedTitle=titleInput.value;
+      const response=await fetch(`/meeting-notes/api/${noteId}/content`, {cache:'no-store'});
+      if(!response.ok) throw new Error('最新の本文を確認できませんでした。未保存の入力を退避してから開き直してください。');
+      const latest=await response.json();
+      if(latest.lifecycle_status!=='active') throw new Error('状態が再び変わりました。未保存の入力を保持しています。');
+      if(latest.content_base64) tables.applyUpdate(decodeBase64ToUint8Array(latest.content_base64),'lifecycle-resume');
+      ymeta.set('title',retainedTitle);titleInput.value=retainedTitle;
+      lifecycleLocked=false;revision=latest.revision;
+      window.dispatchEvent(new Event('meeting-note-resumed'));
+    },
+    download() {
+      const escaped=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const fields=[...document.querySelectorAll('#markings input:not([type=hidden]),#markings textarea')].filter(el=>el.value).map(el=>`${el.name}: ${el.value}`).join('\n');
+      const html='<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src &apos;none&apos;; img-src data:; style-src &apos;unsafe-inline&apos;"><h1>'+escaped(titleInput.value)+'</h1>'+editor.root.innerHTML+'<h2>入力途中のマーキング欄</h2><pre>'+escaped(fields)+'</pre>';
+      const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=`未保存の議事録-${noteId}.html`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    },
+  }});
+  contentReady.then(() => lifecycleUI.refresh());
+  window.addEventListener('beforeunload', event => {if (!markingPending && pendingMarkings()) {event.preventDefault();event.returnValue='';}});
 </script>
 {% endblock %}

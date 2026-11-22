@@ -198,6 +198,11 @@ def daily_plan_calendar(
                             "classroom_ref": classroom,
                             "activity": _daily_activity_text(document) if document else "未作成",
                             "is_created": document is not None,
+                            "plan_review_label": (
+                                document.status_label
+                                if document and document.daily_revision_phase in {"editing", "pending", "reapproved"}
+                                else ""
+                            ),
                             "reflection_state": reflection_state(reflection) if document else "",
                             "reflection_label": reflection_state_label(reflection) if document else "",
                             "url": (

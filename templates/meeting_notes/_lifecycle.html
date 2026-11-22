@@ -1,0 +1,14 @@
+<section id="meeting-lifecycle" class="meeting-lifecycle no-print" aria-label="議事録の状態と操作">
+  <div class="meeting-lifecycle-heading"><div><strong id="meeting-state-label">{{ lifecycle.label }}</strong><p id="meeting-state-help"></p></div><div id="meeting-lifecycle-actions"></div></div>
+  <p id="meeting-lifecycle-error" class="meeting-lifecycle-error" role="alert" hidden></p>
+  <div id="meeting-lifecycle-unknown" class="meeting-lifecycle-notice" hidden><p>操作結果を確認できませんでした。再表示して実際の状態を確認してください。</p><button type="button" id="meeting-check-state">状態を再表示</button></div>
+  <div id="meeting-lifecycle-recovery" class="meeting-lifecycle-notice" hidden><p>議事録の状態が変わったため編集を停止しました。未保存の入力はこの画面に保持しています。</p><button type="button" id="meeting-download-draft">未保存の入力を退避</button><button type="button" id="meeting-resume-draft">通常に戻して編集を続ける</button></div>
+  <details><summary id="meeting-relations-label">関連する記録</summary><div id="meeting-relations"></div></details>
+  <details><summary>操作履歴</summary><ol id="meeting-action-history"></ol></details>
+</section>
+<dialog id="meeting-lifecycle-dialog" aria-labelledby="meeting-lifecycle-title">
+  <h2 id="meeting-lifecycle-title"></h2><div class="meeting-lifecycle-target"><strong id="meeting-lifecycle-note"></strong><span>ID: {{ note.id }}</span></div><p id="meeting-lifecycle-description"></p><div id="meeting-lifecycle-related"></div>
+  <label id="meeting-reason-label" hidden>削除理由（任意）<textarea id="meeting-delete-reason" maxlength="500" rows="3" placeholder="例：重複して作成したため"></textarea></label>
+  <p id="meeting-lifecycle-dialog-error" class="meeting-lifecycle-error" role="alert" hidden></p>
+  <div class="meeting-lifecycle-buttons"><button type="button" id="meeting-lifecycle-cancel">キャンセル</button><button type="button" id="meeting-lifecycle-confirm">確定する</button></div>
+</dialog>

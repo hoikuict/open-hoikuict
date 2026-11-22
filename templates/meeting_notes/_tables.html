@@ -1,0 +1,45 @@
+{% if current_user.can_edit %}
+<div id="meeting-table-toolbar" class="meeting-table-toolbar" hidden>
+  <div class="meeting-table-actions">
+    <button type="button" id="meeting-table-insert" class="primary">表を挿入</button>
+    <button type="button" id="meeting-table-paste">表を貼り付け</button>
+    <button type="button" id="meeting-undo" disabled>元に戻す</button>
+    <button type="button" id="meeting-redo" disabled>やり直す</button>
+  </div>
+  <div id="meeting-table-selection" hidden>
+    <p id="meeting-table-position"></p>
+    <div class="meeting-table-actions">
+      <button type="button" data-table-action="row-before">上に行を追加</button>
+      <button type="button" data-table-action="row-after">下に行を追加</button>
+      <button type="button" data-table-action="column-before">左に列を追加</button>
+      <button type="button" data-table-action="column-after">右に列を追加</button>
+      <button type="button" data-table-action="row-delete">行を削除</button>
+      <button type="button" data-table-action="column-delete">列を削除</button>
+      <button type="button" data-table-action="delete" class="danger-text">表を削除</button>
+      <button type="button" data-table-action="copy">表をコピー</button>
+    </div>
+    <div class="meeting-table-actions">
+      <label><input type="checkbox" id="meeting-table-header">先頭行を見出しにする</label>
+      <button type="button" data-table-action="paragraph-before">表の前に文章を追加</button>
+      <button type="button" data-table-action="paragraph-after">表の後に文章を追加</button>
+    </div>
+  </div>
+  <p id="meeting-table-message" role="status" hidden></p>
+</div>
+<dialog id="meeting-table-insert-dialog" class="meeting-table-dialog">
+  <form id="meeting-table-insert-form">
+    <h2>表を挿入</h2><p>本文の選んだ位置に表を追加します。</p>
+    <div class="meeting-table-dimensions">
+      <label>行数<input type="number" id="meeting-table-rows" value="3" min="1" max="20" required></label>
+      <label>列数<input type="number" id="meeting-table-columns" value="3" min="1" max="8" required></label>
+    </div>
+    <label class="meeting-table-check"><input type="checkbox" id="meeting-table-new-header" checked>先頭行を見出しにする</label>
+    <p>行数には見出し行も含みます。20行・8列まで。</p>
+    <div class="meeting-table-actions end"><button type="button" data-table-close>キャンセル</button><button type="submit" class="primary">挿入する</button></div>
+  </form>
+</dialog>
+<dialog id="meeting-table-delete-dialog" class="meeting-table-dialog">
+  <h2 id="meeting-table-delete-title"></h2><p>対象のセルに入力した文字も削除します。削除後は「元に戻す」で取り消せます。</p>
+  <div class="meeting-table-actions end"><button type="button" data-table-close>キャンセル</button><button type="button" id="meeting-table-delete-confirm" class="danger">削除する</button></div>
+</dialog>
+{% endif %}

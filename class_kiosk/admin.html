@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="csrf-token" content="{{CSRF}}"><title>クラス用スマホの設定</title><link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/css/class-kiosk-admin.css?v=20261123-r2"><script src="/static/js/class-kiosk-admin.js?v=20261123-r2" defer></script></head>
+<body>
+<header class="app-header"><a href="/class-kiosk/" class="brand"><span class="brand-icon">ク</span><span>クラス連絡<small>管理者の設定</small></span></a><span class="role">管理者</span></header>
+<div class="layout"><aside class="sidebar"><p>園の設定</p><button class="selected" data-action="overview">クラス用スマホ</button><a href="/class-kiosk/">クラス連絡を開く</a><div class="sidebar-note">出欠・確認は登録先クラス。<br>全クラスの変更履歴は閲覧できます。</div></aside>
+<div class="content"><div id="notice" class="error" role="alert" hidden></div><main id="main" aria-busy="true"><h1>クラス用スマホ</h1><p>登録状況を読み込んでいます。</p></main></div></div><div id="toast" role="status" hidden></div>
+<dialog id="stop-dialog" aria-labelledby="stop-title"><h2 id="stop-title">この端末の登録を解除しますか？</h2><div id="stop-copy"></div><p>この端末からの閲覧・入力・通知が利用できなくなります。過去の投稿や出欠記録は残ります。</p><p class="error" id="stop-error" role="alert" hidden></p><div class="actions"><button data-action="cancel-stop">戻る</button><button class="danger-fill" data-action="confirm-stop">解除する</button></div></dialog>
+</body></html>

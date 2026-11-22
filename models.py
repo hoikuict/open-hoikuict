@@ -2054,6 +2054,22 @@ class MeetingNote(SQLModel, table=True):
     updated_by: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    lifecycle_status: str = Field(default="active")
+    lifecycle_version: int = Field(default=0)
+
+
+class MeetingNoteAction(SQLModel, table=True):
+    __tablename__ = "meeting_note_actions"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    note_id: int = Field(foreign_key="meeting_notes.id", index=True)
+    action: str
+    from_status: str
+    to_status: str
+    actor_user_id: Optional[str] = None
+    actor_name: str
+    reason: Optional[str] = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class NoticeTarget(SQLModel, table=True):

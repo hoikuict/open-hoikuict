@@ -1,0 +1,60 @@
+.live-phone { width:100%; max-width:600px; margin:0 auto; min-height:100dvh; border-radius:0; }
+.live-phone #dock { width:100%; max-width:600px; left:50%; transform:translateX(-50%); }
+body { padding:0; }
+.live-phone main { min-height:60vh; padding-bottom:175px; }
+.live-phone button,.live-phone a,.live-phone input { min-height:44px; }
+.live-phone a { display:inline-flex; align-items:center; overflow-wrap:anywhere; }
+.live-phone pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; }
+.live-phone input:not([type=radio]):not([type=file]), .live-phone select { width:100%; padding:10px; border:1px solid #c7d0df; border-radius:8px; }
+.live-phone .error { white-space:pre-wrap; }
+.live-phone .choices span { font-size:.84rem; padding:8px 2px; }
+.live-phone .preview-label { position:static; }
+.live-phone .post-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.live-phone .bottom-nav { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.live-phone .new-info { color:#8f5b0a; }
+.live-phone [hidden] { display:none!important; }
+.live-phone .inline { display:flex; flex-wrap:wrap; gap:8px; }
+.live-phone .registration-code { font-size:1.8rem; letter-spacing:2px; }
+.live-phone .detail-list dd { overflow-wrap:anywhere; white-space:pre-wrap; }
+.live-phone .body-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+.live-phone .steps { display:flex; gap:12px; font-size:.85rem; margin-bottom:16px; }
+@media(min-width:900px) { .live-phone { border-left:1px solid #dce2eb; border-right:1px solid #dce2eb; } }
+
+/* Today history, matched to the approved r5 mock. */
+.history-entry.empty { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:76px; padding:16px; text-align:left; color:#263c83; border:1px solid #c9d4ed; background:#f1f5ff; cursor:pointer; }
+.history-entry-main { display:grid; gap:6px; }
+.history-entry-main b { margin:0; color:#243552; font-size:.94rem; }
+.history-entry-main > span { font-size:.875rem; font-weight:600; }
+.history-chevron { font-size:1.6rem; }
+.history-entry:focus-visible,.history-row:focus-visible { outline:3px solid #354a9d; outline-offset:3px; }
+.history-link { width:100%; text-align:right; }
+.history-list { display:grid; gap:8px; margin-top:12px; }
+.history-row { display:grid; gap:5px; width:100%; padding:12px; border:1px solid #dce3ef; border-radius:12px; background:#fff; text-align:left; color:#243552; }
+.history-row-top,.history-row-bottom { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.history-row-top strong { font-size:.95rem; }
+.history-row-title,.history-row-bottom { font-size:.8rem; }
+.history-row-title { color:#526580; }
+.history-row-change { font-size:.9rem; overflow-wrap:anywhere; }
+.history-row-bottom { margin-top:3px; color:#354a9d; }
+
+.history-scope { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; background:#e8edf7; border-radius:12px; }
+.history-scope button { min-height:44px; border:0; border-radius:8px; background:transparent; color:#506480; font-weight:600; }
+.history-scope button[aria-pressed="true"] { background:#354a9d; color:#fff; }
+.history-scope button:focus-visible { outline:3px solid #24377b; outline-offset:2px; }
+.history-scope-note { margin:10px 0 0; line-height:1.6; }
+.history-class-name { font-size:.8rem; font-weight:600; color:#354a9d; }
+.history-child-name { font-size:.95rem; }
+
+/* Approved r6/r7: recent home preview and compact reply navigation. */
+.timeline-range { margin:4px 0 10px; }
+.timeline-more { margin:12px 0; }
+.timeline-more p { margin:0 0 6px; }
+.timeline-more button { white-space:normal; }
+.post-heading { display:flex; align-items:flex-start; gap:10px; }
+.post-author-info { flex:1; min-width:0; }
+.post-author-info strong { display:block; overflow-wrap:anywhere; }
+.post-author-info .meta { display:block; margin-top:3px; }
+.reply-count { flex:none; min-width:44px; min-height:44px; margin-left:auto; padding:6px 10px; border:1px solid #c9d4ed; border-radius:22px; background:#edf2fc; color:#354a9d; font-size:1rem; font-weight:700; line-height:1.25; font-variant-numeric:tabular-nums; }
+.reply-count:hover { background:#e1e9fa; }
+.reply-count:focus-visible { outline:3px solid #354a9d; outline-offset:2px; }
+[data-message] .post-actions:has(>button:only-child.danger) { justify-content:flex-end; }

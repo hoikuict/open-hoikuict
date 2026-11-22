@@ -1,0 +1,64 @@
+.daily-plan-review-actions,
+.daily-plan-dialog .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: .65rem;
+}
+.daily-plan-review-actions:not(:empty) { margin-bottom: .85rem; }
+.daily-plan-review .status-form { align-items: flex-end; }
+.daily-plan-review form { max-width: 100%; }
+.daily-plan-review [data-review-confirm][open] { width: 100%; }
+.daily-plan-review [data-review-confirm] > form,
+.daily-plan-dialog form { display: grid; gap: .85rem; }
+.daily-plan-review [data-review-confirm] > form { padding: 1rem 0; }
+.daily-plan-dialog {
+  box-sizing: border-box;
+  width: min(36rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 1.25rem;
+  border: 1px solid #bbc9c5;
+  border-radius: .65rem;
+  color: #1d2523;
+  background: white;
+  overflow: auto;
+}
+.daily-plan-dialog textarea { box-sizing: border-box; }
+.daily-plan-dialog h2 { margin: 0; }
+.daily-plan-dialog::backdrop { background: rgb(18 37 33 / 45%); }
+.daily-plan-review .form-actions { justify-content: flex-end; }
+.daily-plan-reason {
+  margin-bottom: 1rem;
+  padding: .65rem 1rem;
+  border-inline-start: 4px solid #b57c27;
+  background: #fff8eb;
+}
+.daily-plan-reason p,
+.daily-plan-history p,
+.daily-plan-snapshot dd,
+.daily-plan-diff td { white-space: pre-wrap; overflow-wrap: anywhere; }
+.daily-plan-error {
+  flex-basis: 100%;
+  margin-block: .65rem;
+  padding: .7rem 1rem;
+  border-inline-start: 4px solid #b53b32;
+  color: #832d25;
+  background: #fff2ef;
+}
+.daily-plan-review summary,
+.daily-plan-diff summary,
+.daily-plan-history summary { cursor: pointer; }
+.daily-plan-diff summary { font-weight: 700; }
+.daily-plan-diff table { margin-top: .8rem; width: 100%; table-layout: fixed; border-collapse: collapse; }
+.daily-plan-diff td,
+.daily-plan-diff th { padding: .6rem; border: 1px solid #d0dcd7; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.daily-plan-diff th { background: #f3f7f5; }
+.daily-plan-diff th:first-child { width: 26%; }
+.daily-plan-history ol { padding-inline-start: 1.5rem; list-style-type: decimal; }
+.daily-plan-history li { padding-block: .6rem; }
+.daily-plan-history .field-note { display: block; font-size: .9rem; }
+.daily-plan-snapshot { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: .65rem; margin-block: .6rem; }
+.daily-plan-snapshot div { padding: .6rem; background: #f5f8f7; }
+.daily-plan-snapshot dt { font-weight: 700; }
+.daily-plan-dialog [hidden], .daily-plan-review [hidden] { display: none; }

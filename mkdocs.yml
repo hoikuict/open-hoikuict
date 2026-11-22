@@ -173,6 +173,7 @@ nav:
           - TrueNAS初期構成の詳細: truenas-fresh-install.md
           - デモデータ: demo-data.md
       - 使い方:
+          - クラス用スマホの連絡キオスク: class-mobile-kiosk.md
           - 日々の業務: daily-work.md
           - カレンダーの表示と作成: calendar-display.md
           - ホームの差し戻し表示: home-return-notifications.md

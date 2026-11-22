@@ -299,7 +299,7 @@ def test_csrf_meeting_save_and_import_enforced(env, monkeypatch):
     note_id = int(created.headers["location"].rsplit("/", 1)[-1])
     detail = client.get(f"/meeting-notes/{note_id}")
     assert "'X-CSRF-Token': document.querySelector" in detail.text
-    payload = {"title": "保存確認", "content_base64": "AQID", "plain_text": "保存本文"}
+    payload = {"title": "保存確認", "content_base64": "AQID", "plain_text": "保存本文", "editor_version": 2}
     assert client.post(f"/meeting-notes/api/{note_id}/save", json=payload).status_code == 403
     assert client.post(f"/meeting-notes/api/{note_id}/save", json=payload, headers={"X-CSRF-Token": token}).status_code == 200
     assert client.post("/data-transfers/import/families/preview", files={"file": ("f.csv", family_file(ids))}).status_code == 403

@@ -84,6 +84,7 @@ class PlanDocument:
     annual_sheet: dict | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    daily_plan_reopened: bool = False
 
     @property
     def plan_format_label(self) -> str:
@@ -105,7 +106,24 @@ class PlanDocument:
 
     @property
     def status_label(self) -> str:
+        if self.daily_plan_reopened:
+            return {
+                "editing": "修正中・再承認が必要",
+                "pending": "再承認待ち",
+                "reapproved": "承認済み（再承認）",
+            }.get(self.daily_revision_phase, STATUS_LABELS[self.status])
         return STATUS_LABELS.get(self.status, self.status.value)
+
+    @property
+    def daily_revision_phase(self) -> str:
+        if self.daily_plan_reopened:
+            return {
+                DocumentStatus.DRAFT: "editing",
+                DocumentStatus.REJECTED: "editing",
+                DocumentStatus.IN_REVIEW: "pending",
+                DocumentStatus.APPROVED: "reapproved",
+            }.get(self.status, "initial")
+        return "initial"
 
     @property
     def can_edit_body(self) -> bool:
