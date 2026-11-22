@@ -164,3 +164,5 @@ Android（Chrome）7手順・iPhone（ホーム画面のアプリ）8手順を�
 一般職員向けの原稿は `reviews/staff-home/`。制作中に見つけた問題は、再現できた範囲と改善案を[制作時の記録](../../docs/staff-manual-findings.md)へ追記し、作業報告にも含める。
 
 2026-11-23、利用者の依頼で共通ヘッダーの「HPへ戻る」を削除した。初回出力ツールでも再追加しない。[SD-067](../../docs/spec-decisions.md#sd-067)。
+
+文字サイズ切替はhtml要素の基準サイズを16px／19pxへ切り替える。bodyだけの変数変更では本文に効かないため、再生成時もCSSとJSをそろえる。[SD-068](../../docs/spec-decisions.md#sd-068)。

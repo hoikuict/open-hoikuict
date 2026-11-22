@@ -86,3 +86,5 @@ git diff --check
 Windows導入アプリへのボタンは、公式GitHub Releasesの `releases/latest/download/OpenHoikuICT.exe` を参照します。配布版を更新するときは、公開するReleaseに同名の実行ファイルがあることと、[ダウンロードページ](download.md)の対応環境・版・サイズの説明を確認してください。
 
 共通ヘッダーの「HPへ戻る」は、利用者の依頼に基づき2026-11-23に削除しました。再生成時も追加しません。[変更の根拠・範囲](spec-decisions.md#sd-067)。
+
+文字サイズ切替は、ボタンの表記だけでなく本文・見出しの計算済みサイズと標準へ戻る動作まで確認します。[文字拡大の不具合と検査の補正](spec-decisions.md#sd-068)。

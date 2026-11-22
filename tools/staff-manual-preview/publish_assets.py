@@ -14,7 +14,7 @@ destination = args.destination.resolve()
 destination.mkdir(parents=True, exist_ok=True)
 if any(destination.iterdir()):
     raise SystemExit('Destination must be empty; inspect existing published assets before replacing them.')
-version = '20261103-v15'
+version = '20261123-font-size'
 for name in ['index.html', 'style.css', 'app.js', 'catalog.js']:
     text = (source / name).read_text(encoding='utf-8')
     if name == 'index.html':
@@ -23,8 +23,10 @@ for name in ['index.html', 'style.css', 'app.js', 'catalog.js']:
         text = text.replace('src="catalog.js"', f'src="catalog.js?v={version}"').replace('src="app.js"', f'src="app.js?v={version}"')
         text = text.replace('モック v1.8.1</span>', '試作版 v1.8.1</span>')
     elif name == 'style.css':
+        text = text.replace('body.large-text{--base:19px}', ':root.large-text{--base:19px}')
         text += '\n.site-return{display:inline-flex;align-items:center;font-size:.78rem;padding:8px;text-decoration:none;white-space:nowrap}@media(max-width:760px){.site-return{font-size:.66rem;padding:6px}.site-head{gap:7px}.head-actions{flex-wrap:wrap;justify-content:flex-end}.brand{flex-shrink:0}}@media(max-width:760px){.site-head{height:auto;min-height:81px;flex-wrap:wrap;padding:12px 17px}.head-actions{margin-left:auto;flex-wrap:nowrap}}\n'
     elif name == 'app.js':
+        text = text.replace("document.body.classList.toggle('large-text')", "document.documentElement.classList.toggle('large-text')")
         text = text.replace('assets/${image}.jpg', f'assets/${{image}}.jpg?v={version}')
         text = text.replace("'assets/'+b.dataset.zoom+'.jpg'", f"'assets/'+b.dataset.zoom+'.jpg?v={version}'")
     (destination/name).write_text(text, encoding='utf-8', newline='\n')

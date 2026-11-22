@@ -2800,7 +2800,7 @@ main.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>{
 main.querySelector('[data-print]')?.addEventListener('click',()=>window.print());main.querySelector('[data-check-jump]')?.addEventListener('click',()=>{document.getElementById('completion').scrollIntoView();main.querySelector('[data-check]').focus({preventScroll:true});});
 main.querySelectorAll('[data-check]').forEach(c=>c.addEventListener('change',()=>{checked[currentArticle]=Array.from(main.querySelectorAll('[data-check]:checked')).map(e=>+e.dataset.check);main.querySelector('.check-progress').textContent=completionText(currentArticle);}));}
 document.getElementById('close-image').addEventListener('click',()=>document.getElementById('image-dialog').close());
-document.getElementById('font-toggle').addEventListener('click',e=>{const large=document.body.classList.toggle('large-text');e.currentTarget.setAttribute('aria-pressed',String(large));e.currentTarget.textContent=large?'文字を標準に':'文字を大きく';});
+document.getElementById('font-toggle').addEventListener('click',e=>{const large=document.documentElement.classList.toggle('large-text');e.currentTarget.setAttribute('aria-pressed',String(large));e.currentTarget.textContent=large?'文字を標準に':'文字を大きく';});
 document.getElementById('menu-toggle').addEventListener('click',e=>{e.currentTarget.setAttribute('aria-expanded',String(document.getElementById('sidebar').classList.toggle('open')));});
 document.querySelector('.skip').addEventListener('click',e=>{e.preventDefault();main.focus();main.scrollIntoView();});
 window.addEventListener('hashchange',()=>renderRoute());renderRoute(false);
