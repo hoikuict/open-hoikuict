@@ -22,7 +22,6 @@ for name in ['index.html', 'style.css', 'app.js', 'catalog.js']:
         text = text.replace('href="style.css"', f'href="style.css?v={version}"')
         text = text.replace('src="catalog.js"', f'src="catalog.js?v={version}"').replace('src="app.js"', f'src="app.js?v={version}"')
         text = text.replace('モック v1.8.1</span>', '試作版 v1.8.1</span>')
-        text = text.replace('<div class="head-actions">', '<div class="head-actions"><a class="site-return" href="../">HPへ戻る</a>')
     elif name == 'style.css':
         text += '\n.site-return{display:inline-flex;align-items:center;font-size:.78rem;padding:8px;text-decoration:none;white-space:nowrap}@media(max-width:760px){.site-return{font-size:.66rem;padding:6px}.site-head{gap:7px}.head-actions{flex-wrap:wrap;justify-content:flex-end}.brand{flex-shrink:0}}@media(max-width:760px){.site-head{height:auto;min-height:81px;flex-wrap:wrap;padding:12px 17px}.head-actions{margin-left:auto;flex-wrap:nowrap}}\n'
     elif name == 'app.js':
