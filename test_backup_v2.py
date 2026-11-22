@@ -146,9 +146,22 @@ def test_backup_before_class_kiosk_keeps_recorded_contract(runtime):
     for table, column in (
         ("meeting_notes", "lifecycle_status"),
         ("meeting_notes", "lifecycle_version"),
-        ("plan_document_actions", "revision_id"),
     ):
         execute(runtime.main, f'ALTER TABLE "{table}" DROP COLUMN "{column}"')
+    # SQLite cannot drop a column referenced by a table-level foreign key.
+    # This empty fixture table is rebuilt with its pre-reapproval schema.
+    execute(runtime.main, "DROP TABLE plan_document_actions")
+    execute(runtime.main, """CREATE TABLE plan_document_actions (
+        id INTEGER NOT NULL PRIMARY KEY,
+        document_id INTEGER NOT NULL REFERENCES plan_documents(id),
+        document_type VARCHAR NOT NULL,
+        action VARCHAR NOT NULL,
+        comment VARCHAR,
+        actor_ref VARCHAR NOT NULL,
+        actor_name VARCHAR,
+        created_at DATETIME NOT NULL
+    )""")
+    execute(runtime.main, "CREATE INDEX ix_plan_document_actions_document_id ON plan_document_actions(document_id)")
     result = schema_check(runtime.main, runtime.facility, CURRENT_CONTRACT)
     assert result["status"] == "failed"
     assert "main.class_kiosk_devices" in result["missing"]
