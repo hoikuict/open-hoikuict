@@ -44,3 +44,17 @@ body { padding:0; }
 .history-scope-note { margin:10px 0 0; line-height:1.6; }
 .history-class-name { font-size:.8rem; font-weight:600; color:#354a9d; }
 .history-child-name { font-size:.95rem; }
+
+/* Approved r6/r7: recent home preview and compact reply navigation. */
+.timeline-range { margin:4px 0 10px; }
+.timeline-more { margin:12px 0; }
+.timeline-more p { margin:0 0 6px; }
+.timeline-more button { white-space:normal; }
+.post-heading { display:flex; align-items:flex-start; gap:10px; }
+.post-author-info { flex:1; min-width:0; }
+.post-author-info strong { display:block; overflow-wrap:anywhere; }
+.post-author-info .meta { display:block; margin-top:3px; }
+.reply-count { flex:none; min-width:44px; min-height:44px; margin-left:auto; padding:6px 10px; border:1px solid #c9d4ed; border-radius:22px; background:#edf2fc; color:#354a9d; font-size:1rem; font-weight:700; line-height:1.25; font-variant-numeric:tabular-nums; }
+.reply-count:hover { background:#e1e9fa; }
+.reply-count:focus-visible { outline:3px solid #354a9d; outline-offset:2px; }
+[data-message] .post-actions:has(>button:only-child.danger) { justify-content:flex-end; }

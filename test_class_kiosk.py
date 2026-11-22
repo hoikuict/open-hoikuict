@@ -69,6 +69,69 @@ class ClassKioskTests(unittest.TestCase):
         self.assertEqual(response.status_code,200,response.text)
         return response.json()
 
+    def test_home_timeline_includes_exact_boundary_and_excludes_future_and_older(self):
+        from datetime import datetime, timezone
+        from class_kiosk import service
+        now = datetime(2026, 11, 22, 1, 0, tzinfo=timezone.utc)
+        with Session(self.engine) as session:
+            for body, offset in [('now', timedelta()), ('boundary', timedelta(hours=3)),
+                                 ('older', timedelta(hours=3, microseconds=1)), ('future', -timedelta(seconds=1))]:
+                session.add(Message(room_id=1, author_name='職員', body=body, created_at=now-offset))
+            session.commit()
+        with patch.object(service, 'utc_now', return_value=now):
+            preview = self.state()['home_timeline']
+        self.assertEqual(preview['total'], 2)
+        self.assertEqual([m['body'] for m in preview['messages']], ['now', 'boundary'])
+        with patch.object(service, 'utc_now', return_value=now+timedelta(hours=4)):
+            self.assertEqual(self.state()['home_timeline'], {'messages': [], 'total': 0})
+        self.assertEqual(len(self.client.get('/class-kiosk/api/messages').json()), 4)
+
+    def test_home_timeline_counts_all_classes_and_caps_before_backdated_posts(self):
+        from class_kiosk import service
+        now = utc_now()
+        with Session(self.engine) as session:
+            for i in range(8):
+                session.add(Message(room_id=i % 2 + 1, author_name='職員', body=f'recent-{i}', created_at=now-timedelta(minutes=i)))
+            for i in range(35):
+                session.add(Message(room_id=1, author_name='職員', body=f'older-{i}', created_at=now-timedelta(days=1)))
+            session.commit()
+        with patch.object(service, 'utc_now', return_value=now):
+            preview = self.state()['home_timeline']
+        self.assertEqual(preview['total'], 8)
+        self.assertEqual([m['body'] for m in preview['messages']], [f'recent-{i}' for i in range(5)])
+
+    def test_new_reply_does_not_promote_old_parent_and_remains_readable(self):
+        from class_kiosk import service
+        now = utc_now()
+        with Session(self.engine) as session:
+            parent = Message(room_id=1, author_name='職員', body='old parent', created_at=now-timedelta(hours=4))
+            session.add(parent); session.flush(); parent_id = parent.id
+            session.add(Message(room_id=1, author_name='職員', body='new reply', parent_message_id=parent_id, created_at=now))
+            session.commit()
+            before = [(m.id, m.body, m.is_deleted) for m in session.exec(select(Message).order_by(Message.id)).all()]
+        with patch.object(service, 'utc_now', return_value=now):
+            self.assertEqual(self.state()['home_timeline'], {'messages': [], 'total': 0})
+        full = self.client.get('/class-kiosk/api/messages').json()
+        self.assertEqual(len(full), 1); self.assertEqual(full[0]['replies'], 1)
+        thread = self.client.get(f'/class-kiosk/api/messages/{parent_id}').json()
+        self.assertEqual(thread['replies'][0]['body'], 'new reply')
+        with Session(self.engine) as session:
+            self.assertEqual(before, [(m.id, m.body, m.is_deleted) for m in session.exec(select(Message).order_by(Message.id)).all()])
+
+    def test_timeline_pagination_orders_by_post_time_without_missing_ties(self):
+        now = utc_now()
+        with Session(self.engine) as session:
+            for i in range(65):
+                session.add(Message(room_id=1, author_name='職員', body=str(i), created_at=now-timedelta(minutes=(i*17)%23)))
+            session.commit()
+            expected = [m.id for m in session.exec(select(Message).order_by(Message.created_at.desc(), Message.id.desc())).all()]
+        received = []; before = None
+        for _ in range(3):
+            page = self.client.get('/class-kiosk/api/messages'+(f'?before={before}' if before else '')).json()
+            received.extend(m['id'] for m in page); before = page[-1]['id']
+        self.assertEqual(received, expected)
+        self.assertEqual(self.client.get(f'/class-kiosk/api/messages?before={before}').json(), [])
+
     def review(self,status="present"):
         state=self.state()
         rows=[{"id":r["id"],"status":status,"reason":"訂正のテスト" if r["status"] else "","version":r["version"]} for r in state["rows"]]

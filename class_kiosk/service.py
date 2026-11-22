@@ -7,6 +7,7 @@ from datetime import timedelta
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import and_, func, or_
 from sqlmodel import select
 from attendance_checks_service import sync_attendance_alarm, alarm_reason_labels
 from family_emergency import load_orders
@@ -285,6 +286,21 @@ def message_json(session, p, message):
 def timeline(session, p, before=None):
     query = select(Message).where(Message.parent_message_id == None)
     if before:
-        query = query.where(Message.id < before)
-    messages = session.exec(query.order_by(Message.id.desc()).limit(30)).all()
+        cursor = session.get(Message, before)
+        if not cursor or cursor.parent_message_id is not None:
+            return []
+        query = query.where(or_(Message.created_at < cursor.created_at,
+                              and_(Message.created_at == cursor.created_at, Message.id < cursor.id)))
+    messages = session.exec(query.order_by(Message.created_at.desc(), Message.id.desc()).limit(30)).all()
     return [message_json(session, p, m) for m in messages]
+
+
+def home_timeline(session, p):
+    """A bounded preview; the full timeline keeps every original post."""
+    now = utc_now()
+    conditions = (Message.parent_message_id == None,
+                  Message.created_at >= now - timedelta(hours=3), Message.created_at <= now)
+    total = session.exec(select(func.count()).select_from(Message).where(*conditions)).one()
+    messages = session.exec(select(Message).where(*conditions)
+                            .order_by(Message.created_at.desc(), Message.id.desc()).limit(5)).all()
+    return {"messages": [message_json(session, p, m) for m in messages], "total": total}

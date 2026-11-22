@@ -101,7 +101,8 @@ def state(session: Session = Depends(get_session), p=Depends(current_device)):
     subscription = session.get(KioskSubscription, p.device_id)
     latest = session.exec(select(KioskDelivery).where(KioskDelivery.device_id == p.device_id).order_by(KioskDelivery.id.desc()).limit(1)).first()
     return {"class_name": p.name, "device_name": p.device_name, "day": str(service.local_today()), "rows": service.roster(session, p),
-            "changes": service.changes_list(session, p), "messages": service.timeline(session, p), "push_key": push.public_key(),
+            "changes": service.changes_list(session, p), "messages": service.timeline(session, p),
+            "home_timeline": service.home_timeline(session, p), "push_key": push.public_key(),
             "push_enabled": bool(subscription and subscription.active), "push_status": latest.state if latest else None,
             "time": service.format_jst_datetime(utc_now())}
 
