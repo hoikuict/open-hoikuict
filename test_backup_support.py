@@ -10,6 +10,7 @@ from sqlmodel import SQLModel, Session, create_engine
 def full_databases(main_db: Path, facility_db: Path, *, attachments=False, child=True):
     import models
     import child_records.models  # noqa: F401
+    import class_kiosk.models  # noqa: F401
     import plan_docs.db_models  # noqa: F401
     from plan_docs.services.bunrei import _ensure_facility_table
 

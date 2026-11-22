@@ -117,6 +117,7 @@ def legacy(backup):
 
 def test_contract_covers_registered_application_schema():
     import child_records.models  # noqa: F401
+    import class_kiosk.models  # noqa: F401
     import plan_docs.db_models  # noqa: F401
     contract, _ = load_contract()
     assert contract["main"] == {name: sorted(table.columns.keys()) for name, table in SQLModel.metadata.tables.items()}
@@ -128,6 +129,33 @@ def test_backup_before_staff_session_settings_keeps_recorded_contract(runtime):
     assert schema_check(runtime.main, runtime.facility, CURRENT_CONTRACT)["status"] == "failed"
 
     previous_contract = "spec-changes-20260919"
+    backup = create_backup(replace(runtime.config, schema_contract=previous_contract))
+    result = verify_backup_set(backup)
+    assert result["verification"]["schema"]["status"] == "ok"
+    assert result["verification"]["schema"]["contract_id"] == previous_contract
+
+
+def test_backup_before_class_kiosk_keeps_recorded_contract(runtime):
+    for table in (
+        "class_kiosk_accounts", "class_kiosk_attempts", "class_kiosk_audits",
+        "class_kiosk_changes", "class_kiosk_deliveries", "class_kiosk_devices",
+        "class_kiosk_enrollments", "class_kiosk_message_owners",
+        "class_kiosk_operations", "class_kiosk_subscriptions", "meeting_note_actions",
+    ):
+        execute(runtime.main, f'DROP TABLE "{table}"')
+    for table, column in (
+        ("meeting_notes", "lifecycle_status"),
+        ("meeting_notes", "lifecycle_version"),
+        ("plan_document_actions", "revision_id"),
+    ):
+        execute(runtime.main, f'ALTER TABLE "{table}" DROP COLUMN "{column}"')
+    result = schema_check(runtime.main, runtime.facility, CURRENT_CONTRACT)
+    assert result["status"] == "failed"
+    assert "main.class_kiosk_devices" in result["missing"]
+    assert "main.meeting_notes.lifecycle_status" in result["missing"]
+    assert "main.plan_document_actions.revision_id" in result["missing"]
+
+    previous_contract = "health-contact-plans-20261116"
     backup = create_backup(replace(runtime.config, schema_contract=previous_contract))
     result = verify_backup_set(backup)
     assert result["verification"]["schema"]["status"] == "ok"

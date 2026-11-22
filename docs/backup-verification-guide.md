@@ -10,7 +10,7 @@
 | --- | --- |
 | 対象版 | 新しい実装を含む確定Git SHA、app/worker image ID、実際のCompose hash |
 | バックアップ形式 | 新しい作成CLIは2。旧CLIは形式2を読めないため、作成・検査用imageも保管する |
-| schema契約 | 現行開発版は家庭アーカイブ・カレンダー取込を含む`main-integration-20260922`。職員セッション設定追加時は`staff-sessions-20260920`。9月19日版は`spec-changes-20260919`、9月17日版は`spec-changes-20260917`。写真追加後は`profile-photos-20260914`、追加直前は`before-profile-photos-20260914`。復元元の版に合う契約を使う |
+| schema契約 | 現行開発版はクラス用スマホ・日案再承認・議事録保管を含む`class-kiosk-workflows-20261123`。直前の統合版は`health-contact-plans-20261116`。過去の定義も保持し、復元元の記録に合う契約を使う。形式2は保存時の契約IDとハッシュで検証する |
 | 実行方式 | 画面のworkerは稼働中の試験用。正式な取得はapp・worker・その他の書込みを止めたsnapshot/cloneを使用 |
 | 復元先 | 稼働runtimeと別の、未作成directory。公開経路・実メール・Pushから隔離 |
 | 秘密値 | 通常のbackup setへ入れず、別保管の暗号化recovery kitを使用 |
