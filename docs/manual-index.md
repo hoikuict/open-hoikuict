@@ -11,6 +11,18 @@
 
 「操作手順」は順を追って進める案内、「概要」は機能や入口の説明、「仕様」は詳しい条件や設計資料です。資料ごとの対象版を確認し、画面が異なる場合は園の運用担当者へ確認してください。
 
+## 追加・変更された機能
+
+| 操作 | 読む方 |
+| --- | --- |
+| [日案の計画の承認・承認後修正・再承認](manual-guide-preview/updates-20261123/daily-approval.html) | 職員・管理者 |
+| [議事録の表・アーカイブ・ごみ箱](manual-guide-preview/updates-20261123/meetings.html) | 職員・管理者 |
+| [クラス用スマホで連絡を見る・出欠を送る](manual-guide-preview/updates-20261123/class-kiosk.html) | 職員・管理者 |
+| [クラス用スマホを登録・解除する](manual-guide-preview/updates-20261123/class-kiosk-admin.html) | 管理者 |
+| [保護者の連絡項目を設定する](manual-guide-preview/updates-20261123/contact-fields.html) | 管理者 |
+
+2026年11月23日に追加した手順です。[作成・照合の記録](spec-decisions.md#sd-066)
+
 ## 導入・利用開始
 
 | やりたいこと | 主に読む方 | 資料の種類 |

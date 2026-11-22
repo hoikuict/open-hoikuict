@@ -2679,7 +2679,7 @@ const card=id=>{const a=manualArticles[id];return `<a class="issue-card" href="$
 // BEGIN ADMISSION NAVIGATION
 function admissionChoices(){return `<section class="admission-choices" aria-label="新入園児の登録"><div class="section-head"><h2>新入園児を登録する</h2><span>家庭の状況から選ぶ</span></div><div class="admission-grid">${['child-sibling','parent-qr'].map(card).join('')}</div></section>`;}
 // END ADMISSION NAVIGATION
-function home(){return `<a class="parent-entry" href="#parents"><strong>保護者の方はこちら →</strong><span>保護者アプリと、登園・降園の使い方</span></a><section class="hero"><p class="eyebrow">毎日の「どうする？」を、ひとつずつ。</p><h1>迷ったら、ここから。</h1><p class="lead">忙しい保育の合間にも、必要な手順がすぐ見つかる。<br>画面を見ながら、一緒に進める使い方ガイドです。</p><div class="hero-index" aria-hidden="true">Guide<small>FOR NURSERY STAFF</small></div></section>${searchBox()}${admissionChoices()}<section class="entrances" aria-label="2つの探し方"><a class="entrance emphasis" href="#issues"><small>いま、解決したいことがある</small><h2>こんなときどうする？</h2><p>困っている場面を選んで、解決の手順へ。</p><span class="arrow" aria-hidden="true">↗</span></a><a class="entrance" href="#chapters"><small>仕事の流れを知りたい</small><h2>業務ごとに、順番に読む</h2><p>利用開始から日々の記録、月末の請求まで。</p><span class="arrow" aria-hidden="true">↗</span></a></section><div class="section-head"><h2>登録の準備と、日々の困りごと</h2><span>スクショ付きの代表例</span></div><section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents'&&!['child-sibling','parent-qr'].includes(id)).map(card).join('')}</section><div class="hint-strip"><strong>画面と同じ言葉で。</strong><span>押すボタンの名前、保存されるタイミング、間違えたときの戻り方まで、ひとつの手順にまとめています。</span></div>`;}
+function home(){return `<a class="parent-entry" href="#parents"><strong>保護者の方はこちら →</strong><span>保護者アプリと、登園・降園の使い方</span></a><section class="hero"><p class="eyebrow">毎日の「どうする？」を、ひとつずつ。</p><h1>迷ったら、ここから。</h1><p class="lead">忙しい保育の合間にも、必要な手順がすぐ見つかる。<br>画面を見ながら、一緒に進める使い方ガイドです。</p><div class="hero-index" aria-hidden="true">Guide<small>FOR NURSERY STAFF</small></div></section>${searchBox()}${recentSection()}${admissionChoices()}<section class="entrances" aria-label="2つの探し方"><a class="entrance emphasis" href="#issues"><small>いま、解決したいことがある</small><h2>こんなときどうする？</h2><p>困っている場面を選んで、解決の手順へ。</p><span class="arrow" aria-hidden="true">↗</span></a><a class="entrance" href="#chapters"><small>仕事の流れを知りたい</small><h2>業務ごとに、順番に読む</h2><p>利用開始から日々の記録、月末の請求まで。</p><span class="arrow" aria-hidden="true">↗</span></a></section><div class="section-head"><h2>登録の準備と、日々の困りごと</h2><span>スクショ付きの代表例</span></div><section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents'&&!['child-sibling','parent-qr'].includes(id)).map(card).join('')}</section><div class="hint-strip"><strong>画面と同じ言葉で。</strong><span>押すボタンの名前、保存されるタイミング、間違えたときの戻り方まで、ひとつの手順にまとめています。</span></div>`;}
 function chapters(){return `${crumb('仕事の流れから読む')}<p class="eyebrow">体系的に読む</p><h1>業務ごとに、順番に。</h1><p class="lead">全7分野・既存の33項目を見渡せます。担当する仕事から選んでください。</p><div class="chapter-grid">${manualChapters.map((c,i)=>`<a class="chapter-card" href="#chapter/${i}"><small>CHAPTER 0${i+1} · ${c.topics.length}項目</small><h2>${titles[i]} →</h2><p>${c.description}</p></a>`).join('')}</div><p class="notice">「画面付きの試作」と「現在公開されている資料」を分けて表示しています。既存資料は別のタブで開きます。</p>`;}
 function articleLink(id){const a=manualArticles[id];return `<a class="topic" href="#article/${id}"><span><strong>${a.title}</strong><small>${a.role} · ${a.steps.length}ステップ</small></span><span class="badge">画面付きの試作 →</span></a>`;}
 const planningGuides = [
@@ -2700,6 +2700,44 @@ const healthGuides = [
   {title:'アレルギーを登録する・直す・解除する', href:'health/allergies/', summary:'品目や有効期限を追加・更新します。解除や再有効化もここから。', keywords:'健康管理 アレルゲン名 編集'},
   {title:'健診を記録する・測定値を訂正する', href:'health/checks/', summary:'測定日と身長・体重を入れます。入力を間違えたときの訂正と履歴も見られます。', keywords:'健康管理 健診記録とグラフ 身体測定 体重 身長 修正 間違い'},
 ];
+const recentGuides = [
+  {
+    "chapter": 3,
+    "title": "日案の計画の承認・承認後修正・再承認",
+    "href": "updates-20261123/daily-approval.html",
+    "summary": "理由付きの修正、行追加、再依頼、差分と履歴を確かめる。",
+    "keywords": "日案 承認取消 再承認 修正 取り下げ"
+  },
+  {
+    "chapter": 4,
+    "title": "議事録の表・アーカイブ・ごみ箱",
+    "href": "updates-20261123/meetings.html",
+    "summary": "表を作成・コピーし、保管と復元を行う。",
+    "keywords": "議事録 表 共同編集 コピー 貼り付け アーカイブ 削除 ごみ箱 復元"
+  },
+  {
+    "chapter": 1,
+    "title": "クラス用スマホで連絡を見る・出欠を送る",
+    "href": "updates-20261123/class-kiosk.html",
+    "summary": "変更の確認、全クラス履歴、出欠一括送信と返信。",
+    "keywords": "クラス 連絡 キオスク スマホ 出欠 通知 タイムライン"
+  },
+  {
+    "chapter": 0,
+    "title": "クラス用スマホを登録・解除する",
+    "href": "updates-20261123/class-kiosk-admin.html",
+    "summary": "管理者がQRを発行し、端末登録・通知・解除を確認する。",
+    "keywords": "クラス スマホ 端末 登録 QR 通知 解除 期限"
+  },
+  {
+    "chapter": 1,
+    "title": "保護者の連絡項目を設定する",
+    "href": "updates-20261123/contact-fields.html",
+    "summary": "年齢別・クラス別に表示項目を選び、プレビューして保存する。",
+    "keywords": "保護者 連絡項目 設定 年齢 クラス 表示 非表示 プレビュー 夕食 朝食"
+  }
+];
+function recentSection(chapter) { const items=recentGuides.filter(g=>chapter===undefined||g.chapter===chapter); return items.length?`<h2>追加・見直しした手順</h2><div class="topic-list">${items.map(screenGuideLink).join('')}</div>`:''; }
 function screenGuideLink(guide) {
   return `<a class="topic" href="${guide.href}"><span><strong>${guide.title}</strong><small>${guide.summary}</small></span><span class="badge">画面付き →</span></a>`;
 }
@@ -2711,12 +2749,12 @@ function planningSection() {
 }
 function referenceLink(t){return `<a class="topic" href="${esc(t.url)}" target="_blank" rel="noopener"><span><strong>${esc(t.title)}</strong><small>${esc(t.role)} · 既存資料を別タブで開く</small></span><span class="badge reference">${esc(t.kind)} ↗</span></a>`;}
 function planningChapter(chapter) {
-  return `${crumb(titles[3])}<h1>${titles[3]}</h1><p class="lead">${chapter.description}</p>${planningSection()}
+  return `${crumb(titles[3])}<h1>${titles[3]}</h1><p class="lead">${chapter.description}</p>${planningSection()}${recentSection(3)}
     <h2>帳票ごとの書き方</h2><div class="topic-list">${planningForms.map(screenGuideLink).join('')}</div>
     <details><summary>仕様資料を開く</summary><div class="topic-list">${chapter.topics.map(referenceLink).join('')}</div></details>`;
 }
-function chapter(i){const c=manualChapters[i];if(i===3)return planningChapter(c);return `${crumb(titles[i])}<p class="eyebrow">CHAPTER 0${i+1}</p><h1>${titles[i]}</h1><p class="lead">${c.description}</p>${i===2?healthSection():''}${Object.values(manualArticles).some(a=>a.chapter===i&&a.audience!=='parents')?`<h2>画面を見ながら進める</h2><div class="topic-list">${Object.entries(manualArticles).filter(([,a])=>a.chapter===i&&a.audience!=='parents').map(([id])=>articleLink(id)).join('')}</div>`:''}<div class="section-head"><h2>順番に読む・詳しく確認する</h2><span>現在の公開資料</span></div><div class="topic-list">${c.topics.map(referenceLink).join('')}</div><p class="source-note">この分野の既存${c.topics.length}項目を掲載しています。概要・仕様の資料は、今後の画面付き手順の整備候補です。</p>`;}
-function issues(){return `${crumb('こんなときどうする？')}<p class="eyebrow">場面から探す</p><h1>いま、どんなことで困っていますか。</h1><p class="lead">機能の名前が分からなくても大丈夫。近い場面を選んでください。</p>${searchBox()}<section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents').map(card).join('')}</section>${healthSection()}${planningSection()}<a href="#chapters">業務別の目次を見る →</a>`;}
+function chapter(i){const c=manualChapters[i];if(i===3)return planningChapter(c);return `${crumb(titles[i])}<p class="eyebrow">CHAPTER 0${i+1}</p><h1>${titles[i]}</h1><p class="lead">${c.description}</p>${i===2?healthSection():''}${recentSection(i)}${Object.values(manualArticles).some(a=>a.chapter===i&&a.audience!=='parents')?`<h2>画面を見ながら進める</h2><div class="topic-list">${Object.entries(manualArticles).filter(([,a])=>a.chapter===i&&a.audience!=='parents').map(([id])=>articleLink(id)).join('')}</div>`:''}<div class="section-head"><h2>順番に読む・詳しく確認する</h2><span>現在の公開資料</span></div><div class="topic-list">${c.topics.map(referenceLink).join('')}</div><p class="source-note">この分野の既存${c.topics.length}項目を掲載しています。概要・仕様の資料は、今後の画面付き手順の整備候補です。</p>`;}
+function issues(){return `${crumb('こんなときどうする？')}<p class="eyebrow">場面から探す</p><h1>いま、どんなことで困っていますか。</h1><p class="lead">機能の名前が分からなくても大丈夫。近い場面を選んでください。</p>${searchBox()}<section class="issue-grid">${Object.keys(manualArticles).filter(id=>manualArticles[id].audience!=='parents').map(card).join('')}</section>${healthSection()}${planningSection()}${recentSection()}<a href="#chapters">業務別の目次を見る →</a>`;}
 const helpOptions={
   admission:[['兄弟姉妹が在園している・以前在園していた','同じ家族へ追加し、保護者の閲覧対象を確認する','#article/child-sibling'],['初めて入園する家庭','共通QRで申し込み、園が確認・承認する','#article/parent-qr']],
   clock:[['空欄の時刻を、まとめて入れたい','実際の時刻が分かっている・管理者が操作する','#article/clock'],['すでに入っている時刻が間違っている','空欄の補完ではなく、日ごとの訂正','#answer/clock-correct'],['実際の時刻がまだ分からない','まず園内の記録や保護者に確認する','#answer/clock-unknown']],
@@ -2733,7 +2771,7 @@ function answer(id){const a=answers[id];return `<div class="diagnosis">${crumb('
 function normalize(s){return s.normalize('NFKC').toLowerCase().replace(/\s+/g,'');}
 function search(q){const n=normalize(q), terms=q.normalize('NFKC').trim().split(/[\s　]+/).filter(Boolean);const expansions=[];if(/欠席|電話|でんわ|休み/.test(n))expansions.push('phone');if(/打刻|だこく|登園|降園|補完/.test(n))expansions.push('clock');if(/ログイン|パスワード|コード/.test(n))expansions.push('password');const matches=Object.entries(manualArticles).filter(([id,a])=>expansions.includes(id)||(terms.length&&terms.every(t=>normalize(a.title+a.keywords+a.summary).includes(normalize(t)))));const links = matches.map(([id]) => articleLink(id));
   if (terms.length) {
-    for (const guide of [...planningGuides, ...planningForms, ...healthGuides]) {
+    for (const guide of [...planningGuides, ...planningForms, ...healthGuides, ...recentGuides]) {
       const text = normalize(guide.title + guide.keywords + guide.summary);
       if (terms.every(term => text.includes(normalize(term)))) links.push(screenGuideLink(guide));
     }
