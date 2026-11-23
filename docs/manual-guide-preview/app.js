@@ -2668,6 +2668,41 @@ const healthGuides = [
 ];
 const recentGuides = [
 {
+  "chapter": 4,
+  "title": "職員ホームの見方",
+  "href": "staff-records-20261123/home.html",
+  "summary": "日付・担当クラス、出欠、予定、文書の通知を確かめる。",
+  "keywords": "職員 ホーム 在園中 通知 承認"
+},
+{
+  "chapter": 1,
+  "title": "要確認一覧の見方",
+  "href": "staff-records-20261123/attention.html",
+  "summary": "件数の内訳、出欠とアンケートへの移動、0件の見方を確かめる。",
+  "keywords": "要確認 出欠 アンケート 全クラス 取得不可"
+},
+{
+  "chapter": 2,
+  "title": "児童票作成状況の見方",
+  "href": "staff-records-20261123/progress.html",
+  "summary": "対象月と期間、未作成・下書きの探し方、担当による違いを確かめる。",
+  "keywords": "児童票 作成状況 対象月 期間 未作成 下書き"
+},
+{
+  "chapter": 2,
+  "title": "児童票を入力する",
+  "href": "staff-records-20261123/entry.html",
+  "summary": "5つの入力欄、参考記録、下書き保存、保存前の移動を確かめる。",
+  "keywords": "児童票 入力 記録 下書き 保存 修正"
+},
+{
+  "chapter": 2,
+  "title": "児童票のレビューを依頼する",
+  "href": "staff-records-20261123/review-request.html",
+  "summary": "依頼、取り下げ、差戻し後の修正と再依頼を確かめる。",
+  "keywords": "児童票 レビュー 依頼 取り下げ 差戻し 再依頼"
+},
+{
   "chapter": 1,
   "title": "朝の出欠を確認する・電話連絡を記録する",
   "href": "daily-20261123/attendance-checks.html",

@@ -16,6 +16,8 @@
 
 [出欠確認・時刻の修正・緊急連絡先の画面付き手順](manual-guide-preview/daily-20261123/index.html)を、利用者の確認・了承を経て追加しました。[制作・確認の記録](spec-decisions.md#sd-071)。
 
+[職員ホーム・要確認一覧・児童票の画面付き手順](manual-guide-preview/staff-records-20261123/index.html)も、利用者の確認と公開依頼を受けて追加しました。児童票の作成状況、入力、レビュー依頼の3ページを含みます。[制作・確認の記録](spec-decisions.md#sd-071)。
+
 ## 保護者の方へ
 
 [保護者用のマニュアルを開く](manual-guide-preview/index.html#parents){ .md-button .md-button--primary }

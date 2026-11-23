@@ -15,6 +15,11 @@
 
 | 操作 | 読む方 |
 | --- | --- |
+| [職員ホームの見方](manual-guide-preview/staff-records-20261123/home.html) | 職員 |
+| [要確認一覧の見方](manual-guide-preview/staff-records-20261123/attention.html) | 職員 |
+| [児童票作成状況の見方](manual-guide-preview/staff-records-20261123/progress.html) | 職員 |
+| [児童票を入力する](manual-guide-preview/staff-records-20261123/entry.html) | 職員 |
+| [児童票のレビューを依頼する](manual-guide-preview/staff-records-20261123/review-request.html) | 職員 |
 | [朝の出欠を確認する・電話連絡を記録する](manual-guide-preview/daily-20261123/attendance-checks.html) | 職員 |
 | [登降園の時刻を補記・修正・取消する](manual-guide-preview/daily-20261123/attendance-times.html) | 職員 |
 | [いつもの緊急連絡順を登録する・その日だけ変える](manual-guide-preview/daily-20261123/emergency-parent.html) | 保護者本人 |
@@ -28,7 +33,7 @@
 | [基本医療情報を依頼し、回答を確認する](manual-guide-preview/refresh-20261123/medical.html) | 職員・台帳管理担当 |
 | [請求を取消して修正する・口座情報を保存する](manual-guide-preview/refresh-20261123/billing.html) | 管理者・請求担当 |
 
-2026年11月23日に追加した手順です。[作成・照合の記録](spec-decisions.md#sd-066) · [出欠・緊急連絡先の確認と公開](spec-decisions.md#sd-071)
+2026年11月23日に追加した手順です。[作成・照合の記録](spec-decisions.md#sd-066) · [出欠・緊急連絡先と職員ホーム・児童票の確認と公開](spec-decisions.md#sd-071)
 
 ## 導入・利用開始
 
@@ -72,7 +77,10 @@
 | [健診記録を追加・訂正する](manual-guide-preview/health/checks/index.html) | 一般職員 | 画面付きの手順 |
 | [健康・アレルギー・健診記録](health-record-spec-review.md) | 職員 | 仕様 |
 | [子どもの観察記録](child-records-spec.md) | 職員 | 仕様 |
-| [児童票の期間選択・修正](child-records-spec.md) | 職員・確認担当 | 仕様 |
+| [児童票作成状況の見方](manual-guide-preview/staff-records-20261123/progress.html) | 職員 | 画面付きの手順 |
+| [児童票を入力する](manual-guide-preview/staff-records-20261123/entry.html) | 職員 | 画面付きの手順 |
+| [児童票のレビューを依頼する](manual-guide-preview/staff-records-20261123/review-request.html) | 職員 | 画面付きの手順 |
+| [児童票の期間選択・修正の詳しい仕様](child-records-spec.md) | 職員・確認担当 | 仕様 |
 
 ## 指導計画
 
@@ -97,7 +105,8 @@
 | [カレンダーの表示・作成](calendar-display.md) | 職員・管理者 | 操作手順 |
 | [職員ルーム・議事録](daily-work.md) | 職員 | 概要 |
 | [文書の確認依頼](daily-work.md) | 職員・管理者 | 概要 |
-| [職員ホームと要確認](home-return-notifications.md) | 職員・管理者 | 概要 |
+| [職員ホームの見方](manual-guide-preview/staff-records-20261123/home.html) | 職員 | 画面付きの手順 |
+| [要確認一覧の見方](manual-guide-preview/staff-records-20261123/attention.html) | 職員 | 画面付きの手順 |
 
 ## 料金・請求
 
