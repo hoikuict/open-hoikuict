@@ -2627,7 +2627,7 @@ function setManualAudience(page,id){
   sidebar.innerHTML=parent?`<nav aria-label="保護者用の目次"><a href="#parents" class="nav-home">保護者用のホーム</a><p class="nav-label">スマートフォンのアプリ</p><a href="#parent-app">アプリでできること</a>${parentAppIds.map(id=>`<a href="#article/${id}">${esc(manualArticles[id].title)}</a>`).join('')}<p class="nav-label">園の受付画面</p><a href="#article/parent-arrival">園に着いたとき（登園）</a><a href="#article/parent-departure">お迎えのとき（降園）</a><a href="#parent-help">間違えた・うまくいかない</a></nav><div class="sidebar-note"><strong>分からないときは</strong><p>園の職員に声をかけてください。</p><a href="#home">職員用のガイドへ</a></div>`:staffSidebarMarkup;
 }
 function parentHome(){return `<p class="eyebrow">保護者の方へ</p><h1>保護者のための使い方ガイド</h1><p class="lead">やりたいことを選んでください。<br>短い文と、画面の見本でご案内します。</p><section class="parent-tip"><h2>スマートフォンのアプリ</h2><p>朝の連絡、お休み、お迎え予定。<br>お知らせや、園からの返信を見るときはこちら。</p><a class="parent-app-start" href="#parent-app">保護者アプリの使い方を見る →</a></section><h2>園の受付画面</h2><p>園に着いたときと、お迎えのときに操作します。</p><div class="parent-cards">${['parent-arrival','parent-departure'].map(card).join('')}</div><a class="parent-help-link" href="#parent-help"><strong>受付で間違えた・うまくいかない →</strong><span>押し忘れ、名前が見つからない、画面が進まないとき</span></a><p class="source-note">ここは使い方を読むページです。実際の連絡や受付は、園のアプリ・受付画面で行ってください。画面の名前・日付・時刻は例です。</p>`;}
-function parentAppHome(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>保護者アプリ</span></div><p class="eyebrow">スマートフォンのアプリ</p><h1>保護者アプリの使い方</h1><p class="lead">「これをしたい」から選んでください。<br>1つずつ、画面を見ながら進められます。</p><div class="parent-cards">${parentAppIds.map(card).join('')}</div><div class="parent-tip"><h2>登園・降園の受付はこちら</h2><p>アプリで連絡を送っても、登園・降園の受付は終わりません。園にある受付画面も操作してください。</p><a href="#article/parent-arrival">園に着いたとき →</a><br><a href="#article/parent-departure">お迎えのとき →</a></div><p class="source-note">ホームの見方・毎日の連絡・通知の設定を案内しています。通知はAndroid用とiPhone用の手順から選べます。登録情報などの詳しい手順は、画面を確認しながら追加します。</p>`;}
+function parentAppHome(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>保護者アプリ</span></div><p class="eyebrow">スマートフォンのアプリ</p><h1>保護者アプリの使い方</h1><p class="lead">「これをしたい」から選んでください。<br>1つずつ、画面を見ながら進められます。</p><div class="parent-cards">${parentAppIds.map(card).join('')}</div><h2>緊急連絡先を登録・変更する</h2><div class="topic-list">${screenGuideLink(recentGuides.find(g=>g.href==='daily-20261123/emergency-parent.html'))}</div><div class="parent-tip"><h2>登園・降園の受付はこちら</h2><p>アプリで連絡を送っても、登園・降園の受付は終わりません。園にある受付画面も操作してください。</p><a href="#article/parent-arrival">園に着いたとき →</a><br><a href="#article/parent-departure">お迎えのとき →</a></div><p class="source-note">ホームの見方・毎日の連絡・通知の設定を案内しています。通知はAndroid用とiPhone用の手順から選べます。登録情報などの詳しい手順は、画面を確認しながら追加します。</p>`;}
 function parentScreenshot(image,alt){return `<figure class="screen"><button type="button" data-zoom="${image}" data-caption="${esc(alt)}" aria-label="${esc(alt)}を拡大"><img width="${screenshotSizes[image][0]}" height="${screenshotSizes[image][1]}" src="assets/${image}.jpg?v=20261103-v15" alt="${esc(alt)}"></button><figcaption><span>画面の見本</span><span>画像を押すと大きくなります ↗</span></figcaption></figure>`;}
 function parentHelp(){return `<div class="breadcrumb"><a href="#parents">保護者用のホーム</a><span>›</span><span>困ったとき</span></div><h1>間違えた・うまくいかない</h1><p class="lead">分からないときは、園の職員に声をかけてください。</p><section class="parent-tip"><h2>名前を間違えて押しました</h2><p>まだ決める前なら、「名前選択へ」や「取り消し」で戻れます。</p><p>登園の「決定」や「降園する」を押した後は、職員に訂正をお願いしてください。押した名前と、何を押したかを伝えます。</p></section><section class="parent-tip"><h2>押すのを忘れました</h2><p>職員に、お子さまの名前と、園に着いた時刻・帰った時刻を伝えてください。後から押す前に、職員に確認してください。</p></section><section class="parent-tip"><h2>画面が進みません・通信の案内が出ました</h2><p>何度も押さず、職員に声をかけてください。職員が、記録されたかどうかを確認します。</p>${parentScreenshot('terminal-offline','通信が切れているときの画面')}<p>「接続済み」と出ているだけでは、登園・降園の受付が終わったことにはなりません。</p></section><section class="parent-tip"><h2>「本日の打刻は完了しています」と出ました</h2><p>今日の降園は記録されています。表示された時刻が違うときは、職員に伝えてください。</p>${parentScreenshot('terminal-already','今日の登園と降園が記録されている画面')}</section><section class="parent-tip"><h2>途中で最初の画面に戻りました</h2><p>しばらく操作しないと、最初の画面に戻ります。「操作を続ける」が出たら、押して続けられます。</p><p>「決定」や「降園する」を押す前なら、クラスから選び直します。押した後か分からないときは、職員に確認してください。</p></section><a href="#parents">← 登園・降園の手順へ戻る</a>`;}
 function parentArticle(id){
@@ -2667,6 +2667,34 @@ const healthGuides = [
   {title:'健診を記録する・測定値を訂正する', href:'health/checks/', summary:'測定日と身長・体重を入れます。入力を間違えたときの訂正と履歴も見られます。', keywords:'健康管理 健診記録とグラフ 身体測定 体重 身長 修正 間違い'},
 ];
 const recentGuides = [
+{
+  "chapter": 1,
+  "title": "朝の出欠を確認する・電話連絡を記録する",
+  "href": "daily-20261123/attendance-checks.html",
+  "summary": "初回確認、理由付き変更、電話受付と受付取消を確認する。",
+  "keywords": "出欠 朝 電話 口頭 取消 欠席 アラーム"
+},
+{
+  "chapter": 1,
+  "title": "登降園の時刻を補記・修正・取消する",
+  "href": "daily-20261123/attendance-times.html",
+  "summary": "時刻の補記・修正から、保存後の確認と誤打刻の取消まで。",
+  "keywords": "登降園 打刻 時刻 修正 補記 取消 理由"
+},
+{
+  "chapter": 2,
+  "title": "いつもの緊急連絡順を登録する・その日だけ変える",
+  "href": "daily-20261123/emergency-parent.html",
+  "summary": "保護者が通常の順番を登録し、その日だけの変更と戻し方を確認する。",
+  "keywords": "保護者 緊急連絡先 順番 通常 その日 兄弟"
+},
+{
+  "chapter": 2,
+  "title": "緊急連絡先の変更を口頭で受け付ける",
+  "href": "daily-20261123/emergency-staff.html",
+  "summary": "職員が対象日・伝えた方を記録し、通常と当日の使い分けと履歴を確かめる。",
+  "keywords": "緊急連絡先 職員 口頭 受付 履歴 通常 当日"
+},
   {
     "chapter": 3,
     "title": "日案の計画の承認・承認後修正・再承認",

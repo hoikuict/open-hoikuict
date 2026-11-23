@@ -15,6 +15,10 @@
 
 | 操作 | 読む方 |
 | --- | --- |
+| [朝の出欠を確認する・電話連絡を記録する](manual-guide-preview/daily-20261123/attendance-checks.html) | 職員 |
+| [登降園の時刻を補記・修正・取消する](manual-guide-preview/daily-20261123/attendance-times.html) | 職員 |
+| [いつもの緊急連絡順を登録する・その日だけ変える](manual-guide-preview/daily-20261123/emergency-parent.html) | 保護者本人 |
+| [緊急連絡先の変更を口頭で受け付ける](manual-guide-preview/daily-20261123/emergency-staff.html) | 職員 |
 | [日案の計画の承認・承認後修正・再承認](manual-guide-preview/updates-20261123/daily-approval.html) | 職員・管理者 |
 | [議事録の表・アーカイブ・ごみ箱](manual-guide-preview/updates-20261123/meetings.html) | 職員・管理者 |
 | [クラス用スマホで連絡を見る・出欠を送る](manual-guide-preview/updates-20261123/class-kiosk.html) | 職員・管理者 |
@@ -24,7 +28,7 @@
 | [基本医療情報を依頼し、回答を確認する](manual-guide-preview/refresh-20261123/medical.html) | 職員・台帳管理担当 |
 | [請求を取消して修正する・口座情報を保存する](manual-guide-preview/refresh-20261123/billing.html) | 管理者・請求担当 |
 
-2026年11月23日に追加した手順です。[作成・照合の記録](spec-decisions.md#sd-066)
+2026年11月23日に追加した手順です。[作成・照合の記録](spec-decisions.md#sd-066) · [出欠・緊急連絡先の確認と公開](spec-decisions.md#sd-071)
 
 ## 導入・利用開始
 
@@ -42,7 +46,8 @@
 
 | やりたいこと | 主に読む方 | 資料の種類 |
 | --- | --- | --- |
-| [朝の出欠・登降園確認](daily-work.md) | 職員 | 概要 |
+| [朝の出欠確認・電話連絡の受付と取消](manual-guide-preview/daily-20261123/attendance-checks.html) | 職員 | 画面付きの手順 |
+| [登降園の時刻の補記・修正・取消](manual-guide-preview/daily-20261123/attendance-times.html) | 職員 | 画面付きの手順 |
 | [月間の登降園時刻を一括補完](daily-work.md#bulk-attendance) | 管理者 | 操作手順 |
 | [キオスクでの登降園受付](chromebook-guardian-kiosk.md) | 職員・端末担当 | 操作手順 |
 | [保護者の日次連絡と園からの返信](manual-guide-preview/refresh-20261123/daily-contact.html) | 職員 | 画面付きの手順 |
@@ -55,6 +60,8 @@
 | やりたいこと | 主に読む方 | 資料の種類 |
 | --- | --- | --- |
 | [園児・家庭・保護者の台帳編集](guardian-account-sync.md) | 台帳担当 | 概要 |
+| [いつもの緊急連絡順・その日だけの変更](manual-guide-preview/daily-20261123/emergency-parent.html) | 保護者本人 | 画面付きの手順 |
+| [緊急連絡先の変更を口頭で受け付ける](manual-guide-preview/daily-20261123/emergency-staff.html) | 職員 | 画面付きの手順 |
 | [園児・保護者の写真](profile-photos.md) | 職員・保護者本人 | 操作手順 |
 | [家庭・園児CSVの取り込み](family-guardian-csv-guide.md) | 台帳担当 | 操作手順 |
 | [健康管理で園児を探す](manual-guide-preview/health/index.html) | 一般職員 | 画面付きの手順 |
