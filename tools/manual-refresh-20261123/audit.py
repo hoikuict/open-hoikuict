@@ -1,7 +1,7 @@
 from pathlib import Path
 from html.parser import HTMLParser
 from urllib.parse import urlsplit,unquote
-import hashlib,json,subprocess
+import hashlib,json
 ROOT=Path(__file__).resolve().parents[2];DOCS=ROOT/'docs';SOURCE=ROOT/'.local-dev/document-search-rollout-20261108/source'
 class Links(HTMLParser):
  def __init__(self):super().__init__();self.links=[]
