@@ -12,6 +12,8 @@
 
 日案の保存後の行追加を見直し、計画の承認・承認後修正、議事録の表と保管、クラス用スマホの利用と管理、保護者の連絡項目設定の5ページを追加しました。利用者による確認を経て、公開用の手順に追加しました。[作成・照合と残件](spec-decisions.md#sd-066)。
 
+[日次連絡・お迎え予定・健康管理・請求の更新した手順](manual-guide-preview/refresh-20261123/index.html)では、古い説明と画像を差し替え、職員の返信、医療情報の依頼・確認、請求の取消修正と口座管理を追加しました。[更新・確認の記録](spec-decisions.md#sd-070)。
+
 ## 保護者の方へ
 
 [保護者用のマニュアルを開く](manual-guide-preview/index.html#parents){ .md-button .md-button--primary }

@@ -1,5 +1,5 @@
 'use strict';
-const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "app-absence-error": [585, 1604], "app-absence-private": [585, 1108], "app-absence-sick": [585, 1542], "app-attention": [585, 878], "app-contact-bottom": [585, 878], "app-contact-care": [585, 878], "app-contact-empty": [585, 3479], "app-contact-entry": [585, 1342], "app-contact-error": [585, 3545], "app-contact-filled": [585, 3479], "app-contact-top": [585, 878], "app-history": [585, 878], "app-home-absence": [585, 1558], "app-home-child": [585, 878], "app-home-date": [585, 878], "app-home-empty": [585, 1022], "app-home-menu": [585, 878], "app-home-saved": [585, 1558], "app-home-unread": [585, 878], "app-home-updates": [585, 878], "app-home": [585, 1342], "app-menu": [585, 878], "app-notice": [585, 950], "app-notices": [585, 878], "app-notification": [585, 878], "app-pickup-empty": [585, 1240], "app-pickup-entry": [585, 1342], "app-pickup-error": [585, 1436], "app-pickup-filled": [585, 1240], "app-pickup-partial": [585, 1240], "app-pickup-reopen": [585, 1240], "app-pickup-save": [585, 878], "app-reply": [585, 878], "app-survey-done": [585, 878], "app-survey-empty": [585, 878], "app-survey-error": [585, 878], "app-survey-filled": [585, 878], "app-surveys": [585, 878], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-history": [1265, 1096], "monthly-list": [1265, 807], "monthly-saved": [1280, 900], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 900], "password-person": [1280, 720], "phone-empty": [1280, 900], "phone-filled": [1280, 900], "phone-partial": [1280, 900], "phone-saved": [1280, 900], "push-android-allow": [600, 900], "push-android-check": [600, 900], "push-enable": [585, 878], "push-iphone-add": [585, 1036], "push-iphone-allow": [600, 900], "push-iphone-check": [600, 900], "push-menu": [585, 878], "push-preferences": [585, 878], "push-registered": [585, 878], "push-test": [585, 878], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 900], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487]};
+const screenshotSizes = {"admission-access": [1265, 1254], "admission-new-entry": [1280, 720], "admission-new-form-empty": [1265, 2420], "admission-new-form-error": [1265, 2486], "admission-new-form-filled": [1265, 2420], "admission-new-form-partial": [1265, 2420], "admission-new-invite": [1280, 720], "admission-new-review": [1265, 1601], "admission-sibling-empty": [1265, 2783], "admission-sibling-error": [1265, 2690], "admission-sibling-filled": [1265, 2783], "admission-sibling-partial": [1265, 2783], "admission-sibling-select": [1265, 2596], "app-absence-error": [585, 1604], "app-absence-private": [585, 1108], "app-absence-sick": [585, 1542], "app-attention": [585, 878], "app-contact-bottom": [585, 878], "app-contact-care": [585, 878], "app-contact-empty": [585, 3479], "app-contact-entry": [585, 1342], "app-contact-error": [585, 3545], "app-contact-filled": [585, 3479], "app-contact-top": [585, 878], "app-history": [585, 878], "app-home-absence": [585, 1558], "app-home-child": [585, 878], "app-home-date": [585, 878], "app-home-empty": [585, 1022], "app-home-menu": [585, 878], "app-home-saved": [585, 1558], "app-home-unread": [585, 878], "app-home-updates": [585, 878], "app-home": [585, 1342], "app-menu": [585, 878], "app-notice": [585, 950], "app-notices": [585, 878], "app-notification": [585, 878], "app-pickup-empty": [585, 1240], "app-pickup-entry": [585, 1342], "app-pickup-error": [585, 1436], "app-pickup-filled": [585, 1240], "app-pickup-partial": [585, 1240], "app-pickup-reopen": [585, 1240], "app-pickup-save": [585, 878], "app-reply": [585, 878], "app-survey-done": [585, 878], "app-survey-empty": [585, 878], "app-survey-error": [585, 878], "app-survey-filled": [585, 878], "app-surveys": [585, 878], "child-new-empty": [1265, 2596], "child-new-filled": [1265, 2596], "child-new-partial": [1265, 2596], "monthly-confirm": [1265, 1501], "monthly-empty": [1265, 1202], "monthly-error": [1265, 1283], "monthly-filled": [1265, 1202], "monthly-history": [1265, 1096], "monthly-list": [1265, 807], "monthly-saved": [1280, 900], "parent-form-empty": [1265, 1175], "parent-form-filled": [1265, 1274], "parent-form-partial": [1265, 1175], "parent-invite": [1280, 850], "parent-password": [1280, 850], "parent-review": [1265, 1018], "parent-select": [1280, 850], "password-admin": [1280, 900], "password-person": [1280, 720], "phone-empty": [1280, 900], "phone-filled": [1280, 900], "phone-partial": [1280, 900], "phone-saved": [1280, 900], "push-android-allow": [600, 900], "push-android-check": [600, 900], "push-enable": [585, 878], "push-iphone-add": [585, 1036], "push-iphone-allow": [600, 900], "push-iphone-check": [600, 900], "push-menu": [585, 878], "push-preferences": [585, 878], "push-registered": [585, 878], "push-test": [585, 878], "qr-apply-empty": [1280, 720], "qr-apply-error": [1280, 720], "qr-apply-filled": [1280, 720], "qr-apply-stopped": [1280, 720], "qr-form-empty": [1265, 2420], "qr-form-error": [1265, 2486], "qr-form-filled": [1265, 2420], "qr-form-partial": [1265, 2420], "qr-list": [1280, 720], "qr-review-existing": [1265, 1720], "qr-review-new": [1265, 1720], "qr-sent": [1280, 720], "qr-settings-closed": [1265, 1440], "qr-settings-open": [1265, 1440], "staff-activate": [1280, 850], "staff-class": [1280, 850], "staff-code": [1280, 850], "staff-list": [1280, 900], "staff-new-empty": [1280, 850], "staff-new-error": [1280, 850], "staff-new-filled": [1280, 850], "staff-new-partial": [1280, 850], "staff-password": [1280, 850], "terminal-already": [1280, 720], "terminal-arrival-done": [1280, 720], "terminal-arrival": [1280, 720], "terminal-classes": [1280, 720], "terminal-confirm": [1265, 748], "terminal-departure-done": [1280, 720], "terminal-departure-empty": [1265, 940], "terminal-departure-error": [1265, 1022], "terminal-departure-filled": [1265, 940], "terminal-names": [1280, 720], "terminal-offline": [1280, 720], "terminal-pickup-empty": [1265, 1487], "terminal-pickup-error": [1265, 1683], "terminal-pickup-extra": [1265, 1647], "terminal-pickup-filled": [1265, 1487], "terminal-pickup-partial": [1265, 1487], "r2-billing-account": [928, 471], "r2-billing-cancel": [620, 566], "r2-billing-confirm": [620, 566], "r2-billing-edit": [992, 828], "r2-billing-home": [992, 758], "r2-billing-recreate": [992, 800], "r2-billing-recreated": [992, 917], "r2-contact-care": [518, 278], "r2-contact-emergency": [518, 166], "r2-contact-empty": [600, 3880], "r2-contact-entry": [600, 1232], "r2-contact-error": [600, 4074], "r2-contact-filled": [600, 3930], "r2-contact-meals": [518, 674], "r2-contact-saved": [600, 1448], "r2-daily-confirm": [600, 442], "r2-daily-list": [992, 868], "r2-daily-received": [425, 891], "r2-daily-reply": [488, 713], "r2-health-filter": [992, 591], "r2-health-overview": [992, 709], "r2-medical-approved": [992, 1443], "r2-medical-request": [992, 443], "r2-medical-return": [992, 1087], "r2-medical-review": [992, 1087], "r2-parent-reply": [896, 120], "r2-pickup-empty": [600, 1068], "r2-pickup-filled": [600, 1124], "r2-pickup-outside": [600, 1124], "r2-pickup-partial": [600, 1068], "r2-pickup-reopen": [600, 1124], "r2-profile-basic": [928, 410], "r2-profile-consent": [928, 187], "r2-profile-entry": [992, 2536]};
 const main = document.getElementById('main');
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BEGIN UI LABELS
@@ -1360,93 +1360,86 @@ const manualArticles = {
     "role": "保護者の方",
     "tag": "保護者アプリ",
     "imagePrefix": "app",
-    "keywords": "朝 日次連絡 出席 体調 体温 食事 睡眠 排便 薬 保存 修正",
+    "keywords": "朝 日次連絡 出席 体調 体温 食事 睡眠 排便 薬 保存 修正 夕食 朝食 食欲 緊急連絡先 連絡順 いつもどおり",
     "steps": [
       {
-        "title": "お子さまの「日次連絡を入力」を押します",
-        "text": "①の日付を確かめ、画面を下へ動かします。②のお子さまの名前を確かめ、③「日次連絡を入力」を押してください。",
-        "image": "app-contact-entry",
-        "alt": "保護者ホーム。①連絡する日付、②お子さまの名前、③日次連絡を入力ボタン。",
-        "note": "上に大きく出ているのは保護者の名前です。兄弟姉妹がいるときは、連絡するお子さまの欄を使います。送った内容を直すときは「日次連絡を編集」を押します。",
-        "focused": true,
-        "calls": [
-          "連絡する日付です。別の日にする場合は、日付を選び直して「日付を変更」を押します。",
-          "連絡するお子さまの名前です。",
-          "「日次連絡を入力」を押すと、体調や連絡を書く画面が開きます。"
-        ]
+        "title": "日付とお子さまを確かめて開きます",
+        "text": "ホームの日付を確かめ、連絡するお子さまの「日次連絡を入力」を押します。送信済みなら「日次連絡を編集」を押します。",
+        "image": "r2-contact-entry",
+        "alt": "日付とお子さまを確かめて開きます。架空データの現在の画面。",
+        "note": "兄弟姉妹がいる場合も、お子さま一人ずつ入力します。別の日を選んだら「日付を変更」を押してください。",
+        "calls": []
       },
       {
-        "title": "「出席」を選びます",
-        "text": "園に行く日は「出席」を選びます。その下で、お迎えの時間、来る人、補食が必要かを入れられます。",
-        "image": "app-contact-top",
-        "alt": "「出席」を選びます。説明用の名前と日付で表示した画面。",
-        "note": "まだ分からないお迎え予定は、後から入れられます。お休みする日は「欠席」の手順を見てください。",
-        "calls": [
-          "園に行く日は「出席」を選びます。"
-        ]
+        "title": "出席と、当日の緊急連絡先を確かめます",
+        "text": "園に行く日は「出席」を選びます。緊急連絡先が同じなら「いつもどおり」、違う日は「今日は変更する」を選び、連絡先と順番を確かめます。",
+        "image": "r2-contact-emergency",
+        "alt": "出席と、当日の緊急連絡先を確かめます。架空データの現在の画面。",
+        "note": "当日の変更は、このお子さまのこの日だけに保存されます。ほかの日・兄弟姉妹・いつもの連絡順は変わりません。いつもの連絡先が未登録なら、画面の案内から先に登録できます。",
+        "calls": []
       },
       {
-        "title": "体温や、おうちでの様子を入れます",
-        "text": "下へ進み、体温、寝た時刻、起きた時刻、朝食、うんちの様子などを入れます。続けて、機嫌、咳、鼻水、飲んだ薬を入れます。",
-        "image": "app-contact-care",
-        "alt": "体温や、おうちでの様子を入れます。説明用の名前と日付で表示した画面。",
-        "note": "「性状」は、うんちの硬さや状態です。画面にある選択肢から、合うものを選びます。",
-        "calls": [
-          "測った体温を入れます。",
-          "寝た時刻を入れます。右の「起床」には起きた時刻を入れます。"
-        ]
+        "title": "お迎え予定、体温、睡眠などを入れます",
+        "text": "お迎えの予定が分かっていれば入れます。続けて体温、就寝・起床、睡眠メモなどを入力します。",
+        "image": "r2-contact-care",
+        "alt": "お迎え予定、体温、睡眠などを入れます。架空データの現在の画面。",
+        "note": "園の設定によって表示される項目が異なります。画面に出ている項目を入力してください。お休みする日は「欠席」の手順を使います。",
+        "calls": []
       },
       {
-        "title": "伝えたいことを書いて「保存する」を押します",
-        "text": "「体調メモ」や「園への連絡事項」に、必要なことを書きます。下まで確かめたら「保存する」を押してください。",
-        "image": "app-contact-bottom",
-        "alt": "伝えたいことを書いて「保存する」を押します。説明用の名前と日付で表示した画面。",
-        "note": "入力しただけでは、園へ届きません。「保存する」を押す前に「戻る」で離れると、変更は保存されません。",
-        "calls": [
-          "園へ伝えたいことを書きます。",
-          "内容を確かめて「保存する」を押します。"
-        ]
+        "title": "前日の夕食と、当日の朝食を分けて入れます",
+        "text": "それぞれの日付を確かめ、食欲を「旺盛・普通・あまりない・ない」から選びます。「食べたもの」に内容を書きます。選び直すときは別の食欲を選び、未選択に戻すときは「選択を消す」を押します。",
+        "image": "r2-contact-meals",
+        "alt": "前日の夕食と、当日の朝食を分けて入れます。架空データの現在の画面。",
+        "note": "夕食は前日、朝食は連絡する当日です。画面に出ている日付を見て入力してください。",
+        "calls": []
       },
       {
-        "title": "「日次連絡を保存しました。」を確かめます",
-        "text": "ホームに戻り、「日次連絡を保存しました。」と出たら、送信できています。お子さまの欄の内容も見てください。",
-        "image": "app-home-saved",
-        "alt": "「日次連絡を保存しました。」を確かめます。説明用の名前と日付で表示した画面。",
-        "note": "「出席」は、園に行く予定の連絡です。登園の受付は、園に着いてから行います。",
-        "calls": [
-          "「日次連絡を保存しました。」と出たことを確かめます。",
-          "お子さまの名前を確かめ、その下に出ている送信済みの内容を見ます。"
-        ]
+        "title": "下まで確かめて「保存する」を押します",
+        "text": "排便、機嫌、咳・鼻水、服薬、体調メモなど、表示されている欄を確認します。最後の「園への連絡事項」に必要なことを書き、「保存する」を押します。",
+        "image": "r2-contact-filled",
+        "alt": "下まで確かめて「保存する」を押します。架空データの現在の画面。",
+        "note": "入力しただけでは送信されません。「戻る」で離れる前に保存してください。",
+        "calls": []
       },
       {
-        "title": "画面全体の見本も見られます",
-        "text": "入力するところが分からないときは、画面全体を大きくして見てください。下の切り替えで、未入力やエラーの例も見られます。",
-        "image": "app-contact-filled",
-        "alt": "画面全体の見本も見られます。説明用の名前と日付で表示した画面。",
-        "note": "体温の入力でエラーが出たら、数値を確かめます。出席として送れない場合は、園へ連絡してください。",
-        "imagePrefix": "app-contact",
+        "title": "保存できたことを確かめます",
+        "text": "「日次連絡を保存しました。」と出たことを確かめ、お子さまの欄の送信内容を見ます。間違いは同じ日付の「日次連絡を編集」から直し、保存し直します。",
+        "image": "r2-contact-saved",
+        "alt": "保存できたことを確かめます。架空データの現在の画面。",
+        "note": "出席予定の連絡だけでは登園の受付はされません。急いで伝えたい変更は園にも連絡してください。",
+        "calls": []
+      },
+      {
+        "title": "未入力・入力済み・エラーの見本",
+        "text": "下の切り替えで画面全体を確認できます。エラーが出たら案内のある欄を確かめます。",
+        "image": "r2-contact-filled",
+        "alt": "未入力・入力済み・エラーの見本。架空データの現在の画面。",
+        "note": "見本の体温は架空の入力例です。画面に出ている上限以上で出席として送れない場合、数値を低く書き換えず園へ連絡してください。",
+        "calls": [],
+        "imagePrefix": "r2-contact",
         "states": [
           [
-            "filled",
-            "入れ終わった例"
+            "empty",
+            "未入力"
           ],
           [
-            "empty",
-            "まだ入れていない例"
+            "filled",
+            "入力済み"
           ],
           [
             "error",
-            "エラーが出た例"
+            "エラーの例"
           ]
         ],
         "stateNotes": {
-          "filled": "出席の日の入力例です。入力欄を下まで確認できます。",
           "empty": "入力前の画面です。",
-          "error": "体温が37.5℃以上のとき、出席として送れないことを知らせる画面です。数値を低く書き換えて送らず、園へ連絡してください。"
+          "filled": "この日だけの連絡先と、前日夕食・当日朝食を含む入力例です。",
+          "error": "出席として送れない体温の案内が出た例です。保存前の内容を確認してください。"
         },
         "stateCalls": {
-          "filled": [],
           "empty": [],
+          "filled": [],
           "error": []
         }
       }
@@ -1463,6 +1456,10 @@ const manualArticles = {
       [
         "保存できたか分かりません",
         "ホームや「日次連絡履歴」で内容を確かめます。見つからないときや、通信エラーが続くときは園に連絡してください。"
+      ],
+      [
+        "項目が見本と違います",
+        "園の設定によって項目が表示されない場合があります。入力したい欄がないときは園へ確認してください。"
       ]
     ],
     "relatedArticles": [
@@ -1576,103 +1573,70 @@ const manualArticles = {
     "role": "保護者の方",
     "tag": "保護者アプリ",
     "imagePrefix": "app",
-    "keywords": "お迎え 変更 時間 時刻 人 補食 予定 保存",
+    "keywords": "お迎え 変更 時間 時刻 人 補食 予定 保存 閉園 1分 単位 選べない",
     "steps": [
       {
-        "title": "「お迎え予定を登録・変更」を押します",
-        "text": "①の日付を確かめ、画面を下へ動かします。②のお子さまの名前を確かめ、③「お迎え予定を登録・変更」を押してください。",
-        "image": "app-pickup-entry",
-        "alt": "保護者ホーム。①予定を入れる日付、②お子さまの名前、③お迎え予定を登録・変更ボタン。",
-        "note": "上に大きく出ているのは保護者の名前です。兄弟姉妹がいるときは、予定を入れるお子さまの欄を使います。",
-        "focused": true,
-        "calls": [
-          "予定を入れる日付です。別の日にする場合は、日付を選び直して「日付を変更」を押します。",
-          "お迎えの予定を入れるお子さまの名前です。",
-          "「お迎え予定を登録・変更」を押すと、時間や来る人を選ぶ画面が開きます。"
-        ]
+        "title": "日付とお子さまを確かめて開きます",
+        "text": "ホームで予定を入れる日とお子さまの名前を確かめ、「お迎え予定を登録・変更」を押します。",
+        "image": "r2-contact-entry",
+        "alt": "日付とお子さまを確かめて開きます。架空データの現在の画面。",
+        "note": "予定はお子さま・日付ごとに登録します。登園前にも入力できます。",
+        "calls": []
       },
       {
-        "title": "時間・来る人・補食を選びます",
-        "text": "お迎えの時刻、来る人、補食が必要かを選びます。「補食」は、夕方に食べる軽い食事です。園の案内に合わせて選んでください。",
-        "image": "app-pickup-filled",
-        "alt": "時間・来る人・補食を選びます。説明用の名前と日付で表示した画面。",
-        "note": "時刻の選択肢が見つからないときは、ほかの時刻を開きます。「その他」の人を選んだときは、どなたが来るかも書きます。",
-        "imagePrefix": "app-pickup",
+        "title": "閉園より前の時刻を選びます",
+        "text": "時と分を選び、上の「選択中」を確かめます。閉園時刻が設定されている場合、その時刻より前だけ選べます。18:30閉園の例では18:30は選べません。",
+        "image": "r2-pickup-filled",
+        "alt": "閉園より前の時刻を選びます。架空データの現在の画面。",
+        "note": "15分刻み以外は「その他の分を選ぶ」を開きます。画像は1分単位で18:29を選んだ例です。実際の閉園時刻は画面の案内を確認してください。",
+        "calls": [],
+        "imagePrefix": "r2-pickup",
         "states": [
           [
-            "filled",
-            "入れ終わった例"
-          ],
-          [
             "empty",
-            "まだ入れていない例"
+            "未入力"
           ],
           [
             "partial",
-            "途中まで入れた例"
+            "途中まで"
           ],
           [
-            "error",
-            "入れ忘れがある例"
+            "filled",
+            "入力済み"
+          ],
+          [
+            "outside",
+            "設定変更後の例"
           ]
         ],
         "stateNotes": {
-          "filled": "16時30分、母、補食は不要を選んだ例です。",
-          "empty": "最初の画面です。",
-          "partial": "16時を選んだ途中の画面です。分や来る人も選んでください。",
-          "error": "赤い案内が出ているところを選び直します。"
+          "empty": "時刻・迎えに来る人・補食を選ぶ前の画面です。",
+          "partial": "18時だけを選んだ例です。分も選びます。",
+          "filled": "閉園18:30より前の18:29、母、補食不要を選んだ例です。",
+          "outside": "閉園が18:00に変わり、以前の18:29が範囲外になった例です。新しい閉園時刻より前の時と分を選び直してください。"
         },
-        "calls": [
-          "お迎えの時と分を選び、上の「選択中」の時刻を確かめます。",
-          "お迎えに来る人を選びます。",
-          "補食が必要か、不要かを選びます。"
-        ],
         "stateCalls": {
-          "filled": [
-            "お迎えの時と分を選び、上の「選択中」の時刻を確かめます。",
-            "お迎えに来る人を選びます。",
-            "補食が必要か、不要かを選びます。"
-          ],
-          "empty": [
-            "お迎えの時と分を選び、上の「選択中」の時刻を確かめます。",
-            "お迎えに来る人を選びます。",
-            "補食が必要か、不要かを選びます。"
-          ],
-          "partial": [
-            "お迎えの時と分を選び、上の「選択中」の時刻を確かめます。",
-            "お迎えに来る人を選びます。",
-            "補食が必要か、不要かを選びます。"
-          ],
-          "error": [
-            "お迎えの時と分を選び、上の「選択中」の時刻を確かめます。",
-            "お迎えに来る人を選びます。",
-            "補食が必要か、不要かを選びます。"
-          ]
+          "empty": [],
+          "partial": [],
+          "filled": [],
+          "outside": []
         }
       },
       {
-        "title": "「予定を保存」を押します",
-        "text": "下の「予定を保存」を押すと、ホームへ戻ります。",
-        "image": "app-pickup-save",
-        "alt": "お迎え予定の入力画面の下部。①予定を保存ボタン。",
-        "note": "「ホームへ戻る」だけを押すと、今回の変更は保存されません。",
-        "compact": true,
-        "calls": [
-          "内容を確かめて「予定を保存」を押します。"
-        ]
+        "title": "来る人と補食を選び、保存します",
+        "text": "お迎え予定の人と、補食が必要か不要かを選び、「予定を保存」を押します。「その他」の人が来る場合は、どなたが来るか園にも伝えてください。",
+        "image": "r2-pickup-filled",
+        "alt": "来る人と補食を選び、保存します。架空データの現在の画面。",
+        "note": "「ホームへ戻る」だけでは今回の変更は保存されません。補食は園の案内に合わせて選びます。",
+        "calls": []
       },
       {
-        "title": "もう一度開いて、予定を確かめます",
-        "text": "同じ日付の「お迎え予定を登録・変更」をもう一度開きます。入れた時間・来る人・補食の選択が残っているか見てください。",
-        "image": "app-pickup-reopen",
-        "alt": "保存した日のお迎え予定を開き直した画面の例。①お子さまの名前、②16:30、③母、④補食は不要。",
-        "note": "画像は、同じ日付で開き直したときの見本です。予定の保存だけでは、登園・降園の受付はされません。園の受付画面でも操作してください。",
-        "calls": [
-          "予定を確認するお子さまの名前です。下に日付も出ています。",
-          "保存した予定時刻が出ています。例は16:30です。",
-          "保存したお迎えの人です。例は母です。",
-          "保存した補食の選択です。例は不要です。"
-        ]
+        "title": "開き直して保存した予定を確かめます",
+        "text": "同じ日付の「お迎え予定を登録・変更」をもう一度開き、時刻・来る人・補食が残っているか見ます。変更するときも選び直して「予定を保存」を押します。",
+        "image": "r2-pickup-reopen",
+        "alt": "開き直して保存した予定を確かめます。架空データの現在の画面。",
+        "note": "園が閉園時刻を変更した場合は、以前の時刻が範囲外になることがあります。そのまま再保存せず、選べる時刻を選び直します。予定の登録だけでは登園・降園の受付はされません。",
+        "calls": []
       }
     ],
     "checks": [
@@ -1687,6 +1651,10 @@ const manualArticles = {
       [
         "ほかの人が変更したという案内が出ました",
         "ホームから開き直し、今の予定を確かめてから入れ直します。急なお迎えの変更は園にも連絡してください。"
+      ],
+      [
+        "時刻が選べません",
+        "閉園より前の時刻を選びます。1分単位は「その他の分を選ぶ」です。時刻の設定が実際の予定と合わないときは園へ確認してください。"
       ]
     ],
     "relatedArticles": [
@@ -1965,12 +1933,10 @@ const manualArticles = {
       {
         "title": "返信を読み、必要なら連絡を直します",
         "text": "「内容を編集」を押すと、その日の連絡を開けます。上に「園からの返信」があれば読みます。自分が送った内容を直すときは、下へ進んで直し、「保存する」を押します。",
-        "image": "app-reply",
-        "alt": "返信を読み、必要なら連絡を直します。説明用の名前と日付で表示した画面。",
+        "image": "r2-parent-reply",
+        "alt": "職員が公開した返信の表示。架空データの例。",
         "note": "返信を読むだけなら、保存し直す必要はありません。ホームに「返信あり」と出たときは、そこからも読めます。",
-        "calls": [
-          "「園からの返信」を読みます。返信の日時と、誰からの返信かも確かめられます。"
-        ]
+        "calls": []
       }
     ],
     "checks": [
@@ -2735,6 +2701,27 @@ const recentGuides = [
     "href": "updates-20261123/contact-fields.html",
     "summary": "年齢別・クラス別に表示項目を選び、プレビューして保存する。",
     "keywords": "保護者 連絡項目 設定 年齢 クラス 表示 非表示 プレビュー 夕食 朝食"
+  },
+  {
+    "chapter": 1,
+    "title": "保護者の連絡を受け取り、返信する",
+    "href": "refresh-20261123/daily-contact.html",
+    "summary": "食事・当日の連絡先を確かめ、返信を下書き保存・公開する。",
+    "keywords": "日次連絡 返信 食事 夕食 朝食 緊急連絡先 公開"
+  },
+  {
+    "chapter": 2,
+    "title": "基本医療情報を保護者に依頼し、回答を確認する",
+    "href": "refresh-20261123/medical.html",
+    "summary": "保護者への記入依頼、回答の比較、書き直し依頼と反映。",
+    "keywords": "健康 医療 依頼 承認 差し戻し レントゲン"
+  },
+  {
+    "chapter": 5,
+    "title": "請求を取消して修正する・口座情報を保存する",
+    "href": "refresh-20261123/billing.html",
+    "summary": "銀行提出前の取消、同月の修正・再出力、家族口座の管理。",
+    "keywords": "請求 口座 Zengin 取消 再出力 写真代"
   }
 ];
 function recentSection(chapter) { const items=recentGuides.filter(g=>chapter===undefined||g.chapter===chapter); return items.length?`<h2>追加・見直しした手順</h2><div class="topic-list">${items.map(screenGuideLink).join('')}</div>`:''; }

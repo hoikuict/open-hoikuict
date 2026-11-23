@@ -20,6 +20,9 @@
 | [クラス用スマホで連絡を見る・出欠を送る](manual-guide-preview/updates-20261123/class-kiosk.html) | 職員・管理者 |
 | [クラス用スマホを登録・解除する](manual-guide-preview/updates-20261123/class-kiosk-admin.html) | 管理者 |
 | [保護者の連絡項目を設定する](manual-guide-preview/updates-20261123/contact-fields.html) | 管理者 |
+| [保護者の連絡を受け取り、返信する](manual-guide-preview/refresh-20261123/daily-contact.html) | 職員 |
+| [基本医療情報を依頼し、回答を確認する](manual-guide-preview/refresh-20261123/medical.html) | 職員・台帳管理担当 |
+| [請求を取消して修正する・口座情報を保存する](manual-guide-preview/refresh-20261123/billing.html) | 管理者・請求担当 |
 
 2026年11月23日に追加した手順です。[作成・照合の記録](spec-decisions.md#sd-066)
 
@@ -42,7 +45,8 @@
 | [朝の出欠・登降園確認](daily-work.md) | 職員 | 概要 |
 | [月間の登降園時刻を一括補完](daily-work.md#bulk-attendance) | 管理者 | 操作手順 |
 | [キオスクでの登降園受付](chromebook-guardian-kiosk.md) | 職員・端末担当 | 操作手順 |
-| [保護者の日次連絡と園からの返信](daily-work.md) | 職員・保護者本人 | 概要 |
+| [保護者の日次連絡と園からの返信](manual-guide-preview/refresh-20261123/daily-contact.html) | 職員 | 画面付きの手順 |
+| [日次連絡を送る](manual-guide-preview/index.html#article/parent-app-contact)・[お迎え予定を入れる](manual-guide-preview/index.html#article/parent-app-pickup) | 保護者本人 | 画面付きの手順 |
 | [お知らせ・アンケート](screen-transition-list.md) | 職員・保護者本人 | 概要 |
 | [通知の登録と届かないとき](notifications.md) | 職員・保護者本人 | 操作手順 |
 
@@ -56,6 +60,7 @@
 | [健康管理で園児を探す](manual-guide-preview/health/index.html) | 一般職員 | 画面付きの手順 |
 | [園児ひとりの健康情報を見る](manual-guide-preview/health/summary/index.html) | 一般職員 | 画面付きの手順 |
 | [健康プロフィールを書く](manual-guide-preview/health/profile/index.html) | 一般職員 | 画面付きの手順 |
+| [基本医療情報の記入依頼・回答確認・書き直し依頼](manual-guide-preview/refresh-20261123/medical.html) | 職員・台帳管理担当 | 画面付きの手順 |
 | [アレルギーを登録・更新する](manual-guide-preview/health/allergies/index.html) | 一般職員 | 画面付きの手順 |
 | [健診記録を追加・訂正する](manual-guide-preview/health/checks/index.html) | 一般職員 | 画面付きの手順 |
 | [健康・アレルギー・健診記録](health-record-spec-review.md) | 職員 | 仕様 |
@@ -94,6 +99,7 @@
 | [保育認定・保育必要量](care-need-certification-spec.md) | 台帳担当・料金担当 | 仕様 |
 | [延長保育料金の設定・月次確認](extended-care-fee-spec.md) | 料金担当 | 仕様 |
 | [請求への転送・口座情報](extended-care-billing-transfer-spec.md) | 請求担当 | 仕様 |
+| [銀行提出前の取消・修正・再出力と口座管理](manual-guide-preview/refresh-20261123/billing.html) | 管理者・請求担当 | 画面付きの手順 |
 
 ## 運用・困ったとき
 
