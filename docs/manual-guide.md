@@ -1,5 +1,7 @@
 # スクショ付きの使い方ガイド（試作版）
 
+[お知らせ・アンケートの画面付き手順](manual-guide-preview/communications-20261128/index.html)：配信前の確認、下書き・承認・公開停止、アンケートの作成・公開・回答確認をまとめています。
+
 職員と保護者が、画面を見ながら手順を確認できるマニュアルを作っています。
 
 [画面付きの使い方ガイドを開く](manual-guide-preview/index.html){ .md-button .md-button--primary }

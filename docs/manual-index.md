@@ -15,6 +15,12 @@
 
 | 操作 | 読む方 |
 | --- | --- |
+| [配信前に確認すること](manual-guide-preview/communications-20261128/before-send.html) | 職員 |
+| [お知らせの下書きを作成・修正する](manual-guide-preview/communications-20261128/notice-create.html) | 職員 |
+| [お知らせを承認申請・公開・公開停止する](manual-guide-preview/communications-20261128/notice-publish.html) | 職員 |
+| [アンケートを作成する](manual-guide-preview/communications-20261128/survey-create.html) | 職員 |
+| [アンケートを公開し、回答・CSVを確認する](manual-guide-preview/communications-20261128/survey-results.html) | 職員 |
+| [職員向けアンケートに回答・再回答する](manual-guide-preview/communications-20261128/staff-answer.html) | 職員 |
 | [職員ホームの見方](manual-guide-preview/staff-records-20261123/home.html) | 職員 |
 | [要確認一覧の見方](manual-guide-preview/staff-records-20261123/attention.html) | 職員 |
 | [児童票作成状況の見方](manual-guide-preview/staff-records-20261123/progress.html) | 職員 |
@@ -130,3 +136,5 @@
 [技術資料の入口](technical-guide.md)、[よくある質問](faq.md)、[画面・URL一覧](screen-transition-list.md)も利用できます。
 
 リンク確認日：2026-11-01。資料が公開されていることと、すべての導入先で最新の操作確認が済んでいることは別です。
+
+2026年11月28日、お知らせ・アンケートの配信前ガイドラインと職員向け手順を追加しました。[手順一覧](manual-guide-preview/communications-20261128/index.html)

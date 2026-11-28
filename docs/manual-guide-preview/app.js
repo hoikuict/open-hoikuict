@@ -2668,6 +2668,48 @@ const healthGuides = [
 ];
 const recentGuides = [
 {
+  "chapter": 1,
+  "title": "配信前に確認すること",
+  "href": "communications-20261128/before-send.html",
+  "summary": "お知らせとアンケートの対象、公開のタイミング、保存後の変更範囲を確認する。",
+  "keywords": "配信 ガイドライン 対象 公開 確認"
+},
+{
+  "chapter": 1,
+  "title": "お知らせの下書きを作成・修正する",
+  "href": "communications-20261128/notice-create.html",
+  "summary": "本文・添付・期間・配信対象を入力し、保存後に見直す。",
+  "keywords": "お知らせ 下書き 作成 添付 対象 修正"
+},
+{
+  "chapter": 1,
+  "title": "お知らせを承認申請・公開・公開停止する",
+  "href": "communications-20261128/notice-publish.html",
+  "summary": "申請取消、差戻し、承認、公開停止と再申請を確認する。",
+  "keywords": "お知らせ 承認 申請 取消 公開 停止 差戻し"
+},
+{
+  "chapter": 1,
+  "title": "アンケートを作成する",
+  "href": "communications-20261128/survey-create.html",
+  "summary": "回答単位と配信対象、質問・選択肢・必須設定を決める。",
+  "keywords": "アンケート 作成 世帯 園児 職員 質問 選択肢"
+},
+{
+  "chapter": 1,
+  "title": "アンケートを公開し、回答・CSVを確認する",
+  "href": "communications-20261128/survey-results.html",
+  "summary": "結果の閲覧者、公開と受付終了、回答数とCSV出力を確認する。",
+  "keywords": "アンケート 公開 結果 閲覧者 CSV 集計 終了"
+},
+{
+  "chapter": 1,
+  "title": "職員向けアンケートに回答・再回答する",
+  "href": "communications-20261128/staff-answer.html",
+  "summary": "自分宛てのアンケートに回答し、保存結果と再回答を確認する。",
+  "keywords": "職員 アンケート 回答 再回答 必須 期限"
+},
+{
   "chapter": 4,
   "title": "職員ホームの見方",
   "href": "staff-records-20261123/home.html",
